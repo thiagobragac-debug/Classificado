@@ -63,7 +63,7 @@ function applyFilters(searchQuery = '') {
 
   const q = (searchQuery || document.getElementById('header-search-input')?.value || '').toLowerCase();
 
-  const countryName = country && countryEl.options[countryEl.selectedIndex] ? countryEl.options[countryEl.selectedIndex].text.split(' ').slice(1).join(' ') : '';
+  const countryName = country && countryEl.options[countryEl.selectedIndex] ? countryEl.options[countryEl.selectedIndex].text : '';
   const stateName = state && stateEl.options[stateEl.selectedIndex] ? stateEl.options[stateEl.selectedIndex].text : '';
   const cityName = city && cityEl.options[cityEl.selectedIndex] ? cityEl.options[cityEl.selectedIndex].text : '';
 
@@ -71,7 +71,7 @@ function applyFilters(searchQuery = '') {
     const title    = currentLang === 'es' ? ad.title_es : ad.title_pt;
     const adCat    = currentLang === 'es' ? ad.category_es : ad.category_pt;
 
-    if (cat && !ad.id.toString().includes('') && cat !== '') {
+    if (cat) {
       const catObj = CATEGORIES.find(c => c.id === cat);
       if (catObj) {
         const catName = currentLang === 'es' ? catObj.name_es : catObj.name_pt;
@@ -82,6 +82,10 @@ function applyFilters(searchQuery = '') {
     if (onlyNeg    && !ad.negotiable)  return false;
     if (onlyVerif  && !ad.verified)    return false;
     if (q && !title.toLowerCase().includes(q) && !adCat.toLowerCase().includes(q)) return false;
+
+    if (typeof ad.price === 'number') {
+      if (ad.price < priceMin || ad.price > priceMax) return false;
+    }
 
     if (ad.location) {
       if (cityName && !ad.location.includes(cityName)) return false;
@@ -128,13 +132,18 @@ function renderAdsList() {
   // Re-init observer for new cards
   setTimeout(() => {
     const fadeEls = container.querySelectorAll('.fade-in-up');
+    let delayIndex = 0;
+    let delayTimeout = null;
     const obs = new IntersectionObserver((entries) => {
-      entries.forEach((e, i) => {
+      entries.forEach((e) => {
         if (e.isIntersecting) {
-          setTimeout(() => e.target.classList.add('visible'), i * 60);
+          setTimeout(() => e.target.classList.add('visible'), delayIndex * 60);
+          delayIndex++;
           obs.unobserve(e.target);
         }
       });
+      clearTimeout(delayTimeout);
+      delayTimeout = setTimeout(() => { delayIndex = 0; }, 100);
     }, { threshold: 0.05 });
     fadeEls.forEach(el => obs.observe(el));
   }, 50);
@@ -207,20 +216,32 @@ function clearFilters() {
   applyFilters();
 }
 
-function initLocations() {
+async function initLocations() {
   const countryEl = document.getElementById('filter-country');
   if (!countryEl) return;
     
-  countryEl.innerHTML = '<option value="">Todos os Países</option>';
-  LOCATIONS_DATA.forEach(country => {
-    const opt = document.createElement('option');
-    opt.value = country.id;
-    opt.textContent = country.name;
-    countryEl.appendChild(opt);
-  });
+  countryEl.innerHTML = '<option value="">Carregando Países...</option>';
+  countryEl.disabled = true;
+
+  try {
+    const countries = await getCountries();
+    countryEl.innerHTML = '<option value="">Todos os Países</option>';
+    countries.forEach(country => {
+      const opt = document.createElement('option');
+      opt.value = country.id;
+      // Para manter a busca atual (que salva string no banco, ou ID),
+      // o user pediu integração.
+      opt.textContent = `${country.nome}`;
+      countryEl.appendChild(opt);
+    });
+    countryEl.disabled = false;
+  } catch(e) {
+    console.error('Erro ao carregar países:', e);
+    countryEl.innerHTML = '<option value="">Erro ao carregar</option>';
+  }
 }
   
-function updateLocationOptions(type) {
+async function updateLocationOptions(type) {
   const countryEl = document.getElementById('filter-country');
   const stateEl = document.getElementById('filter-state');
   const cityEl = document.getElementById('filter-city');
@@ -236,19 +257,24 @@ function updateLocationOptions(type) {
     if (!selectedCountryId) {
       stateEl.disabled = true;
     } else {
-      stateEl.disabled = false;
-      const countryData = LOCATIONS_DATA.find(c => c.id === selectedCountryId);
-      if (countryData && countryData.states) {
-        countryData.states.forEach(state => {
+      stateEl.innerHTML = '<option value="">Carregando Estados...</option>';
+      stateEl.disabled = true;
+      try {
+        const states = await getStates(selectedCountryId);
+        stateEl.innerHTML = '<option value="">Todos os Estados</option>';
+        states.forEach(state => {
           const opt = document.createElement('option');
           opt.value = state.id;
-          opt.textContent = state.name;
+          opt.textContent = state.nome;
           stateEl.appendChild(opt);
         });
+        stateEl.disabled = false;
+      } catch(e) {
+        console.error('Erro ao carregar estados:', e);
+        stateEl.innerHTML = '<option value="">Erro</option>';
       }
     }
   } else if (type === 'state') {
-    const selectedCountryId = countryEl.value;
     const selectedStateId = stateEl.value;
       
     // Reset City
@@ -257,32 +283,35 @@ function updateLocationOptions(type) {
     if (!selectedStateId) {
       cityEl.disabled = true;
     } else {
-      cityEl.disabled = false;
-      const countryData = LOCATIONS_DATA.find(c => c.id === selectedCountryId);
-      if (countryData) {
-        const stateData = countryData.states.find(s => s.id === selectedStateId);
-        if (stateData && stateData.cities) {
-          stateData.cities.forEach(city => {
-            const opt = document.createElement('option');
-            opt.value = city;
-            opt.textContent = city;
-            cityEl.appendChild(opt);
-          });
-        }
+      cityEl.innerHTML = '<option value="">Carregando Cidades...</option>';
+      cityEl.disabled = true;
+      try {
+        const cities = await getCities(selectedStateId);
+        cityEl.innerHTML = '<option value="">Todas as Cidades</option>';
+        cities.forEach(city => {
+          const opt = document.createElement('option');
+          opt.value = city.id;
+          opt.textContent = city.nome;
+          cityEl.appendChild(opt);
+        });
+        cityEl.disabled = false;
+      } catch(e) {
+        console.error('Erro ao carregar cidades:', e);
+        cityEl.innerHTML = '<option value="">Erro</option>';
       }
     }
   }
-    
+  
   applyFilters();
 }
 
-function setPrice(min, max) {
+function setPrice(min, max, e) {
   const minEl = document.getElementById('price-min');
   const maxEl = document.getElementById('price-max');
   if (minEl) minEl.value = min || '';
   if (maxEl) maxEl.value = max || '';
   document.querySelectorAll('.price-shortcut').forEach(b => b.classList.remove('active'));
-  event.target.classList.add('active');
+  if (e && e.target) e.target.classList.add('active');
   applyFilters();
 }
 

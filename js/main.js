@@ -140,7 +140,7 @@ function buildAdCard(ad, lang) {
   const title = escapeHTML(lang === 'es' ? ad.title_es : ad.title_pt);
   const cat   = escapeHTML(lang === 'es' ? ad.category_es : ad.category_pt);
   const tags  = lang === 'es' ? ad.tags_es : ad.tags_pt;
-  const price = escapeHTML(ad.price);
+  const price = typeof ad.price === 'number' ? `R$ ${formatNum(ad.price)}` : escapeHTML(ad.price);
   const unit  = escapeHTML(lang === 'es' ? ad.price_unit_es : ad.price_unit_pt);
   const loc   = escapeHTML(ad.location);
 

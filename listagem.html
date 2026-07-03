@@ -291,8 +291,8 @@
                 ${ad.featured ? '<span class="badge-featured">★ Destaque</span>' : ''}
               </div>
               <div class="ad-card-body">
-                <p class="ad-card-cat">${ad.category_id || ''}</p>
-                <h3 class="ad-card-title">${ad.title_pt}</h3>
+                <p class="ad-card-cat">${escapeHTML(ad.category_id || '')}</p>
+                <h3 class="ad-card-title">${escapeHTML(ad.title_pt)}</h3>
                 <p class="ad-card-price">${price}</p>
                 <div class="ad-card-meta">
                   <span>${loc}</span>

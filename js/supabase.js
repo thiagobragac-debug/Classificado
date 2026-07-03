@@ -100,6 +100,49 @@ async function updateProfile(userId, updates) {
   return data;
 }
 
+// ─── GEOGRAFIA ──────────────────────────────────────────────────
+
+const geoCache = {
+  countries: null,
+  states: {},
+  cities: {}
+};
+
+async function getCountries() {
+  if (geoCache.countries) return geoCache.countries;
+  const { data, error } = await getSupabase()
+    .from('paises')
+    .select('*')
+    .order('nome', { ascending: true });
+  if (error) throw error;
+  geoCache.countries = data;
+  return data;
+}
+
+async function getStates(paisId) {
+  if (geoCache.states[paisId]) return geoCache.states[paisId];
+  const { data, error } = await getSupabase()
+    .from('estados')
+    .select('*')
+    .eq('pais_id', paisId)
+    .order('nome', { ascending: true });
+  if (error) throw error;
+  geoCache.states[paisId] = data;
+  return data;
+}
+
+async function getCities(estadoId) {
+  if (geoCache.cities[estadoId]) return geoCache.cities[estadoId];
+  const { data, error } = await getSupabase()
+    .from('cidades')
+    .select('*')
+    .eq('estado_id', estadoId)
+    .order('nome', { ascending: true });
+  if (error) throw error;
+  geoCache.cities[estadoId] = data;
+  return data;
+}
+
 // ─── ANÚNCIOS ─────────────────────────────────────────────────
 
 async function getAds({ category, country, search, page = 1, limit = 20, status = 'active' } = {}) {
@@ -128,8 +171,12 @@ async function getAdById(id) {
     .single();
   if (error) throw error;
 
-  // Incrementa visualizações (fire-and-forget)
-  getSupabase().from('ads').update({ views_count: (data.views_count || 0) + 1 }).eq('id', id);
+  // Incrementa visualizações (fire-and-forget) com session storage rate-limit
+  const viewedKey = 'viewed_ad_' + id;
+  if (!sessionStorage.getItem(viewedKey)) {
+    sessionStorage.setItem(viewedKey, 'true');
+    getSupabase().from('ads').update({ views_count: (data.views_count || 0) + 1 }).eq('id', id);
+  }
 
   return data;
 }
@@ -267,6 +314,12 @@ async function getAuctions({ status = 'live', limit = 20 } = {}) {
 async function placeBid(auctionId, amount) {
   const session = await getSession();
   if (!session) throw new Error('Não autenticado');
+
+  // Validate amount
+  const { data: auction } = await getSupabase().from('auctions').select('current_bid').eq('id', auctionId).single();
+  if (auction && amount <= auction.current_bid) {
+    throw new Error('O lance deve ser maior que o lance atual.');
+  }
 
   const { data, error } = await getSupabase().from('auction_bids').insert({
     auction_id: auctionId, user_id: session.user.id, amount
