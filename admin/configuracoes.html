@@ -114,6 +114,10 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
                 Recursos (Features)
               </div>
+              <div class="settings-tab" data-tab="tab-gateways">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                Gateways de Pagamento
+              </div>
             </nav>
 
             <!-- Forms Container -->
@@ -215,6 +219,119 @@
                 </div>
               </div>
 
+              <!-- TAB: GATEWAYS -->
+              <div class="settings-panel" id="tab-gateways">
+
+                <!-- ALERT -->
+                <div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:10px;padding:14px 16px;margin-bottom:24px;display:flex;gap:12px;align-items:flex-start">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FCD34D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  <div>
+                    <div style="font-weight:700;color:#FCD34D;font-size:.85rem;margin-bottom:3px">Credenciais Sensíveis</div>
+                    <div style="font-size:.8rem;color:var(--adm-text-muted);line-height:1.5">As chaves abaixo são salvas localmente neste navegador. Em produção, estas credenciais devem ficar em variáveis de ambiente no servidor (nunca no front-end). Este painel é apenas para referência e configuração futura do backend.</div>
+                  </div>
+                </div>
+
+                <!-- MERCADO PAGO -->
+                <div class="set-group">
+                  <div class="set-group-title">
+                    <span>🟡 Mercado Pago</span>
+                    <span id="mp-status" style="font-size:.75rem;font-weight:600;padding:3px 10px;border-radius:99px;background:rgba(107,114,128,.1);color:#9CA3AF">Não configurado</span>
+                  </div>
+                  <div class="set-field">
+                    <label class="set-label">Public Key (Front-end)</label>
+                    <p class="set-desc">Usada no checkout transparente para tokenizar o cartão do cliente.</p>
+                    <div style="display:flex;gap:8px;max-width:500px">
+                      <input type="password" id="mp_public_key" class="set-input" style="max-width:unset;flex:1" placeholder="APP_USR-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" oninput="markDirty(); updateGwStatus('mp')">
+                      <button type="button" class="adm-btn" style="padding:0 12px;flex-shrink:0" onclick="toggleVisibility('mp_public_key', this)">👁</button>
+                    </div>
+                  </div>
+                  <div class="set-field">
+                    <label class="set-label">Access Token (Back-end / Secret)</label>
+                    <p class="set-desc">Chave secreta para criar preferências de pagamento e receber cobranças. Nunca exponha no front-end.</p>
+                    <div style="display:flex;gap:8px;max-width:500px">
+                      <input type="password" id="mp_access_token" class="set-input" style="max-width:unset;flex:1" placeholder="APP_USR-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-xxxxxx" oninput="markDirty(); updateGwStatus('mp')">
+                      <button type="button" class="adm-btn" style="padding:0 12px;flex-shrink:0" onclick="toggleVisibility('mp_access_token', this)">👁</button>
+                    </div>
+                  </div>
+                  <div class="set-field">
+                    <label class="set-label">Webhook URL (Notificações IPN)</label>
+                    <p class="set-desc">Configure esta URL no painel do Mercado Pago em: <strong>Seu negócio → Notificações IPN</strong>.</p>
+                    <input type="url" id="mp_webhook" class="set-input" placeholder="https://seusite.com/api/webhooks/mercadopago" oninput="markDirty()">
+                  </div>
+                </div>
+
+                <!-- STRIPE -->
+                <div class="set-group">
+                  <div class="set-group-title">
+                    <span>🟣 Stripe</span>
+                    <span id="stripe-status" style="font-size:.75rem;font-weight:600;padding:3px 10px;border-radius:99px;background:rgba(107,114,128,.1);color:#9CA3AF">Não configurado</span>
+                  </div>
+                  <div class="set-field">
+                    <label class="set-label">Publishable Key (Front-end)</label>
+                    <p class="set-desc">Usada no Stripe.js para criar Elements de cartão seguros.</p>
+                    <div style="display:flex;gap:8px;max-width:500px">
+                      <input type="password" id="stripe_pub_key" class="set-input" style="max-width:unset;flex:1" placeholder="pk_live_SUA_CHAVE_PUBLICA_AQUI" oninput="markDirty(); updateGwStatus('stripe')">
+                      <button type="button" class="adm-btn" style="padding:0 12px;flex-shrink:0" onclick="toggleVisibility('stripe_pub_key', this)">👁</button>
+                    </div>
+                  </div>
+                  <div class="set-field">
+                    <label class="set-label">Secret Key (Back-end)</label>
+                    <p class="set-desc">Chave secreta para criar PaymentIntents e gerenciar clientes. Nunca exponha no front-end.</p>
+                    <div style="display:flex;gap:8px;max-width:500px">
+                      <input type="password" id="stripe_secret_key" class="set-input" style="max-width:unset;flex:1" placeholder="sk_live_SUA_CHAVE_SECRETA_AQUI" oninput="markDirty(); updateGwStatus('stripe')">
+                      <button type="button" class="adm-btn" style="padding:0 12px;flex-shrink:0" onclick="toggleVisibility('stripe_secret_key', this)">👁</button>
+                    </div>
+                  </div>
+                  <div class="set-field">
+                    <label class="set-label">Webhook Secret</label>
+                    <p class="set-desc">Gerado no painel Stripe em: <strong>Developers → Webhooks → Add endpoint</strong>. Valida a autenticidade dos eventos recebidos.</p>
+                    <div style="display:flex;gap:8px;max-width:500px">
+                      <input type="password" id="stripe_webhook_secret" class="set-input" style="max-width:unset;flex:1" placeholder="whsec_SEU_WEBHOOK_SECRET_AQUI" oninput="markDirty()">
+                      <button type="button" class="adm-btn" style="padding:0 12px;flex-shrink:0" onclick="toggleVisibility('stripe_webhook_secret', this)">👁</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- PAGAR.ME -->
+                <div class="set-group">
+                  <div class="set-group-title">
+                    <span>🟢 Pagar.me</span>
+                    <span id="pagarme-status" style="font-size:.75rem;font-weight:600;padding:3px 10px;border-radius:99px;background:rgba(107,114,128,.1);color:#9CA3AF">Não configurado</span>
+                  </div>
+                  <div class="set-field">
+                    <label class="set-label">API Key Pública</label>
+                    <div style="display:flex;gap:8px;max-width:500px">
+                      <input type="password" id="pagarme_pub_key" class="set-input" style="max-width:unset;flex:1" placeholder="pk_xxxxxxxxxxxxxxxxxxxxxxxx" oninput="markDirty(); updateGwStatus('pagarme')">
+                      <button type="button" class="adm-btn" style="padding:0 12px;flex-shrink:0" onclick="toggleVisibility('pagarme_pub_key', this)">👁</button>
+                    </div>
+                  </div>
+                  <div class="set-field">
+                    <label class="set-label">Secret Key</label>
+                    <div style="display:flex;gap:8px;max-width:500px">
+                      <input type="password" id="pagarme_secret_key" class="set-input" style="max-width:unset;flex:1" placeholder="sk_xxxxxxxxxxxxxxxxxxxxxxxx" oninput="markDirty(); updateGwStatus('pagarme')">
+                      <button type="button" class="adm-btn" style="padding:0 12px;flex-shrink:0" onclick="toggleVisibility('pagarme_secret_key', this)">👁</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- PREÇOS DOS PLANOS -->
+                <div class="set-group">
+                  <div class="set-group-title">💰 Preços dos Planos</div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:500px">
+                    <div class="set-field" style="margin:0">
+                      <label class="set-label">Plano Pro (R$/mês)</label>
+                      <input type="number" id="price_pro" class="set-input" style="max-width:unset" value="79" min="0" oninput="markDirty()">
+                    </div>
+                    <div class="set-field" style="margin:0">
+                      <label class="set-label">Plano Premium (R$/mês)</label>
+                      <input type="number" id="price_premium" class="set-input" style="max-width:unset" value="149" min="0" oninput="markDirty()">
+                    </div>
+                  </div>
+                  <p class="set-desc" style="margin-top:10px">Alterações de preço são aplicadas para novos assinantes. Assinaturas existentes mantêm o valor atual até o próximo ciclo.</p>
+                </div>
+
+              </div>
+
             </form>
           </div>
         </div>
@@ -235,6 +352,34 @@
   </div>
 
   <script src="/admin/js/admin.js"></script>
+  <script>
+    // ─── GATEWAY HELPERS ──────────────────────────
+    function toggleVisibility(inputId, btn) {
+      const inp = document.getElementById(inputId);
+      if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
+      else { inp.type = 'password'; btn.textContent = '👁'; }
+    }
+
+    function updateGwStatus(gw) {
+      const map = {
+        mp:      ['mp_public_key','mp_access_token','mp-status'],
+        stripe:  ['stripe_pub_key','stripe_secret_key','stripe-status'],
+        pagarme: ['pagarme_pub_key','pagarme_secret_key','pagarme-status'],
+      };
+      const [f1, f2, statusId] = map[gw];
+      const v1 = document.getElementById(f1)?.value.trim();
+      const v2 = document.getElementById(f2)?.value.trim();
+      const el = document.getElementById(statusId);
+      if (!el) return;
+      if (v1 && v2) {
+        el.textContent = '✓ Configurado'; el.style.background = 'rgba(16,185,129,.15)'; el.style.color = '#34D399';
+      } else if (v1 || v2) {
+        el.textContent = '⚠ Incompleto'; el.style.background = 'rgba(245,158,11,.15)'; el.style.color = '#FCD34D';
+      } else {
+        el.textContent = 'Não configurado'; el.style.background = 'rgba(107,114,128,.1)'; el.style.color = '#9CA3AF';
+      }
+    }
+  </script>
   <script>
     renderSidebar('/admin/configuracoes.html');
 
@@ -339,6 +484,14 @@
       if (savedAuctions !== null) document.getElementById('featAuctions').checked = savedAuctions === '1';
       if (savedPlans !== null) document.getElementById('featPlans').checked = savedPlans === '1';
       if (savedSocial !== null) document.getElementById('featSocialLogin').checked = savedSocial === '1';
+
+      // Load Gateways
+      const gwFields = ['mp_public_key','mp_access_token','mp_webhook','stripe_pub_key','stripe_secret_key','stripe_webhook_secret','pagarme_pub_key','pagarme_secret_key'];
+      gwFields.forEach(f => { const v = localStorage.getItem('tc_gw_' + f); if (v) document.getElementById(f).value = v; });
+      const pricePro = localStorage.getItem('tc_price_pro'); if (pricePro) document.getElementById('price_pro').value = pricePro;
+      const pricePrem = localStorage.getItem('tc_price_premium'); if (pricePrem) document.getElementById('price_premium').value = pricePrem;
+      // Update status badges
+      ['mp','stripe','pagarme'].forEach(gw => updateGwStatus(gw));
     }
 
     window.addEventListener('DOMContentLoaded', loadConfig);
@@ -364,6 +517,18 @@
       localStorage.setItem('tc_feat_auctions', featAuctions ? '1' : '0');
       localStorage.setItem('tc_feat_plans', featPlans ? '1' : '0');
       localStorage.setItem('tc_feat_social_login', featSocial ? '1' : '0');
+
+      // Gateways
+      const gwFields = ['mp_public_key','mp_access_token','mp_webhook','stripe_pub_key','stripe_secret_key','stripe_webhook_secret','pagarme_pub_key','pagarme_secret_key'];
+      gwFields.forEach(f => {
+        const v = document.getElementById(f)?.value.trim();
+        if (v) localStorage.setItem('tc_gw_' + f, v);
+        else localStorage.removeItem('tc_gw_' + f);
+      });
+
+      // Plan prices
+      localStorage.setItem('tc_price_pro', document.getElementById('price_pro').value || '79');
+      localStorage.setItem('tc_price_premium', document.getElementById('price_premium').value || '149');
 
       isDirty = false;
       document.getElementById('saveBar').classList.remove('visible');

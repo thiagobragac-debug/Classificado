@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestão de Assinaturas — Admin Tauze Class</title>
+  <link rel="stylesheet" href="/admin/css/admin.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2316A34A'/%3E%3Ctext y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'%3ET%3C/text%3E%3C/svg%3E">
+  <style>
+    /* ─── KPI CARDS ─────────────────────────────── */
+    .sub-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .sub-kpi-card {
+      background: var(--adm-surface);
+      border: 1px solid var(--adm-border);
+      border-radius: 12px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      position: relative;
+      overflow: hidden;
+      transition: transform .2s, box-shadow .2s;
+    }
+    .sub-kpi-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+    .sub-kpi-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: var(--kpi-clr, #16A34A);
+    }
+    .sub-kpi-icon {
+      width: 36px; height: 36px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--kpi-bg, rgba(22,163,74,.12));
+      color: var(--kpi-clr, #16A34A);
+      margin-bottom: 8px;
+    }
+    .sub-kpi-icon svg { width: 18px; height: 18px; stroke: currentColor; }
+    .sub-kpi-val { font-size: 1.8rem; font-weight: 800; color: var(--adm-text); line-height: 1; }
+    .sub-kpi-lbl { font-size: .78rem; color: var(--adm-text-muted); font-weight: 500; margin-top: 2px; }
+    .sub-kpi-delta { font-size: .75rem; font-weight: 600; margin-top: 6px; }
+    .sub-kpi-delta--up { color: #34D399; }
+    .sub-kpi-delta--down { color: #F87171; }
+
+    /* ─── PLAN BADGES ─────────────────────────── */
+    .plan-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 10px; border-radius: 99px;
+      font-size: .72rem; font-weight: 700; letter-spacing: .3px;
+    }
+    .plan-badge--premium {
+      background: linear-gradient(135deg, rgba(245,158,11,.2), rgba(217,119,6,.1));
+      color: #FCD34D; border: 1px solid rgba(245,158,11,.4);
+    }
+    .plan-badge--pro {
+      background: rgba(99,102,241,.15);
+      color: #A5B4FC; border: 1px solid rgba(99,102,241,.3);
+    }
+    .plan-badge--free {
+      background: rgba(107,114,128,.1);
+      color: #9CA3AF; border: 1px solid rgba(107,114,128,.2);
+    }
+
+    /* ─── STATUS BADGES ───────────────────────── */
+    .sub-status { padding: 3px 10px; border-radius: 99px; font-size: .72rem; font-weight: 700; }
+    .sub-status--active   { background: rgba(16,185,129,.15); color: #34D399; border: 1px solid rgba(16,185,129,.3); }
+    .sub-status--trial    { background: rgba(99,102,241,.15); color: #A5B4FC; border: 1px solid rgba(99,102,241,.3); }
+    .sub-status--overdue  { background: rgba(245,158,11,.15); color: #FCD34D; border: 1px solid rgba(245,158,11,.3); }
+    .sub-status--canceled { background: rgba(239,68,68,.12);  color: #F87171; border: 1px solid rgba(239,68,68,.25); }
+
+    /* ─── FILTER TABS ──────────────────────────── */
+    .sub-filter-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px; }
+    .sub-tab {
+      padding: 6px 16px; border-radius: 99px; font-size: .8rem; font-weight: 600; cursor: pointer;
+      border: 1.5px solid var(--adm-border); background: transparent; color: var(--adm-text-muted);
+      transition: all .2s;
+    }
+    .sub-tab.active, .sub-tab:hover {
+      background: var(--adm-primary); border-color: var(--adm-primary); color: #fff;
+    }
+
+    /* ─── AVATAR ───────────────────────────────── */
+    .sub-avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: .85rem; flex-shrink: 0;
+      color: #fff;
+    }
+
+    /* ─── GATEWAY PILL ─────────────────────────── */
+    .gateway-pill {
+      font-size: .72rem; font-weight: 600; color: var(--adm-text-muted);
+      display: flex; align-items: center; gap: 4px;
+    }
+    .gateway-dot { width: 6px; height: 6px; border-radius: 50%; background: #34D399; }
+
+    /* ─── MODAL FORM ────────────────────────────── */
+    .form-group { margin-bottom: 1rem; }
+    .form-label { display: block; font-size: .83rem; font-weight: 600; color: var(--adm-text); margin-bottom: .4rem; }
+    .form-input, .form-select {
+      width: 100%; padding: .65rem 1rem;
+      background: rgba(0,0,0,.2); border: 1px solid var(--adm-border); border-radius: .5rem;
+      color: var(--adm-text); font-family: inherit; font-size: .9rem; box-sizing: border-box; transition: border .2s;
+    }
+    .form-input:focus, .form-select:focus { border-color: var(--adm-primary); outline: none; box-shadow: 0 0 0 3px rgba(22,163,74,.2); }
+    .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+
+    /* ─── CHURN CHART ───────────────────────────── */
+    .mini-bars { display: flex; align-items: flex-end; gap: 6px; height: 80px; }
+    .mini-bar-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; }
+    .mini-bar { width: 100%; border-radius: 4px 4px 0 0; transition: height .6s ease; }
+    .mini-bar-lbl { font-size: .65rem; color: var(--adm-text-muted); }
+    .mini-bar-val { font-size: .65rem; font-weight: 700; color: var(--adm-text); }
+  </style>
+</head>
+<body>
+<div class="adm-layout">
+  <aside class="adm-sidebar" id="adm-sidebar"></aside>
+  <div class="adm-main">
+
+    <header class="adm-topbar">
+      <div class="adm-breadcrumb">
+        <a href="/admin/index.html">Dashboard</a>
+        <span>›</span>
+        <strong>Assinaturas</strong>
+      </div>
+    </header>
+
+    <main class="adm-content">
+      <div class="adm-page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div>
+          <h1 class="adm-page-title">Gestão de Assinaturas</h1>
+          <p class="adm-page-sub">Gerencie planos, pagamentos e receita recorrente do portal.</p>
+        </div>
+        <button class="adm-btn adm-btn--primary" onclick="openNewModal()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Nova Assinatura
+        </button>
+      </div>
+
+      <!-- KPI Cards -->
+      <div class="sub-kpi-grid">
+        <div class="sub-kpi-card" style="--kpi-clr:#16A34A;--kpi-bg:rgba(22,163,74,.12)">
+          <div class="sub-kpi-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          </div>
+          <div class="sub-kpi-val" id="kpi-mrr">R$ 0</div>
+          <div class="sub-kpi-lbl">Receita Recorrente Mensal (MRR)</div>
+          <div class="sub-kpi-delta sub-kpi-delta--up">↑ +8,3% vs mês anterior</div>
+        </div>
+        <div class="sub-kpi-card" style="--kpi-clr:#6366F1;--kpi-bg:rgba(99,102,241,.12)">
+          <div class="sub-kpi-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <div class="sub-kpi-val" id="kpi-total">0</div>
+          <div class="sub-kpi-lbl">Total de Assinantes Pagos</div>
+          <div class="sub-kpi-delta sub-kpi-delta--up">↑ +3 novos este mês</div>
+        </div>
+        <div class="sub-kpi-card" style="--kpi-clr:#F59E0B;--kpi-bg:rgba(245,158,11,.12)">
+          <div class="sub-kpi-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          </div>
+          <div class="sub-kpi-val" id="kpi-premium">0</div>
+          <div class="sub-kpi-lbl">Assinantes Premium</div>
+          <div class="sub-kpi-delta sub-kpi-delta--up">↑ Maior ticket médio</div>
+        </div>
+        <div class="sub-kpi-card" style="--kpi-clr:#EF4444;--kpi-bg:rgba(239,68,68,.1)">
+          <div class="sub-kpi-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>
+          </div>
+          <div class="sub-kpi-val" id="kpi-churn">0%</div>
+          <div class="sub-kpi-lbl">Churn Rate (Cancelamentos)</div>
+          <div class="sub-kpi-delta sub-kpi-delta--up">↓ Abaixo da meta de 5%</div>
+        </div>
+      </div>
+
+      <!-- Charts Row -->
+      <div class="adm-grid-2" style="margin-bottom:20px">
+
+        <!-- MRR por Plano -->
+        <div class="adm-card">
+          <div class="adm-card-header">
+            <span class="adm-card-title">Distribuição de Receita por Plano</span>
+          </div>
+          <div class="adm-card-body" id="plan-dist-chart">
+            <!-- rendered by JS -->
+          </div>
+        </div>
+
+        <!-- Histórico MRR últimos 6 meses -->
+        <div class="adm-card">
+          <div class="adm-card-header">
+            <span class="adm-card-title">Evolução MRR (últimos 6 meses)</span>
+          </div>
+          <div class="adm-card-body">
+            <div class="mini-bars" id="mrr-bars"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Filter + Table -->
+      <div class="adm-card">
+        <div class="adm-card-header" style="flex-wrap:wrap;gap:12px">
+          <span class="adm-card-title">Assinantes</span>
+          <input type="search" class="adm-select" id="sub-search" placeholder="Buscar por nome ou e-mail..." style="max-width:260px;padding:6px 12px;font-size:.82rem" oninput="filterTable()">
+        </div>
+        <div style="padding:0 20px 12px">
+          <div class="sub-filter-tabs">
+            <button class="sub-tab active" data-filter="all"       onclick="setFilter('all',this)">Todos</button>
+            <button class="sub-tab"        data-filter="premium"   onclick="setFilter('premium',this)">⭐ Premium</button>
+            <button class="sub-tab"        data-filter="pro"       onclick="setFilter('pro',this)">💎 Pro</button>
+            <button class="sub-tab"        data-filter="free"      onclick="setFilter('free',this)">🆓 Grátis</button>
+            <button class="sub-tab"        data-filter="overdue"   onclick="setFilter('overdue',this)">⚠️ Em Atraso</button>
+            <button class="sub-tab"        data-filter="canceled"  onclick="setFilter('canceled',this)">❌ Cancelados</button>
+          </div>
+        </div>
+        <div class="adm-table-wrap">
+          <table class="adm-table" id="subs-table">
+            <thead>
+              <tr>
+                <th>Assinante</th>
+                <th>Plano</th>
+                <th>Status</th>
+                <th>Gateway</th>
+                <th>Próx. Cobrança</th>
+                <th>Valor/mês</th>
+                <th style="text-align:right">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="subs-tbody">
+              <!-- rendered by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Modal: Nova / Editar Assinatura -->
+<div class="adm-overlay" id="subModal">
+  <div class="adm-modal" style="max-width:580px;padding:24px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <h3 id="subModalTitle" class="adm-modal-title" style="margin:0">Nova Assinatura</h3>
+      <button class="adm-btn" style="background:transparent;padding:5px;color:var(--adm-text-muted)" onclick="closeModal('subModal')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <form id="subForm">
+      <input type="hidden" id="subId">
+      <div class="form-group">
+        <label class="form-label">Usuário</label>
+        <select id="subUser" class="form-select" required>
+          <option value="">Selecione um usuário...</option>
+        </select>
+      </div>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">Plano</label>
+          <select id="subPlan" class="form-select" required onchange="updatePlanPrice()">
+            <option value="premium">⭐ Premium — R$ 149/mês</option>
+            <option value="pro">💎 Pro — R$ 79/mês</option>
+            <option value="free">🆓 Grátis</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <select id="subStatus" class="form-select" required>
+            <option value="active">Ativo</option>
+            <option value="trial">Trial (7 dias grátis)</option>
+            <option value="overdue">Em Atraso</option>
+            <option value="canceled">Cancelado</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">Gateway de Pagamento</label>
+          <select id="subGateway" class="form-select">
+            <option value="mercadopago">Mercado Pago</option>
+            <option value="stripe">Stripe</option>
+            <option value="pagarme">Pagar.me</option>
+            <option value="manual">Manual / Cortesia</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Próxima Cobrança</label>
+          <input type="date" id="subNextBill" class="form-input">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Observações (internas)</label>
+        <input type="text" id="subNotes" class="form-input" placeholder="Ex: Cortesia para parceiro estratégico">
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px">
+        <button type="button" class="adm-btn" onclick="closeModal('subModal')">Cancelar</button>
+        <button type="submit" class="adm-btn adm-btn--primary">Salvar Assinatura</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Detalhes do Assinante -->
+<div class="adm-overlay" id="detailModal">
+  <div class="adm-modal" style="max-width:520px;padding:24px" id="detailModalContent">
+  </div>
+</div>
+
+<script src="/admin/js/admin.js"></script>
+<script>
+// ─── MOCK DATA — SUBSCRIPTIONS ─────────────────
+const PLAN_PRICES = { premium: 149, pro: 79, free: 0 };
+const PLAN_COLORS = {
+  premium: { clr: '#F59E0B', bg: 'rgba(245,158,11,.1)' },
+  pro:     { clr: '#6366F1', bg: 'rgba(99,102,241,.1)' },
+  free:    { clr: '#6B7280', bg: 'rgba(107,114,128,.1)' },
+};
+const GATEWAY_ICONS = {
+  mercadopago: '🟡',
+  stripe:      '🟣',
+  pagarme:     '🟢',
+  manual:      '✋',
+};
+
+let SUBSCRIPTIONS = JSON.parse(localStorage.getItem('tc_subs')) || [
+  { id: 's1', userId: 1, plan: 'premium', status: 'active',   gateway: 'mercadopago', nextBill: '2026-08-01', notes: '',                            since: '2025-01-12' },
+  { id: 's2', userId: 3, plan: 'premium', status: 'active',   gateway: 'stripe',      nextBill: '2026-08-18', notes: '',                            since: '2024-11-18' },
+  { id: 's3', userId: 7, plan: 'premium', status: 'active',   gateway: 'stripe',      nextBill: '2026-08-30', notes: '',                            since: '2024-09-30' },
+  { id: 's4', userId: 4, plan: 'pro',     status: 'active',   gateway: 'mercadopago', nextBill: '2026-08-22', notes: '',                            since: '2025-05-22' },
+  { id: 's5', userId: 5, plan: 'pro',     status: 'active',   gateway: 'pagarme',     nextBill: '2026-08-08', notes: '',                            since: '2025-02-08' },
+  { id: 's6', userId: 8, plan: 'pro',     status: 'overdue',  gateway: 'stripe',      nextBill: '2026-07-15', notes: 'Cartão recusado 2x',          since: '2025-04-15' },
+  { id: 's7', userId: 10,plan: 'pro',     status: 'active',   gateway: 'mercadopago', nextBill: '2026-08-11', notes: '',                            since: '2024-12-11' },
+  { id: 's8', userId: 2, plan: 'free',    status: 'active',   gateway: 'manual',      nextBill: '—',          notes: '',                            since: '2025-03-03' },
+  { id: 's9', userId: 9, plan: 'free',    status: 'trial',    gateway: 'manual',      nextBill: '2026-07-09', notes: 'Trial de 7 dias iniciado',    since: '2026-07-02' },
+  { id:'s10', userId: 6, plan: 'free',    status: 'canceled', gateway: 'manual',      nextBill: '—',          notes: 'Usuário bloqueado por fraude', since: '2026-07-01' },
+];
+
+let activeFilter = 'all';
+
+function saveSubs() { localStorage.setItem('tc_subs', JSON.stringify(SUBSCRIPTIONS)); }
+function genId()    { return 's' + Date.now().toString(36); }
+
+// ─── KPI COMPUTE ───────────────────────────────
+function computeKPIs() {
+  const paid = SUBSCRIPTIONS.filter(s => s.status !== 'canceled' && s.plan !== 'free');
+  const mrr  = paid.reduce((sum, s) => sum + (PLAN_PRICES[s.plan] || 0), 0);
+  const prem = SUBSCRIPTIONS.filter(s => s.plan === 'premium' && s.status === 'active').length;
+  const canceled = SUBSCRIPTIONS.filter(s => s.status === 'canceled').length;
+  const churn = SUBSCRIPTIONS.length ? ((canceled / SUBSCRIPTIONS.length) * 100).toFixed(1) : '0.0';
+
+  document.getElementById('kpi-mrr').textContent     = 'R$ ' + mrr.toLocaleString('pt-BR');
+  document.getElementById('kpi-total').textContent   = paid.length;
+  document.getElementById('kpi-premium').textContent = prem;
+  document.getElementById('kpi-churn').textContent   = churn + '%';
+}
+
+// ─── PLAN DISTRIBUTION ─────────────────────────
+function renderPlanDist() {
+  const active = SUBSCRIPTIONS.filter(s => s.status !== 'canceled');
+  const counts = { premium: 0, pro: 0, free: 0 };
+  active.forEach(s => counts[s.plan]++);
+  const total = active.length || 1;
+
+  const rows = [
+    { key: 'premium', label: '⭐ Premium', emoji: '⭐' },
+    { key: 'pro',     label: '💎 Pro',     emoji: '💎' },
+    { key: 'free',    label: '🆓 Grátis',  emoji: '🆓' },
+  ];
+
+  document.getElementById('plan-dist-chart').innerHTML = rows.map(r => {
+    const pct = Math.round(counts[r.key] / total * 100);
+    const clr = PLAN_COLORS[r.key].clr;
+    const mrr = counts[r.key] * (PLAN_PRICES[r.key] || 0);
+    return `
+      <div style="margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="font-size:.85rem;font-weight:600;color:var(--adm-text)">${r.label}</span>
+          <span style="font-size:.8rem;color:var(--adm-text-muted)">${counts[r.key]} assinantes · ${mrr > 0 ? 'R$ ' + mrr.toLocaleString('pt-BR') + '/mês' : 'Grátis'}</span>
+        </div>
+        <div style="height:10px;border-radius:99px;background:var(--adm-surface-2);overflow:hidden">
+          <div style="height:100%;width:${pct}%;border-radius:99px;background:${clr};transition:width .6s ease"></div>
+        </div>
+        <div style="font-size:.72rem;color:var(--adm-text-muted);margin-top:3px;text-align:right">${pct}% do total</div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ─── MRR BARS ──────────────────────────────────
+function renderMrrBars() {
+  const months = [
+    { label: 'Fev', val: 830 },
+    { label: 'Mar', val: 958 },
+    { label: 'Abr', val: 1037 },
+    { label: 'Mai', val: 1116 },
+    { label: 'Jun', val: 1195 },
+    { label: 'Jul', val: 1274 },
+  ];
+  const max = Math.max(...months.map(m => m.val));
+  document.getElementById('mrr-bars').innerHTML = months.map(m => {
+    const pct = Math.round(m.val / max * 100);
+    return `
+      <div class="mini-bar-wrap">
+        <div class="mini-bar-val">R$${(m.val/1000).toFixed(1)}k</div>
+        <div class="mini-bar" style="height:${pct}%;background:linear-gradient(180deg,#16A34A,#15803D);min-height:4px"></div>
+        <div class="mini-bar-lbl">${m.label}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ─── AVATAR COLORS ─────────────────────────────
+const AV_COLORS = ['#16A34A','#6366F1','#F59E0B','#EF4444','#0891B2','#DB2777','#D97706'];
+function avatarColor(id) { return AV_COLORS[id % AV_COLORS.length]; }
+function avatarInitials(name) {
+  const parts = name.split(' ');
+  return (parts[0][0] + (parts[1] ? parts[1][0] : '')).toUpperCase();
+}
+
+// ─── STATUS LABEL ──────────────────────────────
+function statusBadge(status) {
+  const map = {
+    active:   { cls: 'sub-status--active',   label: 'Ativo'      },
+    trial:    { cls: 'sub-status--trial',     label: 'Trial'      },
+    overdue:  { cls: 'sub-status--overdue',   label: 'Em Atraso'  },
+    canceled: { cls: 'sub-status--canceled',  label: 'Cancelado'  },
+  };
+  const s = map[status] || map.active;
+  return `<span class="sub-status ${s.cls}">${s.label}</span>`;
+}
+
+// ─── PLAN BADGE ────────────────────────────────
+function planBadge(plan) {
+  const map = {
+    premium: `<span class="plan-badge plan-badge--premium">⭐ Premium</span>`,
+    pro:     `<span class="plan-badge plan-badge--pro">💎 Pro</span>`,
+    free:    `<span class="plan-badge plan-badge--free">🆓 Grátis</span>`,
+  };
+  return map[plan] || map.free;
+}
+
+// ─── RENDER TABLE ──────────────────────────────
+function renderTable() {
+  const search = document.getElementById('sub-search')?.value.toLowerCase() || '';
+
+  const filtered = SUBSCRIPTIONS.filter(s => {
+    const user = ADMIN_USERS.find(u => u.id === s.userId) || {};
+    const matchFilter = activeFilter === 'all' || s.plan === activeFilter || s.status === activeFilter;
+    const matchSearch = !search || user.name?.toLowerCase().includes(search) || user.email?.toLowerCase().includes(search);
+    return matchFilter && matchSearch;
+  });
+
+  const tbody = document.getElementById('subs-tbody');
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--adm-text-muted)">Nenhum assinante encontrado.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(s => {
+    const user = ADMIN_USERS.find(u => u.id === s.userId) || { name: 'Desconhecido', email: '', country: '' };
+    const price = PLAN_PRICES[s.plan] > 0 ? 'R$ ' + PLAN_PRICES[s.plan].toLocaleString('pt-BR') : '—';
+    const clr = avatarColor(user.id);
+    const gwIcon = GATEWAY_ICONS[s.gateway] || '💳';
+    const gwName = { mercadopago: 'Mercado Pago', stripe: 'Stripe', pagarme: 'Pagar.me', manual: 'Manual' }[s.gateway] || s.gateway;
+
+    return `
+      <tr>
+        <td>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div class="sub-avatar" style="background:${clr}">${avatarInitials(user.name)}</div>
+            <div>
+              <div style="font-weight:600;color:var(--adm-text);font-size:.9rem">${user.name}</div>
+              <div style="font-size:.76rem;color:var(--adm-text-muted)">${user.email} · ${user.country}</div>
+            </div>
+          </div>
+        </td>
+        <td>${planBadge(s.plan)}</td>
+        <td>${statusBadge(s.status)}</td>
+        <td>
+          <div class="gateway-pill">
+            <span class="gateway-dot" style="background:${s.status === 'active' || s.status === 'trial' ? '#34D399' : s.status === 'overdue' ? '#FCD34D' : '#6B7280'}"></span>
+            ${gwIcon} ${gwName}
+          </div>
+        </td>
+        <td style="color:var(--adm-text-muted);font-size:.83rem">${s.nextBill !== '—' ? new Date(s.nextBill).toLocaleDateString('pt-BR') : '—'}</td>
+        <td style="font-weight:700;color:var(--adm-text)">${price}</td>
+        <td style="text-align:right">
+          <div style="display:flex;gap:6px;justify-content:flex-end">
+            <button class="adm-btn" style="padding:.25rem .6rem;font-size:.78rem" onclick="openDetail('${s.id}')">Detalhes</button>
+            <button class="adm-btn" style="padding:.25rem .6rem;font-size:.78rem" onclick="openEditModal('${s.id}')">Editar</button>
+            ${s.status !== 'canceled' ? `<button class="adm-btn" style="padding:.25rem .6rem;font-size:.78rem;background:rgba(239,68,68,.1);color:#F87171;border-color:rgba(239,68,68,.3)" onclick="cancelSub('${s.id}')">Cancelar</button>` : ''}
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// ─── FILTER ────────────────────────────────────
+function setFilter(filter, btn) {
+  activeFilter = filter;
+  document.querySelectorAll('.sub-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTable();
+}
+function filterTable() { renderTable(); }
+
+// ─── MODAL: NOVO ───────────────────────────────
+function openNewModal() {
+  document.getElementById('subForm').reset();
+  document.getElementById('subId').value = '';
+  document.getElementById('subModalTitle').textContent = 'Nova Assinatura';
+  // Set tomorrow as default next bill
+  const tmr = new Date(); tmr.setDate(tmr.getDate() + 30);
+  document.getElementById('subNextBill').value = tmr.toISOString().split('T')[0];
+  populateUserSelect(null);
+  document.getElementById('subModal').style.display = 'flex';
+}
+
+function openEditModal(id) {
+  const s = SUBSCRIPTIONS.find(x => x.id === id);
+  if (!s) return;
+  document.getElementById('subId').value      = s.id;
+  document.getElementById('subPlan').value    = s.plan;
+  document.getElementById('subStatus').value  = s.status;
+  document.getElementById('subGateway').value = s.gateway;
+  document.getElementById('subNextBill').value= s.nextBill !== '—' ? s.nextBill : '';
+  document.getElementById('subNotes').value   = s.notes || '';
+  document.getElementById('subModalTitle').textContent = 'Editar Assinatura';
+  populateUserSelect(s.userId);
+  document.getElementById('subModal').style.display = 'flex';
+}
+
+function populateUserSelect(selectedId) {
+  const sel = document.getElementById('subUser');
+  sel.innerHTML = '<option value="">Selecione um usuário...</option>' +
+    ADMIN_USERS.map(u => `<option value="${u.id}" ${u.id === selectedId ? 'selected' : ''}>${u.name} (${u.email})</option>`).join('');
+}
+
+function updatePlanPrice() { /* visual feedback could go here */ }
+
+document.getElementById('subForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const id       = document.getElementById('subId').value;
+  const userId   = parseInt(document.getElementById('subUser').value);
+  const plan     = document.getElementById('subPlan').value;
+  const status   = document.getElementById('subStatus').value;
+  const gateway  = document.getElementById('subGateway').value;
+  const nextBill = document.getElementById('subNextBill').value || '—';
+  const notes    = document.getElementById('subNotes').value;
+
+  if (!userId) { showToast('Selecione um usuário.', 'error'); return; }
+
+  if (id) {
+    const idx = SUBSCRIPTIONS.findIndex(s => s.id === id);
+    if (idx > -1) SUBSCRIPTIONS[idx] = { ...SUBSCRIPTIONS[idx], plan, status, gateway, nextBill, notes };
+    showToast('Assinatura atualizada com sucesso!', 'success');
+  } else {
+    SUBSCRIPTIONS.unshift({ id: genId(), userId, plan, status, gateway, nextBill, notes, since: new Date().toISOString().split('T')[0] });
+    showToast('Assinatura criada com sucesso!', 'success');
+  }
+
+  saveSubs();
+  closeModal('subModal');
+  computeKPIs();
+  renderPlanDist();
+  renderTable();
+});
+
+// ─── CANCEL ────────────────────────────────────
+function cancelSub(id) {
+  if (!confirm('Tem certeza que deseja cancelar esta assinatura? O usuário perderá os benefícios do plano.')) return;
+  const idx = SUBSCRIPTIONS.findIndex(s => s.id === id);
+  if (idx > -1) { SUBSCRIPTIONS[idx].status = 'canceled'; SUBSCRIPTIONS[idx].nextBill = '—'; }
+  saveSubs();
+  computeKPIs();
+  renderPlanDist();
+  renderTable();
+  showToast('Assinatura cancelada.', 'warning');
+}
+
+// ─── DETAIL MODAL ──────────────────────────────
+function openDetail(id) {
+  const s = SUBSCRIPTIONS.find(x => x.id === id);
+  if (!s) return;
+  const user = ADMIN_USERS.find(u => u.id === s.userId) || {};
+  const clr  = avatarColor(user.id || 0);
+  const price = PLAN_PRICES[s.plan] > 0 ? 'R$ ' + PLAN_PRICES[s.plan].toLocaleString('pt-BR') + '/mês' : 'Grátis';
+  const gwName = { mercadopago: 'Mercado Pago', stripe: 'Stripe', pagarme: 'Pagar.me', manual: 'Manual / Cortesia' }[s.gateway] || s.gateway;
+
+  document.getElementById('detailModalContent').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <h3 style="margin:0;font-size:1.1rem;color:var(--adm-text)">Detalhes da Assinatura</h3>
+      <button class="adm-btn" style="background:transparent;padding:5px;color:var(--adm-text-muted)" onclick="closeModal('detailModal')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:14px;padding:16px;background:var(--adm-surface-2);border-radius:10px;margin-bottom:20px">
+      <div class="sub-avatar" style="background:${clr};width:48px;height:48px;font-size:1.1rem">${avatarInitials(user.name || 'U')}</div>
+      <div>
+        <div style="font-weight:700;font-size:1rem;color:var(--adm-text)">${user.name}</div>
+        <div style="font-size:.8rem;color:var(--adm-text-muted)">${user.email} · ${user.country}</div>
+        <div style="margin-top:4px">${planBadge(s.plan)} ${statusBadge(s.status)}</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
+      ${[
+        ['💳 Gateway',        gwName],
+        ['💰 Valor',          price],
+        ['📅 Assinante desde',new Date(s.since).toLocaleDateString('pt-BR')],
+        ['⏭ Próx. Cobrança', s.nextBill !== '—' ? new Date(s.nextBill).toLocaleDateString('pt-BR') : '—'],
+      ].map(([lbl,val]) => `
+        <div style="padding:12px;background:var(--adm-surface-2);border-radius:8px">
+          <div style="font-size:.72rem;color:var(--adm-text-muted);margin-bottom:2px">${lbl}</div>
+          <div style="font-size:.9rem;font-weight:600;color:var(--adm-text)">${val}</div>
+        </div>
+      `).join('')}
+    </div>
+
+    ${s.notes ? `
+      <div style="padding:12px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:8px;margin-bottom:20px">
+        <div style="font-size:.75rem;font-weight:700;color:#FCD34D;margin-bottom:4px">📋 Nota Interna</div>
+        <div style="font-size:.85rem;color:var(--adm-text)">${s.notes}</div>
+      </div>
+    ` : ''}
+
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="adm-btn" onclick="closeModal('detailModal')">Fechar</button>
+      <button class="adm-btn adm-btn--primary" onclick="closeModal('detailModal'); openEditModal('${s.id}')">Editar Assinatura</button>
+    </div>
+  `;
+  document.getElementById('detailModal').style.display = 'flex';
+}
+
+function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+// ─── INIT ──────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  checkAuth();
+  renderSidebar('assinaturas.html');
+  computeKPIs();
+  renderPlanDist();
+  renderMrrBars();
+  renderTable();
+});
+</script>
+</body>
+</html>

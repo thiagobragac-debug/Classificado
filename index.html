@@ -343,9 +343,6 @@
 <script src="js/main.js"></script>
 <script>
   document.addEventListener('DOMContentLoaded', () => {
-    renderHomeData();
-    window.addEventListener('resize', handleResize);
-    
     // Render Ad Banners
     if (typeof renderAdBanner === 'function') {
       renderAdBanner('home_top', 'banner-home-top');

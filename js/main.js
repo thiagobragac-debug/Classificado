@@ -451,9 +451,9 @@ window.renderAdBanner = function(position, containerId) {
     // Pick a random banner for that position (simple rotation)
     const b = activeBanners[Math.floor(Math.random() * activeBanners.length)];
     container.innerHTML = `
-      <div class="ad-banner-wrapper" style="width: 100%; display: flex; justify-content: center; margin: 1.5rem 0; overflow: hidden; border-radius: 8px;">
+      <div class="ad-banner-wrapper" style="width: 100%; display: flex; justify-content: center; margin: 1.5rem 0; overflow: hidden; border-radius: 8px; background: rgba(0,0,0,0.02);">
         <a href="${b.link}" target="_blank" rel="noopener sponsored" style="display: block; width: 100%; text-align: center;">
-          <img src="${b.image}" alt="${b.name}" style="max-width: 100%; max-height: ${pHeight}; object-fit: contain; display: block; margin: 0 auto; border-radius: 8px;">
+          <img src="${b.image}" alt="${b.name}" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=\\\'http://www.w3.org/2000/svg\\\' width=\\\'728\\\' height=\\\'90\\\' viewBox=\\\'0 0 728 90\\\'%3E%3Crect width=\\\'728\\\' height=\\\'90\\\' fill=\\\'%23f3f4f6\\\'/%3E%3Ctext x=\\\'50%25\\\' y=\\\'50%25\\\' dominant-baseline=\\\'middle\\\' text-anchor=\\\'middle\\\' fill=\\\'%239ca3af\\\' font-family=\\\'sans-serif\\\' font-size=\\\'16\\\' font-weight=\\\'bold\\\'%3EImagem do Banner Indisponível%3C/text%3E%3C/svg%3E';" style="max-width: 100%; max-height: ${pHeight}; object-fit: contain; display: block; margin: 0 auto; border-radius: 8px;">
         </a>
       </div>
     `;

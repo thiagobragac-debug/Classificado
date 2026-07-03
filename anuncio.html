@@ -6,6 +6,7 @@
   <title>Trator Massey Ferguson 2018 — Tauze Class</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2316A34A'/%3E%3Ctext y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'%3ET%3C/text%3E%3C/svg%3E">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
   
@@ -113,11 +114,69 @@
     </div>
   </main>
 
-  <script src="js/main.js"></script>
+  <script src="/js/supabase.js"></script>
+  <script src="/js/main.js"></script>
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
       if (typeof renderAdBanner === 'function') {
         renderAdBanner('anuncio_sidebar', 'banner-anuncio-sidebar');
+      }
+
+      // Load real ad data from DB if ?id= param exists
+      const params = new URLSearchParams(window.location.search);
+      const adId = params.get('id');
+      if (!adId) return; // fallback to static mock for demo
+
+      try {
+        const ad = await getAdById(adId);
+        if (!ad) return;
+
+        // Update page title
+        document.title = (ad.title_pt || 'Anúncio') + ' — Tauze Class';
+
+        // Update main image
+        const mainImg = document.getElementById('ad-main-img');
+        if (mainImg && ad.images && ad.images.length > 0) mainImg.src = ad.images[0];
+
+        // Update title
+        const titleEl = document.getElementById('ad-title');
+        if (titleEl) titleEl.textContent = ad.title_pt;
+
+        // Update price
+        const priceEl = document.getElementById('ad-price');
+        if (priceEl) priceEl.textContent = ad.negotiable ? 'A negociar' :
+          new Intl.NumberFormat('pt-BR', { style: 'currency', currency: ad.currency || 'BRL' }).format(ad.price);
+
+        // Update description
+        const descEl = document.getElementById('ad-desc');
+        if (descEl) descEl.textContent = ad.description || '';
+
+        // Update location
+        const locEl = document.getElementById('ad-location');
+        if (locEl) locEl.textContent = [ad.city, ad.state, ad.country].filter(Boolean).join(', ');
+
+        // Update views
+        const viewsEl = document.getElementById('ad-views');
+        if (viewsEl) viewsEl.textContent = ad.views_count + ' visualizações';
+
+        // Update WhatsApp button
+        const waBtn = document.getElementById('btn-whatsapp');
+        if (waBtn && ad.profiles?.phone_whatsapp) {
+          const msg = encodeURIComponent('Olá! Vi seu anúncio no Tauze Class: ' + ad.title_pt);
+          waBtn.href = 'https://wa.me/' + ad.profiles.phone_whatsapp.replace(/\D/g,'') + '?text=' + msg;
+        }
+
+        // Favorite button
+        const favBtn = document.getElementById('btn-favorite');
+        if (favBtn) {
+          favBtn.addEventListener('click', async () => {
+            const added = await toggleFavorite(adId);
+            favBtn.textContent = added ? '❤️ Salvo' : '🤍 Salvar';
+          });
+        }
+
+      } catch(e) {
+        console.warn('Erro ao carregar anúncio do banco:', e.message);
       }
     });
   </script>

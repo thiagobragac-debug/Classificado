@@ -3,204 +3,442 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Criar Conta — Tauze Class</title>
-  <link rel="stylesheet" href="css/style.css?v=7">
+  <title>Entrar — Tauze Class</title>
+  <link rel="stylesheet" href="css/style.css">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2316A34A'/%3E%3Ctext y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'%3ET%3C/text%3E%3C/svg%3E">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      background: #0A0F0D;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Inter', system-ui, sans-serif;
+      padding: 1rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Animated background */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background: radial-gradient(ellipse 80% 60% at 20% 20%, rgba(22,163,74,.12) 0%, transparent 60%),
+                  radial-gradient(ellipse 60% 50% at 80% 80%, rgba(21,128,61,.08) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .auth-card {
+      width: 100%;
+      max-width: 460px;
+      background: rgba(15, 23, 18, 0.85);
+      backdrop-filter: blur(24px);
+      border: 1px solid rgba(255,255,255,.07);
+      border-radius: 20px;
+      padding: 2.5rem 2rem;
+      box-shadow: 0 40px 80px rgba(0,0,0,.6);
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Logo */
+    .auth-logo {
+      display: flex; align-items: center; gap: .75rem;
+      margin-bottom: 2rem; justify-content: center;
+    }
+    .auth-logo-mark {
+      width: 44px; height: 44px; border-radius: 10px;
+      background: linear-gradient(135deg, #16A34A, #15803D);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 900; font-size: 1.1rem; color: #fff;
+      box-shadow: 0 4px 16px rgba(22,163,74,.4);
+    }
+    .auth-logo-text .name { font-size: 1.3rem; font-weight: 800; color: #fff; display: block; }
+    .auth-logo-text .tagline { font-size: .75rem; color: rgba(255,255,255,.4); }
+
+    /* Tabs */
+    .auth-tabs {
+      display: flex; gap: 0;
+      background: rgba(255,255,255,.04);
+      border-radius: 10px; padding: 4px;
+      margin-bottom: 2rem;
+    }
+    .auth-tab {
+      flex: 1; padding: .6rem 1rem; border-radius: 7px;
+      font-size: .9rem; font-weight: 600; cursor: pointer;
+      border: none; background: transparent;
+      color: rgba(255,255,255,.4); transition: all .2s;
+    }
+    .auth-tab.active {
+      background: rgba(22,163,74,.2);
+      color: #4ADE80;
+      box-shadow: 0 2px 8px rgba(22,163,74,.2);
+    }
+
+    /* Panels */
+    .auth-panel { display: none; }
+    .auth-panel.active { display: block; animation: fadeUp .3s ease; }
+    @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+
+    /* Fields */
+    .field { margin-bottom: 1.1rem; }
+    .field label {
+      display: block; font-size: .82rem; font-weight: 600;
+      color: rgba(255,255,255,.6); margin-bottom: .4rem;
+    }
+    .field input {
+      width: 100%; padding: .75rem 1rem;
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 10px; color: #fff;
+      font-size: .95rem; font-family: inherit;
+      transition: border .2s, box-shadow .2s;
+    }
+    .field input:focus {
+      outline: none;
+      border-color: rgba(22,163,74,.6);
+      box-shadow: 0 0 0 3px rgba(22,163,74,.15);
+    }
+    .field input::placeholder { color: rgba(255,255,255,.2); }
+
+    /* Btn */
+    .btn-auth {
+      width: 100%; padding: .85rem;
+      background: linear-gradient(135deg, #16A34A, #15803D);
+      border: none; border-radius: 10px;
+      color: #fff; font-size: 1rem; font-weight: 700;
+      cursor: pointer; transition: all .2s;
+      display: flex; align-items: center; justify-content: center; gap: .5rem;
+      box-shadow: 0 4px 20px rgba(22,163,74,.35);
+      margin-top: 1.5rem;
+    }
+    .btn-auth:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 8px 28px rgba(22,163,74,.4); }
+    .btn-auth:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+
+    /* Google button */
+    .btn-google {
+      width: 100%; padding: .75rem;
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 10px; color: #fff;
+      font-size: .9rem; font-weight: 600;
+      cursor: pointer; transition: all .2s;
+      display: flex; align-items: center; justify-content: center; gap: .75rem;
+      margin-bottom: 1.25rem;
+    }
+    .btn-google:hover { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.2); }
+    .btn-google svg { width: 18px; height: 18px; flex-shrink: 0; }
+
+    /* Divider */
+    .divider {
+      display: flex; align-items: center; gap: .75rem;
+      margin-bottom: 1.25rem;
+    }
+    .divider::before, .divider::after {
+      content: ''; flex: 1; height: 1px;
+      background: rgba(255,255,255,.08);
+    }
+    .divider span { font-size: .78rem; color: rgba(255,255,255,.3); white-space: nowrap; }
+
+    /* Alert */
+    .alert {
+      padding: .75rem 1rem; border-radius: 8px;
+      font-size: .85rem; font-weight: 500;
+      margin-bottom: 1rem; display: none;
+      animation: fadeUp .2s ease;
+    }
+    .alert.error   { background: rgba(239,68,68,.12); color: #FCA5A5; border: 1px solid rgba(239,68,68,.25); display: flex; gap: .5rem; align-items: flex-start; }
+    .alert.success { background: rgba(16,185,129,.12); color: #6EE7B7; border: 1px solid rgba(16,185,129,.25); display: flex; gap: .5rem; align-items: flex-start; }
+
+    /* Forgot link */
+    .forgot-link {
+      font-size: .8rem; color: rgba(22,163,74,.8);
+      text-decoration: none; float: right; margin-top: .3rem;
+      cursor: pointer; background: none; border: none; padding: 0;
+      font-family: inherit;
+    }
+    .forgot-link:hover { color: #4ADE80; }
+
+    /* Spinner */
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      display: none;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Verify box */
+    .verify-box {
+      text-align: center; padding: 2rem 1rem; display: none;
+    }
+    .verify-box .icon { font-size: 3rem; margin-bottom: 1rem; }
+    .verify-box h3 { color: #fff; font-size: 1.2rem; margin-bottom: .5rem; }
+    .verify-box p { color: rgba(255,255,255,.5); font-size: .9rem; line-height: 1.5; }
+
+    /* Password strength */
+    .pwd-strength { margin-top: .4rem; display: flex; gap: 4px; height: 3px; }
+    .pwd-bar { flex: 1; border-radius: 2px; background: rgba(255,255,255,.08); transition: background .3s; }
+
+    /* Back link */
+    .back-link {
+      display: block; text-align: center; margin-top: 1.5rem;
+      font-size: .82rem; color: rgba(255,255,255,.3);
+    }
+    .back-link a { color: rgba(22,163,74,.8); text-decoration: none; }
+    .back-link a:hover { color: #4ADE80; }
+  </style>
 </head>
-<body style="background: white">
-  
-  <main class="login-split v2">
-    <!-- Left Banner -->
-    <div class="login-banner">
-      <a href="index.html" class="logo" style="margin-bottom: 3rem; filter: brightness(0) invert(1);">
-        <div class="logo-mark" style="background: var(--clr-primary); color: white; border-color: white;">TC</div>
-        <div class="logo-text">
-          <span class="logo-name" style="font-size: 1.4rem;">Tauze Class</span>
-          <span class="logo-tagline" style="color: rgba(255,255,255,0.7);">CLASSIFICADOS AGRO</span>
-        </div>
-      </a>
+<body>
 
-      <h2>O agronegócio do <br><span data-i18n="login_mercosul" style="color: #F59E0B;">Mercosul</span><br> em um só lugar.</h2>
-      <p>Anuncie gratuitamente para milhares de compradores no Brasil, Argentina, Paraguai e Uruguai.</p>
-      
-      <div class="login-badges">
-        <span class="badge"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> Gratuito para anunciar</span>
-        <span class="badge"><span style="font-size:14px">🌎</span> Mercosul completo</span>
-        <span class="badge"><span style="font-size:14px">🐄</span> 62.000+ anúncios</span>
-        <span class="badge"><span style="font-size:14px">🛡️</span> Vendedores verificados</span>
+  <div class="auth-card">
+
+    <!-- Logo -->
+    <div class="auth-logo">
+      <div class="auth-logo-mark">TC</div>
+      <div class="auth-logo-text">
+        <span class="name">Tauze Class</span>
+        <span class="tagline">Classificados do Agronegócio</span>
       </div>
     </div>
 
-    <!-- Right Form -->
-    <div class="login-form-area">
-      <div style="max-width: 480px; width: 100%; margin: 0 auto;">
-        
-        <div class="login-header">
-          <h1>Criar conta grátis</h1>
-          <p>Junte-se a 18.000+ vendedores no Mercosul.</p>
-        </div>
-
-        <div class="auth-toggle">
-          <button class="toggle-btn" onclick="toggleAuth('login')" id="btn-toggle-login">Entrar</button>
-          <button class="toggle-btn active" onclick="toggleAuth('register')" id="btn-toggle-register">Criar Conta</button>
-        </div>
-
-        <div class="social-login">
-          <button class="btn-social">
-            <svg width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-            Continuar com Google
-          </button>
-          <button class="btn-social">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="#25D366" xmlns="http://www.w3.org/2000/svg"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.125.553 4.122 1.523 5.855L.057 23.268a.5.5 0 0 0 .618.635l5.579-1.461A11.942 11.942 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.75c-1.924 0-3.72-.523-5.256-1.43l-.377-.224-3.914 1.025 1.044-3.81-.246-.393A9.716 9.716 0 0 1 2.25 12C2.25 6.615 6.615 2.25 12 2.25S21.75 6.615 21.75 12 17.385 21.75 12 21.75z"/></svg>
-            Continuar com WhatsApp
-          </button>
-        </div>
-
-        <div class="divider">
-          <span>OU</span>
-        </div>
-
-        <!-- FORMULÁRIO REGISTRO -->
-        <div id="register-form">
-          <form onsubmit="event.preventDefault(); window.location.href='painel.html'">
-            <div class="form-grid" style="margin-bottom: 1rem">
-              <div class="form-group">
-                <label class="form-label">NOME</label>
-                <div class="input-with-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                  <input type="text" class="form-input" placeholder="João" oninput="validateInput(this)" required>
-                </div>
-              </div>
-              <div class="form-group">
-                <label class="form-label">SOBRENOME</label>
-                <input type="text" class="form-input" placeholder="Silva" oninput="validateInput(this)" required>
-              </div>
-            </div>
-            
-            <div class="form-group" style="margin-bottom: 1rem">
-              <label class="form-label">E-MAIL</label>
-              <div class="input-with-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
-                <input type="email" class="form-input" placeholder="seu@email.com" oninput="validateInput(this)" required>
-              </div>
-            </div>
-
-            <div class="form-grid" style="margin-bottom: 2rem">
-              <div class="form-group">
-                <label class="form-label">WHATSAPP</label>
-                <div class="input-with-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
-                  <input type="text" class="form-input" placeholder="+55 (65) 99999-9999" oninput="maskWhatsApp(this)" required>
-                </div>
-              </div>
-
-              <div class="form-group">
-                <label class="form-label">PAÍS</label>
-                <select class="form-input" required>
-                  <option value="BR">🇧🇷 Brasil</option>
-                  <option value="AR">🇦🇷 Argentina</option>
-                  <option value="PY">🇵🇾 Paraguai</option>
-                  <option value="UY">🇺🇾 Uruguai</option>
-                </select>
-              </div>
-            </div>
-
-            <button type="submit" class="btn btn--accent btn--lg" style="width: 100%; justify-content: center;">Finalizar Cadastro</button>
-          </form>
-        </div>
-
-        <!-- FORMULÁRIO LOGIN -->
-        <div id="login-form" style="display: none;">
-          <form onsubmit="event.preventDefault(); window.location.href='painel.html'">
-            <div class="form-group" style="margin-bottom: 1rem">
-              <label class="form-label">E-MAIL</label>
-              <div class="input-with-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
-                <input type="email" class="form-input" placeholder="seu@email.com" oninput="validateInput(this)" required>
-              </div>
-            </div>
-            <div class="form-group" style="margin-bottom: 2rem">
-              <label class="form-label">SENHA</label>
-              <div class="input-with-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                <input type="password" class="form-input" placeholder="••••••••" oninput="validateInput(this)" required>
-                <svg class="toggle-password" onclick="togglePassword(this)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-              </div>
-              <div style="text-align: right; margin-top: 0.5rem;">
-                <a href="#" style="color: var(--clr-primary); font-size: 0.85rem; font-weight: 600; text-decoration: none;">Esqueceu a senha?</a>
-              </div>
-            </div>
-
-            <button type="submit" class="btn btn--accent btn--lg" style="width: 100%; justify-content: center;">Entrar na Conta</button>
-          </form>
-        </div>
-
-      </div>
+    <!-- Tabs -->
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchTab('login')">Entrar</button>
+      <button class="auth-tab" onclick="switchTab('cadastro')">Criar Conta</button>
     </div>
-  </main>
 
+    <!-- ── LOGIN PANEL ── -->
+    <div class="auth-panel active" id="panel-login">
+
+      <!-- Google -->
+      <button class="btn-google" onclick="handleGoogle()">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+        </svg>
+        Continuar com Google
+      </button>
+
+      <div class="divider"><span>ou continue com e-mail</span></div>
+
+      <div id="alert-login" class="alert error"></div>
+
+      <form id="form-login" onsubmit="handleLogin(event)">
+        <div class="field">
+          <label>E-mail</label>
+          <input type="email" id="login-email" placeholder="seu@email.com" required autocomplete="email">
+        </div>
+        <div class="field">
+          <label>
+            Senha
+            <button type="button" class="forgot-link" onclick="handleForgot()">Esqueceu a senha?</button>
+          </label>
+          <input type="password" id="login-password" placeholder="••••••••" required autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn-auth" id="btn-login">
+          <div class="spinner" id="spin-login"></div>
+          <span id="btn-login-txt">Entrar na conta</span>
+        </button>
+      </form>
+
+    </div>
+
+    <!-- ── CADASTRO PANEL ── -->
+    <div class="auth-panel" id="panel-cadastro">
+
+      <div id="verify-box" class="verify-box">
+        <div class="icon">📬</div>
+        <h3>Verifique seu e-mail!</h3>
+        <p>Enviamos um link de confirmação. Clique nele para ativar sua conta e começar a anunciar.</p>
+        <button class="btn-auth" style="max-width:220px;margin:1.5rem auto 0" onclick="switchTab('login')">Ir para o Login</button>
+      </div>
+
+      <div id="form-cadastro-wrap">
+        <button class="btn-google" onclick="handleGoogle()">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+          </svg>
+          Cadastrar com Google
+        </button>
+
+        <div class="divider"><span>ou crie com e-mail</span></div>
+
+        <div id="alert-cadastro" class="alert error"></div>
+
+        <form id="form-cadastro" onsubmit="handleSignup(event)">
+          <div class="field">
+            <label>Nome completo</label>
+            <input type="text" id="cad-name" placeholder="João da Silva" required autocomplete="name">
+          </div>
+          <div class="field">
+            <label>E-mail</label>
+            <input type="email" id="cad-email" placeholder="seu@email.com" required autocomplete="email">
+          </div>
+          <div class="field">
+            <label>Senha</label>
+            <input type="password" id="cad-password" placeholder="Mínimo 8 caracteres" required minlength="8" oninput="checkStrength(this.value)">
+            <div class="pwd-strength">
+              <div class="pwd-bar" id="s1"></div>
+              <div class="pwd-bar" id="s2"></div>
+              <div class="pwd-bar" id="s3"></div>
+              <div class="pwd-bar" id="s4"></div>
+            </div>
+          </div>
+          <div class="field">
+            <label>Confirmar senha</label>
+            <input type="password" id="cad-confirm" placeholder="Repita a senha" required>
+          </div>
+          <button type="submit" class="btn-auth" id="btn-cadastro">
+            <div class="spinner" id="spin-cadastro"></div>
+            <span id="btn-cadastro-txt">Criar conta grátis</span>
+          </button>
+        </form>
+      </div>
+
+    </div>
+
+    <!-- Back link -->
+    <p class="back-link"><a href="index.html">← Voltar para o portal</a></p>
+
+  </div>
+
+  <script src="/js/supabase.js"></script>
+  <script src="/js/main.js"></script>
   <script>
-    function toggleAuth(type) {
-      const btnLogin = document.getElementById('btn-toggle-login');
-      const btnRegister = document.getElementById('btn-toggle-register');
-      const formLogin = document.getElementById('login-form');
-      const formRegister = document.getElementById('register-form');
-      const title = document.querySelector('.login-header h1');
-      const sub = document.querySelector('.login-header p');
+    // ─── REDIRECT IF ALREADY LOGGED IN ────────────────────────
+    (async function checkExistingSession() {
+      try {
+        const session = await getSession();
+        if (session) window.location.replace('/painel.html');
+      } catch(e) { /* ignore */ }
+    })();
 
-      if (type === 'login') {
-        btnLogin.classList.add('active');
-        btnRegister.classList.remove('active');
-        formLogin.style.display = 'block';
-        formRegister.style.display = 'none';
-        title.textContent = 'Bem-vindo de volta';
-        sub.textContent = 'Insira seus dados para acessar sua conta.';
-        document.title = 'Entrar — Tauze Class';
-      } else {
-        btnRegister.classList.add('active');
-        btnLogin.classList.remove('active');
-        formRegister.style.display = 'block';
-        formLogin.style.display = 'none';
-        title.textContent = 'Criar conta grátis';
-        sub.textContent = 'Junte-se a 18.000+ vendedores no Mercosul.';
-        document.title = 'Criar Conta — Tauze Class';
+    // ─── TAB SWITCHER ──────────────────────────────────────────
+    function switchTab(tab) {
+      document.querySelectorAll('.auth-tab').forEach((t, i) =>
+        t.classList.toggle('active', (i === 0) === (tab === 'login'))
+      );
+      document.getElementById('panel-login').classList.toggle('active', tab === 'login');
+      document.getElementById('panel-cadastro').classList.toggle('active', tab === 'cadastro');
+      clearAlerts();
+    }
+
+    function clearAlerts() {
+      document.getElementById('alert-login').style.display = 'none';
+      document.getElementById('alert-cadastro').style.display = 'none';
+    }
+
+    function showAlert(id, msg, type = 'error') {
+      const el = document.getElementById(id);
+      el.textContent = (type === 'error' ? '⚠ ' : '✓ ') + msg;
+      el.className = 'alert ' + type;
+      el.style.display = 'flex';
+    }
+
+    function setLoading(btnId, spinId, txtId, loading) {
+      document.getElementById(btnId).disabled = loading;
+      document.getElementById(spinId).style.display = loading ? 'block' : 'none';
+      document.getElementById(txtId).style.display = loading ? 'none' : 'inline';
+    }
+
+    // ─── LOGIN ────────────────────────────────────────────────
+    async function handleLogin(e) {
+      e.preventDefault();
+      const email = document.getElementById('login-email').value.trim();
+      const pass  = document.getElementById('login-password').value;
+      clearAlerts();
+      setLoading('btn-login', 'spin-login', 'btn-login-txt', true);
+      try {
+        await loginWithEmail(email, pass);
+        window.location.href = '/painel.html';
+      } catch(err) {
+        const msg = err.message?.includes('Invalid login') ? 'E-mail ou senha incorretos.' :
+                    err.message?.includes('Email not confirmed') ? 'Confirme seu e-mail antes de entrar.' :
+                    err.message || 'Erro ao entrar. Tente novamente.';
+        showAlert('alert-login', msg, 'error');
+        setLoading('btn-login', 'spin-login', 'btn-login-txt', false);
       }
     }
-    
-    function validateInput(input) {
-      if (input.validity.valid && input.value.trim() !== '') {
-        input.classList.add('valid');
-      } else {
-        input.classList.remove('valid');
+
+    // ─── SIGNUP ───────────────────────────────────────────────
+    async function handleSignup(e) {
+      e.preventDefault();
+      const name    = document.getElementById('cad-name').value.trim();
+      const email   = document.getElementById('cad-email').value.trim();
+      const pass    = document.getElementById('cad-password').value;
+      const confirm = document.getElementById('cad-confirm').value;
+      clearAlerts();
+
+      if (pass !== confirm) {
+        showAlert('alert-cadastro', 'As senhas não coincidem.', 'error');
+        return;
+      }
+      if (pass.length < 8) {
+        showAlert('alert-cadastro', 'A senha deve ter pelo menos 8 caracteres.', 'error');
+        return;
+      }
+
+      setLoading('btn-cadastro', 'spin-cadastro', 'btn-cadastro-txt', true);
+      try {
+        await signupWithEmail(email, pass, name);
+        document.getElementById('form-cadastro-wrap').style.display = 'none';
+        document.getElementById('verify-box').style.display = 'block';
+      } catch(err) {
+        const msg = err.message?.includes('already registered') ? 'Este e-mail já está cadastrado. Tente entrar.' :
+                    err.message || 'Erro ao criar conta. Tente novamente.';
+        showAlert('alert-cadastro', msg, 'error');
+        setLoading('btn-cadastro', 'spin-cadastro', 'btn-cadastro-txt', false);
       }
     }
 
-    function maskWhatsApp(input) {
-      let v = input.value.replace(/\D/g, "");
-      if (v.length > 2) v = "(" + v.substring(0, 2) + ") " + v.substring(2);
-      if (v.length > 10) v = v.substring(0, 10) + "-" + v.substring(10, 14);
-      input.value = "+55 " + v;
-      validateInput(input);
-    }
-
-    function togglePassword(btn) {
-      const input = btn.previousElementSibling;
-      if (input.type === 'password') {
-        input.type = 'text';
-        btn.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>';
-      } else {
-        input.type = 'password';
-        btn.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
+    // ─── GOOGLE ───────────────────────────────────────────────
+    async function handleGoogle() {
+      try {
+        await loginWithGoogle();
+      } catch(err) {
+        showAlert('alert-login', err.message || 'Erro ao conectar com Google.', 'error');
       }
     }
 
-    // Check URL params for mode
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('mode') === 'register') {
-      toggleAuth('register');
+    // ─── FORGOT PASSWORD ──────────────────────────────────────
+    async function handleForgot() {
+      const email = document.getElementById('login-email').value.trim();
+      if (!email) {
+        showAlert('alert-login', 'Digite seu e-mail acima antes de solicitar a redefinição.', 'error');
+        return;
+      }
+      try {
+        await resetPassword(email);
+        showAlert('alert-login', 'Link de redefinição enviado! Verifique sua caixa de entrada.', 'success');
+      } catch(err) {
+        showAlert('alert-login', err.message || 'Erro ao enviar o e-mail.', 'error');
+      }
+    }
+
+    // ─── PASSWORD STRENGTH ────────────────────────────────────
+    function checkStrength(val) {
+      const bars = ['s1','s2','s3','s4'];
+      const colors = ['#EF4444','#F59E0B','#3B82F6','#22C55E'];
+      let score = 0;
+      if (val.length >= 8) score++;
+      if (/[A-Z]/.test(val)) score++;
+      if (/[0-9]/.test(val)) score++;
+      if (/[^A-Za-z0-9]/.test(val)) score++;
+      bars.forEach((id, i) => {
+        document.getElementById(id).style.background = i < score ? colors[score - 1] : 'rgba(255,255,255,.08)';
+      });
     }
   </script>
-  <script src="js/data.js"></script>
-  <script src="js/main.js"></script>
 </body>
 </html>

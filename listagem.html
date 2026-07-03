@@ -254,15 +254,60 @@
   Filtros
 </button>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/supabase.js"></script>
 <script src="js/data.js"></script>
 <script src="js/main.js"></script>
 <script src="js/filters.js"></script>
 <script>
-  document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('DOMContentLoaded', async () => {
     if (typeof renderAdBanner === 'function') {
       renderAdBanner('listagem_sidebar', 'banner-listagem-sidebar');
+    }
+
+    // Try to load real ads from Supabase
+    const grid = document.getElementById('ads-grid');
+    if (!grid) return;
+
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const category = params.get('cat') || undefined;
+      const country  = params.get('pais') || undefined;
+      const search   = params.get('q') || undefined;
+
+      const { ads } = await getAds({ category, country, search, limit: 24 });
+
+      if (ads && ads.length > 0) {
+        grid.innerHTML = ads.map(ad => {
+          const img   = ad.images && ad.images[0] ? ad.images[0] : 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=400&q=70';
+          const price = ad.negotiable ? 'A negociar' :
+            new Intl.NumberFormat('pt-BR', { style: 'currency', currency: ad.currency || 'BRL' }).format(ad.price || 0);
+          const loc   = [ad.city, ad.state].filter(Boolean).join(', ') || ad.country || '';
+          return `
+            <a href="/anuncio.html?id=${ad.id}" class="ad-card">
+              <div class="ad-card-img-wrap">
+                <img src="${img}" alt="${ad.title_pt}" loading="lazy" class="ad-card-img" onerror="this.src='https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=400&q=70'">
+                ${ad.featured ? '<span class="badge-featured">★ Destaque</span>' : ''}
+              </div>
+              <div class="ad-card-body">
+                <p class="ad-card-cat">${ad.category_id || ''}</p>
+                <h3 class="ad-card-title">${ad.title_pt}</h3>
+                <p class="ad-card-price">${price}</p>
+                <div class="ad-card-meta">
+                  <span>${loc}</span>
+                  <span>${ad.views_count || 0} views</span>
+                </div>
+              </div>
+            </a>
+          `;
+        }).join('');
+      }
+    } catch(e) {
+      console.warn('Usando dados mock (Supabase indisponível):', e.message);
+      // Falls back to static mock data rendered by filters.js
     }
   });
 </script>
 </body>
 </html>
+
