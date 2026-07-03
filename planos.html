@@ -4,32 +4,201 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Planos e Preços — Tauze Class</title>
+  <meta name="description" content="Escolha o plano ideal para vender no maior classificado agro do Mercosul. Grátis, Pro e Premium com pagamento via Stripe ou Mercado Pago.">
   <link rel="stylesheet" href="css/style.css">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2316A34A'/%3E%3Ctext y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'%3ET%3C/text%3E%3C/svg%3E">
-  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
-    .pricing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; max-width: 1100px; margin: 0 auto; margin-top: -3rem; position: relative; z-index: 2; padding-bottom: 5rem; }
-    .pricing-card { background: white; border-radius: 1.5rem; padding: 2.5rem; box-shadow: 0 10px 40px rgba(0,0,0,0.05); display: flex; flex-direction: column; position: relative; border: 1px solid rgba(0,0,0,0.05); transition: transform 0.3s, box-shadow 0.3s; }
-    .pricing-card:hover { transform: translateY(-5px); box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
-    .pricing-card.popular { border: 2px solid var(--clr-primary); transform: scale(1.05); box-shadow: 0 20px 40px rgba(22, 163, 74, 0.15); z-index: 10; }
-    .pricing-card.popular:hover { transform: scale(1.05) translateY(-5px); }
-    
-    .popular-badge { position: absolute; top: -15px; left: 50%; transform: translateX(-50%); background: var(--clr-primary); color: white; padding: 0.4rem 1.2rem; border-radius: 2rem; font-weight: 800; font-size: 0.85rem; letter-spacing: 1px; text-transform: uppercase; box-shadow: 0 4px 10px rgba(22, 163, 74, 0.3); }
-    
-    .plan-name { font-size: 1.4rem; font-weight: 800; color: var(--clr-text); margin-bottom: 0.5rem; }
-    .plan-desc { color: var(--clr-text-light); font-size: 0.95rem; margin-bottom: 2rem; min-height: 40px; }
-    .plan-price { font-size: 3rem; font-weight: 800; color: var(--clr-text); display: flex; align-items: flex-end; gap: 0.2rem; margin-bottom: 2rem; }
-    .plan-price span { font-size: 1rem; color: var(--clr-text-light); font-weight: 600; margin-bottom: 0.5rem; }
-    
+    :root {
+      --glass-bg: rgba(255,255,255,0.04);
+      --glass-border: rgba(255,255,255,0.10);
+      --card-shadow: 0 24px 64px rgba(0,0,0,0.40);
+      --pro-glow: rgba(16,163,74,0.35);
+      --premium-glow: rgba(245,158,11,0.30);
+    }
+    body { background: #0d1117 !important; color: #e6edf3 !important; }
+
+    .pricing-hero {
+      position: relative; padding: 7rem 0 10rem; text-align: center; overflow: hidden;
+    }
+    .pricing-hero::before {
+      content: ''; position: absolute; inset: 0;
+      background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(16,163,74,0.18) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .pricing-hero h1 {
+      font-size: clamp(2.2rem, 5vw, 3.8rem); font-weight: 900; color: #fff;
+      letter-spacing: -0.03em; line-height: 1.1; margin-bottom: 1rem;
+    }
+    .pricing-hero h1 span {
+      background: linear-gradient(135deg, #22c55e, #10b981);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .pricing-hero p { font-size: 1.15rem; color: #8b949e; max-width: 520px; margin: 0 auto; font-weight: 500; }
+    .hero-badges { display: flex; justify-content: center; gap: 1rem; margin-top: 2rem; flex-wrap: wrap; }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.10);
+      padding: 0.4rem 0.9rem; border-radius: 2rem; font-size: 0.82rem; color: #8b949e; font-weight: 500;
+    }
+    .hb-check { color: #22c55e; font-weight: 900; }
+
+    .pricing-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5rem; max-width: 1080px; margin: -6rem auto 0;
+      position: relative; z-index: 10; padding: 0 1.5rem 5rem;
+    }
+
+    .pricing-card {
+      background: var(--glass-bg); border: 1px solid var(--glass-border);
+      border-radius: 1.5rem; padding: 2.5rem; display: flex; flex-direction: column;
+      position: relative; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+      box-shadow: var(--card-shadow);
+    }
+    .pricing-card:hover { transform: translateY(-6px); border-color: rgba(255,255,255,0.18); }
+    .pricing-card.popular {
+      border-color: rgba(34,197,94,0.45); background: rgba(34,197,94,0.05);
+      box-shadow: var(--card-shadow), 0 0 60px var(--pro-glow); transform: scale(1.04);
+    }
+    .pricing-card.popular:hover { transform: scale(1.04) translateY(-6px); box-shadow: var(--card-shadow), 0 0 80px var(--pro-glow); }
+    .pricing-card.premium-card {
+      background: rgba(245,158,11,0.04); border-color: rgba(245,158,11,0.30);
+      box-shadow: var(--card-shadow), 0 0 50px var(--premium-glow);
+    }
+    .pricing-card.premium-card:hover { box-shadow: var(--card-shadow), 0 0 70px var(--premium-glow); }
+
+    .popular-badge, .current-badge {
+      position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+      color: #fff; padding: 0.35rem 1.2rem; border-radius: 2rem;
+      font-weight: 800; font-size: 0.75rem; letter-spacing: 1.5px;
+      text-transform: uppercase; white-space: nowrap;
+    }
+    .popular-badge { background: linear-gradient(135deg, #22c55e, #10b981); box-shadow: 0 4px 20px rgba(34,197,94,0.5); }
+    .current-badge { background: linear-gradient(135deg, #3b82f6, #6366f1); box-shadow: 0 4px 20px rgba(59,130,246,0.5); }
+
+    .plan-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 1.2rem; font-size: 1.6rem; }
+    .plan-icon.free-icon { background: rgba(99,102,241,0.15); }
+    .plan-icon.pro-icon  { background: rgba(34,197,94,0.15); }
+    .plan-icon.prem-icon { background: rgba(245,158,11,0.15); }
+    .plan-name { font-size: 1.35rem; font-weight: 800; color: #fff; margin-bottom: 0.35rem; }
+    .plan-desc { color: #8b949e; font-size: 0.9rem; margin-bottom: 1.8rem; min-height: 38px; line-height: 1.5; font-weight: 500; }
+
+    .plan-price { display: flex; align-items: flex-end; gap: 0.25rem; margin-bottom: 2rem; }
+    .plan-price .currency { font-size: 1.1rem; font-weight: 700; color: #8b949e; margin-bottom: 0.5rem; }
+    .plan-price .amount { font-size: 3.2rem; font-weight: 900; color: #fff; line-height: 1; letter-spacing: -0.04em; }
+    .plan-price.free-price .amount { font-size: 2.2rem; color: #818cf8; }
+    .plan-price.pro-price .amount { color: #22c55e; }
+    .plan-price.prem-price .amount {
+      background: linear-gradient(135deg, #f59e0b, #f97316);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .plan-price .period { font-size: 0.9rem; font-weight: 600; color: #8b949e; margin-bottom: 0.7rem; }
+
     .plan-features { list-style: none; padding: 0; margin: 0 0 2rem 0; flex: 1; }
-    .plan-features li { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1rem; color: var(--clr-text); font-weight: 500; font-size: 0.95rem; }
-    .plan-features svg { color: var(--clr-primary); width: 20px; height: 20px; flex-shrink: 0; }
-    .plan-features .disabled { color: #9CA3AF; text-decoration: line-through; }
-    .plan-features .disabled svg { color: #9CA3AF; }
-    
+    .plan-features li {
+      display: flex; align-items: center; gap: 0.75rem; padding: 0.55rem 0;
+      font-size: 0.92rem; font-weight: 500; color: #c9d1d9;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .plan-features li:last-child { border-bottom: none; }
+    .plan-features li.disabled { color: #484f58; }
+    .feat-check {
+      width: 20px; height: 20px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      font-size: 0.75rem; font-weight: 900;
+    }
+    .feat-check.yes  { background: rgba(34,197,94,0.15);  color: #22c55e; }
+    .feat-check.no   { background: rgba(255,255,255,0.04); color: #484f58; }
+    .feat-check.gold { background: rgba(245,158,11,0.15);  color: #f59e0b; }
+
+    .gateway-toggle { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    .gateway-toggle > label { font-size: 0.75rem; color: #8b949e; font-weight: 500; margin-right: 0.25rem; }
+    .gateway-toggle input[type="radio"] { display: none; }
+    .gw-option {
+      display: inline-flex; align-items: center; gap: 0.3rem; cursor: pointer;
+      font-size: 0.78rem; font-weight: 600; color: #8b949e; padding: 0.25rem 0.65rem;
+      border-radius: 0.5rem; border: 1px solid rgba(255,255,255,0.08); transition: all 0.2s; user-select: none;
+    }
+    .gateway-toggle input:checked + .gw-option { color: #22c55e; border-color: rgba(34,197,94,0.40); background: rgba(34,197,94,0.08); }
+    .gw-option:hover { border-color: rgba(255,255,255,0.18); }
+
+    .btn-plan {
+      display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+      padding: 0.85rem 1.5rem; border-radius: 0.75rem; font-size: 0.95rem;
+      font-weight: 700; border: none; cursor: pointer; transition: all 0.25s ease;
+      text-decoration: none; width: 100%; letter-spacing: 0.01em; font-family: inherit;
+    }
+    .btn-plan:disabled { opacity: 0.65; cursor: not-allowed; }
+    .btn-plan.btn-free { background: rgba(99,102,241,0.12); color: #818cf8; border: 1px solid rgba(99,102,241,0.30); }
+    .btn-plan.btn-free:hover:not(:disabled) { background: rgba(99,102,241,0.22); border-color: rgba(99,102,241,0.50); }
+    .btn-plan.btn-pro { background: linear-gradient(135deg, #22c55e, #10b981); color: #fff; box-shadow: 0 8px 28px rgba(34,197,94,0.35); }
+    .btn-plan.btn-pro:hover:not(:disabled) { box-shadow: 0 12px 36px rgba(34,197,94,0.50); transform: translateY(-1px); }
+    .btn-plan.btn-premium { background: linear-gradient(135deg, #f59e0b, #f97316); color: #fff; box-shadow: 0 8px 28px rgba(245,158,11,0.35); }
+    .btn-plan.btn-premium:hover:not(:disabled) { box-shadow: 0 12px 36px rgba(245,158,11,0.50); transform: translateY(-1px); }
+    .btn-plan.btn-current { background: rgba(255,255,255,0.06); color: #8b949e; border: 1px solid rgba(255,255,255,0.10); cursor: default; }
+    .btn-plan.btn-downgrade { background: transparent; color: #ef4444; border: 1px solid rgba(239,68,68,0.30); }
+    .btn-plan.btn-downgrade:hover:not(:disabled) { background: rgba(239,68,68,0.08); }
+    .spin { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .trust-bar { display: flex; justify-content: center; align-items: center; gap: 2.5rem; padding: 2rem 1.5rem; border-top: 1px solid rgba(255,255,255,0.06); flex-wrap: wrap; max-width: 1080px; margin: 0 auto 4rem; }
+    .trust-bar-item { display: flex; align-items: center; gap: 0.5rem; color: #8b949e; font-size: 0.85rem; font-weight: 500; }
+    .tbi-icon { color: #22c55e; font-size: 1rem; }
+
+    .compare-section { max-width: 1080px; margin: 0 auto 5rem; padding: 0 1.5rem; }
+    .compare-section h2 { text-align: center; font-size: 1.8rem; font-weight: 800; color: #fff; margin-bottom: 0.5rem; }
+    .compare-section .sub { text-align: center; color: #8b949e; font-size: 0.95rem; margin-bottom: 2.5rem; font-weight: 500; }
+    .compare-table { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 1.2rem; overflow: hidden; backdrop-filter: blur(20px); }
+    .compare-table th { padding: 1.1rem 1.5rem; text-align: center; font-size: 0.88rem; font-weight: 700; color: #8b949e; text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 1px solid var(--glass-border); background: rgba(255,255,255,0.03); }
+    .compare-table th:first-child { text-align: left; }
+    .compare-table th.th-pro { color: #22c55e; }
+    .compare-table th.th-prem { color: #f59e0b; }
+    .compare-table td { padding: 1rem 1.5rem; font-size: 0.9rem; color: #c9d1d9; font-weight: 500; border-bottom: 1px solid rgba(255,255,255,0.04); text-align: center; }
+    .compare-table td:first-child { text-align: left; }
+    .compare-table tr:last-child td { border-bottom: none; }
+    .compare-table tr:hover td { background: rgba(255,255,255,0.02); }
+    .feat-name { font-weight: 600; color: #e6edf3; }
+    .feat-desc { display: block; font-size: 0.78rem; color: #8b949e; font-weight: 400; margin-top: 1px; }
+    .tbl-check { color: #22c55e; }
+    .tbl-cross { color: #484f58; }
+    .tbl-gold  { color: #f59e0b; }
+    .tbl-pill { display: inline-block; padding: 0.2rem 0.65rem; border-radius: 2rem; font-size: 0.78rem; font-weight: 700; }
+    .pill-free     { background: rgba(99,102,241,0.12); color: #818cf8; }
+    .pill-pro      { background: rgba(34,197,94,0.12);  color: #22c55e; }
+    .pill-premium  { background: rgba(245,158,11,0.12); color: #f59e0b; }
+    .pill-unlimited{ background: rgba(34,197,94,0.12);  color: #22c55e; }
+
+    .faq-section { max-width: 680px; margin: 0 auto 5rem; padding: 0 1.5rem; }
+    .faq-section h2 { text-align: center; font-size: 1.6rem; font-weight: 800; color: #fff; margin-bottom: 2rem; }
+    .faq-item { border: 1px solid rgba(255,255,255,0.07); border-radius: 0.75rem; margin-bottom: 0.75rem; overflow: hidden; }
+    .faq-q { width: 100%; text-align: left; padding: 1rem 1.25rem; background: rgba(255,255,255,0.03); border: none; color: #e6edf3; font-size: 0.93rem; font-weight: 600; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; transition: background 0.2s; font-family: inherit; }
+    .faq-q:hover { background: rgba(255,255,255,0.06); }
+    .faq-arrow { font-size: 1.1rem; transition: transform 0.25s; color: #8b949e; flex-shrink: 0; }
+    .faq-item.open .faq-arrow { transform: rotate(180deg); }
+    .faq-a { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; background: rgba(255,255,255,0.02); }
+    .faq-item.open .faq-a { max-height: 200px; }
+    .faq-a p { padding: 0.75rem 1.25rem 1rem; color: #8b949e; font-size: 0.88rem; line-height: 1.65; margin: 0; }
+
+    .site-header { background: rgba(13,17,23,0.92) !important; border-bottom: 1px solid rgba(255,255,255,0.07) !important; }
+    .site-header .logo-name, .site-header .header-nav a { color: #e6edf3 !important; }
+    .site-header .header-nav a:hover, .site-header .header-nav a.active { color: #22c55e !important; }
+    .site-header .header-search input { background: rgba(255,255,255,0.06) !important; border-color: rgba(255,255,255,0.10) !important; color: #e6edf3 !important; }
+    .site-header .logo-tagline { color: #8b949e !important; }
+    .logo-mark { background: linear-gradient(135deg, #16a34a, #10b981) !important; }
+    .footer { background: rgba(0,0,0,0.5) !important; border-top: 1px solid rgba(255,255,255,0.06) !important; }
+    .footer p { color: #8b949e !important; }
+
     @media (max-width: 900px) {
       .pricing-card.popular { transform: none; }
-      .pricing-card.popular:hover { transform: translateY(-5px); }
+      .pricing-card.popular:hover { transform: translateY(-6px); }
+      .compare-table th, .compare-table td { padding: 0.8rem 0.9rem; font-size: 0.82rem; }
+    }
+    @media (max-width: 600px) {
+      .pricing-grid { grid-template-columns: 1fr; }
+      .pricing-hero { padding: 6rem 0 8rem; }
     }
   </style>
 </head>
@@ -44,23 +213,20 @@
           <span class="logo-tagline">Classificados Agro</span>
         </div>
       </a>
-      
       <div class="header-search" role="search">
         <span class="search-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         </span>
         <input type="search" id="header-search-input" placeholder="Buscar..." aria-label="Buscar anúncios">
       </div>
-
       <nav class="header-nav" role="navigation" aria-label="Menu principal">
         <a href="index.html">Início</a>
         <a href="pesquisa.html">Anúncios</a>
         <a href="index.html#categorias">Categorias</a>
         <a href="leiloes.html" class="nav-live"><span class="live-indicator"></span> Leilões</a>
         <a href="planos.html" class="active">Planos</a>
-        <a href="login.html">Entrar</a>
+        <a href="login.html" id="nav-auth-link">Entrar</a>
       </nav>
-
       <a href="anunciar.html" class="btn-anunciar-header">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         <span>Anunciar Grátis</span>
@@ -68,71 +234,218 @@
     </div>
   </header>
 
-  <!-- HEADER -->
-  <section class="page-header" style="padding-bottom: 8rem;">
-    <div class="container container--page">
-      <h1>Planos para Vendedores</h1>
-      <p>Escolha o plano ideal e aumente suas vendas no maior mercado do Mercosul.</p>
+  <section class="pricing-hero">
+    <div class="container">
+      <h1>Escolha seu <span>Plano</span></h1>
+      <p>Venda mais no maior classificado agro do Mercosul. Cancele quando quiser.</p>
+      <div class="hero-badges">
+        <span class="hero-badge"><span class="hb-check">✓</span> Sem fidelidade</span>
+        <span class="hero-badge"><span class="hb-check">✓</span> Cancele a qualquer momento</span>
+        <span class="hero-badge"><span class="hb-check">✓</span> Stripe ou Mercado Pago</span>
+      </div>
     </div>
   </section>
 
-  <main class="container">
-    
-    <div class="pricing-grid">
-      
+  <main>
+    <div class="pricing-grid" id="pricing-grid">
+
       <!-- PLANO GRÁTIS -->
-      <div class="pricing-card">
-        <h3 class="plan-name">Básico</h3>
+      <div class="pricing-card" id="card-free">
+        <div class="plan-icon free-icon">🌱</div>
+        <h3 class="plan-name">Grátis</h3>
         <p class="plan-desc">Perfeito para quem está começando a vender ocasionalmente.</p>
-        <div class="plan-price">Grátis</div>
-        
+        <div class="plan-price free-price">
+          <span class="amount">Grátis</span>
+        </div>
         <ul class="plan-features">
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 2 Anúncios ativos</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Até 5 fotos por anúncio</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Suporte por email</li>
-          <li class="disabled"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Selo de Vendedor Verificado</li>
-          <li class="disabled"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Destaque na Home</li>
+          <li><span class="feat-check yes">✓</span> 3 anúncios ativos</li>
+          <li><span class="feat-check yes">✓</span> Até 5 fotos por anúncio</li>
+          <li><span class="feat-check yes">✓</span> Suporte por email</li>
+          <li class="disabled"><span class="feat-check no">✕</span> Selo de Vendedor Verificado</li>
+          <li class="disabled"><span class="feat-check no">✕</span> Destaque na Home</li>
+          <li class="disabled"><span class="feat-check no">✕</span> Análise de desempenho</li>
         </ul>
-        
-        <a href="login.html" class="btn btn--outline" style="justify-content: center;">Começar Grátis</a>
+        <button id="btn-free" class="btn-plan btn-free" onclick="handleFreeClick()">Começar Grátis</button>
       </div>
 
       <!-- PLANO PRO -->
-      <div class="pricing-card popular">
-        <div class="popular-badge">Mais Popular</div>
+      <div class="pricing-card popular" id="card-pro">
+        <div class="popular-badge" id="badge-pro">⭐ Mais Popular</div>
+        <div class="plan-icon pro-icon">🚀</div>
         <h3 class="plan-name">Produtor PRO</h3>
         <p class="plan-desc">Para produtores rurais e pequenas empresas que vendem com frequência.</p>
-        <div class="plan-price">R$ 89<span>/mês</span></div>
-        
+        <div class="plan-price pro-price">
+          <span class="currency">R$</span>
+          <span class="amount">79</span>
+          <span class="period">/mês</span>
+        </div>
         <ul class="plan-features">
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Anúncios Ilimitados</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 15 fotos por anúncio + Vídeo</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Suporte prioritário via WhatsApp</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Selo de Vendedor Verificado</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 5 Destaques mensais</li>
+          <li><span class="feat-check yes">✓</span> 15 anúncios ativos</li>
+          <li><span class="feat-check yes">✓</span> 15 fotos + vídeo por anúncio</li>
+          <li><span class="feat-check yes">✓</span> Suporte prioritário WhatsApp</li>
+          <li><span class="feat-check yes">✓</span> Selo de Vendedor Verificado</li>
+          <li><span class="feat-check yes">✓</span> 2 destaques mensais na Home</li>
+          <li class="disabled"><span class="feat-check no">✕</span> Análise avançada de desempenho</li>
         </ul>
-        
-        <a href="login.html" class="btn btn--primary" style="justify-content: center;">Assinar Plano PRO</a>
+        <div class="gateway-toggle" id="gw-pro">
+          <label>Pagar via:</label>
+          <label><input type="radio" name="gw-pro" value="stripe" checked><span class="gw-option">💳 Stripe</span></label>
+          <label><input type="radio" name="gw-pro" value="mercadopago"><span class="gw-option">🟡 Mercado Pago</span></label>
+        </div>
+        <button id="btn-pro" class="btn-plan btn-pro" onclick="startCheckout('pro')">Assinar PRO</button>
       </div>
 
-      <!-- PLANO EMPRESA -->
-      <div class="pricing-card">
-        <h3 class="plan-name">Empresa / Leilão</h3>
-        <p class="plan-desc">Para concessionárias, revendas e organizadores de grandes leilões.</p>
-        <div class="plan-price">R$ 299<span>/mês</span></div>
-        
+      <!-- PLANO PREMIUM -->
+      <div class="pricing-card premium-card" id="card-premium">
+        <div class="plan-icon prem-icon">👑</div>
+        <h3 class="plan-name">Premium</h3>
+        <p class="plan-desc">Para grandes produtores e empresas que querem dominar o mercado.</p>
+        <div class="plan-price prem-price">
+          <span class="currency">R$</span>
+          <span class="amount">149</span>
+          <span class="period">/mês</span>
+        </div>
         <ul class="plan-features">
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Tudo do plano PRO</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Página exclusiva da empresa</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Transmissão de Leilões ao Vivo</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Relatórios de engajamento</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Gerente de conta dedicado</li>
+          <li><span class="feat-check gold">✓</span> Anúncios Ilimitados</li>
+          <li><span class="feat-check gold">✓</span> 30 fotos + vídeo por anúncio</li>
+          <li><span class="feat-check gold">✓</span> Suporte VIP 24/7</li>
+          <li><span class="feat-check gold">✓</span> Selo Verificado + Banner Premium</li>
+          <li><span class="feat-check gold">✓</span> 10 destaques mensais na Home</li>
+          <li><span class="feat-check gold">✓</span> Análise avançada de desempenho</li>
         </ul>
-        
-        <a href="login.html" class="btn btn--outline" style="justify-content: center;">Contatar Vendas</a>
+        <div class="gateway-toggle" id="gw-premium">
+          <label>Pagar via:</label>
+          <label><input type="radio" name="gw-premium" value="stripe" checked><span class="gw-option">💳 Stripe</span></label>
+          <label><input type="radio" name="gw-premium" value="mercadopago"><span class="gw-option">🟡 Mercado Pago</span></label>
+        </div>
+        <button id="btn-premium" class="btn-plan btn-premium" onclick="startCheckout('premium')">Assinar Premium</button>
       </div>
 
     </div>
+
+    <!-- TRUST BAR -->
+    <div class="trust-bar">
+      <div class="trust-bar-item"><span class="tbi-icon">🔒</span> Pagamento 100% seguro</div>
+      <div class="trust-bar-item"><span class="tbi-icon">⚡</span> Ativação imediata</div>
+      <div class="trust-bar-item"><span class="tbi-icon">📈</span> Cancele a qualquer momento</div>
+      <div class="trust-bar-item"><span class="tbi-icon">📞</span> Suporte em português</div>
+    </div>
+
+    <!-- COMPARISON TABLE -->
+    <section class="compare-section">
+      <h2>Comparação Completa</h2>
+      <p class="sub">Tudo que cada plano inclui, sem surpresas.</p>
+      <table class="compare-table" role="table" aria-label="Comparação de planos">
+        <thead>
+          <tr>
+            <th>Recurso</th>
+            <th>Grátis</th>
+            <th class="th-pro">PRO</th>
+            <th class="th-prem">Premium</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="feat-name">Anúncios ativos</span></td>
+            <td><span class="tbl-pill pill-free">3</span></td>
+            <td><span class="tbl-pill pill-pro">15</span></td>
+            <td><span class="tbl-pill pill-unlimited">Ilimitado</span></td>
+          </tr>
+          <tr>
+            <td><span class="feat-name">Fotos por anúncio</span></td>
+            <td><span class="tbl-pill pill-free">5</span></td>
+            <td><span class="tbl-pill pill-pro">15</span></td>
+            <td><span class="tbl-pill pill-premium">30</span></td>
+          </tr>
+          <tr>
+            <td><span class="feat-name">Vídeo no anúncio</span><span class="feat-desc">Upload de vídeo demonstração</span></td>
+            <td><span class="tbl-cross">✕</span></td>
+            <td><span class="tbl-check">✓</span></td>
+            <td><span class="tbl-gold">✓</span></td>
+          </tr>
+          <tr>
+            <td><span class="feat-name">Selo Verificado</span><span class="feat-desc">Aumenta a confiança do comprador</span></td>
+            <td><span class="tbl-cross">✕</span></td>
+            <td><span class="tbl-check">✓</span></td>
+            <td><span class="tbl-gold">✓</span></td>
+          </tr>
+          <tr>
+            <td><span class="feat-name">Destaques na Home</span><span class="feat-desc">Anúncios em posição privilegiada</span></td>
+            <td><span class="tbl-cross">✕</span></td>
+            <td><span class="tbl-pill pill-pro">2/mês</span></td>
+            <td><span class="tbl-pill pill-premium">10/mês</span></td>
+          </tr>
+          <tr>
+            <td><span class="feat-name">Banner de perfil</span><span class="feat-desc">Sua marca em destaque no perfil</span></td>
+            <td><span class="tbl-cross">✕</span></td>
+            <td><span class="tbl-cross">✕</span></td>
+            <td><span class="tbl-gold">✓</span></td>
+          </tr>
+          <tr>
+            <td><span class="feat-name">Suporte</span></td>
+            <td>Email</td>
+            <td>WhatsApp</td>
+            <td><span class="tbl-gold">VIP 24/7</span></td>
+          </tr>
+          <tr>
+            <td><span class="feat-name">Análise de desempenho</span><span class="feat-desc">Visualizações, cliques, conversões</span></td>
+            <td><span class="tbl-cross">✕</span></td>
+            <td>Básica</td>
+            <td><span class="tbl-gold">Avançada</span></td>
+          </tr>
+          <tr>
+            <td><span class="feat-name">Participação em Leilões</span></td>
+            <td><span class="tbl-check">✓</span></td>
+            <td><span class="tbl-check">✓</span></td>
+            <td><span class="tbl-gold">✓</span></td>
+          </tr>
+          <tr>
+            <td><span class="feat-name">Preço</span></td>
+            <td><strong style="color:#818cf8">Grátis</strong></td>
+            <td><strong style="color:#22c55e">R$79/mês</strong></td>
+            <td><strong style="color:#f59e0b">R$149/mês</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- FAQ -->
+    <section class="faq-section">
+      <h2>Perguntas Frequentes</h2>
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)" aria-expanded="false">
+          Como faço para cancelar minha assinatura? <span class="faq-arrow">▾</span>
+        </button>
+        <div class="faq-a">
+          <p>Você pode cancelar a qualquer momento pelo seu painel, na aba "Assinatura". O acesso ao plano continua até o fim do período pago. Não há multa ou fidelidade.</p>
+        </div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)" aria-expanded="false">
+          Posso mudar de plano no meio do mês? <span class="faq-arrow">▾</span>
+        </button>
+        <div class="faq-a">
+          <p>Sim! Você pode fazer upgrade ou downgrade a qualquer momento. No upgrade, o valor é cobrado de forma proporcional (pro-rata). No downgrade, a mudança ocorre no próximo ciclo.</p>
+        </div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)" aria-expanded="false">
+          Quais formas de pagamento são aceitas? <span class="faq-arrow">▾</span>
+        </button>
+        <div class="faq-a">
+          <p>Aceitamos cartão de crédito/débito via Stripe e Mercado Pago. Também é possível pagar via Pix e boleto bancário pelo Mercado Pago.</p>
+        </div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)" aria-expanded="false">
+          Meus anúncios somem se eu cancelar? <span class="faq-arrow">▾</span>
+        </button>
+        <div class="faq-a">
+          <p>Não. Seus anúncios continuam visíveis, mas voltam ao limite do plano Grátis (3 ativos). Os demais ficam pausados automaticamente.</p>
+        </div>
+      </div>
+    </section>
+
   </main>
 
   <footer class="footer">
@@ -141,7 +454,153 @@
     </div>
   </footer>
 
-  <script src="js/data.js"></script>
+  <script src="js/supabase.js"></script>
   <script src="js/main.js"></script>
+  <script>
+    /* ================================================================
+       PLANOS — Checkout Integration
+       ================================================================ */
+    const CHECKOUT_URL = 'https://rfzuzuobwuanmbrcthqe.supabase.co/functions/v1/create-checkout';
+
+    async function startCheckout(plan, gateway) {
+      const session = await getSession();
+      if (!session) { window.location.href = '/login.html'; return; }
+
+      if (!gateway) {
+        const gwRadio = document.querySelector('input[name="gw-' + plan + '"]:checked');
+        gateway = gwRadio ? gwRadio.value : 'stripe';
+      }
+
+      const btn = document.getElementById('btn-' + plan);
+      if (!btn) return;
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spin"></span> Aguarde...';
+
+      try {
+        const res = await fetch(CHECKOUT_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + session.access_token
+          },
+          body: JSON.stringify({ plan, gateway })
+        });
+        const data = await res.json();
+        if (data.url) {
+          window.location.href = data.url;
+        } else {
+          alert('Erro: ' + (data.error || 'Tente novamente'));
+          resetBtn(plan);
+        }
+      } catch (err) {
+        alert('Erro de conexão. Verifique sua internet e tente novamente.');
+        resetBtn(plan);
+      }
+    }
+
+    function resetBtn(plan) {
+      const btn = document.getElementById('btn-' + plan);
+      if (!btn) return;
+      btn.disabled = false;
+      if (plan === 'pro') btn.textContent = 'Assinar PRO';
+      else if (plan === 'premium') btn.textContent = 'Assinar Premium';
+    }
+
+    async function handleFreeClick() {
+      const session = await getSession();
+      window.location.href = session ? '/painel.html' : '/login.html';
+    }
+
+    async function loadPlanStatus() {
+      try {
+        const user = await getCurrentUser();
+        if (!user) return;
+
+        const plan = (user.profile && user.profile.plan) ? user.profile.plan : 'free';
+        const navLink = document.getElementById('nav-auth-link');
+        if (navLink) {
+          navLink.textContent = (user.profile && user.profile.name) ? user.profile.name : 'Painel';
+          navLink.href = '/painel.html';
+        }
+        applyPlanUI(plan);
+      } catch (e) { /* silent */ }
+    }
+
+    function applyPlanUI(currentPlan) {
+      const btnFree    = document.getElementById('btn-free');
+      const btnPro     = document.getElementById('btn-pro');
+      const btnPremium = document.getElementById('btn-premium');
+      const cardPrem   = document.getElementById('card-premium');
+      const badgePro   = document.getElementById('badge-pro');
+      const gwPro      = document.getElementById('gw-pro');
+      const gwPrem     = document.getElementById('gw-premium');
+
+      if (currentPlan === 'free') {
+        if (btnFree) {
+          btnFree.textContent = 'Plano Atual';
+          btnFree.className = 'btn-plan btn-current';
+          btnFree.disabled = true;
+        }
+
+      } else if (currentPlan === 'pro') {
+        if (btnFree) {
+          btnFree.textContent = 'Fazer Downgrade';
+          btnFree.className = 'btn-plan btn-downgrade';
+          btnFree.onclick = function() {
+            if (confirm('Tem certeza que deseja fazer downgrade para o plano Grátis? As mudanças ocorrerão no próximo ciclo.')) {
+              window.location.href = '/painel.html#assinatura';
+            }
+          };
+        }
+        if (badgePro) {
+          badgePro.textContent = '✓ Plano Atual';
+          badgePro.style.background = 'linear-gradient(135deg, #3b82f6, #6366f1)';
+          badgePro.style.boxShadow = '0 4px 20px rgba(59,130,246,0.5)';
+        }
+        if (btnPro) { btnPro.textContent = 'Plano Atual'; btnPro.className = 'btn-plan btn-current'; btnPro.disabled = true; }
+        if (gwPro) gwPro.style.display = 'none';
+        if (btnPremium) btnPremium.innerHTML = '⬆ Fazer Upgrade';
+
+      } else if (currentPlan === 'premium') {
+        if (btnFree) {
+          btnFree.textContent = 'Fazer Downgrade';
+          btnFree.className = 'btn-plan btn-downgrade';
+          btnFree.onclick = function() {
+            if (confirm('Tem certeza que deseja fazer downgrade para o plano Grátis?')) {
+              window.location.href = '/painel.html#assinatura';
+            }
+          };
+        }
+        if (btnPro) {
+          btnPro.textContent = 'Fazer Downgrade';
+          btnPro.className = 'btn-plan btn-downgrade';
+          if (gwPro) gwPro.style.display = 'none';
+          btnPro.onclick = function() {
+            if (confirm('Tem certeza que deseja fazer downgrade para o plano PRO?')) {
+              window.location.href = '/painel.html#assinatura';
+            }
+          };
+        }
+        if (cardPrem) {
+          var cb = document.createElement('div');
+          cb.className = 'current-badge';
+          cb.textContent = '✓ Plano Atual';
+          cardPrem.insertBefore(cb, cardPrem.firstChild);
+        }
+        if (btnPremium) { btnPremium.textContent = 'Plano Atual'; btnPremium.className = 'btn-plan btn-current'; btnPremium.disabled = true; }
+        if (gwPrem) gwPrem.style.display = 'none';
+      }
+    }
+
+    function toggleFaq(btn) {
+      var item = btn.closest('.faq-item');
+      var isOpen = item.classList.toggle('open');
+      btn.setAttribute('aria-expanded', String(isOpen));
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      loadPlanStatus();
+    });
+  </script>
 </body>
 </html>
