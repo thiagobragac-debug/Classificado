@@ -100,6 +100,14 @@ function toggleFavorite(btn) {
   if (isActive) btn.querySelector('svg').style.cssText = 'fill:#EF4444;stroke:#EF4444';
 }
 
+// ─── SECURITY ─────────────────────────────────
+window.escapeHTML = function(str) {
+  if (str === null || str === undefined) return '';
+  return str.toString().replace(/[&<>'"]/g, 
+    tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+  );
+};
+
 // ─── FORMAT NUMBER ─────────────────────────────
 function formatNum(n) {
   return new Intl.NumberFormat('pt-BR').format(n);
@@ -152,12 +160,15 @@ function initObserver() {
 
 // ─── BUILD AD CARD ────────────────────────────
 function buildAdCard(ad, lang) {
-  const title = lang === 'es' ? ad.title_es : ad.title_pt;
-  const cat   = lang === 'es' ? ad.category_es : ad.category_pt;
+  const title = escapeHTML(lang === 'es' ? ad.title_es : ad.title_pt);
+  const cat   = escapeHTML(lang === 'es' ? ad.category_es : ad.category_pt);
   const tags  = lang === 'es' ? ad.tags_es : ad.tags_pt;
+  const price = escapeHTML(ad.price);
+  const unit  = escapeHTML(lang === 'es' ? ad.price_unit_es : ad.price_unit_pt);
+  const loc   = escapeHTML(ad.location);
 
   // Pick stripe color from category
-  const catId = CATEGORIES.find(c => (lang === 'es' ? c.name_es : c.name_pt) === cat)?.id || 'outros';
+  const catId = CATEGORIES.find(c => (lang === 'es' ? c.name_es : c.name_pt) === (lang === 'es' ? ad.category_es : ad.category_pt))?.id || 'outros';
   const catColor = (typeof CAT_COLORS !== 'undefined' && CAT_COLORS[catId]) ? CAT_COLORS[catId] : { bg: '#F0FDF4', clr: '#16A34A' };
 
   return `
@@ -176,19 +187,19 @@ function buildAdCard(ad, lang) {
         <div class="ad-card__category" style="color:${catColor.clr}">${cat}</div>
         <h3 class="ad-card__title">${title}</h3>
         <div class="ad-card__tags">
-          ${tags.map(tag => `<span class="ad-tag">${tag}</span>`).join('')}
+          ${tags.map(tag => `<span class="ad-tag">${escapeHTML(tag)}</span>`).join('')}
           ${ad.negotiable ? `<span class="ad-tag" style="color:var(--clr-success);background:#DCFCE7;font-weight:600">${t('negociable')}</span>` : ''}
         </div>
         <div class="ad-card__price">
-          ${ad.price}
-          <small>${lang === 'es' ? ad.price_unit_es : ad.price_unit_pt}</small>
+          ${price}
+          <small>${unit}</small>
         </div>
         <div class="ad-card__meta">
           <div class="ad-card__location">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-            <span>${ad.location}</span>
+            <span>${loc}</span>
           </div>
-          <span class="ad-card__time">${ad.date}</span>
+          <span class="ad-card__time">${escapeHTML(ad.date)}</span>
         </div>
       </div>
     </article>

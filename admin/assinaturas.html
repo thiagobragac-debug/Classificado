@@ -475,10 +475,10 @@ function renderTable() {
       <tr>
         <td>
           <div style="display:flex;align-items:center;gap:10px">
-            <div class="sub-avatar" style="background:${clr}">${avatarInitials(user.name)}</div>
+            <div class="sub-avatar" style="background:${clr}">${escapeHTML(avatarInitials(user.name))}</div>
             <div>
-              <div style="font-weight:600;color:var(--adm-text);font-size:.9rem">${user.name}</div>
-              <div style="font-size:.76rem;color:var(--adm-text-muted)">${user.email} · ${user.country}</div>
+              <div style="font-weight:600;color:var(--adm-text);font-size:.9rem">${escapeHTML(user.name)}</div>
+              <div style="font-size:.76rem;color:var(--adm-text-muted)">${escapeHTML(user.email)} · ${escapeHTML(user.country)}</div>
             </div>
           </div>
         </td>

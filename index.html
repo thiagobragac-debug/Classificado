@@ -365,22 +365,24 @@
   }
 
   function buildCard(ad) {
-    const img  = (ad.images && ad.images.length) ? ad.images[0] : 'https://placehold.co/400x280/e8f5e9/16a34a?text=Sem+Foto';
-    const cat  = ad.categories ? `${ad.categories.icon || ''} ${ad.categories.name_pt || ''}`.trim() : '';
-    const href = `anuncio.html?id=${ad.id}`;
+    const img  = (ad.images && ad.images.length) ? escapeHTML(ad.images[0]) : 'https://placehold.co/400x280/e8f5e9/16a34a?text=Sem+Foto';
+    const cat  = ad.categories ? escapeHTML(`${ad.categories.icon || ''} ${ad.categories.name_pt || ''}`.trim()) : '';
+    const href = `anuncio.html?id=${escapeHTML(ad.id)}`;
     const badge = ad.featured ? '<span class="card-badge">Destaque</span>' : '';
+    const title = escapeHTML(ad.title_pt);
+    const loc = escapeHTML(ad.location_text || '');
     return `
       <a href="${href}" class="card" role="listitem">
         <div class="card-img-wrapper">
           ${badge}
-          <img src="${img}" alt="${ad.title_pt}" class="card-img" loading="lazy" onerror="this.src='https://placehold.co/400x280/e8f5e9/16a34a?text=Sem+Foto'">
+          <img src="${img}" alt="${title}" class="card-img" loading="lazy" onerror="this.src='https://placehold.co/400x280/e8f5e9/16a34a?text=Sem+Foto'">
         </div>
         <div class="card-content">
           ${cat ? `<span style="font-size:.72rem;color:var(--clr-accent-dark);font-weight:600;margin-bottom:.2rem;display:block">${cat}</span>` : ''}
-          <h3 class="card-title">${ad.title_pt}</h3>
-          <div class="card-price">${formatPrice(ad.price, ad.currency)}</div>
+          <h3 class="card-title">${title}</h3>
+          <div class="card-price">${escapeHTML(formatPrice(ad.price, ad.currency))}</div>
           <div class="card-meta">
-            <div class="card-meta-item">${PIN_SVG} ${ad.location_text || ''}</div>
+            <div class="card-meta-item">${PIN_SVG} ${loc}</div>
           </div>
         </div>
       </a>`;

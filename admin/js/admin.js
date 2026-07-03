@@ -7,6 +7,13 @@
 const SUPABASE_URL  = 'https://rfzuzuobwuanmbrcthqe.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmenV6dW9id3Vhbm1icmN0aHFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwNzg1OTMsImV4cCI6MjA5ODY1NDU5M30.m-Mop7RgpVo730lwjcra1egF8p9APv6AGnW1YnFvOgY';
 
+window.escapeHTML = function(str) {
+  if (str === null || str === undefined) return '';
+  return str.toString().replace(/[&<>'"]/g, 
+    tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+  );
+};
+
 function checkAuth() {
   if (!sessionStorage.getItem('tc_admin_session')) {
     if (!window.location.pathname.endsWith('/admin/login.html')) {
