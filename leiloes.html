@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Leilões ao Vivo — Tauze Class</title>
   <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2316A34A'/%3E%3Ctext y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'%3ET%3C/text%3E%3C/svg%3E">
 </head>
 <body>
@@ -164,6 +165,7 @@
   </footer>
 
   <script src="js/data.js"></script>
+  <script src="/js/supabase.js"></script>
   <script src="js/main.js"></script>
 
   <script>
@@ -409,6 +411,95 @@
       updateCountdown();
       setInterval(updateCountdown, 1000);
     });
+  </script>
+
+  <script>
+  document.addEventListener('DOMContentLoaded', async () => {
+    try {
+      if (typeof getAuctions !== 'function') return;
+
+      const dbAuctions = await getAuctions({ status: 'live', limit: 20 });
+      if (!dbAuctions || dbAuctions.length === 0) return; // fall back to mock
+
+      const container = document.getElementById('lotes-container');
+      if (!container) return;
+
+      function fmtCurrency(v) {
+        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
+      }
+
+      function buildCountdown(endAt) {
+        const diff = new Date(endAt) - new Date();
+        if (diff <= 0) return 'Encerrado';
+        const d = Math.floor(diff / 86400000);
+        const h = Math.floor((diff % 86400000) / 3600000);
+        const m = Math.floor((diff % 3600000) / 60000);
+        const s = Math.floor((diff % 60000) / 1000);
+        if (d > 0) return `${d}d ${String(h).padStart(2,'0')}h`;
+        return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+      }
+
+      container.innerHTML = '';
+
+      dbAuctions.forEach(auction => {
+        const title     = auction.ads?.title_pt || auction.title || 'Leilão';
+        const image     = auction.ads?.images?.[0] || auction.cover || '';
+        const category  = auction.ads?.category_id || '';
+        const currentBid = auction.current_bid || auction.start_price || 0;
+        const endAt     = auction.end_at || auction.date;
+        const isLive    = auction.status === 'live' || auction.status === 'aovivo';
+
+        const statusConfig = isLive
+          ? { bg: '#ef4444', text: 'AO VIVO', color: 'white', stripe: '#ef4444' }
+          : { bg: 'rgba(0,0,0,0.7)', text: 'AGENDADO', color: 'white', stripe: 'var(--clr-primary-light)', border: '1px solid rgba(255,255,255,0.2)' };
+
+        const imgHtml = image
+          ? `<img src="${image}" alt="${title}" style="width:100%;height:100%;object-fit:cover;">`
+          : `<div style="width:100%;height:100%;background:#e5e7eb;display:flex;align-items:center;justify-content:center;color:#9ca3af;">Sem imagem</div>`;
+
+        const article = document.createElement('article');
+        article.className = 'ad-card';
+        article.style.position = 'relative';
+        article.style.cursor = 'pointer';
+        article.addEventListener('click', () => { window.location.href = `/leilao.html?id=${auction.id}`; });
+
+        const cdId = `cd-${auction.id}`;
+        article.innerHTML = `
+          <div class="ad-card__stripe" style="background:${statusConfig.stripe};height:4px;"></div>
+          <div class="ad-card__image">
+            <div style="position:absolute;top:1rem;left:1rem;background:${statusConfig.bg};color:${statusConfig.color};padding:.4rem 1rem;border-radius:2rem;font-weight:700;font-size:.85rem;z-index:10;display:flex;align-items:center;gap:6px;${statusConfig.border ? 'border:'+statusConfig.border+';backdrop-filter:blur(8px);' : 'box-shadow:0 4px 12px rgba(239,68,68,.4);'}">
+              ${isLive ? '<span class="live-indicator" style="background:white;animation:none;box-shadow:none;"></span>' : ''} ${statusConfig.text}
+            </div>
+            ${imgHtml}
+          </div>
+          <div class="ad-card__body">
+            ${category ? `<div style="font-size:.75rem;font-weight:700;color:var(--clr-primary);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem;">${category}</div>` : ''}
+            <h3 class="ad-card__title" style="margin-bottom:.75rem;">${title}</h3>
+            <div style="background:linear-gradient(135deg,#f0fdf4,#fff);border:2px solid #bbf7d0;padding:.8rem;border-radius:.8rem;margin-bottom:.75rem;text-align:center;">
+              <div style="font-size:.7rem;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.2rem;">LANCE ATUAL</div>
+              <div style="font-size:1.6rem;font-weight:800;color:var(--clr-primary);">${fmtCurrency(currentBid)}</div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:.8rem;color:var(--clr-text-light);margin-bottom:.75rem;">
+              <span>⏱ <span id="${cdId}">${buildCountdown(endAt)}</span></span>
+              <a href="/leilao.html?id=${auction.id}" class="btn btn--${isLive ? 'primary' : 'outline'}" style="padding:.4rem .9rem;font-size:.8rem;text-decoration:none;" onclick="event.stopPropagation();">${isLive ? 'Participar' : 'Ver Lotes'}</a>
+            </div>
+          </div>
+        `;
+        container.appendChild(article);
+
+        // Tick countdown every second
+        if (endAt) {
+          setInterval(() => {
+            const el = document.getElementById(cdId);
+            if (el) el.textContent = buildCountdown(endAt);
+          }, 1000);
+        }
+      });
+
+    } catch(e) {
+      console.warn('Usando dados mock para lista de leilões:', e.message);
+    }
+  });
   </script>
 </body>
 </html>

@@ -60,7 +60,7 @@
     <div class="product-grid">
       <!-- Gallery Column -->
       <div>
-        <img src="https://images.unsplash.com/photo-1592982537447-6f233481f9a2?auto=format&fit=crop&q=80" alt="Produto" class="gallery-main" id="main-img">
+        <img src="https://images.unsplash.com/photo-1592982537447-6f233481f9a2?auto=format&fit=crop&q=80" alt="Produto" class="gallery-main" id="main-img" id="ad-main-img">
         <div class="gallery-thumbs">
           <img src="https://images.unsplash.com/photo-1592982537447-6f233481f9a2?auto=format&fit=crop&q=80" class="active" onclick="document.getElementById('main-img').src=this.src; document.querySelectorAll('.gallery-thumbs img').forEach(i=>i.classList.remove('active')); this.classList.add('active');">
           <img src="https://images.unsplash.com/photo-1579705904818-f2b7a9505c2a?auto=format&fit=crop&q=80" onclick="document.getElementById('main-img').src=this.src; document.querySelectorAll('.gallery-thumbs img').forEach(i=>i.classList.remove('active')); this.classList.add('active');">
@@ -77,14 +77,18 @@
 
       <!-- Info Column -->
       <div class="product-info">
-        <h1>Trator Massey Ferguson 2018 Conservado</h1>
-        <div class="product-price">
+        <div style="display:flex; align-items:flex-start; gap:0.75rem; flex-wrap:wrap;">
+          <h1 id="ad-title" style="flex:1; min-width:0;">Trator Massey Ferguson 2018 Conservado</h1>
+          <button id="btn-favorite" style="flex-shrink:0; margin-top:0.25rem; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); color:var(--clr-text-light); padding:0.45rem 0.9rem; border-radius:2rem; cursor:pointer; font-size:0.9rem; transition:all .2s;" title="Salvar anúncio">🤍 Salvar</button>
+        </div>
+        <div class="product-price" id="ad-price">
           R$ 185.000 <span>Negociável</span>
         </div>
 
         <div class="product-meta">
           <div><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Publicado há 2 dias</div>
-          <div><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> Ribeirão Preto, SP</div>
+          <div id="ad-location"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> Ribeirão Preto, SP</div>
+          <div id="ad-views" style="display:none;"></div>
         </div>
 
         <div class="seller-card">
@@ -95,10 +99,63 @@
               <div class="seller-member">Membro desde Agosto de 2023</div>
             </div>
           </div>
-          <button class="btn btn--accent btn--lg" style="width: 100%; justify-content: center; font-size: 1.1rem; box-shadow: 0 4px 15px rgba(37, 99, 235, 0.2);" onclick="alert('Funcionalidade de chat em desenvolvimento!')">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-            Entrar em Contato
+          <!-- WhatsApp CTA -->
+          <a id="btn-whatsapp" href="#" target="_blank" rel="noopener"
+             style="display:flex; align-items:center; justify-content:center; gap:0.6rem; width:100%; padding:0.85rem 1.2rem; border-radius:0.8rem; background:linear-gradient(135deg,#25D366,#128C7E); color:#fff; font-weight:700; font-size:1.05rem; text-decoration:none; box-shadow:0 4px 18px rgba(37,211,102,0.3); transition:opacity .2s;" onmouseover="this.style.opacity='.88'" onmouseout="this.style.opacity='1'">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2 22l4.978-1.413A9.953 9.953 0 0 0 12 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18a7.95 7.95 0 0 1-4.031-1.094l-.29-.172-2.953.839.84-2.87-.19-.298A7.95 7.95 0 0 1 4 12c0-4.411 3.589-8 8-8s8 3.589 8 8-3.589 8-8 8z"/></svg>
+            Falar pelo WhatsApp
+          </a>
+        </div>
+
+        <!-- Collapsible Message Form (hidden for ad owner) -->
+        <div id="msg-section" style="margin-top:1.2rem; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:1rem; overflow:hidden;">
+          <button id="btn-toggle-msg"
+                  style="width:100%; display:flex; align-items:center; justify-content:space-between; padding:0.85rem 1.1rem; background:none; border:none; color:var(--clr-text); font-weight:600; font-size:0.97rem; cursor:pointer;"
+                  onclick="(function(){
+                    var body=document.getElementById('msg-body');
+                    var arrow=document.getElementById('msg-arrow');
+                    var open=body.style.display==='block';
+                    body.style.display=open?'none':'block';
+                    arrow.style.transform=open?'rotate(0deg)':'rotate(180deg)';
+                  })()">
+            <span style="display:flex;align-items:center;gap:0.5rem;">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              Enviar Mensagem
+            </span>
+            <svg id="msg-arrow" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .25s;"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
+          <div id="msg-body" style="display:none; padding:0 1.1rem 1.1rem;">
+            <div id="msg-alert" style="display:none; margin-bottom:0.75rem; padding:0.65rem 0.85rem; border-radius:0.6rem; font-size:0.88rem;"></div>
+            <textarea id="msg-text"
+                      rows="4"
+                      placeholder="Olá! Tenho interesse no anúncio..."
+                      style="width:100%; box-sizing:border-box; background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.12); border-radius:0.7rem; color:#fff; padding:0.75rem 0.9rem; font-size:0.95rem; resize:vertical; outline:none; transition:border-color .2s;"
+                      onfocus="this.style.borderColor='#16A34A'; this.style.boxShadow='0 0 0 2px rgba(22,163,74,0.25)'"
+                      onblur="this.style.borderColor='rgba(255,255,255,0.12)'; this.style.boxShadow='none'"></textarea>
+            <button id="btn-send-msg"
+                    style="margin-top:0.65rem; width:100%; padding:0.75rem; border:none; border-radius:0.75rem; background:linear-gradient(135deg,#16A34A,#15803d); color:#fff; font-weight:700; font-size:0.97rem; cursor:pointer; transition:opacity .2s;"
+                    onmouseover="this.style.opacity='.88'" onmouseout="this.style.opacity='1'">
+              Enviar Mensagem
+            </button>
+            <div style="margin-top:0.9rem; text-align:center;">
+              <a id="btn-report" href="#" style="color:rgba(255,255,255,0.35); font-size:0.8rem; text-decoration:none;"
+                 onclick="(function(e){
+                   e.preventDefault();
+                   var reason=prompt('Motivo da denúncia (ex: Fraude, Conteúdo inadequado, Preço enganoso):');
+                   if(!reason||!reason.trim()) return;
+                   var adId=document.getElementById('btn-send-msg').dataset.adId;
+                   if(typeof reportAd==='function' && adId){
+                     reportAd(adId, reason.trim()).then(function(){
+                       alert('Denúncia enviada. Obrigado!');
+                     }).catch(function(err){
+                       alert('Erro ao enviar denúncia: '+(err.message||err));
+                     });
+                   } else {
+                     alert('Não foi possível enviar a denúncia. Tente novamente.');
+                   }
+                 })(event)">⚑ Denunciar Anúncio</a>
+            </div>
+          </div>
         </div>
         
         <div style="background: #FEF2F2; color: #B91C1C; padding: 1rem; border-radius: 0.8rem; font-size: 0.9rem; display: flex; gap: 0.8rem; align-items: start;">
@@ -166,12 +223,86 @@
           waBtn.href = 'https://wa.me/' + ad.profiles.phone_whatsapp.replace(/\D/g,'') + '?text=' + msg;
         }
 
+        // Seller / ownership data
+        const sellerId = ad.profiles?.id || ad.user_id || null;
+        const adOwnerId = sellerId;
+
         // Favorite button
         const favBtn = document.getElementById('btn-favorite');
         if (favBtn) {
           favBtn.addEventListener('click', async () => {
             const added = await toggleFavorite(adId);
-            favBtn.textContent = added ? '❤️ Salvo' : '🤍 Salvar';
+            favBtn.innerHTML = added ? '❤️ Salvo' : '🤍 Salvar';
+          });
+        }
+
+        // Ownership check — hide message section for the ad owner
+        const { data: { session } } = await supabase.auth.getSession();
+        const currentUserId = session?.user?.id || null;
+        const msgSection = document.getElementById('msg-section');
+        if (adOwnerId && currentUserId && currentUserId === adOwnerId) {
+          if (msgSection) msgSection.style.display = 'none';
+        }
+
+        // Wire send-message button
+        const sendBtn = document.getElementById('btn-send-msg');
+        if (sendBtn) {
+          sendBtn.dataset.adId = adId;
+          sendBtn.dataset.sellerId = sellerId || '';
+          sendBtn.addEventListener('click', async () => {
+            const msgAlert = document.getElementById('msg-alert');
+            const msgText  = document.getElementById('msg-text');
+            const text = msgText.value.trim();
+
+            // Auth guard
+            const { data: { session: s } } = await supabase.auth.getSession();
+            if (!s) {
+              msgAlert.style.display = 'block';
+              msgAlert.style.background = 'rgba(239,68,68,0.12)';
+              msgAlert.style.border = '1px solid rgba(239,68,68,0.3)';
+              msgAlert.style.color = '#FCA5A5';
+              msgAlert.innerHTML = '⚠️ <a href="/login.html" style="color:#FCA5A5;font-weight:700;">Faça login</a> para enviar mensagens.';
+              return;
+            }
+
+            if (!text) {
+              msgAlert.style.display = 'block';
+              msgAlert.style.background = 'rgba(251,191,36,0.1)';
+              msgAlert.style.border = '1px solid rgba(251,191,36,0.3)';
+              msgAlert.style.color = '#FDE68A';
+              msgAlert.textContent = '✏️ Escreva uma mensagem antes de enviar.';
+              return;
+            }
+
+            // Disable button while sending
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'Enviando...';
+            msgAlert.style.display = 'none';
+
+            try {
+              await sendMessage(adId, sellerId, text);
+              msgText.value = '';
+              sendBtn.style.background = 'linear-gradient(135deg,#16A34A,#166534)';
+              sendBtn.innerHTML = '✅ Mensagem enviada!';
+              msgAlert.style.display = 'block';
+              msgAlert.style.background = 'rgba(22,163,74,0.12)';
+              msgAlert.style.border = '1px solid rgba(22,163,74,0.3)';
+              msgAlert.style.color = '#86EFAC';
+              msgAlert.textContent = '✅ Mensagem enviada! O vendedor receberá uma notificação.';
+              setTimeout(() => {
+                sendBtn.disabled = false;
+                sendBtn.textContent = 'Enviar Mensagem';
+                sendBtn.style.background = 'linear-gradient(135deg,#16A34A,#15803d)';
+              }, 4000);
+            } catch(err) {
+              msgAlert.style.display = 'block';
+              msgAlert.style.background = 'rgba(239,68,68,0.12)';
+              msgAlert.style.border = '1px solid rgba(239,68,68,0.3)';
+              msgAlert.style.color = '#FCA5A5';
+              msgAlert.textContent = '❌ Erro: ' + (err.message || 'Não foi possível enviar a mensagem.');
+              sendBtn.disabled = false;
+              sendBtn.textContent = 'Tentar novamente';
+            }
           });
         }
 

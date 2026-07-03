@@ -282,3 +282,107 @@ function applyAdminDynamicSettings() {
     document.head.appendChild(style);
   }
 }
+
+// ─── SUPABASE ADMIN DATA LAYER ────────────────
+// Loads real stats from the DB and updates KPI cards on the dashboard.
+// Falls back to mock data if Supabase is unavailable.
+
+const SUPABASE_URL  = 'https://rfzuzuobwuanmbrcthqe.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmenV6dW9id3Vhbm1icmN0aHFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwNzg1OTMsImV4cCI6MjA5ODY1NDU5M30.m-Mop7RgpVo730lwjcra1egF8p9APv6AGnW1YnFvOgY';
+
+async function fetchAdminStats() {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/admin_stats?select=*`, {
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` }
+    });
+    if (!res.ok) return null;
+    const rows = await res.json();
+    return rows[0] || null;
+  } catch { return null; }
+}
+
+async function fetchAdminAds({ limit = 50, status } = {}) {
+  let url = `${SUPABASE_URL}/rest/v1/ads?select=id,title_pt,category_id,price,currency,status,featured,views_count,created_at,country,profiles(name)&order=created_at.desc&limit=${limit}`;
+  if (status) url += `&status=eq.${status}`;
+  try {
+    const res = await fetch(url, {
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` }
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+
+async function fetchAdminUsers({ limit = 50 } = {}) {
+  const url = `${SUPABASE_URL}/rest/v1/profiles?select=id,name,country,plan,ads_count,verified,created_at&order=created_at.desc&limit=${limit}`;
+  try {
+    const res = await fetch(url, {
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` }
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+
+async function fetchAdminReports({ limit = 50 } = {}) {
+  const url = `${SUPABASE_URL}/rest/v1/reports?select=id,reason,severity,status,created_at,ads(title_pt),reporter:profiles!reports_reporter_id_fkey(name)&order=created_at.desc&limit=${limit}`;
+  try {
+    const res = await fetch(url, {
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` }
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+
+async function updateAdStatus(adId, newStatus) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/ads?id=eq.${adId}`, {
+    method: 'PATCH',
+    headers: {
+      'apikey': SUPABASE_ANON,
+      'Authorization': `Bearer ${SUPABASE_ANON}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=minimal'
+    },
+    body: JSON.stringify({ status: newStatus })
+  });
+  return res.ok;
+}
+
+// Auto-load real stats on dashboard page
+document.addEventListener('DOMContentLoaded', async () => {
+  // Only run on dashboard
+  if (!window.location.pathname.endsWith('index.html') && !window.location.pathname.endsWith('/admin/')) return;
+
+  const stats = await fetchAdminStats();
+  if (!stats) return; // keep mock UI
+
+  const kpiMap = {
+    'kpi-users':        stats.total_users,
+    'kpi-ads':          stats.active_ads,
+    'kpi-pending':      stats.pending_ads,
+    'kpi-revenue':      `R$ ${Number(stats.mrr || 0).toLocaleString('pt-BR', {minimumFractionDigits:2})}`,
+    'kpi-subscribers':  stats.paying_subscribers,
+    'kpi-reports':      stats.open_reports,
+    'kpi-live-auctions':stats.live_auctions,
+    'kpi-messages':     stats.messages_today,
+    'kpi-new-users':    stats.new_users_week,
+  };
+
+  Object.entries(kpiMap).forEach(([id, val]) => {
+    const el = document.getElementById(id);
+    if (el && val !== undefined) el.textContent = val;
+  });
+
+  // Update sidebar badge for pending ads
+  document.querySelectorAll('[data-badge="pending-ads"]').forEach(el => {
+    el.textContent = stats.pending_ads;
+    el.style.display = stats.pending_ads > 0 ? '' : 'none';
+  });
+
+  // Update sidebar badge for open reports
+  document.querySelectorAll('[data-badge="open-reports"]').forEach(el => {
+    el.textContent = stats.open_reports;
+    el.style.display = stats.open_reports > 0 ? '' : 'none';
+  });
+});

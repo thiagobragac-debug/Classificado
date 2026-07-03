@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Leilões ao Vivo — Tauze Class</title>
   <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2316A34A'/%3E%3Ctext y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'%3ET%3C/text%3E%3C/svg%3E">
 </head>
 <body>
@@ -218,6 +219,7 @@
   </footer>
 
   <script src="js/data.js"></script>
+  <script src="/js/supabase.js"></script>
   <script src="js/main.js"></script>
 
   <script>
@@ -547,6 +549,134 @@
         renderAdBanner('leilao_footer', 'banner-leilao-footer');
       }
     });
+  </script>
+
+  <script>
+  document.addEventListener('DOMContentLoaded', async () => {
+    const params = new URLSearchParams(window.location.search);
+    const auctionId = params.get('id');
+    if (!auctionId) return; // use static mock for demo
+
+    try {
+      // Load auction data from DB
+      const { data: auction, error } = await getSupabase()
+        .from('auctions')
+        .select('*, ads(title_pt, images, description, category_id, profiles(name, phone_whatsapp, avatar_url)), auction_bids(amount, created_at, profiles(name))')
+        .eq('id', auctionId)
+        .single();
+
+      if (error || !auction) return;
+
+      const ad = auction.ads;
+
+      // Update title
+      const titleEl = document.querySelector('h1') || document.querySelector('.auction-title');
+      if (titleEl) titleEl.textContent = ad?.title_pt || titleEl.textContent;
+
+      // Update main image
+      const mainImg = document.querySelector('.gallery-main') || document.querySelector('.auction-img') || document.getElementById('main-img');
+      if (mainImg && ad?.images?.length > 0) mainImg.src = ad.images[0];
+
+      // Update current bid display
+      const currentBid = auction.current_bid || auction.start_price;
+      const bidEl = document.querySelector('.current-bid') || document.querySelector('[data-bid]') || document.getElementById('current-bid');
+      if (bidEl) bidEl.textContent = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(currentBid);
+
+      // Update timer using real end_at from DB
+      const endAt = new Date(auction.end_at);
+      function updateTimer() {
+        const now = new Date();
+        const diff = endAt - now;
+        if (diff <= 0) {
+          const timerEl = document.getElementById('auction-timer') || document.querySelector('.timer');
+          if (timerEl) timerEl.textContent = 'ENCERRADO';
+          const bidBtn = document.getElementById('btn-bid') || document.querySelector('.btn-bid');
+          if (bidBtn) { bidBtn.disabled = true; bidBtn.textContent = 'Leilão Encerrado'; }
+          return;
+        }
+        const h = Math.floor(diff / 3600000);
+        const m = Math.floor((diff % 3600000) / 60000);
+        const s = Math.floor((diff % 60000) / 1000);
+        const fmt = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+        // Try to update timer elements (they might have separate h/m/s spans)
+        const hEl = document.getElementById('timer-h'); if (hEl) hEl.textContent = String(h).padStart(2,'0');
+        const mEl = document.getElementById('timer-m'); if (mEl) mEl.textContent = String(m).padStart(2,'0');
+        const sEl = document.getElementById('timer-s'); if (sEl) sEl.textContent = String(s).padStart(2,'0');
+        const timerEl = document.getElementById('auction-timer') || document.querySelector('.timer');
+        if (timerEl && !hEl) timerEl.textContent = fmt;
+      }
+      updateTimer();
+      setInterval(updateTimer, 1000);
+
+      // Render bids history
+      const bids = (auction.auction_bids || []).sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+      const bidsContainer = document.getElementById('bids-list') || document.querySelector('.bids-list');
+      if (bidsContainer && bids.length > 0) {
+        bidsContainer.innerHTML = bids.map(b => `
+          <div style="display:flex;justify-content:space-between;padding:.6rem 0;border-bottom:1px solid rgba(255,255,255,.06);">
+            <span style="font-weight:600;color:var(--clr-text)">${b.profiles?.name || 'Participante'}</span>
+            <span style="color:var(--clr-primary);font-weight:700">${new Intl.NumberFormat('pt-BR', {style:'currency',currency:'BRL'}).format(b.amount)}</span>
+          </div>
+        `).join('');
+      }
+
+      // Wire up bid button
+      const bidBtn = document.getElementById('btn-bid') || document.querySelector('.btn-bid') || document.querySelector('[onclick*="bid"]');
+      const bidInput = document.getElementById('bid-amount') || document.querySelector('input[type="number"]');
+      if (bidBtn) {
+        bidBtn.removeAttribute('onclick');
+        bidBtn.addEventListener('click', async () => {
+          const session = await getSession();
+          if (!session) { window.location.href = '/login.html'; return; }
+          const amount = parseFloat(bidInput?.value || 0);
+          const minBid = (auction.current_bid || auction.start_price) + (auction.min_increment || 100);
+          if (!amount || amount < minBid) {
+            alert(`Lance mínimo: ${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(minBid)}`);
+            return;
+          }
+          try {
+            bidBtn.disabled = true; bidBtn.textContent = 'Enviando...';
+            await placeBid(auctionId, amount);
+            bidBtn.textContent = '✓ Lance enviado!';
+            setTimeout(() => { bidBtn.disabled = false; bidBtn.textContent = 'Fazer Lance'; }, 2000);
+          } catch(e) {
+            alert('Erro ao enviar lance: ' + e.message);
+            bidBtn.disabled = false; bidBtn.textContent = 'Fazer Lance';
+          }
+        });
+      }
+
+      // Real-time subscription for new bids
+      subscribeToAuction(auctionId, (payload) => {
+        const newBid = payload.new;
+        const newAmount = newBid.amount;
+
+        // Update displayed current bid
+        if (bidEl) bidEl.textContent = new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(newAmount);
+
+        // Flash animation
+        if (bidEl) {
+          bidEl.style.transition = 'color .3s';
+          bidEl.style.color = '#4ADE80';
+          setTimeout(() => { bidEl.style.color = ''; }, 1500);
+        }
+
+        // Add to bids list
+        if (bidsContainer) {
+          const div = document.createElement('div');
+          div.style.cssText = 'display:flex;justify-content:space-between;padding:.6rem 0;border-bottom:1px solid rgba(255,255,255,.06);animation:fadeIn .3s ease';
+          div.innerHTML = `<span style="font-weight:600;color:var(--clr-text)">Novo lance!</span><span style="color:var(--clr-primary);font-weight:700">${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(newAmount)}</span>`;
+          bidsContainer.prepend(div);
+        }
+
+        // Show toast
+        if (typeof showToast === 'function') showToast('🔨 Novo lance: ' + new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(newAmount));
+      });
+
+    } catch(e) {
+      console.warn('Usando dados mock para leilão:', e.message);
+    }
+  });
   </script>
 </body>
 </html>
