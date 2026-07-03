@@ -73,16 +73,16 @@
 <script src="/admin/js/admin.js"></script>
 <script>
   // Redirect if already logged in
-  if (sessionStorage.getItem('tc_admin')) location.href = 'index.html';
+  if (sessionStorage.getItem('tc_admin_session')) location.href = 'index.html';
 
-  function handleLogin(e) {
+  async function handleLogin(e) {
     e.preventDefault();
     const btn = document.getElementById('login-btn');
     btn.textContent = 'Verificando...';
     btn.disabled = true;
 
-    setTimeout(() => {
-      const ok = adminLogin(
+    try {
+      const ok = await adminLogin(
         document.getElementById('login-email').value,
         document.getElementById('login-pass').value
       );
@@ -95,7 +95,11 @@
         btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg> Entrar no Painel';
         btn.disabled = false;
       }
-    }, 900);
+    } catch (err) {
+      document.getElementById('login-error').style.display = 'block';
+      btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg> Entrar no Painel';
+      btn.disabled = false;
+    }
   }
 </script>
 </body>

@@ -3,27 +3,61 @@
    Mock data + logic for all admin pages
    ──────────────────────────────────────────── */
 
-// ─── AUTH ─────────────────────────────────────
-const ADMIN_USER = { email: 'admin@tauzeclass.com', password: 'admin123', name: 'Admin TC', role: 'Administrador' };
+// ─── AUTH (Supabase REST API) ───────────────────
+const SUPABASE_URL  = 'https://rfzuzuobwuanmbrcthqe.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmenV6dW9id3Vhbm1icmN0aHFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwNzg1OTMsImV4cCI6MjA5ODY1NDU5M30.m-Mop7RgpVo730lwjcra1egF8p9APv6AGnW1YnFvOgY';
 
 function checkAuth() {
-  if (!sessionStorage.getItem('tc_admin')) {
-    window.location.href = '/admin/login.html';
+  if (!sessionStorage.getItem('tc_admin_session')) {
+    if (!window.location.pathname.endsWith('/admin/login.html')) {
+      window.location.href = '/admin/login.html';
+    }
   }
 }
-function adminLogin(email, password) {
-  if (email === ADMIN_USER.email && password === ADMIN_USER.password) {
-    sessionStorage.setItem('tc_admin', JSON.stringify({ name: ADMIN_USER.name, email }));
-    return true;
+
+async function adminLogin(email, password) {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_ANON, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    
+    // Check if user is admin
+    const profRes = await fetch(`${SUPABASE_URL}/rest/v1/profiles?select=is_admin,name&id=eq.${data.user.id}`, {
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${data.access_token}` }
+    });
+    const profData = await profRes.json();
+    if (profData && profData[0] && profData[0].is_admin) {
+      sessionStorage.setItem('tc_admin_session', JSON.stringify({
+        token: data.access_token,
+        user: data.user,
+        name: profData[0].name
+      }));
+      return true;
+    }
+    return false; // Not an admin
+  } catch (e) {
+    console.error('Login error', e);
+    return false;
   }
-  return false;
 }
+
 function adminLogout() {
-  sessionStorage.removeItem('tc_admin');
+  sessionStorage.removeItem('tc_admin_session');
   window.location.href = '/admin/login.html';
 }
+
 function getAdmin() {
-  return JSON.parse(sessionStorage.getItem('tc_admin') || '{}');
+  const session = JSON.parse(sessionStorage.getItem('tc_admin_session') || '{}');
+  return { name: session.name || 'Admin', email: session.user?.email || '' };
+}
+
+function getAdminToken() {
+  const session = JSON.parse(sessionStorage.getItem('tc_admin_session') || '{}');
+  return session.token || SUPABASE_ANON;
 }
 
 // ─── MOCK DATA — ADS ──────────────────────────
@@ -287,13 +321,10 @@ function applyAdminDynamicSettings() {
 // Loads real stats from the DB and updates KPI cards on the dashboard.
 // Falls back to mock data if Supabase is unavailable.
 
-const SUPABASE_URL  = 'https://rfzuzuobwuanmbrcthqe.supabase.co';
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmenV6dW9id3Vhbm1icmN0aHFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwNzg1OTMsImV4cCI6MjA5ODY1NDU5M30.m-Mop7RgpVo730lwjcra1egF8p9APv6AGnW1YnFvOgY';
-
 async function fetchAdminStats() {
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/admin_stats?select=*`, {
-      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` }
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${getAdminToken()}` }
     });
     if (!res.ok) return null;
     const rows = await res.json();
@@ -306,7 +337,7 @@ async function fetchAdminAds({ limit = 50, status } = {}) {
   if (status) url += `&status=eq.${status}`;
   try {
     const res = await fetch(url, {
-      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` }
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${getAdminToken()}` }
     });
     if (!res.ok) return null;
     return await res.json();
@@ -317,7 +348,7 @@ async function fetchAdminUsers({ limit = 50 } = {}) {
   const url = `${SUPABASE_URL}/rest/v1/profiles?select=id,name,country,plan,ads_count,verified,created_at&order=created_at.desc&limit=${limit}`;
   try {
     const res = await fetch(url, {
-      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` }
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${getAdminToken()}` }
     });
     if (!res.ok) return null;
     return await res.json();
@@ -328,7 +359,7 @@ async function fetchAdminReports({ limit = 50 } = {}) {
   const url = `${SUPABASE_URL}/rest/v1/reports?select=id,reason,severity,status,created_at,ads(title_pt),reporter:profiles!reports_reporter_id_fkey(name)&order=created_at.desc&limit=${limit}`;
   try {
     const res = await fetch(url, {
-      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` }
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${getAdminToken()}` }
     });
     if (!res.ok) return null;
     return await res.json();
@@ -340,7 +371,7 @@ async function updateAdStatus(adId, newStatus) {
     method: 'PATCH',
     headers: {
       'apikey': SUPABASE_ANON,
-      'Authorization': `Bearer ${SUPABASE_ANON}`,
+      'Authorization': `Bearer ${getAdminToken()}`,
       'Content-Type': 'application/json',
       'Prefer': 'return=minimal'
     },
