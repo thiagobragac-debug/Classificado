@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Anunciar Grátis — Tauze Class</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2316A34A'/%3E%3Ctext y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'%3ET%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+  
+  <header class="site-header" role="banner">
+  <div class="container header-inner">
+
+    <a href="index.html" class="logo" aria-label="Tauze Class — Início">
+      <div class="logo-mark">TC</div>
+      <div class="logo-text">
+        <span class="logo-name">Tauze Class</span>
+        <span class="logo-tagline">Classificados Agro</span>
+      </div>
+    </a>
+
+    <div class="header-search" role="search">
+      <span class="search-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      </span>
+      <input type="search" id="header-search-input" placeholder="Buscar animais, máquinas, insumos..."
+             data-i18n-placeholder="search_placeholder" aria-label="Buscar anúncios">
+    </div>
+
+    <nav class="header-nav" role="navigation" aria-label="Menu principal">
+      <a href="index.html" class="active" data-i18n="nav_home">Início</a>
+      <a href="pesquisa.html" data-i18n="nav_ads">Anúncios</a>
+      <a href="index.html#categorias" data-i18n="nav_categories">Categorias</a>
+      <a href="login.html" data-i18n="nav_login">Entrar</a>
+    </nav>
+
+    <div class="lang-toggle" role="group" aria-label="Selecionar idioma">
+      <button data-lang="pt" class="active" aria-label="Português">PT</button>
+      <button data-lang="es" aria-label="Español">ES</button>
+    </div>
+
+    <a href="anunciar.html" class="btn-anunciar-header" id="btn-post-header">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <span data-i18n="btn_post">Anunciar Grátis</span>
+    </a>
+
+    <button class="hamburger" aria-label="Abrir menu" aria-expanded="false" aria-controls="mobile-menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</header>
+
+  <section class="page-header">
+    <div class="container">
+      <h1>Crie seu Anúncio</h1>
+      <p>Preencha os dados abaixo e alcance milhares de compradores.</p>
+      <div class="breadcrumb">
+        <a href="index.html">Home</a> <span>›</span> <strong>Anunciar</strong>
+      </div>
+    </div>
+  </section>
+
+  <main class="container container--page">
+
+    <form class="form-card" onsubmit="event.preventDefault(); window.location.href='painel.html'">
+      <h2 style="margin-bottom: 2rem; font-size: 1.5rem; color: var(--clr-text)">Detalhes do Anúncio</h2>
+      
+      <div class="form-grid">
+        <div class="form-group full">
+          <label class="form-label">Título do Anúncio</label>
+          <input type="text" class="form-input" placeholder="Ex: Trator Massey Ferguson 2018 Conservado" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Categoria</label>
+          <select class="form-input" required>
+            <option value="">Selecione...</option>
+            <option>Bovinos</option>
+            <option>Máquinas e Equipamentos</option>
+            <option>Insumos</option>
+            <option>Imóveis Rurais</option>
+            <option>Serviços</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Preço (R$)</label>
+          <input type="number" class="form-input" placeholder="0,00" required>
+        </div>
+
+        <div class="form-group full">
+          <label class="form-label">Descrição</label>
+          <textarea class="form-input" placeholder="Descreva os detalhes importantes..." required></textarea>
+        </div>
+
+        <div class="form-group full">
+          <label class="form-label">Fotos do Produto</label>
+          <div class="dropzone">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            <div>
+              <strong>Clique para enviar</strong> ou arraste as fotos para cá
+              <p style="font-size:0.85rem; margin-top:0.5rem">Máximo de 6 imagens (JPEG, PNG).</p>
+            </div>
+          </div>
+        </div>
+        
+        <div class="form-group full" style="margin-top: 1rem;">
+          <button type="submit" class="btn btn--accent btn--lg" style="width: 100%; justify-content: center; font-size: 1.1rem;">
+            Publicar Anúncio Agora
+          </button>
+        </div>
+      </div>
+    </form>
+  </main>
+
+  <script src="js/main.js"></script>
+</body>
+</html>

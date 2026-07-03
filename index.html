@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Tauze Class — O maior portal de classificados do agronegócio do Mercosul. Compre e venda animais, insumos, máquinas e imóveis rurais.">
+  <meta property="og:title" content="Tauze Class — Classificados do Agronegócio">
+  <title>Tauze Class — Classificados do Agronegócio Mercosul</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%2316A34A'/><text y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'>T</text></svg>">
+</head>
+<body>
+
+<!-- ═══ HEADER ═══════════════════════════════ -->
+<header class="site-header" role="banner">
+  <div class="container header-inner">
+
+    <a href="index.html" class="logo" aria-label="Tauze Class — Início">
+      <div class="logo-mark">TC</div>
+      <div class="logo-text">
+        <span class="logo-name">Tauze Class</span>
+        <span class="logo-tagline">Classificados Agro</span>
+      </div>
+    </a>
+
+    <div class="header-search" role="search">
+      <span class="search-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      </span>
+      <input type="search" id="header-search-input" placeholder="Buscar animais, máquinas, insumos..."
+             data-i18n-placeholder="search_placeholder" aria-label="Buscar anúncios">
+    </div>
+
+    <nav class="header-nav" role="navigation" aria-label="Menu principal">
+      <a href="index.html" class="active" data-i18n="nav_home">Início</a>
+      <a href="listagem.html" data-i18n="nav_ads">Anúncios</a>
+      <a href="#categorias" data-i18n="nav_categories">Categorias</a>
+      <a href="login.html" data-i18n="nav_login">Entrar</a>
+    </nav>
+
+    <div class="lang-toggle" role="group" aria-label="Selecionar idioma">
+      <button data-lang="pt" class="active" aria-label="Português">PT</button>
+      <button data-lang="es" aria-label="Español">ES</button>
+    </div>
+
+    <a href="anunciar.html" class="btn-anunciar-header" id="btn-post-header">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <span data-i18n="btn_post">Anunciar Grátis</span>
+    </a>
+
+    <button class="hamburger" aria-label="Abrir menu" aria-expanded="false" aria-controls="mobile-menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</header>
+
+<!-- Mobile Menu -->
+<nav class="mobile-menu" id="mobile-menu" aria-label="Menu mobile">
+  <a href="index.html" data-i18n="nav_home">Início</a>
+  <a href="listagem.html" data-i18n="nav_ads">Anúncios</a>
+  <a href="#categorias" data-i18n="nav_categories">Categorias</a>
+  <a href="login.html" data-i18n="nav_login">Entrar</a>
+  <a href="anunciar.html" style="color:var(--clr-accent-dark);font-weight:700" data-i18n="btn_post">Anunciar Grátis</a>
+  <div style="display:flex;gap:8px;padding:8px 0;border-top:1px solid var(--clr-border)">
+    <button data-lang-btn="pt" onclick="setLang('pt')" style="padding:6px 16px;border-radius:99px;font-weight:600;font-size:.8rem;border:1.5px solid var(--clr-border);cursor:pointer;background:white">🇧🇷 PT</button>
+    <button data-lang-btn="es" onclick="setLang('es')" style="padding:6px 16px;border-radius:99px;font-weight:600;font-size:.8rem;border:1.5px solid var(--clr-border);cursor:pointer;background:white">🌎 ES</button>
+  </div>
+</nav>
+
+<main id="main-content">
+
+<!-- ═══ HERO — SPLIT LAYOUT ══════════════════ -->
+<section class="hero" aria-labelledby="hero-heading">
+  <div class="container">
+    <div class="hero-grid">
+
+      <!-- LEFT: Copy + Search -->
+      <div class="hero-left fade-in-up visible">
+
+        <div class="hero-badge" aria-label="Cobertura Mercosul">
+          <span class="hero-badge-dot" aria-hidden="true"></span>
+          <span data-i18n="hero_badge">Mercosul · Brasil · Argentina · Paraguai · Uruguai</span>
+        </div>
+
+        <h1 class="hero-h1" id="hero-heading">
+          <span data-i18n="hero_title">O maior classificado do</span><br>
+          <span class="grad" data-i18n="hero_highlight">Agronegócio</span><br>
+          <span data-i18n="hero_title2">do Mercosul</span>
+        </h1>
+
+        <p class="hero-sub" data-i18n="hero_sub">
+          Compre, venda e anuncie animais, insumos, máquinas e propriedades rurais com segurança e facilidade.
+        </p>
+
+        <!-- Search Box -->
+        <div class="hero-search-box" role="search" aria-label="Busca principal">
+          <div class="hero-search-inner">
+            <select id="hero-category-select" aria-label="Categoria">
+              <option value="">Todos</option>
+            </select>
+            <input type="search" id="hero-search-input"
+                   placeholder="Buscar animais, insumos, máquinas..."
+                   data-i18n-placeholder="search_placeholder"
+                   aria-label="Termo de busca">
+            <button class="hero-search-btn" onclick="doSearch()" aria-label="Buscar">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              <span data-i18n="search_btn">Buscar</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="hero-popular-tags" aria-label="Buscas populares">
+          <span data-i18n="popular">Popular:</span>
+          <div id="popular-tags" style="display:contents"></div>
+        </div>
+
+        <div class="hero-actions">
+          <a href="anunciar.html" class="btn btn--accent btn--lg btn--shimmer" id="btn-post-hero">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span data-i18n="btn_post_hero">Anunciar Grátis</span>
+          </a>
+          <a href="listagem.html" class="btn btn--ghost-dark btn--lg">
+            <span data-i18n="btn_explore">Explorar Anúncios</span>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </a>
+        </div>
+
+        <!-- Mini stats -->
+        <div class="hero-mini-stats" aria-label="Estatísticas">
+          <div class="hero-mini-stat">
+            <span class="num" data-target="62000" data-suffix="+">62k+</span>
+            <span class="lbl" data-i18n="stats_0">Anúncios Ativos</span>
+          </div>
+          <div class="hero-mini-stat">
+            <span class="num" data-target="18000" data-suffix="+">18k+</span>
+            <span class="lbl" data-i18n="stats_3">Vendedores</span>
+          </div>
+          <div class="hero-mini-stat">
+            <span class="num" data-target="4">4</span>
+            <span class="lbl" data-i18n="stats_2">Países</span>
+          </div>
+          <div class="hero-mini-stat">
+            <span class="num" data-target="1200" data-suffix="+">1.2k+</span>
+            <span class="lbl" data-i18n="stats_1">Cidades</span>
+          </div>
+        </div>
+
+      </div><!-- /.hero-left -->
+
+      <!-- RIGHT: Image + Floating cards -->
+      <div class="hero-right fade-in-up visible" style="transition-delay:.15s">
+        <div class="hero-img-frame">
+
+          <!-- Floating proof cards -->
+          <div class="hero-float-card hero-float-card--1" aria-hidden="true">
+            <div class="fc-icon fc-icon--green">🐄</div>
+            <div>
+              <div class="fc-text-main">12.847 Bovinos</div>
+              <div class="fc-text-sub">anúncios disponíveis</div>
+            </div>
+          </div>
+
+          <div class="hero-float-card hero-float-card--2" aria-hidden="true">
+            <div class="fc-icon fc-icon--amber">⭐</div>
+            <div>
+              <div class="fc-text-main">Verificado ✓</div>
+              <div class="fc-text-sub">18k+ vendedores</div>
+            </div>
+          </div>
+
+          <div class="hero-float-card hero-float-card--3" aria-hidden="true">
+            <div class="fc-icon fc-icon--blue">🌎</div>
+            <div>
+              <div class="fc-text-main">4 países</div>
+              <div class="fc-text-sub">Mercosul completo</div>
+            </div>
+          </div>
+
+          <!-- Main image -->
+          <div class="hero-img-wrap">
+            <img src="assets/hero_farm.png" alt="Fazenda no agronegócio do Mercosul — paisagem verde com gado" loading="eager">
+          </div>
+
+        </div>
+      </div><!-- /.hero-right -->
+
+    </div><!-- /.hero-grid -->
+  </div>
+</section>
+
+<!-- ═══ CATEGORIES ════════════════════════════ -->
+<section class="section categories-section" id="categorias" aria-labelledby="cat-heading">
+  <div class="container">
+    <div class="section-header">
+      <div>
+        <div class="section-label" data-i18n="section_cats">Categorias</div>
+        <h2 class="section-title" id="cat-heading" data-i18n="section_cats_title">O que você está procurando?</h2>
+      </div>
+      <a href="listagem.html" class="view-all" aria-label="Ver todos os anúncios">
+        <span data-i18n="view_all">Ver todos</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </a>
+    </div>
+    <div class="cat-grid" id="cat-grid" role="list" aria-label="Categorias de anúncios"></div>
+  </div>
+</section>
+
+<!-- ═══ FEATURED ADS ══════════════════════════ -->
+<section class="section" aria-labelledby="featured-heading">
+  <div class="container">
+    <div class="section-header">
+      <div>
+        <div class="section-label" data-i18n="section_featured">Em Destaque</div>
+        <h2 class="section-title" id="featured-heading" data-i18n="section_featured_title">Anúncios em Destaque</h2>
+      </div>
+      <a href="listagem.html?featured=true" class="view-all">
+        <span data-i18n="view_all">Ver todos</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </a>
+    </div>
+    <div class="ads-grid" id="featured-ads" role="list" aria-label="Anúncios em destaque"></div>
+  </div>
+</section>
+
+<!-- ═══ TRUST — Branco + Cards Coloridos ═════ -->
+<section class="section trust-section" aria-labelledby="trust-heading">
+  <div class="container">
+    <div style="text-align:center;margin-bottom:var(--sp-12)">
+      <div class="section-label" style="justify-content:center;margin-bottom:var(--sp-3)">Por que escolher o Tauze Class</div>
+      <h2 class="section-title" id="trust-heading" data-i18n="trust_title" style="margin-bottom:var(--sp-3)">Por que usar o Tauze Class?</h2>
+      <p class="section-subtitle" style="margin-inline:auto;text-align:center">A plataforma mais confiável para negócios rurais no Mercosul.</p>
+    </div>
+    <div class="trust-grid" id="trust-grid" role="list"></div>
+  </div>
+</section>
+
+<!-- ═══ MERCOSUL ══════════════════════════════ -->
+<section class="section mercosul-section" aria-labelledby="mercosul-heading">
+  <div class="container">
+    <div class="mercosul-grid">
+      <div>
+        <div class="section-label" data-i18n="mercosul_label">Cobertura Mercosul</div>
+        <h2 class="section-title" id="mercosul-heading" data-i18n="mercosul_title" style="margin-bottom:var(--sp-4)">Conectamos o Agronegócio de 4 países</h2>
+        <p class="section-subtitle" data-i18n="mercosul_sub">Maior portal de classificados rurais do Mercosul. Vendedores e compradores em todo o Brasil, Argentina, Paraguai e Uruguai.</p>
+        <div style="margin-top:var(--sp-8)">
+          <a href="listagem.html" class="btn btn--primary btn--lg">
+            <span data-i18n="btn_explore">Explorar Anúncios</span>
+          </a>
+        </div>
+      </div>
+      <div id="countries-grid" class="country-cards" role="list" aria-label="Países cobertos"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ RECENT ADS ════════════════════════════ -->
+<section class="section" style="background:var(--clr-bg-alt)" aria-labelledby="recent-heading">
+  <div class="container">
+    <div class="section-header">
+      <div>
+        <div class="section-label" data-i18n="section_recent">Recentes</div>
+        <h2 class="section-title" id="recent-heading" data-i18n="section_recent_title">Últimos Anúncios</h2>
+      </div>
+      <a href="listagem.html" class="view-all">
+        <span data-i18n="view_all">Ver todos</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </a>
+    </div>
+    <div class="ads-grid" id="recent-ads" role="list" aria-label="Últimos anúncios publicados"></div>
+  </div>
+</section>
+
+<!-- ═══ CTA ═══════════════════════════════════ -->
+<section class="section cta-section" aria-labelledby="cta-heading">
+  <div class="container">
+    <div class="cta-inner">
+      <div class="cta-text fade-in-up">
+        <h2 id="cta-heading" data-i18n="cta_title">Seu anúncio para milhares de compradores</h2>
+        <p data-i18n="cta_sub">Cadastre-se gratuitamente e publique seu anúncio em minutos. Alcance compradores em todo o Mercosul.</p>
+      </div>
+      <div class="cta-actions fade-in-up">
+        <a href="login.html?mode=register" class="btn btn--accent btn--shimmer" data-i18n="btn_free">Criar Conta Grátis</a>
+        <a href="#" class="btn btn--ghost" data-i18n="btn_know">Saiba mais</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ═══ FOOTER ════════════════════════════════ -->
+<footer class="site-footer" role="contentinfo">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-col">
+        <div class="logo footer-logo" style="margin-bottom:var(--sp-4)">
+          <div class="logo-mark">TC</div>
+          <div class="logo-text">
+            <span class="logo-name">Tauze Class</span>
+            <span class="logo-tagline">Classificados Agro</span>
+          </div>
+        </div>
+        <p class="footer-desc" data-i18n="footer_desc">O maior portal de classificados do agronegócio do Mercosul.</p>
+        <div class="footer-social" aria-label="Redes sociais">
+          <a href="#" class="social-btn" aria-label="Instagram">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+          </a>
+          <a href="#" class="social-btn" aria-label="Facebook">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+          </a>
+          <a href="#" class="social-btn" aria-label="WhatsApp">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.125.553 4.122 1.523 5.855L.057 23.268a.5.5 0 0 0 .618.635l5.579-1.461A11.942 11.942 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.75c-1.924 0-3.72-.523-5.256-1.43l-.377-.224-3.914 1.025 1.044-3.81-.246-.393A9.716 9.716 0 0 1 2.25 12C2.25 6.615 6.615 2.25 12 2.25S21.75 6.615 21.75 12 17.385 21.75 12 21.75z"/></svg>
+          </a>
+        </div>
+      </div>
+      <div class="footer-col">
+        <h4 data-i18n="footer_ads">Anúncios</h4>
+        <ul id="footer-ads"></ul>
+      </div>
+      <div class="footer-col">
+        <h4 data-i18n="footer_help">Ajuda</h4>
+        <ul id="footer-help"></ul>
+      </div>
+      <div class="footer-col">
+        <h4 data-i18n="footer_company">Empresa</h4>
+        <ul id="footer-company"></ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span data-i18n="footer_copy">© 2026 Tauze Class. Todos os direitos reservados.</span>
+      <div style="display:flex;gap:var(--sp-4)">
+        <a href="#">Privacidade</a>
+        <a href="#">Termos</a>
+        <a href="#">Cookies</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/data.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

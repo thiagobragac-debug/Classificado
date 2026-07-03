@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Entrar — Tauze Class</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2316A34A'/%3E%3Ctext y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'%3ET%3C/text%3E%3C/svg%3E">
+</head>
+<body style="background: white">
+  
+  <main class="login-split">
+    <!-- Left Banner -->
+    <div class="login-banner">
+      <h2>O maior portal do agronegócio.</h2>
+      <p>Conecte-se com milhares de produtores, compre e venda maquinários, insumos e muito mais.</p>
+    </div>
+
+    <!-- Right Form -->
+    <div class="login-form-area">
+      <div style="max-width: 400px; width: 100%; margin: 0 auto;">
+        <a href="index.html" class="logo" style="margin-bottom: 2rem; display: inline-flex; align-items: center; gap: 0.8rem; text-decoration: none;">
+          <div class="logo-mark" style="width: 40px; height: 40px; background: var(--clr-primary); color: white; border-radius: 0.8rem; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.2rem;">TC</div>
+          <div class="logo-text" style="display: flex; flex-direction: column;">
+            <span class="logo-name" style="color: var(--clr-text); font-weight: 800; font-size: 1.5rem; line-height: 1.1;">Tauze Class</span>
+            <span class="logo-tagline" style="color: var(--clr-primary); font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Classificados Agro</span>
+          </div>
+        </a>
+
+        <h1 style="font-size: 2rem; font-weight: 800; color: var(--clr-text); margin-bottom: 0.5rem">Bem-vindo de volta!</h1>
+        <p style="color: var(--clr-text-light); margin-bottom: 2rem">Por favor, insira seus dados para acessar sua conta.</p>
+
+        <form onsubmit="event.preventDefault(); window.location.href='painel.html'">
+          <div class="form-group" style="margin-bottom: 1rem">
+            <label class="form-label">E-mail</label>
+            <input type="email" class="form-input" placeholder="exemplo@email.com" required>
+          </div>
+          <div class="form-group" style="margin-bottom: 0.5rem">
+            <label class="form-label">Senha</label>
+            <input type="password" class="form-input" placeholder="••••••••" required>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; font-size: 0.9rem">
+            <label style="display: flex; align-items: center; gap: 0.5rem; color: var(--clr-text); cursor: pointer">
+              <input type="checkbox" style="accent-color: var(--clr-primary)"> Lembrar-me
+            </label>
+            <a href="#" style="color: var(--clr-accent); font-weight: 600; text-decoration: none">Esqueceu a senha?</a>
+          </div>
+
+          <button type="submit" class="btn btn--accent btn--lg" style="width: 100%; justify-content: center; margin-bottom: 1.5rem">Entrar na Conta</button>
+          
+          <div style="text-align: center; color: var(--clr-text-light); font-size: 0.9rem">
+            Ainda não tem uma conta? <a href="#" style="color: var(--clr-primary); font-weight: 700; text-decoration: none">Criar Conta Grátis</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/main.js"></script>
+</body>
+</html>

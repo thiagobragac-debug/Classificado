@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Categorias — Admin Tauze Class</title>
+  <link rel="stylesheet" href="/admin/css/admin.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2316A34A'/%3E%3Ctext y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'%3ET%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+<div class="adm-layout">
+  <aside class="adm-sidebar" id="adm-sidebar"></aside>
+  <div class="adm-main">
+
+    <header class="adm-topbar">
+      <div class="adm-breadcrumb">
+        <a href="/admin/index.html">Dashboard</a><span>›</span><strong>Categorias</strong>
+      </div>
+      <div class="adm-topbar-right">
+        <button class="adm-topbar-btn" title="Notificações" onclick="showToast('Sem novas notificações', 'info')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="adm-content">
+      <div class="adm-page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div>
+          <h1 class="adm-page-title">Gerenciar Categorias</h1>
+          <p class="adm-page-sub">Ative, edite ou crie categorias do portal.</p>
+        </div>
+        <button class="adm-btn adm-btn--primary" onclick="openModal('modal-nova-cat')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Nova Categoria
+        </button>
+      </div>
+
+      <!-- Stats -->
+      <div class="adm-stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">
+        <div class="adm-stat-card"><div><div class="adm-stat-val" data-count="12">0</div><div class="adm-stat-lbl">Total Categorias</div></div><div class="adm-stat-icon adm-stat-icon--green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></div></div>
+        <div class="adm-stat-card"><div><div class="adm-stat-val" style="color:var(--adm-accent)" data-count="11">0</div><div class="adm-stat-lbl">Ativas</div></div><div class="adm-stat-icon adm-stat-icon--green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div></div>
+        <div class="adm-stat-card"><div><div class="adm-stat-val" style="color:var(--adm-amber)" data-count="1">0</div><div class="adm-stat-lbl">Desativadas</div></div><div class="adm-stat-icon adm-stat-icon--amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg></div></div>
+        <div class="adm-stat-card"><div><div class="adm-stat-val" data-count="62847">0</div><div class="adm-stat-lbl">Total Anúncios</div></div><div class="adm-stat-icon adm-stat-icon--blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></div></div>
+      </div>
+
+      <!-- Category Grid -->
+      <div class="adm-cat-grid" id="cats-grid"></div>
+    </main>
+  </div>
+</div>
+
+<!-- Modal: Nova Categoria -->
+<div class="adm-overlay" id="modal-nova-cat" onclick="if(event.target===this)closeModal('modal-nova-cat')">
+  <div class="adm-modal">
+    <h3 class="adm-modal-title">➕ Nova Categoria</h3>
+    <div class="adm-field">
+      <label>Nome (Português)</label>
+      <input type="text" class="adm-input" id="new-cat-name-pt" placeholder="Ex: Caprinos">
+    </div>
+    <div class="adm-field">
+      <label>Nome (Espanhol)</label>
+      <input type="text" class="adm-input" id="new-cat-name-es" placeholder="Ex: Caprinos">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="adm-field">
+        <label>Ícone (Emoji)</label>
+        <input type="text" class="adm-input" id="new-cat-icon" placeholder="🐐" maxlength="2" style="font-size:1.2rem;text-align:center">
+      </div>
+      <div class="adm-field">
+        <label>Cor Principal</label>
+        <input type="color" class="adm-input" id="new-cat-color" value="#16A34A" style="padding:4px 8px;height:38px;cursor:pointer">
+      </div>
+    </div>
+    <div class="adm-field">
+      <label>Descrição</label>
+      <textarea class="adm-textarea" id="new-cat-desc" placeholder="Breve descrição da categoria..."></textarea>
+    </div>
+    <div class="adm-modal-footer">
+      <button class="adm-btn adm-btn--outline" onclick="closeModal('modal-nova-cat')">Cancelar</button>
+      <button class="adm-btn adm-btn--primary" onclick="saveNewCategory()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        Criar Categoria
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Editar Categoria -->
+<div class="adm-overlay" id="modal-edit-cat" onclick="if(event.target===this)closeModal('modal-edit-cat')">
+  <div class="adm-modal">
+    <h3 class="adm-modal-title">✏️ Editar Categoria</h3>
+    <div class="adm-field">
+      <label>Nome (Português)</label>
+      <input type="text" class="adm-input" id="edit-cat-name-pt">
+    </div>
+    <div class="adm-field">
+      <label>Nome (Espanhol)</label>
+      <input type="text" class="adm-input" id="edit-cat-name-es">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="adm-field">
+        <label>Ícone (Emoji)</label>
+        <input type="text" class="adm-input" id="edit-cat-icon" maxlength="2" style="font-size:1.2rem;text-align:center">
+      </div>
+      <div class="adm-field">
+        <label>Cor Principal</label>
+        <input type="color" class="adm-input" id="edit-cat-color" style="padding:4px 8px;height:38px;cursor:pointer">
+      </div>
+    </div>
+    <div class="adm-modal-footer" style="justify-content:space-between">
+      <button class="adm-btn adm-btn--danger" onclick="closeModal('modal-edit-cat');showToast('Categoria excluída','error')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+        Excluir
+      </button>
+      <div style="display:flex;gap:8px">
+        <button class="adm-btn adm-btn--outline" onclick="closeModal('modal-edit-cat')">Cancelar</button>
+        <button class="adm-btn adm-btn--primary" onclick="saveEditCategory()">Salvar Alterações</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/admin/js/admin.js"></script>
+<script>
+let currentEditCat = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+  checkAuth();
+  renderSidebar('categorias.html');
+  renderCatsGrid();
+});
+
+function renderCatsGrid() {
+  const grid = document.getElementById('cats-grid');
+  grid.innerHTML = ADMIN_CATS.map(cat => `
+    <div class="adm-cat-card${cat.active?'':' adm-cat-card--inactive'}" style="${cat.active?'':'opacity:.55;filter:grayscale(.5)'}">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div class="adm-cat-icon" style="background:${cat.bg};font-size:1.4rem">${cat.icon}</div>
+        <label class="adm-toggle" title="${cat.active?'Desativar':'Ativar'} categoria">
+          <input type="checkbox" ${cat.active?'checked':''} onchange="toggleCat('${cat.id}',this)">
+          <span class="adm-toggle-slider"></span>
+        </label>
+      </div>
+      <div>
+        <div class="adm-cat-name">${cat.name}</div>
+        <div class="adm-cat-count">${cat.ads.toLocaleString('pt-BR')} anúncios</div>
+      </div>
+      <div class="adm-cat-footer">
+        <span class="adm-badge ${cat.active?'adm-badge--active':'adm-badge--rejected'}">${cat.active?'Ativa':'Inativa'}</span>
+        <button class="adm-btn-icon adm-btn-icon--blue" onclick="editCat('${cat.id}')" title="Editar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function toggleCat(id, checkbox) {
+  const cat = ADMIN_CATS.find(c=>c.id===id);
+  if (cat) {
+    cat.active = checkbox.checked;
+    showToast(`Categoria "${cat.name}" ${cat.active?'ativada':'desativada'}.`, cat.active?'success':'warning');
+    renderCatsGrid();
+  }
+}
+
+function editCat(id) {
+  currentEditCat = ADMIN_CATS.find(c=>c.id===id);
+  if (!currentEditCat) return;
+  document.getElementById('edit-cat-name-pt').value = currentEditCat.name;
+  document.getElementById('edit-cat-name-es').value = currentEditCat.name;
+  document.getElementById('edit-cat-icon').value = currentEditCat.icon;
+  document.getElementById('edit-cat-color').value = currentEditCat.color;
+  openModal('modal-edit-cat');
+}
+
+function saveEditCategory() {
+  if (!currentEditCat) return;
+  currentEditCat.name  = document.getElementById('edit-cat-name-pt').value;
+  currentEditCat.icon  = document.getElementById('edit-cat-icon').value;
+  currentEditCat.color = document.getElementById('edit-cat-color').value;
+  closeModal('modal-edit-cat');
+  renderCatsGrid();
+  showToast(`Categoria "${currentEditCat.name}" atualizada!`, 'success');
+}
+
+function saveNewCategory() {
+  const name = document.getElementById('new-cat-name-pt').value.trim();
+  const icon = document.getElementById('new-cat-icon').value.trim() || '📦';
+  const color = document.getElementById('new-cat-color').value;
+  if (!name) { showToast('Informe um nome para a categoria.','warning'); return; }
+  ADMIN_CATS.push({ id: name.toLowerCase().replace(/\s/g,'_'), name, icon, color, bg: color+'22', ads: 0, active: true });
+  closeModal('modal-nova-cat');
+  renderCatsGrid();
+  showToast(`Categoria "${name}" criada com sucesso!`, 'success');
+  document.getElementById('new-cat-name-pt').value = '';
+  document.getElementById('new-cat-name-es').value = '';
+  document.getElementById('new-cat-icon').value = '';
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meu Painel — Tauze Class</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2316A34A'/%3E%3Ctext y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'%3ET%3C/text%3E%3C/svg%3E">
+</head>
+<body style="background: #F1F5F9">
+  
+  <header class="site-header" role="banner">
+  <div class="container header-inner">
+
+    <a href="index.html" class="logo" aria-label="Tauze Class — Início">
+      <div class="logo-mark">TC</div>
+      <div class="logo-text">
+        <span class="logo-name">Tauze Class</span>
+        <span class="logo-tagline">Classificados Agro</span>
+      </div>
+    </a>
+
+    <div class="header-search" role="search">
+      <span class="search-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      </span>
+      <input type="search" id="header-search-input" placeholder="Buscar animais, máquinas, insumos..."
+             data-i18n-placeholder="search_placeholder" aria-label="Buscar anúncios">
+    </div>
+
+    <nav class="header-nav" role="navigation" aria-label="Menu principal">
+      <a href="index.html" class="active" data-i18n="nav_home">Início</a>
+      <a href="pesquisa.html" data-i18n="nav_ads">Anúncios</a>
+      <a href="index.html#categorias" data-i18n="nav_categories">Categorias</a>
+      <div style="width:40px; height:40px; border-radius:50%; background:var(--clr-primary); color:white; display:flex; align-items:center; justify-content:center; font-weight:700; cursor:pointer" onclick="window.location.href='index.html'">JC</div>
+    </nav>
+
+    <div class="lang-toggle" role="group" aria-label="Selecionar idioma">
+      <button data-lang="pt" class="active" aria-label="Português">PT</button>
+      <button data-lang="es" aria-label="Español">ES</button>
+    </div>
+
+    <a href="anunciar.html" class="btn-anunciar-header" id="btn-post-header">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <span data-i18n="btn_post">Anunciar Grátis</span>
+    </a>
+
+    <button class="hamburger" aria-label="Abrir menu" aria-expanded="false" aria-controls="mobile-menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</header>
+
+  <main class="container" style="padding-top: calc(var(--header-h) + 2rem);">
+    <div class="dashboard-layout">
+      
+      <!-- User Sidebar -->
+      <aside class="user-menu">
+        <div class="user-menu-info">
+          <div class="user-menu-avatar">JC</div>
+          <h2 style="font-size: 1.2rem; font-weight: 700; color: var(--clr-text)">João Carlos</h2>
+          <p style="color: var(--clr-text-light); font-size: 0.9rem">Membro Premium</p>
+        </div>
+        <nav class="user-menu-nav">
+          <a href="#" class="active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            Meus Anúncios
+          </a>
+          <a href="#">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            Mensagens <span style="margin-left:auto; background:var(--clr-accent); color:white; padding:0.1rem 0.5rem; border-radius:1rem; font-size:0.8rem">3</span>
+          </a>
+          <a href="#">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+            Favoritos
+          </a>
+          <a href="#">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            Configurações
+          </a>
+          <a href="index.html" style="color: var(--clr-red); margin-top: 2rem">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Sair
+          </a>
+        </nav>
+      </aside>
+
+      <!-- Content -->
+      <div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2rem">
+          <h1 style="font-size:2rem; font-weight:800; color:var(--clr-text)">Meus Anúncios</h1>
+          <a href="anunciar.html" class="btn btn--accent">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:0.5rem"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Novo Anúncio
+          </a>
+        </div>
+
+        <div class="form-card" style="padding: 1rem; border-radius: 1rem; margin-bottom: 1rem; display: flex; gap: 1.5rem; align-items: center">
+          <img src="https://images.unsplash.com/photo-1592982537447-6f233481f9a2?auto=format&fit=crop&q=80" style="width: 120px; height: 90px; object-fit: cover; border-radius: 0.5rem">
+          <div style="flex-grow: 1">
+            <div style="display:flex; justify-content:space-between">
+              <h3 style="font-size: 1.2rem; font-weight: 700; margin-bottom: 0.5rem">Trator Massey Ferguson 2018</h3>
+              <span style="background: #DCFCE7; color: #166534; padding: 0.2rem 0.8rem; border-radius: 2rem; font-size: 0.8rem; font-weight: 700; height: fit-content">Ativo</span>
+            </div>
+            <p style="color: var(--clr-primary); font-weight: 800; font-size: 1.2rem">R$ 185.000</p>
+            <p style="color: var(--clr-text-light); font-size: 0.9rem; margin-top: 0.5rem">Visualizações: 342 | Mensagens: 12</p>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 0.5rem">
+            <button class="btn btn--outline" style="border: 1px solid #E2E8F0; width: 100px; justify-content:center; padding: 0.5rem">Editar</button>
+            <button class="btn btn--outline" style="border: 1px solid #E2E8F0; color: var(--clr-red); width: 100px; justify-content:center; padding: 0.5rem">Pausar</button>
+          </div>
+        </div>
+
+        <div class="form-card" style="padding: 1rem; border-radius: 1rem; display: flex; gap: 1.5rem; align-items: center; opacity: 0.7">
+          <div style="width: 120px; height: 90px; background: #E2E8F0; border-radius: 0.5rem; display:flex; align-items:center; justify-content:center; color: var(--clr-text-light)">
+            Sem Foto
+          </div>
+          <div style="flex-grow: 1">
+            <div style="display:flex; justify-content:space-between">
+              <h3 style="font-size: 1.2rem; font-weight: 700; margin-bottom: 0.5rem">Colheitadeira Antiga (Rascunho)</h3>
+              <span style="background: #FEF3C7; color: #D97706; padding: 0.2rem 0.8rem; border-radius: 2rem; font-size: 0.8rem; font-weight: 700; height: fit-content">Rascunho</span>
+            </div>
+            <p style="color: var(--clr-primary); font-weight: 800; font-size: 1.2rem">R$ --</p>
+            <p style="color: var(--clr-text-light); font-size: 0.9rem; margin-top: 0.5rem">Aguardando fotos e preço</p>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 0.5rem">
+            <button class="btn btn--outline" style="border: 1px solid #E2E8F0; width: 100px; justify-content:center; padding: 0.5rem">Continuar</button>
+            <button class="btn btn--outline" style="border: 1px solid #E2E8F0; color: var(--clr-red); width: 100px; justify-content:center; padding: 0.5rem">Excluir</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <script src="js/main.js"></script>
+</body>
+</html>

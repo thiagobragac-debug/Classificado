@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — Admin Tauze Class</title>
+  <link rel="stylesheet" href="/admin/css/admin.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2316A34A'/%3E%3Ctext y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'%3ET%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+<div class="adm-layout">
+  <aside class="adm-sidebar" id="adm-sidebar"></aside>
+  <div class="adm-main">
+
+    <!-- Topbar -->
+    <header class="adm-topbar">
+      <div class="adm-breadcrumb">
+        <strong>Dashboard</strong>
+      </div>
+      <div class="adm-topbar-right">
+        <span style="font-size:.78rem;color:var(--adm-text-muted)" id="adm-date"></span>
+        <button class="adm-topbar-btn" title="Notificações" aria-label="Notificações" onclick="showToast('Sem novas notificações', 'info')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="adm-notif-dot"></span>
+        </button>
+        <a href="/index.html" class="adm-topbar-link" target="_blank">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          Ver Site
+        </a>
+      </div>
+    </header>
+
+    <!-- Content -->
+    <main class="adm-content">
+      <div class="adm-page-header">
+        <h1 class="adm-page-title">Dashboard</h1>
+        <p class="adm-page-sub">Visão geral do portal Tauze Class em tempo real.</p>
+      </div>
+
+      <!-- Stats -->
+      <div class="adm-stats-grid">
+        <div class="adm-stat-card">
+          <div>
+            <div class="adm-stat-val" data-count="62847">0</div>
+            <div class="adm-stat-lbl">Total de Anúncios</div>
+            <div class="adm-stat-delta adm-stat-delta--up">↑ +143 hoje</div>
+          </div>
+          <div class="adm-stat-icon adm-stat-icon--green">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          </div>
+        </div>
+        <div class="adm-stat-card">
+          <div>
+            <div class="adm-stat-val" data-count="143">0</div>
+            <div class="adm-stat-lbl">Novos Hoje</div>
+            <div class="adm-stat-delta adm-stat-delta--up">↑ +12% vs ontem</div>
+          </div>
+          <div class="adm-stat-icon adm-stat-icon--blue">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+          </div>
+        </div>
+        <div class="adm-stat-card">
+          <div>
+            <div class="adm-stat-val" data-count="18203">0</div>
+            <div class="adm-stat-lbl">Usuários Ativos</div>
+            <div class="adm-stat-delta adm-stat-delta--up">↑ +28 hoje</div>
+          </div>
+          <div class="adm-stat-icon adm-stat-icon--purple">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+        </div>
+        <div class="adm-stat-card" style="border-color:rgba(245,158,11,.3)">
+          <div>
+            <div class="adm-stat-val" style="color:var(--adm-amber)" data-count="5">0</div>
+            <div class="adm-stat-lbl">Pendentes Aprovação</div>
+            <div class="adm-stat-delta adm-stat-delta--down">↑ Atenção necessária</div>
+          </div>
+          <div class="adm-stat-icon adm-stat-icon--amber">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+        </div>
+        <div class="adm-stat-card" style="border-color:rgba(239,68,68,.3)">
+          <div>
+            <div class="adm-stat-val" style="color:var(--adm-red)" data-count="5">0</div>
+            <div class="adm-stat-lbl">Denúncias Abertas</div>
+            <div class="adm-stat-delta adm-stat-delta--down">2 de alta gravidade</div>
+          </div>
+          <div class="adm-stat-icon adm-stat-icon--red">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+          </div>
+        </div>
+        <div class="adm-stat-card">
+          <div>
+            <div class="adm-stat-val" data-count="12400" style="font-size:1.4rem">0</div>
+            <div class="adm-stat-lbl">Receita do Mês (R$)</div>
+            <div class="adm-stat-delta adm-stat-delta--up">↑ +8.3% vs mês anterior</div>
+          </div>
+          <div class="adm-stat-icon adm-stat-icon--green">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chart + Categories -->
+      <div class="adm-grid-2" style="margin-bottom:20px">
+        <div class="adm-card adm-col-span-1">
+          <div class="adm-card-header">
+            <span class="adm-card-title">Anúncios por Dia (última semana)</span>
+            <select class="adm-select" style="height:30px;font-size:.75rem">
+              <option>7 dias</option><option>30 dias</option><option>90 dias</option>
+            </select>
+          </div>
+          <div class="adm-card-body">
+            <div class="adm-chart" id="adm-chart"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;padding-top:12px;border-top:1px solid var(--adm-border-light)">
+              <span style="font-size:.78rem;color:var(--adm-text-muted)">Total semana: <strong style="color:var(--adm-text)">627</strong> anúncios</span>
+              <span style="font-size:.78rem;color:var(--adm-accent)">↑ +18% vs semana anterior</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="adm-card">
+          <div class="adm-card-header">
+            <span class="adm-card-title">Top Categorias</span>
+            <a href="/admin/categorias.html" style="font-size:.75rem;color:var(--adm-accent)">Ver todas →</a>
+          </div>
+          <div class="adm-card-body" id="top-cats"></div>
+        </div>
+      </div>
+
+      <!-- Pending + Reports -->
+      <div class="adm-grid-2">
+        <div class="adm-card">
+          <div class="adm-card-header">
+            <span class="adm-card-title">⏳ Aguardando Aprovação</span>
+            <a href="/admin/anuncios.html" class="adm-btn adm-btn--outline adm-btn--sm">Ver todos</a>
+          </div>
+          <div class="adm-card-body--noPad adm-mini-list" id="pending-ads"></div>
+        </div>
+        <div class="adm-card">
+          <div class="adm-card-header">
+            <span class="adm-card-title">🚩 Últimas Denúncias</span>
+            <a href="/admin/denuncias.html" class="adm-btn adm-btn--outline adm-btn--sm">Ver todas</a>
+          </div>
+          <div class="adm-card-body--noPad adm-mini-list" id="pending-reports"></div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="/admin/js/admin.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  checkAuth();
+  renderSidebar('index.html');
+  renderChart('adm-chart');
+
+  // Date
+  document.getElementById('adm-date').textContent = new Date().toLocaleDateString('pt-BR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+
+  // Top categories
+  const topCats = [...ADMIN_CATS].filter(c=>c.active).sort((a,b)=>b.ads-a.ads).slice(0,6);
+  const maxAds = topCats[0].ads;
+  document.getElementById('top-cats').innerHTML = topCats.map(c => `
+    <div class="adm-progress-row">
+      <span class="adm-progress-label">${c.icon} ${c.name}</span>
+      <div class="adm-progress-track"><div class="adm-progress-fill" style="width:${Math.round(c.ads/maxAds*100)}%"></div></div>
+      <span class="adm-progress-val">${(c.ads/1000).toFixed(1)}k</span>
+    </div>
+  `).join('');
+
+  // Pending ads
+  const pending = ADMIN_ADS.filter(a=>a.status==='pending');
+  document.getElementById('pending-ads').innerHTML = pending.length ? pending.map(ad => `
+    <div class="adm-mini-item">
+      <img class="adm-mini-thumb" src="${ad.image}" alt="${ad.title}" onerror="this.style.background='var(--adm-surface-2)'">
+      <div class="adm-mini-info">
+        <div class="adm-mini-title">${ad.title}</div>
+        <div class="adm-mini-sub">${ad.seller} · ${ad.category}</div>
+      </div>
+      <div class="adm-mini-actions">
+        <button class="adm-btn-icon adm-btn-icon--green" onclick="approveAd(${ad.id})" title="Aprovar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </button>
+        <button class="adm-btn-icon adm-btn-icon--red" onclick="rejectAd(${ad.id})" title="Rejeitar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+  `).join('') : '<div class="adm-empty"><div class="adm-empty-icon">✅</div><h3>Tudo em dia!</h3><p>Nenhum anúncio pendente.</p></div>';
+
+  // Pending reports
+  const reports = ADMIN_REPORTS.filter(r=>r.status==='pending');
+  document.getElementById('pending-reports').innerHTML = reports.length ? reports.map(r => `
+    <div class="adm-mini-item" id="row-rep-${r.id}">
+      <div style="width:8px;height:8px;border-radius:50%;background:${r.severity==='high'?'var(--adm-red)':r.severity==='medium'?'var(--adm-amber)':'var(--adm-blue)'};flex-shrink:0"></div>
+      <div class="adm-mini-info">
+        <div class="adm-mini-title">${r.ad}</div>
+        <div class="adm-mini-sub">${r.reason} · ${r.date}</div>
+      </div>
+      <div class="adm-mini-actions">
+        ${severityBadge(r.severity)}
+        <button class="adm-btn-icon adm-btn-icon--green" onclick="resolveReport(${r.id})" title="Resolver">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </button>
+      </div>
+    </div>
+  `).join('') : '<div class="adm-empty"><div class="adm-empty-icon">🎉</div><h3>Sem denúncias!</h3><p>Nenhuma pendente.</p></div>';
+});
+</script>
+</body>
+</html>

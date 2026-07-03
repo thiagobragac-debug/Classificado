@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Resultados da Pesquisa — Tauze Class</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2316A34A'/%3E%3Ctext y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'%3ET%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+  
+  <header class="site-header" role="banner">
+  <div class="container header-inner">
+
+    <a href="index.html" class="logo" aria-label="Tauze Class — Início">
+      <div class="logo-mark">TC</div>
+      <div class="logo-text">
+        <span class="logo-name">Tauze Class</span>
+        <span class="logo-tagline">Classificados Agro</span>
+      </div>
+    </a>
+
+    <div class="header-search" role="search">
+      <span class="search-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      </span>
+      <input type="search" id="header-search-input" placeholder="Buscar animais, máquinas, insumos..."
+             data-i18n-placeholder="search_placeholder" aria-label="Buscar anúncios">
+    </div>
+
+    <nav class="header-nav" role="navigation" aria-label="Menu principal">
+      <a href="index.html" class="active" data-i18n="nav_home">Início</a>
+      <a href="pesquisa.html" data-i18n="nav_ads">Anúncios</a>
+      <a href="index.html#categorias" data-i18n="nav_categories">Categorias</a>
+      <a href="login.html" data-i18n="nav_login">Entrar</a>
+    </nav>
+
+    <div class="lang-toggle" role="group" aria-label="Selecionar idioma">
+      <button data-lang="pt" class="active" aria-label="Português">PT</button>
+      <button data-lang="es" aria-label="Español">ES</button>
+    </div>
+
+    <a href="anunciar.html" class="btn-anunciar-header" id="btn-post-header">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <span data-i18n="btn_post">Anunciar Grátis</span>
+    </a>
+
+    <button class="hamburger" aria-label="Abrir menu" aria-expanded="false" aria-controls="mobile-menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</header>
+
+  <main class="container" style="padding-top: calc(var(--header-h) + 2rem);">
+    <div class="breadcrumb" style="margin-top: 2rem">
+      <a href="index.html">Home</a> <span>›</span> <strong>Pesquisa</strong>
+    </div>
+
+    <div class="search-layout">
+      <!-- Sidebar de Filtros -->
+      <aside class="filters-sidebar">
+        <div class="filter-block">
+          <div class="filter-title">Categorias</div>
+          <div class="filter-list">
+            <label><input type="checkbox" checked> Máquinas e Equipamentos</label>
+            <label><input type="checkbox"> Bovinos</label>
+            <label><input type="checkbox"> Insumos</label>
+            <label><input type="checkbox"> Imóveis Rurais</label>
+          </div>
+        </div>
+
+        <div class="filter-block">
+          <div class="filter-title">Condição</div>
+          <div class="filter-list">
+            <label><input type="checkbox"> Novo</label>
+            <label><input type="checkbox" checked> Usado</label>
+          </div>
+        </div>
+
+        <div class="filter-block">
+          <div class="filter-title">Preço (R$)</div>
+          <div style="display: flex; gap: 0.5rem">
+            <input type="number" class="form-input" placeholder="Mínimo" style="width: 50%; padding: 0.5rem">
+            <input type="number" class="form-input" placeholder="Máximo" style="width: 50%; padding: 0.5rem">
+          </div>
+        </div>
+        
+        <button class="btn btn--accent" style="width:100%; justify-content:center; margin-top:1rem">Aplicar Filtros</button>
+      </aside>
+
+      <!-- Resultados -->
+      <div>
+        <div class="search-header">
+          <div>
+            <h1 style="font-size:1.8rem; font-weight:800; color:var(--clr-text)">Máquinas e Equipamentos</h1>
+            <p style="color:var(--clr-text-light); font-size:0.95rem; margin-top:0.3rem">Encontrados 42 resultados para a sua busca.</p>
+          </div>
+          <div class="search-sort">
+            Ordenar por:
+            <select>
+              <option>Mais recentes</option>
+              <option>Menor preço</option>
+              <option>Maior preço</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Grid Results (Reutilizando os estilos do index) -->
+        <div class="listings-grid">
+          
+          <a href="anuncio.html" class="card">
+            <div class="card-img-wrapper">
+              <span class="card-badge">Destaque</span>
+              <img src="https://images.unsplash.com/photo-1592982537447-6f233481f9a2?auto=format&fit=crop&q=80" alt="Trator" class="card-img" loading="lazy">
+            </div>
+            <div class="card-content">
+              <h3 class="card-title">Trator Massey Ferguson 2018 Conservado</h3>
+              <div class="card-price">R$ 185.000</div>
+              <div class="card-meta">
+                <div class="card-meta-item">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                  Ribeirão Preto, SP
+                </div>
+              </div>
+            </div>
+          </a>
+
+          <a href="anuncio.html" class="card">
+            <div class="card-img-wrapper">
+              <img src="https://images.unsplash.com/photo-1579705904818-f2b7a9505c2a?auto=format&fit=crop&q=80" alt="Colheitadeira" class="card-img" loading="lazy">
+            </div>
+            <div class="card-content">
+              <h3 class="card-title">Colheitadeira John Deere S680</h3>
+              <div class="card-price">R$ 1.250.000</div>
+              <div class="card-meta">
+                <div class="card-meta-item">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                  Sorriso, MT
+                </div>
+              </div>
+            </div>
+          </a>
+
+          <a href="anuncio.html" class="card">
+            <div class="card-img-wrapper">
+              <img src="https://images.unsplash.com/photo-1627685642931-c0e86bba46c5?auto=format&fit=crop&q=80" alt="Semeadeira" class="card-img" loading="lazy">
+            </div>
+            <div class="card-content">
+              <h3 class="card-title">Semeadeira Kuhn 12 Linhas Ano 2021</h3>
+              <div class="card-price">R$ 95.000</div>
+              <div class="card-meta">
+                <div class="card-meta-item">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                  Londrina, PR
+                </div>
+              </div>
+            </div>
+          </a>
+
+          <a href="anuncio.html" class="card">
+            <div class="card-img-wrapper">
+              <img src="https://images.unsplash.com/photo-1592982537447-6f233481f9a2?auto=format&fit=crop&q=80" alt="Pulverizador" class="card-img" loading="lazy">
+            </div>
+            <div class="card-content">
+              <h3 class="card-title">Pulverizador Jacto Uniport 3030</h3>
+              <div class="card-price">R$ 890.000</div>
+              <div class="card-meta">
+                <div class="card-meta-item">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                  Rio Verde, GO
+                </div>
+              </div>
+            </div>
+          </a>
+
+        </div>
+        
+        <!-- Pagination -->
+        <div style="display:flex; justify-content:center; gap:0.5rem; margin-top:3rem">
+          <button class="btn btn--outline" style="border: 1px solid #E2E8F0">Anterior</button>
+          <button class="btn btn--accent">1</button>
+          <button class="btn btn--outline" style="border: 1px solid #E2E8F0">2</button>
+          <button class="btn btn--outline" style="border: 1px solid #E2E8F0">3</button>
+          <button class="btn btn--outline" style="border: 1px solid #E2E8F0">Próxima</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/main.js"></script>
+</body>
+</html>
