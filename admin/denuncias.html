@@ -102,8 +102,37 @@
 document.addEventListener('DOMContentLoaded', () => {
   checkAuth();
   renderSidebar('denuncias.html');
-  renderReportsTable(ADMIN_REPORTS);
+  fetchAndRenderReports();
 });
+
+async function fetchAndRenderReports() {
+  const SB_URL = 'https://rfzuzuobwuanmbrcthqe.supabase.co';
+  const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmenV6dW9id3Vhbm1icmN0aHFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwNzg1OTMsImV4cCI6MjA5ODY1NDU5M30.m-Mop7RgpVo730lwjcra1egF8p9APv6AGnW1YnFvOgY';
+  const headers = { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` };
+  try {
+    const res = await fetch(
+      `${SB_URL}/rest/v1/reports?select=id,reason,severity,status,created_at,ads(title_pt),reporter:profiles!reports_reporter_id_fkey(name)&order=created_at.desc&limit=50`,
+      { headers }
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (!Array.isArray(data) || data.length === 0) throw new Error('no data');
+    const mapped = data.map(r => ({
+      id:       r.id,
+      ad:       r.ads?.title_pt || '(anúncio removido)',
+      reporter: r.reporter?.name || '(anônimo)',
+      reason:   r.reason || '',
+      severity: r.severity || 'low',
+      status:   r.status || 'pending',
+      date:     r.created_at ? new Date(r.created_at).toLocaleDateString('pt-BR') : '—',
+    }));
+    renderReportsTable(mapped);
+    showToast(`${mapped.length} denúncias carregadas do Supabase`, 'success');
+  } catch (err) {
+    console.warn('[denuncias] Supabase fetch failed, using mock data:', err);
+    renderReportsTable(ADMIN_REPORTS);
+  }
+}
 
 function renderReportsTable(reports) {
   document.getElementById('rep-tbody').innerHTML = reports.map(r => `

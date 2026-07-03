@@ -173,9 +173,41 @@ document.addEventListener('DOMContentLoaded', () => {
   const catSel = document.getElementById('cat-filter');
   ADMIN_CATS.forEach(c => { const o = document.createElement('option'); o.value = c.name; o.textContent = c.name; catSel.appendChild(o); });
 
-  // Render table
-  renderAdsTable(ADMIN_ADS);
+  fetchAndRenderAds();
 });
+
+async function fetchAndRenderAds() {
+  const SB_URL = 'https://rfzuzuobwuanmbrcthqe.supabase.co';
+  const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmenV6dW9id3Vhbm1icmN0aHFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwNzg1OTMsImV4cCI6MjA5ODY1NDU5M30.m-Mop7RgpVo730lwjcra1egF8p9APv6AGnW1YnFvOgY';
+  const headers = { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` };
+  try {
+    const res = await fetch(
+      `${SB_URL}/rest/v1/ads?select=id,title_pt,category_id,price,currency,status,featured,views_count,created_at,country,images,profiles(name)&order=created_at.desc&limit=50`,
+      { headers }
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (!Array.isArray(data) || data.length === 0) throw new Error('no data');
+    const mapped = data.map(ad => ({
+      id:       ad.id,
+      title:    ad.title_pt || '(sem título)',
+      category: ad.category_id || '',
+      seller:   ad.profiles?.name || '(desconhecido)',
+      price:    (ad.currency || '') + ' ' + (ad.price != null ? Number(ad.price).toLocaleString('pt-BR') : '—'),
+      status:   ad.status || 'active',
+      featured: !!ad.featured,
+      country:  ad.country || '',
+      image:    Array.isArray(ad.images) && ad.images.length ? ad.images[0] : '',
+      date:     ad.created_at ? new Date(ad.created_at).toLocaleDateString('pt-BR') : '—',
+      reports:  0,
+    }));
+    renderAdsTable(mapped);
+    showToast(`${mapped.length} anúncios carregados do Supabase`, 'success');
+  } catch (err) {
+    console.warn('[anuncios] Supabase fetch failed, using mock data:', err);
+    renderAdsTable(ADMIN_ADS);
+  }
+}
 
 function renderAdsTable(ads) {
   document.getElementById('ads-tbody').innerHTML = ads.map(ad => `

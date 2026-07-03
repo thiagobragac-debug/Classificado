@@ -114,8 +114,39 @@ const PLAN_BADGES = {
 document.addEventListener('DOMContentLoaded', () => {
   checkAuth();
   renderSidebar('usuarios.html');
-  renderUsersTable(ADMIN_USERS);
+  fetchAndRenderUsers();
 });
+
+async function fetchAndRenderUsers() {
+  const SB_URL = 'https://rfzuzuobwuanmbrcthqe.supabase.co';
+  const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmenV6dW9id3Vhbm1icmN0aHFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwNzg1OTMsImV4cCI6MjA5ODY1NDU5M30.m-Mop7RgpVo730lwjcra1egF8p9APv6AGnW1YnFvOgY';
+  const headers = { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` };
+  try {
+    const res = await fetch(
+      `${SB_URL}/rest/v1/profiles?select=id,name,country,plan,ads_count,verified,created_at&order=created_at.desc&limit=50`,
+      { headers }
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (!Array.isArray(data) || data.length === 0) throw new Error('no data');
+    const mapped = data.map(u => ({
+      id:       u.id,
+      name:     u.name || 'Usuário',
+      email:    '(demo)',
+      country:  u.country || '',
+      plan:     u.plan ? (u.plan.charAt(0).toUpperCase() + u.plan.slice(1)) : 'Grátis',
+      ads:      u.ads_count ?? 0,
+      status:   'active',
+      verified: !!u.verified,
+      joined:   u.created_at ? new Date(u.created_at).toLocaleDateString('pt-BR') : '—',
+    }));
+    renderUsersTable(mapped);
+    showToast(`${mapped.length} usuários carregados do Supabase`, 'success');
+  } catch (err) {
+    console.warn('[usuarios] Supabase fetch failed, using mock data:', err);
+    renderUsersTable(ADMIN_USERS);
+  }
+}
 
 function renderUsersTable(users) {
   document.getElementById('users-tbody').innerHTML = users.map(u => {

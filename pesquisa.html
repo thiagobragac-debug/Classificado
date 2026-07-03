@@ -6,6 +6,7 @@
   <title>Resultados da Pesquisa — Tauze Class</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2316A34A'/%3E%3Ctext y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'%3ET%3C/text%3E%3C/svg%3E">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
   
@@ -187,6 +188,117 @@
     </div>
   </main>
 
+  <script src="js/supabase.js"></script>
   <script src="js/main.js"></script>
+
+<script>
+(function () {
+  /* ── helpers ──────────────────────────────────────────── */
+  const PIN_SVG = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`;
+
+  function formatPrice(price, currency) {
+    if (!price) return 'Consulte';
+    const sym = currency === 'USD' ? 'US$' : currency === 'ARS' ? 'ARS$' : currency === 'PYG' ? '₲' : currency === 'UYU' ? '$U' : 'R$';
+    return sym + ' ' + Number(price).toLocaleString('pt-BR');
+  }
+
+  function buildCard(ad) {
+    const img  = (ad.images && ad.images.length) ? ad.images[0] : 'https://placehold.co/400x280/e8f5e9/16a34a?text=Sem+Foto';
+    const cat  = ad.categories ? `${ad.categories.icon || ''} ${ad.categories.name_pt || ''}`.trim() : '';
+    const href = `anuncio.html?id=${ad.id}`;
+    const badge = ad.featured ? '<span class="card-badge">Destaque</span>' : '';
+    return `
+      <a href="${href}" class="card">
+        <div class="card-img-wrapper">
+          ${badge}
+          <img src="${img}" alt="${ad.title_pt}" class="card-img" loading="lazy" onerror="this.src='https://placehold.co/400x280/e8f5e9/16a34a?text=Sem+Foto'">
+        </div>
+        <div class="card-content">
+          ${cat ? `<span style="font-size:.75rem;color:var(--clr-accent-dark);font-weight:600;margin-bottom:.25rem;display:block">${cat}</span>` : ''}
+          <h3 class="card-title">${ad.title_pt}</h3>
+          <div class="card-price">${formatPrice(ad.price, ad.currency)}</div>
+          <div class="card-meta">
+            <div class="card-meta-item">${PIN_SVG} ${ad.location_text || ''}</div>
+          </div>
+        </div>
+      </a>`;
+  }
+
+  /* ── state ────────────────────────────────────────────── */
+  const grid      = document.querySelector('.listings-grid');
+  const countEl   = document.querySelector('.search-header p');
+  const titleEl   = document.querySelector('.search-header h1');
+  const staticHTML = grid ? grid.innerHTML : '';
+
+  /* ── filter inputs in sidebar ─────────────────────────── */
+  const priceInputs = document.querySelectorAll('.filter-block input[type="number"]');
+  const applyBtn    = document.querySelector('.filters-sidebar .btn--accent');
+
+  /* ── fetch & render ───────────────────────────────────── */
+  async function fetchAndRender() {
+    const sb = getSupabase();
+    if (!sb) return;
+
+    const params   = new URLSearchParams(window.location.search);
+    const categoria = params.get('categoria') || '';
+    const q         = params.get('q') || '';
+    const preco_min = params.get('preco_min') ? Number(params.get('preco_min')) : null;
+    const preco_max = params.get('preco_max') ? Number(params.get('preco_max')) : null;
+
+    /* populate sidebar price inputs from URL */
+    if (priceInputs[0] && preco_min) priceInputs[0].value = preco_min;
+    if (priceInputs[1] && preco_max) priceInputs[1].value = preco_max;
+
+    try {
+      let query = sb
+        .from('ads')
+        .select('*, profiles(name), categories(name_pt, icon)')
+        .eq('status', 'active')
+        .order('featured', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(48);
+
+      if (categoria) query = query.eq('category_id', categoria);
+      if (q)         query = query.ilike('title_pt', `%${q}%`);
+      if (preco_min) query = query.gte('price', preco_min);
+      if (preco_max) query = query.lte('price', preco_max);
+
+      const { data, error } = await query;
+      if (error || !data || data.length === 0) return; /* fall back to static */
+
+      grid.innerHTML = data.map(buildCard).join('');
+      if (countEl) countEl.textContent = `${data.length} anúncio${data.length !== 1 ? 's' : ''} encontrado${data.length !== 1 ? 's' : ''}.`;
+      if (titleEl && q) titleEl.textContent = `Resultados para "${q}"`;
+      else if (titleEl && categoria) titleEl.textContent = 'Resultados da Pesquisa';
+    } catch (e) {
+      console.warn('[Supabase] pesquisa fallback:', e);
+    }
+  }
+
+  /* ── wire Apply-Filters button ─────────────────────────── */
+  if (applyBtn) {
+    applyBtn.addEventListener('click', function () {
+      const params = new URLSearchParams(window.location.search);
+      const min = priceInputs[0] ? priceInputs[0].value : '';
+      const max = priceInputs[1] ? priceInputs[1].value : '';
+      if (min) params.set('preco_min', min); else params.delete('preco_min');
+      if (max) params.set('preco_max', max); else params.delete('preco_max');
+      window.location.search = params.toString();
+    });
+  }
+
+  /* ── wire header search ───────────────────────────────── */
+  const headerInput = document.getElementById('header-search-input');
+  if (headerInput) {
+    headerInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && this.value.trim()) {
+        window.location.href = `pesquisa.html?q=${encodeURIComponent(this.value.trim())}`;
+      }
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', fetchAndRender);
+}());
+</script>
 </body>
 </html>

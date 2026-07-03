@@ -648,11 +648,127 @@ function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 document.addEventListener('DOMContentLoaded', () => {
   checkAuth();
   renderSidebar('assinaturas.html');
-  computeKPIs();
-  renderPlanDist();
   renderMrrBars();
-  renderTable();
+  fetchAndRenderSubscriptions();
 });
+
+async function fetchAndRenderSubscriptions() {
+  const SB_URL = 'https://rfzuzuobwuanmbrcthqe.supabase.co';
+  const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmenV6dW9id3Vhbm1icmN0aHFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwNzg1OTMsImV4cCI6MjA5ODY1NDU5M30.m-Mop7RgpVo730lwjcra1egF8p9APv6AGnW1YnFvOgY';
+  const headers = { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` };
+  try {
+    const res = await fetch(
+      `${SB_URL}/rest/v1/subscriptions?select=id,plan,status,gateway,price,next_billing_at,created_at,profiles(name,country)&order=created_at.desc&limit=50`,
+      { headers }
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (!Array.isArray(data) || data.length === 0) throw new Error('no data');
+
+    // Map to local SUBSCRIPTIONS format
+    SUBSCRIPTIONS = data.map((s, i) => ({
+      id:       s.id,
+      userId:   i + 1,                           // synthetic numeric id for avatar color
+      _name:    s.profiles?.name || 'Usuário',   // store name directly since no ADMIN_USERS lookup
+      _country: s.profiles?.country || '',
+      plan:     s.plan || 'free',
+      status:   s.status || 'active',
+      gateway:  s.gateway || 'manual',
+      nextBill: s.next_billing_at ? s.next_billing_at.split('T')[0] : '—',
+      notes:    '',
+      since:    s.created_at ? s.created_at.split('T')[0] : '—',
+      _price:   s.price != null ? Number(s.price) : null,  // raw price from DB
+    }));
+
+    // Patch renderTable to support _name/_country fields from Supabase rows
+    // (existing renderTable uses ADMIN_USERS.find — override per-row lookups)
+    patchRenderTableForSupabase();
+
+    // Recalculate KPIs from real data
+    const activePaid = SUBSCRIPTIONS.filter(s => s.status !== 'canceled' && s.plan !== 'free');
+    const mrr = SUBSCRIPTIONS.reduce((sum, s) => {
+      if (s.status === 'canceled' || s.plan === 'free') return sum;
+      const p = s._price != null ? s._price : (PLAN_PRICES[s.plan] || 0);
+      return sum + p;
+    }, 0);
+    const prem    = SUBSCRIPTIONS.filter(s => s.plan === 'premium' && s.status === 'active').length;
+    const canceled = SUBSCRIPTIONS.filter(s => s.status === 'canceled').length;
+    const churn   = SUBSCRIPTIONS.length ? ((canceled / SUBSCRIPTIONS.length) * 100).toFixed(1) : '0.0';
+
+    document.getElementById('kpi-mrr').textContent     = 'R$ ' + mrr.toLocaleString('pt-BR');
+    document.getElementById('kpi-total').textContent   = activePaid.length;
+    document.getElementById('kpi-premium').textContent = prem;
+    document.getElementById('kpi-churn').textContent   = churn + '%';
+
+    renderPlanDist();
+    renderTable();
+    showToast(`${SUBSCRIPTIONS.length} assinaturas carregadas do Supabase`, 'success');
+  } catch (err) {
+    console.warn('[assinaturas] Supabase fetch failed, using mock data:', err);
+    computeKPIs();
+    renderPlanDist();
+    renderTable();
+  }
+}
+
+// Patch renderTable so rows with _name/_country (from Supabase) display correctly
+// without depending on ADMIN_USERS lookup
+function patchRenderTableForSupabase() {
+  const _orig = renderTable;
+  window.renderTable = function() {
+    const search = document.getElementById('sub-search')?.value.toLowerCase() || '';
+    const filtered = SUBSCRIPTIONS.filter(s => {
+      const name = s._name || (ADMIN_USERS.find(u => u.id === s.userId) || {}).name || 'Usuário';
+      const matchFilter = activeFilter === 'all' || s.plan === activeFilter || s.status === activeFilter;
+      const matchSearch = !search || name.toLowerCase().includes(search);
+      return matchFilter && matchSearch;
+    });
+    const tbody = document.getElementById('subs-tbody');
+    if (!filtered.length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--adm-text-muted)">Nenhum assinante encontrado.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = filtered.map(s => {
+      const name    = s._name || (ADMIN_USERS.find(u => u.id === s.userId) || { name: 'Desconhecido' }).name;
+      const country = s._country || (ADMIN_USERS.find(u => u.id === s.userId) || {}).country || '';
+      const rawPrice = s._price != null ? s._price : (PLAN_PRICES[s.plan] || 0);
+      const price = rawPrice > 0 ? 'R$ ' + rawPrice.toLocaleString('pt-BR') : '—';
+      const clr   = avatarColor(s.userId);
+      const gwIcon = GATEWAY_ICONS[s.gateway] || '💳';
+      const gwName = { mercadopago: 'Mercado Pago', stripe: 'Stripe', pagarme: 'Pagar.me', manual: 'Manual' }[s.gateway] || s.gateway;
+      return `
+        <tr>
+          <td>
+            <div style="display:flex;align-items:center;gap:10px">
+              <div class="sub-avatar" style="background:${clr}">${avatarInitials(name)}</div>
+              <div>
+                <div style="font-weight:600;color:var(--adm-text);font-size:.9rem">${name}</div>
+                <div style="font-size:.76rem;color:var(--adm-text-muted)">${country}</div>
+              </div>
+            </div>
+          </td>
+          <td>${planBadge(s.plan)}</td>
+          <td>${statusBadge(s.status)}</td>
+          <td>
+            <div class="gateway-pill">
+              <span class="gateway-dot" style="background:${s.status === 'active' || s.status === 'trial' ? '#34D399' : s.status === 'overdue' ? '#FCD34D' : '#6B7280'}"></span>
+              ${gwIcon} ${gwName}
+            </div>
+          </td>
+          <td style="color:var(--adm-text-muted);font-size:.83rem">${s.nextBill !== '—' ? new Date(s.nextBill).toLocaleDateString('pt-BR') : '—'}</td>
+          <td style="font-weight:700;color:var(--adm-text)">${price}</td>
+          <td style="text-align:right">
+            <div style="display:flex;gap:6px;justify-content:flex-end">
+              <button class="adm-btn" style="padding:.25rem .6rem;font-size:.78rem" onclick="openDetail('${s.id}')">Detalhes</button>
+              <button class="adm-btn" style="padding:.25rem .6rem;font-size:.78rem" onclick="openEditModal('${s.id}')">Editar</button>
+              ${s.status !== 'canceled' ? `<button class="adm-btn" style="padding:.25rem .6rem;font-size:.78rem;background:rgba(239,68,68,.1);color:#F87171;border-color:rgba(239,68,68,.3)" onclick="cancelSub('${s.id}')">Cancelar</button>` : ''}
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  };
+}
 </script>
 </body>
 </html>

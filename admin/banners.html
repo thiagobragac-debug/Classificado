@@ -269,8 +269,38 @@
       localStorage.setItem('tc_banners_seeded', 'true');
     }
     
-    renderTable();
+    fetchAndRenderBanners();
   });
+
+  async function fetchAndRenderBanners() {
+    const SB_URL = 'https://rfzuzuobwuanmbrcthqe.supabase.co';
+    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmenV6dW9id3Vhbm1icmN0aHFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwNzg1OTMsImV4cCI6MjA5ODY1NDU5M30.m-Mop7RgpVo730lwjcra1egF8p9APv6AGnW1YnFvOgY';
+    const headers = { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` };
+    try {
+      const res = await fetch(`${SB_URL}/rest/v1/banners?select=*&order=created_at.desc`, { headers });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (!Array.isArray(data) || data.length === 0) throw new Error('no data');
+      // Map Supabase banner fields → local format
+      const sbMapped = data.map(b => ({
+        id:        b.id,
+        name:      b.name || b.campaign_name || b.title || '(sem nome)',
+        position:  b.position || b.slot || 'home_top',
+        status:    b.status || 'active',
+        link:      b.link || b.url || '#',
+        image:     b.image || b.image_url || '',
+        createdAt: b.created_at || new Date().toISOString(),
+        _sbId:     b.id,  // track Supabase ID for PATCH
+      }));
+      // Replace local array with Supabase data
+      banners = sbMapped;
+      renderTable();
+      showToast(`${banners.length} banners carregados do Supabase`, 'success');
+    } catch (err) {
+      console.warn('[banners] Supabase fetch failed, using localStorage mock:', err);
+      renderTable();
+    }
+  }
 </script>
 </body>
 </html>

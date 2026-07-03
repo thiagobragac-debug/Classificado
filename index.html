@@ -8,6 +8,7 @@
   <title>Tauze Class — Classificados do Agronegócio Mercosul</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%2316A34A'/><text y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'>T</text></svg>">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
@@ -339,16 +340,120 @@
   </div>
 </footer>
 
+<script src="js/supabase.js"></script>
 <script src="js/data.js"></script>
 <script src="js/main.js"></script>
 <script>
   document.addEventListener('DOMContentLoaded', () => {
-    // Render Ad Banners
+    // Render Ad Banners (static fallback)
     if (typeof renderAdBanner === 'function') {
       renderAdBanner('home_top', 'banner-home-top');
       renderAdBanner('home_mid', 'banner-home-mid');
     }
   });
+</script>
+
+<script>
+(function () {
+  /* ── helpers ───────────────────────────────────────────── */
+  const PIN_SVG = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`;
+
+  function formatPrice(price, currency) {
+    if (!price) return 'Consulte';
+    const sym = currency === 'USD' ? 'US$' : currency === 'ARS' ? 'ARS$' : currency === 'PYG' ? '₲' : currency === 'UYU' ? '$U' : 'R$';
+    return sym + ' ' + Number(price).toLocaleString('pt-BR');
+  }
+
+  function buildCard(ad) {
+    const img  = (ad.images && ad.images.length) ? ad.images[0] : 'https://placehold.co/400x280/e8f5e9/16a34a?text=Sem+Foto';
+    const cat  = ad.categories ? `${ad.categories.icon || ''} ${ad.categories.name_pt || ''}`.trim() : '';
+    const href = `anuncio.html?id=${ad.id}`;
+    const badge = ad.featured ? '<span class="card-badge">Destaque</span>' : '';
+    return `
+      <a href="${href}" class="card" role="listitem">
+        <div class="card-img-wrapper">
+          ${badge}
+          <img src="${img}" alt="${ad.title_pt}" class="card-img" loading="lazy" onerror="this.src='https://placehold.co/400x280/e8f5e9/16a34a?text=Sem+Foto'">
+        </div>
+        <div class="card-content">
+          ${cat ? `<span style="font-size:.72rem;color:var(--clr-accent-dark);font-weight:600;margin-bottom:.2rem;display:block">${cat}</span>` : ''}
+          <h3 class="card-title">${ad.title_pt}</h3>
+          <div class="card-price">${formatPrice(ad.price, ad.currency)}</div>
+          <div class="card-meta">
+            <div class="card-meta-item">${PIN_SVG} ${ad.location_text || ''}</div>
+          </div>
+        </div>
+      </a>`;
+  }
+
+  /* ── fetch featured ads ──────────────────────────────── */
+  async function loadFeatured() {
+    const sb = getSupabase();
+    if (!sb) return;
+    try {
+      const { data, error } = await sb
+        .from('ads')
+        .select('*, profiles(name), categories(name_pt, icon)')
+        .eq('status', 'active')
+        .eq('featured', true)
+        .order('created_at', { ascending: false })
+        .limit(6);
+      if (error || !data || data.length === 0) return;
+      const grid = document.getElementById('featured-ads');
+      if (grid) grid.innerHTML = data.map(buildCard).join('');
+    } catch (e) {
+      console.warn('[Supabase] featured fallback:', e);
+    }
+  }
+
+  /* ── fetch recent ads ────────────────────────────────── */
+  async function loadRecent() {
+    const sb = getSupabase();
+    if (!sb) return;
+    try {
+      const { data, error } = await sb
+        .from('ads')
+        .select('*, profiles(name), categories(name_pt, icon)')
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(8);
+      if (error || !data || data.length === 0) return;
+      const grid = document.getElementById('recent-ads');
+      if (grid) grid.innerHTML = data.map(buildCard).join('');
+    } catch (e) {
+      console.warn('[Supabase] recent fallback:', e);
+    }
+  }
+
+  /* ── fetch banners ───────────────────────────────────── */
+  async function loadBanners() {
+    const sb = getSupabase();
+    if (!sb) return;
+    try {
+      const { data } = await sb
+        .from('banners')
+        .select('*')
+        .eq('status', 'active');
+      if (!data || data.length === 0) return;
+      data.forEach(function (banner) {
+        const el = document.getElementById(banner.slot_id || '') ||
+                   document.querySelector(`[data-banner="${banner.slot_id}"]`);
+        if (!el) return;
+        const link = banner.url ? `<a href="${banner.url}" target="_blank" rel="noopener">` : '';
+        const close = banner.url ? '</a>' : '';
+        el.innerHTML = `${link}<img src="${banner.image_url}" alt="${banner.alt_text || 'Banner'}" style="width:100%;max-height:90px;object-fit:cover;border-radius:8px;display:block">${close}`;
+      });
+    } catch (e) {
+      console.warn('[Supabase] banners fallback:', e);
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    loadFeatured();
+    loadRecent();
+    loadBanners();
+  });
+}());
 </script>
 </body>
 </html>

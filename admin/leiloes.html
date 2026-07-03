@@ -518,8 +518,45 @@
     renderAuctions();
   }
 
-  // Initial render
-  renderAuctions();
+  // Initial render — tries Supabase first, falls back to localStorage mock
+  fetchAndRenderAuctions();
+
+  async function fetchAndRenderAuctions() {
+    const SB_URL = 'https://rfzuzuobwuanmbrcthqe.supabase.co';
+    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmenV6dW9id3Vhbm1icmN0aHFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwNzg1OTMsImV4cCI6MjA5ODY1NDU5M30.m-Mop7RgpVo730lwjcra1egF8p9APv6AGnW1YnFvOgY';
+    const headers = { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` };
+    try {
+      const res = await fetch(
+        `${SB_URL}/rest/v1/auctions?select=id,status,start_price,current_bid,end_at,ads(title_pt,images,profiles(name))&order=created_at.desc&limit=20`,
+        { headers }
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (!Array.isArray(data) || data.length === 0) throw new Error('no data');
+      // Map Supabase auctions into local format and merge with existing localStorage data
+      const sbMapped = data.map(au => ({
+        id:          au.id,
+        title:       au.ads?.title_pt || `Leilão #${au.id}`,
+        date:        au.end_at || new Date().toISOString().slice(0, 16),
+        status:      au.status === 'active' ? 'aovivo' : au.status === 'ended' ? 'finalizado' : 'agendado',
+        youtube:     '',
+        cover:       Array.isArray(au.ads?.images) && au.ads.images.length ? au.ads.images[0] : '',
+        minBid:      au.start_price || 0,
+        currentBid:  au.current_bid || 0,
+        step:        0,
+        commission:  0,
+        acceptsBids: true,
+      }));
+      // Prepend Supabase records (avoid duplicates by id)
+      const existingIds = new Set(auctions.map(a => a.id));
+      sbMapped.forEach(au => { if (!existingIds.has(au.id)) auctions.unshift(au); });
+      renderAuctions();
+      showToast(`${data.length} leilões carregados do Supabase`, 'success');
+    } catch (err) {
+      console.warn('[leiloes] Supabase fetch failed, using mock data:', err);
+      renderAuctions();
+    }
+  }
 </script>
 </body>
 </html>
