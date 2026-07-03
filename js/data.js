@@ -7,6 +7,7 @@ const I18N = {
     nav_home: 'Início',
     nav_ads: 'Anúncios',
     nav_categories: 'Categorias',
+    nav_auctions: 'Leilões Ao Vivo',
     nav_plans: 'Planos',
     nav_about: 'Sobre',
     nav_login: 'Entrar',
@@ -14,7 +15,7 @@ const I18N = {
     hero_badge: 'Mercosul · Brasil · Argentina · Paraguai · Uruguai',
     hero_title: 'O maior classificado do',
     hero_highlight: 'Agronegócio',
-    hero_title2: 'do Mercosul',
+    hero_title2: 'do Brasil',
     hero_sub: 'Compre, venda e anuncie animais, insumos, máquinas e propriedades rurais com segurança e facilidade.',
     search_placeholder: 'Buscar animais, insumos, máquinas...',
     search_btn: 'Buscar',
@@ -42,6 +43,7 @@ const I18N = {
     footer_help: 'Ajuda',
     footer_company: 'Empresa',
     footer_copy: '© 2026 Tauze Class. Todos os direitos reservados.',
+    login_mercosul: 'Brasil',
     negociable: 'Negociável',
     verified: 'Verificado',
     contact_whatsapp: 'Contato via WhatsApp',
@@ -51,6 +53,7 @@ const I18N = {
     nav_home: 'Inicio',
     nav_ads: 'Anuncios',
     nav_categories: 'Categorías',
+    nav_auctions: 'Remates en Vivo',
     nav_plans: 'Planes',
     nav_about: 'Nosotros',
     nav_login: 'Ingresar',
@@ -85,13 +88,88 @@ const I18N = {
     footer_ads: 'Anuncios',
     footer_help: 'Ayuda',
     footer_company: 'Empresa',
-    footer_copy: '© 2026 Tauze Class. Todos los derechos reservados.',
+    footer_copy: '© 2026 Tauze Class. Todos os derechos reservados.',
+    login_mercosul: 'Mercosur',
     negociable: 'Negociable',
     verified: 'Verificado',
     contact_whatsapp: 'Contacto vía WhatsApp',
     see_ad: 'Ver Anuncio'
   }
 };
+
+const LOCATIONS_DATA = [
+  {
+    id: 'BR',
+    name: '🇧🇷 Brasil',
+    states: [
+      {
+        id: 'SP',
+        name: 'São Paulo',
+        cities: ['Ribeirão Preto', 'São Paulo', 'Campinas', 'Bauru', 'Presidente Prudente']
+      },
+      {
+        id: 'MG',
+        name: 'Minas Gerais',
+        cities: ['Uberaba', 'Uberlândia', 'Belo Horizonte', 'Montes Claros']
+      },
+      {
+        id: 'MT',
+        name: 'Mato Grosso',
+        cities: ['Sorriso', 'Sinop', 'Cuiabá', 'Rondonópolis']
+      },
+      {
+        id: 'MS',
+        name: 'Mato Grosso do Sul',
+        cities: ['Campo Grande', 'Dourados', 'Três Lagoas']
+      },
+      {
+        id: 'PR',
+        name: 'Paraná',
+        cities: ['Cascavel', 'Londrina', 'Curitiba', 'Maringá']
+      },
+      {
+        id: 'PE',
+        name: 'Pernambuco',
+        cities: ['Petrolina', 'Recife', 'Caruaru']
+      },
+      {
+        id: 'GO',
+        name: 'Goiás',
+        cities: ['Goiânia', 'Rio Verde', 'Jataí']
+      },
+      {
+        id: 'RS',
+        name: 'Rio Grande do Sul',
+        cities: ['Porto Alegre', 'Pelotas', 'Passo Fundo']
+      }
+    ]
+  },
+  {
+    id: 'AR',
+    name: '🇦🇷 Argentina',
+    states: [
+      { id: 'BUE', name: 'Buenos Aires', cities: ['Buenos Aires', 'La Plata', 'Tandil'] },
+      { id: 'CBA', name: 'Córdoba', cities: ['Córdoba', 'Rio Cuarto'] },
+      { id: 'SFE', name: 'Santa Fe', cities: ['Santa Fe', 'Rosario'] }
+    ]
+  },
+  {
+    id: 'PY',
+    name: '🇵🇾 Paraguai',
+    states: [
+      { id: 'ASU', name: 'Assunção', cities: ['Assunção'] },
+      { id: 'ATP', name: 'Alto Paraná', cities: ['Ciudad del Este', 'Hernandarias'] }
+    ]
+  },
+  {
+    id: 'UY',
+    name: '🇺🇾 Uruguai',
+    states: [
+      { id: 'MVD', name: 'Montevidéu', cities: ['Montevidéu'] },
+      { id: 'CAN', name: 'Canelones', cities: ['Canelones', 'Las Piedras'] }
+    ]
+  }
+];
 
 const CATEGORIES = [
   { id: 'bovinos',   icon: 'cow',     name_pt: 'Bovinos',      name_es: 'Bovinos',      count: 12847 },

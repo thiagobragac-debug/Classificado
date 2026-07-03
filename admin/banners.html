@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestão de Banners Patrocinados — Admin Tauze Class</title>
+  <link rel="stylesheet" href="/admin/css/admin.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2316A34A'/%3E%3Ctext y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'%3ET%3C/text%3E%3C/svg%3E">
+  <style>
+    .modal-lg { max-width: 800px; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .form-group { margin-bottom: 1rem; }
+    .form-label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--adm-text); margin-bottom: 0.5rem; }
+    .form-input, .form-select { width: 100%; padding: 0.75rem 1rem; background: rgba(0,0,0,0.2); border: 1px solid var(--adm-border); border-radius: 0.5rem; color: var(--adm-text); transition: all 0.2s; font-family: inherit; box-sizing: border-box; }
+    .form-input:focus, .form-select:focus { border-color: #16A34A; outline: none; box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.2); }
+    
+    .status-badge { padding: 0.25rem 0.75rem; border-radius: 1rem; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; }
+    .status-active { background: rgba(16, 185, 129, 0.2); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.4); }
+    .status-inactive { background: rgba(156, 163, 175, 0.2); color: #9CA3AF; border: 1px solid rgba(156, 163, 175, 0.4); }
+
+    .banner-preview { width: 100%; max-height: 120px; object-fit: cover; border-radius: 0.5rem; background: #111; margin-top: 0.5rem; display: none; }
+    .img-cell { width: 120px; height: 60px; object-fit: contain; border-radius: 4px; background: rgba(0,0,0,0.3); }
+  </style>
+</head>
+<body>
+<div class="adm-layout">
+  <aside class="adm-sidebar" id="adm-sidebar"></aside>
+  <div class="adm-main">
+
+    <header class="adm-topbar">
+      <div class="adm-breadcrumb">
+        <a href="/admin/index.html">Dashboard</a>
+        <span>›</span>
+        <strong>Banners</strong>
+      </div>
+    </header>
+
+    <main class="adm-content">
+      <div class="adm-page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div>
+          <h1 class="adm-page-title">Gestão de Banners</h1>
+          <p class="adm-page-sub">Monetize o portal gerenciando os anúncios e banners publicitários.</p>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="adm-btn adm-btn--primary" onclick="openBannerModal()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Novo Banner
+          </button>
+        </div>
+      </div>
+
+      <!-- Table Card -->
+      <div class="adm-card">
+        <div class="adm-table-wrap">
+          <table class="adm-table" id="banners-table">
+            <thead>
+              <tr>
+                <th style="width: 130px;">Visualização</th>
+                <th>Nome da Campanha</th>
+                <th>Posição</th>
+                <th>Status</th>
+                <th style="text-align:right">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="banners-tbody">
+              <!-- JS Populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Modal: Create/Edit Banner -->
+<div class="adm-overlay" id="bannerModal">
+  <div class="adm-modal" style="max-width: 600px; padding: 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+      <h3 id="bannerModalTitle" class="adm-modal-title" style="margin: 0;">Novo Banner</h3>
+      <button class="adm-btn" style="background: transparent; padding: 5px; color: var(--adm-text-muted);" onclick="closeModal('bannerModal')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div>
+      <form id="bannerForm">
+        <input type="hidden" id="banId">
+        
+        <div class="form-group">
+          <label class="form-label">Nome da Campanha / Anunciante</label>
+          <input type="text" id="banName" class="form-input" required placeholder="Ex: Sementes AgroMais">
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Posição do Banner</label>
+            <select id="banPosition" class="form-select" required>
+              <option value="home_top">Home - Topo (Leaderboard)</option>
+              <option value="home_mid">Home - Meio (Leaderboard)</option>
+              <option value="listagem_sidebar">Listagem - Sidebar (Retângulo)</option>
+              <option value="anuncio_sidebar">Anúncio - Sidebar (Retângulo)</option>
+              <option value="leilao_footer">Leilão - Rodapé (Horizontal)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <select id="banStatus" class="form-select" required>
+              <option value="active">Ativo</option>
+              <option value="inactive">Inativo</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Link de Destino (URL)</label>
+          <input type="url" id="banLink" class="form-input" required placeholder="https://site-do-anunciante.com">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Imagem do Banner (Upload / Base64 / URL)</label>
+          <input type="url" id="banImage" class="form-input" required placeholder="Cole a URL da imagem ou gere via Base64" onchange="document.getElementById('banPreview').src=this.value; document.getElementById('banPreview').style.display='block';">
+          <img id="banPreview" class="banner-preview" src="">
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+          <button type="button" class="adm-btn" onclick="closeModal('bannerModal')">Cancelar</button>
+          <button type="submit" class="adm-btn adm-btn--primary">Salvar Banner</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="/admin/js/admin.js"></script>
+<script>
+  // State
+  let banners = JSON.parse(localStorage.getItem('tc_banners')) || [];
+  
+  function generateId() { return Date.now().toString(36) + Math.random().toString(36).substring(2); }
+
+  function getPositionName(pos) {
+    const map = {
+      home_top: 'Home - Topo',
+      home_mid: 'Home - Meio',
+      listagem_sidebar: 'Listagem - Sidebar',
+      anuncio_sidebar: 'Anúncio - Sidebar',
+      leilao_footer: 'Leilão - Rodapé'
+    };
+    return map[pos] || pos;
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById('banners-tbody');
+    tbody.innerHTML = '';
+    
+    if (banners.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 2rem;">Nenhum banner cadastrado.</td></tr>';
+      return;
+    }
+
+    banners.forEach(b => {
+      const statusClass = b.status === 'active' ? 'status-active' : 'status-inactive';
+      const statusText = b.status === 'active' ? 'Ativo' : 'Inativo';
+      
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>
+          <img src="${b.image}" class="img-cell" alt="Preview">
+        </td>
+        <td>
+          <strong style="color: #fff; font-size:0.95rem">${b.name}</strong><br>
+          <a href="${b.link}" target="_blank" style="color: var(--adm-primary); font-size: 0.8rem; text-decoration: none;">${b.link}</a>
+        </td>
+        <td style="color: var(--adm-text-muted)">${getPositionName(b.position)}</td>
+        <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+        <td style="text-align:right">
+          <button class="adm-btn" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; margin-right: 5px;" onclick="editBanner('${b.id}')">Editar</button>
+          <button class="adm-btn" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; background: rgba(239, 68, 68, 0.1); color: #F87171; border-color: rgba(239, 68, 68, 0.3);" onclick="deleteBanner('${b.id}')">Excluir</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function openBannerModal(id = null) {
+    const form = document.getElementById('bannerForm');
+    form.reset();
+    document.getElementById('banPreview').style.display = 'none';
+    
+    if (id) {
+      const b = banners.find(x => x.id === id);
+      if (b) {
+        document.getElementById('banId').value = b.id;
+        document.getElementById('banName').value = b.name;
+        document.getElementById('banPosition').value = b.position;
+        document.getElementById('banStatus').value = b.status;
+        document.getElementById('banLink').value = b.link;
+        document.getElementById('banImage').value = b.image;
+        
+        document.getElementById('banPreview').src = b.image;
+        document.getElementById('banPreview').style.display = 'block';
+        document.getElementById('bannerModalTitle').innerText = 'Editar Banner';
+      }
+    } else {
+      document.getElementById('banId').value = '';
+      document.getElementById('bannerModalTitle').innerText = 'Novo Banner';
+    }
+    
+    document.getElementById('bannerModal').style.display = 'flex';
+  }
+
+  function closeModal(id) {
+    document.getElementById(id).style.display = 'none';
+  }
+
+  document.getElementById('bannerForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const id = document.getElementById('banId').value;
+    const banner = {
+      id: id || generateId(),
+      name: document.getElementById('banName').value,
+      position: document.getElementById('banPosition').value,
+      status: document.getElementById('banStatus').value,
+      link: document.getElementById('banLink').value,
+      image: document.getElementById('banImage').value,
+      createdAt: id ? (banners.find(x => x.id === id)?.createdAt || new Date().toISOString()) : new Date().toISOString()
+    };
+    
+    if (id) {
+      const idx = banners.findIndex(x => x.id === id);
+      if (idx > -1) banners[idx] = banner;
+    } else {
+      banners.unshift(banner);
+    }
+    
+    localStorage.setItem('tc_banners', JSON.stringify(banners));
+    closeModal('bannerModal');
+    renderTable();
+  });
+
+  function editBanner(id) {
+    openBannerModal(id);
+  }
+
+  function deleteBanner(id) {
+    if(confirm('Tem certeza que deseja excluir este banner? Esta ação afetará imediatamente a exibição no site.')) {
+      banners = banners.filter(b => b.id !== id);
+      localStorage.setItem('tc_banners', JSON.stringify(banners));
+      renderTable();
+    }
+  }
+
+  // Init
+  document.addEventListener("DOMContentLoaded", () => {
+    renderSidebar('banners.html');
+    
+    // Add default mock banner if none exists
+    if (!localStorage.getItem('tc_banners_seeded')) {
+      banners.push({
+        id: generateId(),
+        name: "Sementes AgroMais",
+        position: "home_top",
+        status: "active",
+        link: "https://example.com",
+        image: "https://images.unsplash.com/photo-1592982537447-6f23f7902d25?auto=format&fit=crop&q=80&w=728&h=90",
+        createdAt: new Date().toISOString()
+      });
+      localStorage.setItem('tc_banners', JSON.stringify(banners));
+      localStorage.setItem('tc_banners_seeded', 'true');
+    }
+    
+    renderTable();
+  });
+</script>
+</body>
+</html>

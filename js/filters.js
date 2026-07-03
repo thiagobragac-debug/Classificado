@@ -24,6 +24,10 @@ function initFiltersPage() {
     if (chk) chk.checked = true;
   }
 
+  if (typeof LOCATIONS_DATA !== 'undefined') {
+    initLocations();
+  }
+
   applyFilters(qParam);
   updatePageTitle(catParam);
 }
@@ -41,8 +45,14 @@ function updatePageTitle(catId) {
 
 function applyFilters(searchQuery = '') {
   const catRadio   = document.querySelector('input[name="category"]:checked');
-  const country    = document.getElementById('filter-country')?.value || '';
-  const state      = document.getElementById('filter-state')?.value || '';
+  const countryEl  = document.getElementById('filter-country');
+  const stateEl    = document.getElementById('filter-state');
+  const cityEl     = document.getElementById('filter-city');
+  
+  const country    = countryEl?.value || '';
+  const state      = stateEl?.value || '';
+  const city       = cityEl?.value || '';
+  
   const priceMin   = parseFloat(document.getElementById('price-min')?.value || 0) || 0;
   const priceMax   = parseFloat(document.getElementById('price-max')?.value || Infinity) || Infinity;
   const onlyFeat   = document.getElementById('chk-featured')?.checked || false;
@@ -52,6 +62,10 @@ function applyFilters(searchQuery = '') {
   const cat = catRadio ? catRadio.value : '';
 
   const q = (searchQuery || document.getElementById('header-search-input')?.value || '').toLowerCase();
+
+  const countryName = country && countryEl.options[countryEl.selectedIndex] ? countryEl.options[countryEl.selectedIndex].text.split(' ').slice(1).join(' ') : '';
+  const stateName = state && stateEl.options[stateEl.selectedIndex] ? stateEl.options[stateEl.selectedIndex].text : '';
+  const cityName = city && cityEl.options[cityEl.selectedIndex] ? cityEl.options[cityEl.selectedIndex].text : '';
 
   filteredAds = ADS.filter(ad => {
     const title    = currentLang === 'es' ? ad.title_es : ad.title_pt;
@@ -69,16 +83,29 @@ function applyFilters(searchQuery = '') {
     if (onlyVerif  && !ad.verified)    return false;
     if (q && !title.toLowerCase().includes(q) && !adCat.toLowerCase().includes(q)) return false;
 
+    if (ad.location) {
+      if (cityName && !ad.location.includes(cityName)) return false;
+      if (!cityName && stateName && !ad.location.includes(stateName) && !ad.location.includes(state)) return false;
+      if (!cityName && !stateName && countryName && !ad.location.includes(countryName)) return false;
+    }
+
     return true;
+  });
+
+  // Premium (Featured) ADS to the Top
+  filteredAds.sort((a, b) => {
+    if (a.featured && !b.featured) return -1;
+    if (!a.featured && b.featured) return 1;
+    return 0;
   });
 
   renderAdsList();
   updateResultsCount();
   updateActiveFilterTags(cat, onlyFeat, onlyNeg, onlyVerif);
-
+  
   // Show clear button if any filter active
   const clearBtn = document.getElementById('clear-filters-btn');
-  if (clearBtn) clearBtn.style.display = (cat || onlyFeat || onlyNeg || onlyVerif || priceMin || (priceMax !== Infinity)) ? 'block' : 'none';
+  if (clearBtn) clearBtn.style.display = (cat || onlyFeat || onlyNeg || onlyVerif || priceMin || (priceMax !== Infinity) || country) ? 'block' : 'none';
 }
 
 function renderAdsList() {
@@ -159,11 +186,93 @@ function clearFilters() {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
-  ['filter-country','filter-state'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.selectedIndex = 0;
-  });
+    
+  // Reset locations
+  const countryEl = document.getElementById('filter-country');
+  if (countryEl) countryEl.selectedIndex = 0;
+    
+  const stateEl = document.getElementById('filter-state');
+  if (stateEl) {
+    stateEl.innerHTML = '<option value="">Todos os Estados</option>';
+    stateEl.disabled = true;
+  }
+    
+  const cityEl = document.getElementById('filter-city');
+  if (cityEl) {
+    cityEl.innerHTML = '<option value="">Todas as Cidades</option>';
+    cityEl.disabled = true;
+  }
+
   document.querySelectorAll('.price-shortcut').forEach(b => b.classList.remove('active'));
+  applyFilters();
+}
+
+function initLocations() {
+  const countryEl = document.getElementById('filter-country');
+  if (!countryEl) return;
+    
+  countryEl.innerHTML = '<option value="">Todos os Países</option>';
+  LOCATIONS_DATA.forEach(country => {
+    const opt = document.createElement('option');
+    opt.value = country.id;
+    opt.textContent = country.name;
+    countryEl.appendChild(opt);
+  });
+}
+  
+function updateLocationOptions(type) {
+  const countryEl = document.getElementById('filter-country');
+  const stateEl = document.getElementById('filter-state');
+  const cityEl = document.getElementById('filter-city');
+    
+  if (type === 'country') {
+    const selectedCountryId = countryEl.value;
+      
+    // Reset State and City
+    stateEl.innerHTML = '<option value="">Todos os Estados</option>';
+    cityEl.innerHTML = '<option value="">Todas as Cidades</option>';
+    cityEl.disabled = true;
+      
+    if (!selectedCountryId) {
+      stateEl.disabled = true;
+    } else {
+      stateEl.disabled = false;
+      const countryData = LOCATIONS_DATA.find(c => c.id === selectedCountryId);
+      if (countryData && countryData.states) {
+        countryData.states.forEach(state => {
+          const opt = document.createElement('option');
+          opt.value = state.id;
+          opt.textContent = state.name;
+          stateEl.appendChild(opt);
+        });
+      }
+    }
+  } else if (type === 'state') {
+    const selectedCountryId = countryEl.value;
+    const selectedStateId = stateEl.value;
+      
+    // Reset City
+    cityEl.innerHTML = '<option value="">Todas as Cidades</option>';
+      
+    if (!selectedStateId) {
+      cityEl.disabled = true;
+    } else {
+      cityEl.disabled = false;
+      const countryData = LOCATIONS_DATA.find(c => c.id === selectedCountryId);
+      if (countryData) {
+        const stateData = countryData.states.find(s => s.id === selectedStateId);
+        if (stateData && stateData.cities) {
+          stateData.cities.forEach(city => {
+            const opt = document.createElement('option');
+            opt.value = city;
+            opt.textContent = city;
+            cityEl.appendChild(opt);
+          });
+        }
+      }
+    }
+  }
+    
   applyFilters();
 }
 

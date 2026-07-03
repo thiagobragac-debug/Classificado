@@ -435,6 +435,7 @@ table.adm-table {
   border-radius: var(--adm-r-xl); padding: 28px;
   width: 100%; max-width: 460px; box-shadow: var(--adm-shadow-lg);
   animation: modalIn .25s ease;
+  max-height: 90vh; overflow-y: auto;
 }
 @keyframes modalIn { from { opacity:0; transform:scale(.96); } to { opacity:1; transform:scale(1); } }
 .adm-modal-title { font-family: var(--font-display); font-weight: 700; font-size: 1.1rem; margin-bottom: 16px; }

@@ -367,4 +367,103 @@ document.addEventListener('DOMContentLoaded', () => {
       if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth' }); }
     });
   });
+
+  applyDynamicSettings();
 });
+
+// ─── DYNAMIC CONFIGURATIONS ────────────────
+function applyDynamicSettings() {
+  const logoUrl = localStorage.getItem('tc_logo_url');
+  const heroTitle = localStorage.getItem('tc_hero_title');
+  const primaryColor = localStorage.getItem('tc_primary_color');
+
+  // Apply Logo
+  if (logoUrl) {
+    document.querySelectorAll('.logo-mark, .adm-logo-mark').forEach(el => {
+      el.textContent = '';
+      el.style.backgroundImage = `url('${logoUrl}')`;
+      el.style.backgroundSize = 'cover';
+      el.style.backgroundPosition = 'center';
+      el.style.backgroundColor = 'transparent';
+    });
+  }
+
+  // Apply Hero Title
+  if (heroTitle) {
+    const heroH1 = document.querySelector('.hero-content h1');
+    if (heroH1) heroH1.textContent = heroTitle;
+  }
+
+  // Apply Primary Color
+  if (primaryColor) {
+    const style = document.createElement('style');
+    style.textContent = `
+      :root {
+        --clr-primary: ${primaryColor} !important;
+        --clr-primary-dark: ${primaryColor} !important;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  // Toggles
+  const featAuctions = localStorage.getItem('tc_feat_auctions') !== '0';
+  const featPlans = localStorage.getItem('tc_feat_plans') !== '0';
+  const featSocial = localStorage.getItem('tc_feat_social_login') !== '0';
+
+  if (!featAuctions) {
+    document.querySelectorAll('.nav-live, [href="leiloes.html"]').forEach(el => el.style.display = 'none');
+  }
+
+  if (!featPlans) {
+    document.querySelectorAll('[href="planos.html"]').forEach(el => el.style.display = 'none');
+  }
+
+  if (!featSocial) {
+    document.querySelectorAll('.social-login, .divider').forEach(el => el.style.display = 'none');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// AD BANNER RENDERER (Monetization Strategy)
+// ─────────────────────────────────────────────────────────────
+window.renderAdBanner = function(position, containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  const banners = JSON.parse(localStorage.getItem('tc_banners')) || [];
+  const activeBanners = banners.filter(b => b.status === 'active' && b.position === position);
+  
+  // Basic dimensions mapping for placeholders
+  let pWidth = '100%';
+  let pHeight = '90px';
+  let pFormat = 'Leaderboard (728x90)';
+  
+  if (position.includes('sidebar')) {
+    pHeight = '250px';
+    pFormat = 'Medium Rectangle (300x250)';
+  } else if (position === 'leilao_footer') {
+    pHeight = '90px';
+    pFormat = 'Sponsor Banner';
+  }
+
+  if (activeBanners.length > 0) {
+    // Pick a random banner for that position (simple rotation)
+    const b = activeBanners[Math.floor(Math.random() * activeBanners.length)];
+    container.innerHTML = `
+      <div class="ad-banner-wrapper" style="width: 100%; display: flex; justify-content: center; margin: 1.5rem 0; overflow: hidden; border-radius: 8px;">
+        <a href="${b.link}" target="_blank" rel="noopener sponsored" style="display: block; width: 100%; text-align: center;">
+          <img src="${b.image}" alt="${b.name}" style="max-width: 100%; max-height: ${pHeight}; object-fit: contain; display: block; margin: 0 auto; border-radius: 8px;">
+        </a>
+      </div>
+    `;
+  } else {
+    // Placeholder - Anuncie Aqui
+    container.innerHTML = `
+      <div class="ad-banner-placeholder" style="width: 100%; height: ${pHeight}; background: rgba(0,0,0,0.03); border: 2px dashed rgba(0,0,0,0.1); border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 1.5rem 0; cursor: pointer; transition: all 0.3s;" onclick="window.location.href='planos.html'" onmouseover="this.style.background='rgba(0,0,0,0.05)'; this.style.borderColor='var(--clr-primary)'" onmouseout="this.style.background='rgba(0,0,0,0.03)'; this.style.borderColor='rgba(0,0,0,0.1)'">
+        <span style="font-weight: 700; color: var(--clr-text); font-size: 1.1rem; text-transform: uppercase; letter-spacing: 1px;">Anuncie Aqui</span>
+        <span style="font-size: 0.8rem; color: var(--clr-text-light); margin-top: 4px;">Formato: ${pFormat}</span>
+      </div>
+    `;
+  }
+};

@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Leilões ao Vivo — Tauze Class</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2316A34A'/%3E%3Ctext y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'%3ET%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+
+  <header class="site-header" role="banner">
+    <div class="container header-inner">
+
+      <a href="index.html" class="logo" aria-label="Tauze Class — Início">
+        <div class="logo-mark">TC</div>
+        <div class="logo-text">
+          <span class="logo-name">Tauze Class</span>
+          <span class="logo-tagline">Classificados Agro</span>
+        </div>
+      </a>
+
+      <div class="header-search" role="search" style="display: none;">
+        <span class="search-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        </span>
+        <input type="search" id="header-search-input" placeholder="Buscar leilões e remates..."
+               data-i18n-placeholder="search_placeholder" aria-label="Buscar anúncios">
+      </div>
+
+      <nav class="header-nav" role="navigation" aria-label="Menu principal">
+        <a href="index.html" data-i18n="nav_home">Início</a>
+        <a href="pesquisa.html" data-i18n="nav_ads">Anúncios</a>
+        <a href="index.html#categorias" data-i18n="nav_categories">Categorias</a>
+        <a href="leiloes.html" class="active nav-live"><span class="live-indicator"></span><span data-i18n="nav_auctions">Leilões Ao Vivo</span></a>
+        <a href="planos.html" data-i18n="nav_plans">Planos</a>
+        <a href="login.html" data-i18n="nav_login">Entrar</a>
+      </nav>
+
+      <div class="lang-toggle" role="group" aria-label="Selecionar idioma">
+        <button data-lang="pt" class="active" aria-label="Português">PT</button>
+        <button data-lang="es" aria-label="Español">ES</button>
+      </div>
+
+      <a href="anunciar.html" class="btn-anunciar-header" id="btn-post-header">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <span data-i18n="btn_post">Anunciar Grátis</span>
+      </a>
+
+      <button class="hamburger" aria-label="Abrir menu" aria-expanded="false" aria-controls="mobile-menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- LEILÕES HEADER -->
+  <section id="leiloes-header" class="page-header" style="background: linear-gradient(135deg, #111827, #1f2937); background-size: cover; background-position: center; text-align: left; padding: calc(var(--header-h) + 3rem) 0 3rem; position: relative; overflow: hidden;">
+    <div style="position: absolute; inset: 0; background: linear-gradient(90deg, rgba(17,24,39,0.95) 0%, rgba(17,24,39,0.5) 100%); z-index: 0;"></div>
+    
+    <div style="max-width: 1400px; margin: 0 auto; position: relative; width: 100%;">
+      <div class="container container--page" style="position: relative; z-index: 1; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 2rem; padding: 0 4.5rem; max-width: 1200px; margin: 0 auto; min-height: 240px;">
+        <div style="flex: 1; min-width: 300px; display: flex; flex-direction: column; justify-content: center;">
+          <div>
+            <div id="live-indicator-container" style="display: none; align-items: center; gap: 0.5rem; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #ef4444; padding: 0.3rem 0.8rem; border-radius: 2rem; font-weight: 700; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.75rem;">
+              <span class="live-indicator"></span> Transmissão Ao Vivo
+            </div>
+          </div>
+          <h1 id="leiloes-title" style="font-size: 2.2rem; margin-bottom: 0.2rem; color: white;">Leilões e Remates</h1>
+          <p id="leiloes-subtitle" style="font-size: 1rem; max-width: 500px; color: rgba(255,255,255,0.7); margin-bottom: 0;">Acompanhe os melhores lotes e dê seu lance em tempo real.</p>
+          <div id="catalog-btn-container" style="margin-top: 1rem; display: flex; gap: 0.8rem; flex-wrap: wrap;">
+             <!-- JS will inject the catalog and access buttons here -->
+          </div>
+        </div>
+        
+        <div style="background: linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%); padding: 1rem 1.5rem; border-radius: 1rem; border: 1px solid rgba(255,255,255,0.15); backdrop-filter: blur(12px); box-shadow: 0 15px 35px rgba(0,0,0,0.2); position: relative; z-index: 10; display: flex; flex-direction: column; justify-content: center; align-items: center; box-sizing: border-box; overflow: hidden;">
+          <!-- OVERLAY PARA O ESTADO AO VIVO -->
+          <div id="live-overlay-content" style="position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 20; background: transparent;">
+          </div>
+          
+          <!-- CONTEÚDO DO CRONÔMETRO -->
+          <div id="countdown-wrapper" style="display: flex; flex-direction: column; align-items: center; width: 100%; transition: opacity 0.3s;">
+            <h3 id="countdown-title" style="margin-bottom: 1rem; color: white; font-size: 1rem; text-align: center; font-weight: 600;">Tempo restante:</h3>
+            <div id="countdown-timer" style="display: flex; gap: 0.8rem; text-align: center;">
+          
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
+            <div style="background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); padding: 1rem 1.2rem; border-radius: 0.8rem; min-width: 75px; box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);">
+              <div id="auction-days" style="font-size: 2.2rem; font-weight: 800; color: white; line-height: 1; font-family: monospace;">02</div>
+            </div>
+            <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--clr-primary); letter-spacing: 1px;">Dias</div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
+            <div style="background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); padding: 1rem 1.2rem; border-radius: 0.8rem; min-width: 75px; box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);">
+              <div id="auction-hours" style="font-size: 2.2rem; font-weight: 800; color: white; line-height: 1; font-family: monospace;">14</div>
+            </div>
+            <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--clr-primary); letter-spacing: 1px;">Horas</div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
+            <div style="background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); padding: 1rem 1.2rem; border-radius: 0.8rem; min-width: 75px; box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);">
+              <div id="auction-mins" style="font-size: 2.2rem; font-weight: 800; color: white; line-height: 1; font-family: monospace;">45</div>
+            </div>
+            <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--clr-primary); letter-spacing: 1px;">Min</div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
+            <div style="background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); padding: 1rem 1.2rem; border-radius: 0.8rem; min-width: 75px; box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);">
+              <div id="auction-secs" style="font-size: 2.2rem; font-weight: 800; color: #ef4444; line-height: 1; font-family: monospace; text-shadow: 0 0 15px rgba(239,68,68,0.5);">30</div>
+            </div>
+            <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: #ef4444; letter-spacing: 1px;">Seg</div>
+          </div>
+
+        </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- LISTAGEM DE LOTES (Vinculado ao slide atual) -->
+  <main class="container" style="padding: 3rem 1.5rem;">
+    <!-- LIVE VIDEO CONTAINER -->
+    <div id="live-video-container" style="display: none; margin-bottom: 3rem; width: 100%; border-radius: 1rem; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.3); background: #000; aspect-ratio: 16/9;"></div>
+
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+      <div>
+        <h2 id="lots-section-title" class="section-title">Catálogo de Lotes</h2>
+        <p id="lots-section-subtitle" style="color: var(--clr-text-light);">Navegue por todos os animais e itens deste leilão.</p>
+      </div>
+      <div style="display: flex; gap: 1rem; flex-wrap: nowrap; align-items: center; width: 100%; max-width: 600px;">
+        <div style="position: relative; flex: 1; min-width: 0;">
+          <svg style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: #9ca3af;" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" id="filterSearch" placeholder="Buscar..." class="form-input" style="padding: 0.6rem 1rem 0.6rem 2.5rem; border-radius: 2rem; width: 100%; border: 1px solid #d1d5db; box-sizing: border-box;" onkeyup="filterLots()">
+        </div>
+        <select id="filterOrder" class="form-input" style="padding: 0.6rem 1rem; border-radius: 2rem; border: 1px solid #d1d5db; width: auto; min-width: 150px; flex-shrink: 0; box-sizing: border-box;" onchange="filterLots()">
+          <option value="num_asc">Ordem Padrão</option>
+          <option value="price_asc">Menor Lance</option>
+          <option value="price_desc">Maior Lance</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- AUCTION GRID -->
+      <div id="lotes-container" class="ads-grid" style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));">
+        <!-- Lotes renderizados dinamicamente via JS -->
+      </div>
+
+      <!-- BANNER LEILÃO FOOTER -->
+      <div id="banner-leilao-footer" style="margin-top: 2rem;"></div>
+    </main>
+
+  <!-- MODAL DE DETALHES DO LOTE -->
+  <div id="lotDetailsModal" class="public-modal">
+    <div class="public-modal-content">
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 1.5rem; border-bottom: 1px solid #e5e7eb;">
+        <h3 id="modalLotTitle" style="font-size: 1.5rem; font-weight: 700;">Detalhes do Lote</h3>
+        <button onclick="closeLotModal()" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color: #6b7280;">&times;</button>
+      </div>
+      <div style="padding: 1.5rem;">
+        <div id="modalLotImage" style="width: 100%; height: 300px; background: #f3f4f6; border-radius: 0.5rem; overflow: hidden; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: center;">
+           <!-- Image will go here -->
+        </div>
+        <div style="display: flex; gap: 2rem;">
+          <div style="flex: 1;">
+            <p style="color: var(--clr-text-light); font-size: 0.9rem; margin-bottom: 0.2rem;">Lote Número</p>
+            <p id="modalLotNumber" style="font-size: 1.2rem; font-weight: 700;">00</p>
+          </div>
+          <div style="flex: 1;">
+            <p style="color: var(--clr-text-light); font-size: 0.9rem; margin-bottom: 0.2rem;">Lance Inicial / Atual</p>
+            <p id="modalLotBid" style="font-size: 1.5rem; font-weight: 800; color: var(--clr-primary);">R$ 0</p>
+          </div>
+        </div>
+        
+        <div id="modalLotPedigree" style="display: none; margin-top: 1.5rem; background: rgba(22, 163, 74, 0.05); border: 1px solid rgba(22, 163, 74, 0.2); padding: 1rem; border-radius: 0.5rem; gap: 1rem;">
+          <div style="flex: 1;">
+            <p style="font-size: 0.8rem; color: var(--clr-primary); font-weight: 700; text-transform: uppercase;">Pai</p>
+            <p id="modalLotSire" style="font-weight: 600;">-</p>
+          </div>
+          <div style="flex: 1;">
+            <p style="font-size: 0.8rem; color: var(--clr-primary); font-weight: 700; text-transform: uppercase;">Mãe</p>
+            <p id="modalLotDam" style="font-weight: 600;">-</p>
+          </div>
+        </div>
+
+        <div style="margin-top: 1.5rem; background: #f9fafb; padding: 1rem; border-radius: 0.5rem; border: 1px solid #e5e7eb;">
+          <h4 style="font-size: 1rem; margin-bottom: 0.5rem; font-weight: 600;">Descrição do Lote</h4>
+          <p id="modalLotDesc" style="font-size: 0.9rem; color: #4b5563; line-height: 1.5;">Nenhuma descrição detalhada informada para este lote.</p>
+        </div>
+        
+        <div style="margin-top: 2rem; background: linear-gradient(135deg, #f0fdf4, #ffffff); border: 2px solid #bbf7d0; padding: 1.5rem; border-radius: 1rem; text-align: center; box-shadow: 0 10px 25px rgba(34, 197, 94, 0.1);">
+          <div style="display: inline-flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; color: var(--clr-primary); font-weight: 800; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 0.05em;">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            Lances Rápidos
+          </div>
+          <div style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem;">
+            <button type="button" class="btn" style="flex: 1; justify-content: center; background: #dcfce7; color: #166534; border: 1px solid #22c55e; font-weight: 700; font-size: 1rem; border-radius: 0.5rem; transition: all 0.2s;" onmouseover="this.style.background='#bbf7d0'" onmouseout="this.style.background='#dcfce7'" onclick="alert('Lances disponíveis após o login.')">+ R$ 500</button>
+            <button type="button" class="btn" style="flex: 1; justify-content: center; background: #dcfce7; color: #166534; border: 1px solid #22c55e; font-weight: 700; font-size: 1rem; border-radius: 0.5rem; transition: all 0.2s;" onmouseover="this.style.background='#bbf7d0'" onmouseout="this.style.background='#dcfce7'" onclick="alert('Lances disponíveis após o login.')">+ R$ 1.000</button>
+            <button type="button" class="btn" style="flex: 1; justify-content: center; background: #dcfce7; color: #166534; border: 1px solid #22c55e; font-weight: 700; font-size: 1rem; border-radius: 0.5rem; transition: all 0.2s;" onmouseover="this.style.background='#bbf7d0'" onmouseout="this.style.background='#dcfce7'" onclick="alert('Lances disponíveis após o login.')">+ R$ 5.000</button>
+          </div>
+          
+          <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+            <div style="flex: 1; height: 1px; background: #d1d5db;"></div>
+            <span style="font-size: 0.75rem; color: #6b7280; text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">Ou Digite o Valor</span>
+            <div style="flex: 1; height: 1px; background: #d1d5db;"></div>
+          </div>
+          
+          <button type="button" class="btn btn--primary" style="width: 100%; justify-content: center; padding: 1rem; font-size: 1.1rem; font-weight: 800; box-shadow: 0 8px 16px rgba(34, 197, 94, 0.3); text-transform: uppercase;" onclick="alert('Autenticação necessária para dar lances!')">Dar Lance Personalizado</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="container footer-bottom">
+      <p>&copy; 2026 Tauze Class. Todos os direitos reservados.</p>
+    </div>
+  </footer>
+
+  <script src="js/data.js"></script>
+  <script src="js/main.js"></script>
+
+  <script>
+    // ------------------------------------
+    // SEED MOCK DATA (if user didn't go to admin)
+    // ------------------------------------
+    function generateId() { return Date.now().toString(36) + Math.random().toString(36).substring(2); }
+    if (!localStorage.getItem('tc_seeded_v3')) {
+      const auId1 = generateId();
+      const auId2 = generateId();
+      const d1 = new Date(); d1.setDate(d1.getDate() - 1); // Yesterday to make it actively "live"
+      const d2 = new Date(); d2.setDate(d2.getDate() + 10); d2.setHours(14, 0, 0);
+      
+      const mockAuctions = [
+        {
+          id: auId1,
+          title: "Leilão Haras Santa Esmeralda",
+          date: d1.toISOString().slice(0, 16),
+          status: "aovivo",
+          youtube: "https://youtube.com/watch?v=mock",
+          cover: "https://images.unsplash.com/photo-1598974357801-cbca100e65d3?auto=format&fit=crop&q=80",
+          catalog: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
+          minBid: 1000, step: 250, commission: 8
+        },
+        {
+          id: auId2,
+          title: "Leilão Virtual Genética Nelore Elite",
+          date: d2.toISOString().slice(0, 16),
+          status: "agendado",
+          youtube: "",
+          cover: "https://images.unsplash.com/photo-1545468800-85cc9bc6ecf7?auto=format&fit=crop&q=80",
+          catalog: "",
+          minBid: 500, step: 100, commission: 8
+        }
+      ];
+      
+      const mockLots = [
+        { id: generateId(), auctionId: auId1, number: "01", title: "Garanhão Puro Sangue Lusitano", minBid: 45000, image: "https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&q=80" },
+        { id: generateId(), auctionId: auId1, number: "02", title: "Égua Crioula Pelagem Baia", minBid: 22000, image: "https://images.unsplash.com/photo-1534005831910-c1de1e3458ae?auto=format&fit=crop&q=80" },
+        { id: generateId(), auctionId: auId2, number: "01", title: "Touro Nelore PO (Registro 4521)", minBid: 15000, image: "https://images.unsplash.com/photo-1545468800-85cc9bc6ecf7?auto=format&fit=crop&q=80" },
+        { id: generateId(), auctionId: auId2, number: "02", title: "Lote 3 Matrizes Nelore Prenhes", minBid: 28000, image: "https://images.unsplash.com/photo-1570042225831-d98fa7577f1e?auto=format&fit=crop&q=80" }
+      ];
+      localStorage.setItem('tc_auctions', JSON.stringify(mockAuctions));
+      localStorage.setItem('tc_lots', JSON.stringify(mockLots));
+      localStorage.setItem('tc_seeded_v3', 'true');
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+      const auctions = JSON.parse(localStorage.getItem('tc_auctions')) || [];
+      const allLots = JSON.parse(localStorage.getItem('tc_lots')) || [];
+      let currentAuction = null;
+      
+      const urlParams = new URLSearchParams(window.location.search);
+      let auctionId = urlParams.get('id');
+      
+      // Fallback robusto caso o servidor de desenvolvimento remova os parâmetros da URL
+      if (!auctionId) {
+        auctionId = localStorage.getItem('tc_selected_auction');
+      }
+
+      const upcomingAuctions = auctions
+        .filter(a => auctionId ? a.id === auctionId : true);
+
+      let targetDate = new Date();
+      window.currentAuctionLots = [];
+
+      if (upcomingAuctions.length > 0) {
+
+        renderSlide(0);
+      } else {
+        targetDate.setDate(targetDate.getDate() + 3);
+        targetDate.setHours(20, 0, 0, 0);
+        document.getElementById('lotes-container').innerHTML = `<p style="grid-column: 1/-1; text-align:center; padding: 3rem; color: var(--clr-text-light);">Nenhum leilão ativo no momento.</p>`;
+      }
+
+      function renderSlide(index) {
+        const auction = upcomingAuctions[index];
+        currentAuction = auction;
+        targetDate = new Date(auction.date);
+        
+        document.getElementById('leiloes-title').innerText = auction.title;
+        
+        const headerEl = document.getElementById('leiloes-header');
+        if (auction.cover) {
+          headerEl.style.backgroundImage = `url('${auction.cover}')`;
+        } else {
+          headerEl.style.backgroundImage = 'none';
+          headerEl.style.background = 'linear-gradient(135deg, #111827, #1f2937)';
+        }
+
+        const catContainer = document.getElementById('catalog-btn-container');
+        let btnsHTML = ``;
+        
+        const videoContainer = document.getElementById('live-video-container');
+        if (auction.status === 'aovivo') {
+          // If live, show video player
+          videoContainer.style.display = 'block';
+          // Use a default live stream embed if auction.youtube is empty or generic
+          videoContainer.innerHTML = `<iframe width="100%" height="100%" src="https://www.youtube.com/embed/jfKfPfyJRdk?autoplay=1&mute=1" title="Live Stream" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen style="display: block;"></iframe>`;
+        } else {
+          videoContainer.style.display = 'none';
+          videoContainer.innerHTML = '';
+        }
+
+        if (auction.catalog) {
+          btnsHTML += `<a href="${auction.catalog}" download="catalogo.pdf" class="btn btn--primary" style="display:inline-flex; align-items:center; gap:8px;"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Baixar Catálogo</a>`;
+        }
+        catContainer.style.display = btnsHTML ? 'flex' : 'none';
+        catContainer.innerHTML = btnsHTML;
+
+        const liveInd = document.getElementById('live-indicator-container');
+        const countdownWrapper = document.getElementById('countdown-wrapper');
+        const liveOverlay = document.getElementById('live-overlay-content');
+        const lotsSectionTitle = document.getElementById('lots-section-title');
+        const lotsSectionSubtitle = document.getElementById('lots-section-subtitle');
+        
+        if (auction.status === 'aovivo') {
+          headerEl.style.display = 'block';
+          liveInd.style.background = 'rgba(239, 68, 68, 0.15)';
+          liveInd.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+          liveInd.style.color = '#ef4444';
+          liveInd.innerHTML = '<span class="live-indicator"></span> Transmissão Ao Vivo';
+          
+          countdownWrapper.style.opacity = '0';
+          countdownWrapper.style.pointerEvents = 'none';
+          
+          liveOverlay.style.display = 'flex';
+          liveOverlay.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 0.5rem; color: #ef4444; font-weight: 700; font-size: 1rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 1rem;">
+              <span class="live-indicator"></span> O LEILÃO JÁ COMEÇOU
+            </div>
+            <button class="btn btn--primary" style="padding: 0.6rem 1.8rem; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3); transition: all 0.3s;" onclick="document.getElementById('live-video-container').scrollIntoView({behavior: 'smooth'})" onmouseover="this.style.boxShadow='0 6px 20px rgba(16, 185, 129, 0.6)'; this.style.transform='translateY(-2px)'" onmouseout="this.style.boxShadow='0 4px 15px rgba(16, 185, 129, 0.3)'; this.style.transform='translateY(0)'">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              Participar Agora
+            </button>
+          `;
+          lotsSectionTitle.innerText = "Catálogo de Lotes";
+          lotsSectionSubtitle.innerText = "Navegue por todos os animais e itens deste leilão.";
+          document.querySelector('main.container').style.marginTop = '0';
+        } else {
+          headerEl.style.display = 'block';
+          liveInd.style.background = 'rgba(255,255,255,0.1)';
+          liveInd.style.borderColor = 'rgba(255,255,255,0.3)';
+          liveInd.style.color = '#fff';
+          liveInd.innerHTML = 'Evento Agendado';
+          
+          countdownWrapper.style.opacity = '1';
+          countdownWrapper.style.pointerEvents = 'auto';
+          
+          liveOverlay.style.display = 'none';
+          liveOverlay.innerHTML = '';
+
+          lotsSectionTitle.innerText = "Catálogo de Lotes";
+          lotsSectionSubtitle.innerText = "Este leilão ainda não começou. Confira os lotes agendados abaixo.";
+          document.querySelector('main.container').style.marginTop = '0';
+        }
+        liveInd.style.display = 'inline-flex';
+
+        window.currentAuctionLots = allLots.filter(l => l.auctionId === auction.id);
+        renderLots(auction, window.currentAuctionLots);
+      }
+
+      window.filterLots = function() {
+        const searchTerm = document.getElementById('filterSearch').value.toLowerCase();
+        const order = document.getElementById('filterOrder').value;
+
+        let filtered = window.currentAuctionLots.filter(l => 
+          (l.title && l.title.toLowerCase().includes(searchTerm)) || 
+          (l.number && String(l.number).toLowerCase().includes(searchTerm))
+        );
+
+        if (order === 'price_asc') {
+          filtered.sort((a,b) => (parseFloat(a.minBid)||0) - (parseFloat(b.minBid)||0));
+        } else if (order === 'price_desc') {
+          filtered.sort((a,b) => (parseFloat(b.minBid)||0) - (parseFloat(a.minBid)||0));
+        } else {
+          filtered.sort((a,b) => String(a.number).localeCompare(String(b.number), undefined, {numeric: true}));
+        }
+
+        renderLots(currentAuction, filtered);
+      };
+
+      function renderLots(auction, lots) {
+        const container = document.getElementById('lotes-container');
+        container.innerHTML = '';
+        if(lots.length === 0) {
+          container.innerHTML = `<p style="grid-column: 1/-1; text-align:center; padding: 3rem; color: var(--clr-text-light);">Nenhum lote cadastrado para o próximo leilão.</p>`;
+          return;
+        }
+
+        lots.forEach(lot => {
+          const minBidFormatted = parseFloat(lot.minBid || auction.minBid || 0).toLocaleString('pt-BR');
+          const statusConfig = auction.status === 'aovivo' 
+            ? { bg: '#ef4444', text: 'LANCE ABERTO', color: 'white', stripe: '#ef4444' }
+            : { bg: 'rgba(0,0,0,0.7)', text: 'AGENDADO', color: 'white', stripe: 'var(--clr-primary-light)', border: '1px solid rgba(255,255,255,0.2)' };
+
+          const imgHtml = lot.image ? `<img src="${lot.image}" alt="${lot.title}" style="${auction.status === 'agendado' ? 'filter: grayscale(0.2);' : ''}">` : `<div style="width:100%;height:100%;background:#e5e7eb;display:flex;align-items:center;justify-content:center;color:#9ca3af;">Sem imagem</div>`;
+
+          const article = document.createElement('article');
+          article.className = 'ad-card';
+          article.style.position = 'relative';
+          article.innerHTML = `
+            <div class="ad-card__stripe" style="background: ${statusConfig.stripe}; height: 4px;"></div>
+            <div class="ad-card__image">
+              <div style="position: absolute; top: 1rem; left: 1rem; background: ${statusConfig.bg}; color: ${statusConfig.color}; padding: 0.4rem 1rem; border-radius: 2rem; font-weight: 700; font-size: 0.85rem; z-index: 10; display: flex; align-items: center; gap: 6px; ${statusConfig.border ? 'border: '+statusConfig.border+'; backdrop-filter: blur(8px);' : 'box-shadow: 0 4px 12px rgba(239,68,68,0.4);'}">
+                ${auction.status === 'aovivo' ? '<span class="live-indicator" style="background: white; animation: none; box-shadow: none;"></span>' : ''} ${statusConfig.text}
+              </div>
+              ${imgHtml}
+            </div>
+            <div class="ad-card__body">
+              <div style="font-size: 0.85rem; color: var(--clr-text-light); font-weight: 600; margin-bottom: 0.5rem; display: flex; justify-content: space-between;">
+                <span>Lote ${lot.number}</span>
+                <span>${auction.status === 'aovivo' ? 'Em andamento' : 'Em breve'}</span>
+              </div>
+              <h3 class="ad-card__title">${lot.title}</h3>
+              <div style="background: linear-gradient(135deg, #f0fdf4, #ffffff); border: 2px solid #bbf7d0; padding: 1rem; border-radius: 0.8rem; margin: 1rem 0; text-align: center; box-shadow: 0 4px 12px rgba(34, 197, 94, 0.05);">
+                <div style="font-size: 0.75rem; font-weight: 700; color: #166534; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.2rem;">LANCE INICIAL/ATUAL</div>
+                <div style="font-size: 1.8rem; font-weight: 800; color: var(--clr-primary);">R$ ${minBidFormatted}</div>
+              </div>
+              <div style="display: flex; gap: 0.5rem;">
+                ${auction.acceptsBids !== false ? `
+                  <button type="button" class="btn btn--primary" style="flex: 1; justify-content: center; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; box-shadow: 0 4px 10px rgba(34, 197, 94, 0.2);" onclick="alert('Área de lances em breve!')">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 5px;"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    Dar Lance
+                  </button>
+                ` : `
+                  <button type="button" class="btn" style="flex: 1; justify-content: center; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; background: #e5e7eb; color: #4b5563; cursor: not-allowed;" disabled title="Este leilão aceita lances apenas de forma presencial ou via telefone da leiloeira.">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 5px;"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+                    Lances na Mesa/Telefone
+                  </button>
+                `}
+                <button type="button" class="btn" style="padding: 0 1rem; background: #f3f4f6; color: #4b5563; border: 1px solid #d1d5db; border-radius: 0.5rem; transition: all 0.2s;" onmouseover="this.style.background='#e5e7eb'; this.style.color='#111827';" onmouseout="this.style.background='#f3f4f6'; this.style.color='#4b5563';" title="Ver Detalhes do Lote" onclick="openLotModal('${lot.id}')">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                </button>
+              </div>
+            </div>
+          `;
+          container.appendChild(article);
+        });
+      }
+
+      window.openLotModal = function(lotId) {
+        try {
+          console.log('Abrindo modal para lote:', lotId);
+          const lot = allLots.find(l => String(l.id) === String(lotId));
+          if(!lot) {
+            alert('Lote não encontrado no banco de dados local.');
+            return;
+          }
+          
+          document.getElementById('modalLotTitle').innerText = lot.title;
+          document.getElementById('modalLotNumber').innerText = lot.number;
+          
+          const minBidFormatted = parseFloat(lot.minBid || currentAuction?.minBid || 0).toLocaleString('pt-BR');
+          document.getElementById('modalLotBid').innerText = `R$ ${minBidFormatted}`;
+          document.getElementById('modalLotDesc').innerText = lot.description || 'Nenhuma descrição detalhada informada para este lote.';
+          
+          if (lot.sire || lot.dam) {
+            document.getElementById('modalLotPedigree').style.display = 'flex';
+            document.getElementById('modalLotSire').innerText = lot.sire || 'Não informado';
+            document.getElementById('modalLotDam').innerText = lot.dam || 'Não informado';
+          } else {
+            document.getElementById('modalLotPedigree').style.display = 'none';
+          }
+
+          const imgContainer = document.getElementById('modalLotImage');
+          if (lot.video) {
+            // Clean up youtube url to embed format if needed, assuming the user inputs a valid embed url or we just try to use it directly
+            let videoSrc = lot.video;
+            if(videoSrc.includes('watch?v=')) videoSrc = videoSrc.replace('watch?v=', 'embed/');
+            imgContainer.innerHTML = `<iframe width="100%" height="100%" src="${videoSrc}" title="Vídeo do Lote" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+          } else if(lot.image) {
+            imgContainer.innerHTML = `<img src="${lot.image}" style="width:100%; height:100%; object-fit:cover;">`;
+          } else {
+            imgContainer.innerHTML = `<span style="color:#9ca3af;">Sem mídia disponível</span>`;
+          }
+          
+          document.getElementById('lotDetailsModal').classList.add('open');
+        } catch(e) {
+          console.error(e);
+          alert('Erro ao abrir o modal: ' + e.message);
+        }
+      };
+
+      window.closeLotModal = function() {
+        document.getElementById('lotDetailsModal').classList.remove('open');
+      };
+
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+          window.closeLotModal();
+        }
+      });
+
+      const dEl = document.getElementById('auction-days');
+      const hEl = document.getElementById('auction-hours');
+      const mEl = document.getElementById('auction-mins');
+      const sEl = document.getElementById('auction-secs');
+
+      function updateCountdown() {
+        const now = new Date().getTime();
+        const distance = targetDate.getTime() - now;
+
+        if (distance < 0) {
+          dEl.textContent = "00";
+          hEl.textContent = "00";
+          mEl.textContent = "00";
+          sEl.textContent = "00";
+          return;
+        }
+
+        const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+        dEl.textContent = String(days).padStart(2, '0');
+        hEl.textContent = String(hours).padStart(2, '0');
+        mEl.textContent = String(minutes).padStart(2, '0');
+        sEl.textContent = String(seconds).padStart(2, '0');
+      }
+
+      updateCountdown();
+      setInterval(updateCountdown, 1000);
+      
+      if (typeof renderAdBanner === 'function') {
+        renderAdBanner('leilao_footer', 'banner-leilao-footer');
+      }
+    });
+  </script>
+</body>
+</html>

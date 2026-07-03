@@ -23,18 +23,13 @@
       </div>
     </a>
 
-    <div class="header-search" role="search">
-      <span class="search-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-      </span>
-      <input type="search" id="header-search-input" placeholder="Buscar animais, máquinas, insumos..."
-             data-i18n-placeholder="search_placeholder" aria-label="Buscar anúncios">
-    </div>
+
 
     <nav class="header-nav" role="navigation" aria-label="Menu principal">
       <a href="index.html" class="active" data-i18n="nav_home">Início</a>
       <a href="listagem.html" data-i18n="nav_ads">Anúncios</a>
       <a href="#categorias" data-i18n="nav_categories">Categorias</a>
+      <a href="leiloes.html" class="nav-live"><span class="live-indicator"></span><span data-i18n="nav_auctions">Leilões Ao Vivo</span></a>
       <a href="login.html" data-i18n="nav_login">Entrar</a>
     </nav>
 
@@ -59,6 +54,7 @@
   <a href="index.html" data-i18n="nav_home">Início</a>
   <a href="listagem.html" data-i18n="nav_ads">Anúncios</a>
   <a href="#categorias" data-i18n="nav_categories">Categorias</a>
+  <a href="#" class="nav-live"><span class="live-indicator"></span><span data-i18n="nav_auctions">Leilões</span></a>
   <a href="login.html" data-i18n="nav_login">Entrar</a>
   <a href="anunciar.html" style="color:var(--clr-accent-dark);font-weight:700" data-i18n="btn_post">Anunciar Grátis</a>
   <div style="display:flex;gap:8px;padding:8px 0;border-top:1px solid var(--clr-border)">
@@ -188,6 +184,9 @@
   </div>
 </section>
 
+  <!-- HOME TOP BANNER -->
+  <div id="banner-home-top" class="container"></div>
+
 <!-- ═══ CATEGORIES ════════════════════════════ -->
 <section class="section categories-section" id="categorias" aria-labelledby="cat-heading">
   <div class="container">
@@ -221,6 +220,9 @@
     <div class="ads-grid" id="featured-ads" role="list" aria-label="Anúncios em destaque"></div>
   </div>
 </section>
+
+  <!-- HOME MID BANNER -->
+  <div id="banner-home-mid" class="container"></div>
 
 <!-- ═══ TRUST — Branco + Cards Coloridos ═════ -->
 <section class="section trust-section" aria-labelledby="trust-heading">
@@ -339,5 +341,17 @@
 
 <script src="js/data.js"></script>
 <script src="js/main.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    renderHomeData();
+    window.addEventListener('resize', handleResize);
+    
+    // Render Ad Banners
+    if (typeof renderAdBanner === 'function') {
+      renderAdBanner('home_top', 'banner-home-top');
+      renderAdBanner('home_mid', 'banner-home-mid');
+    }
+  });
+</script>
 </body>
 </html>

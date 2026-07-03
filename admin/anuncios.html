@@ -37,7 +37,7 @@
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Exportar CSV
           </button>
-          <button class="adm-btn adm-btn--primary" onclick="showToast('Use o site público para criar anúncios','info')">
+          <button class="adm-btn adm-btn--primary" onclick="openNewAdModal()">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Novo Anúncio
           </button>
@@ -127,6 +127,42 @@
   </div>
 </div>
 
+<!-- Modal Novo Anúncio -->
+<div id="newAdModal" class="adm-modal">
+  <div class="adm-modal-content" style="max-width: 500px;">
+    <div class="adm-modal-header">
+      <h3 class="adm-modal-title">Novo Anúncio (Admin)</h3>
+      <button class="adm-modal-close" onclick="closeModal('newAdModal')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="adm-modal-body">
+      <form id="newAdForm" onsubmit="saveNewAd(event)">
+        <div class="adm-form-group">
+          <label class="adm-form-label">Título do Anúncio</label>
+          <input type="text" id="newAdTitle" class="adm-input" required>
+        </div>
+        <div class="adm-form-group">
+          <label class="adm-form-label">Vendedor</label>
+          <input type="text" id="newAdSeller" class="adm-input" required>
+        </div>
+        <div class="adm-form-group">
+          <label class="adm-form-label">Plano</label>
+          <select id="newAdPlan" class="adm-select" required>
+            <option value="normal">Normal (Gratuito)</option>
+            <option value="premium">Premium (Destaque)</option>
+          </select>
+          <p style="font-size:0.8rem;color:var(--adm-text-light);margin-top:4px;">Anúncios Premium aparecem no topo da listagem.</p>
+        </div>
+        <div class="adm-modal-footer">
+          <button type="button" class="adm-btn adm-btn--outline" onclick="closeModal('newAdModal')">Cancelar</button>
+          <button type="submit" class="adm-btn adm-btn--primary">Criar Anúncio</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <script src="/admin/js/admin.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
@@ -204,6 +240,21 @@ function filterByCountry(val) {
 }
 function toggleAll(cb) {
   document.querySelectorAll('#ads-table tbody input[type=checkbox]').forEach(c => c.checked = cb.checked);
+}
+
+function openNewAdModal() {
+  document.getElementById('newAdModal').classList.add('open');
+}
+
+function saveNewAd(e) {
+  e.preventDefault();
+  const title = document.getElementById('newAdTitle').value;
+  const seller = document.getElementById('newAdSeller').value;
+  const plan = document.getElementById('newAdPlan').value;
+  
+  showToast(`Anúncio "${title}" criado com sucesso! Plano: ${plan.toUpperCase()}`, 'success');
+  closeModal('newAdModal');
+  document.getElementById('newAdForm').reset();
 }
 </script>
 </body>

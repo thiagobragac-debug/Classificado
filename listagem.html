@@ -145,25 +145,14 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
         <div class="filter-options">
-          <select class="filter-select" id="filter-country" aria-label="País">
+          <select class="filter-select" id="filter-country" aria-label="País" onchange="updateLocationOptions('country')">
             <option value="">Todos os Países</option>
-            <option value="br">🇧🇷 Brasil</option>
-            <option value="ar">🇦🇷 Argentina</option>
-            <option value="py">🇵🇾 Paraguai</option>
-            <option value="uy">🇺🇾 Uruguai</option>
           </select>
-          <select class="filter-select" id="filter-state" aria-label="Estado" style="margin-top:8px">
+          <select class="filter-select" id="filter-state" aria-label="Estado" style="margin-top:8px" onchange="updateLocationOptions('state')" disabled>
             <option value="">Todos os Estados</option>
-            <option value="MT">Mato Grosso</option>
-            <option value="MS">Mato Grosso do Sul</option>
-            <option value="MG">Minas Gerais</option>
-            <option value="GO">Goiás</option>
-            <option value="SP">São Paulo</option>
-            <option value="PR">Paraná</option>
-            <option value="RS">Rio Grande do Sul</option>
-            <option value="BA">Bahia</option>
-            <option value="TO">Tocantins</option>
-            <option value="PA">Pará</option>
+          </select>
+          <select class="filter-select" id="filter-city" aria-label="Cidade" style="margin-top:8px" onchange="applyFilters()" disabled>
+            <option value="">Todas as Cidades</option>
           </select>
         </div>
       </div>
@@ -211,6 +200,9 @@
       <button class="btn btn--primary" onclick="applyFilters()" style="width:100%;margin-top:var(--sp-4)" id="apply-filters-btn">
         Aplicar Filtros
       </button>
+
+      <!-- BANNER SIDEBAR -->
+      <div id="banner-listagem-sidebar" style="margin-top: 1.5rem;"></div>
     </aside>
 
     <!-- ─── ADS GRID ─── -->
@@ -265,5 +257,12 @@
 <script src="js/data.js"></script>
 <script src="js/main.js"></script>
 <script src="js/filters.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    if (typeof renderAdBanner === 'function') {
+      renderAdBanner('listagem_sidebar', 'banner-listagem-sidebar');
+    }
+  });
+</script>
 </body>
 </html>

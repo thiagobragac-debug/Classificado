@@ -1,0 +1,4 @@
+node_modules/
+bkp/
+.env
+.DS_Store

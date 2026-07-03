@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Planos e Preços — Tauze Class</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2316A34A'/%3E%3Ctext y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'%3ET%3C/text%3E%3C/svg%3E">
+  
+  <style>
+    .pricing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; max-width: 1100px; margin: 0 auto; margin-top: -3rem; position: relative; z-index: 2; padding-bottom: 5rem; }
+    .pricing-card { background: white; border-radius: 1.5rem; padding: 2.5rem; box-shadow: 0 10px 40px rgba(0,0,0,0.05); display: flex; flex-direction: column; position: relative; border: 1px solid rgba(0,0,0,0.05); transition: transform 0.3s, box-shadow 0.3s; }
+    .pricing-card:hover { transform: translateY(-5px); box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
+    .pricing-card.popular { border: 2px solid var(--clr-primary); transform: scale(1.05); box-shadow: 0 20px 40px rgba(22, 163, 74, 0.15); z-index: 10; }
+    .pricing-card.popular:hover { transform: scale(1.05) translateY(-5px); }
+    
+    .popular-badge { position: absolute; top: -15px; left: 50%; transform: translateX(-50%); background: var(--clr-primary); color: white; padding: 0.4rem 1.2rem; border-radius: 2rem; font-weight: 800; font-size: 0.85rem; letter-spacing: 1px; text-transform: uppercase; box-shadow: 0 4px 10px rgba(22, 163, 74, 0.3); }
+    
+    .plan-name { font-size: 1.4rem; font-weight: 800; color: var(--clr-text); margin-bottom: 0.5rem; }
+    .plan-desc { color: var(--clr-text-light); font-size: 0.95rem; margin-bottom: 2rem; min-height: 40px; }
+    .plan-price { font-size: 3rem; font-weight: 800; color: var(--clr-text); display: flex; align-items: flex-end; gap: 0.2rem; margin-bottom: 2rem; }
+    .plan-price span { font-size: 1rem; color: var(--clr-text-light); font-weight: 600; margin-bottom: 0.5rem; }
+    
+    .plan-features { list-style: none; padding: 0; margin: 0 0 2rem 0; flex: 1; }
+    .plan-features li { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1rem; color: var(--clr-text); font-weight: 500; font-size: 0.95rem; }
+    .plan-features svg { color: var(--clr-primary); width: 20px; height: 20px; flex-shrink: 0; }
+    .plan-features .disabled { color: #9CA3AF; text-decoration: line-through; }
+    .plan-features .disabled svg { color: #9CA3AF; }
+    
+    @media (max-width: 900px) {
+      .pricing-card.popular { transform: none; }
+      .pricing-card.popular:hover { transform: translateY(-5px); }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="site-header" role="banner">
+    <div class="container header-inner">
+      <a href="index.html" class="logo" aria-label="Tauze Class — Início">
+        <div class="logo-mark">TC</div>
+        <div class="logo-text">
+          <span class="logo-name">Tauze Class</span>
+          <span class="logo-tagline">Classificados Agro</span>
+        </div>
+      </a>
+      
+      <div class="header-search" role="search">
+        <span class="search-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        </span>
+        <input type="search" id="header-search-input" placeholder="Buscar..." aria-label="Buscar anúncios">
+      </div>
+
+      <nav class="header-nav" role="navigation" aria-label="Menu principal">
+        <a href="index.html">Início</a>
+        <a href="pesquisa.html">Anúncios</a>
+        <a href="index.html#categorias">Categorias</a>
+        <a href="leiloes.html" class="nav-live"><span class="live-indicator"></span> Leilões</a>
+        <a href="planos.html" class="active">Planos</a>
+        <a href="login.html">Entrar</a>
+      </nav>
+
+      <a href="anunciar.html" class="btn-anunciar-header">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <span>Anunciar Grátis</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- HEADER -->
+  <section class="page-header" style="padding-bottom: 8rem;">
+    <div class="container container--page">
+      <h1>Planos para Vendedores</h1>
+      <p>Escolha o plano ideal e aumente suas vendas no maior mercado do Mercosul.</p>
+    </div>
+  </section>
+
+  <main class="container">
+    
+    <div class="pricing-grid">
+      
+      <!-- PLANO GRÁTIS -->
+      <div class="pricing-card">
+        <h3 class="plan-name">Básico</h3>
+        <p class="plan-desc">Perfeito para quem está começando a vender ocasionalmente.</p>
+        <div class="plan-price">Grátis</div>
+        
+        <ul class="plan-features">
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 2 Anúncios ativos</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Até 5 fotos por anúncio</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Suporte por email</li>
+          <li class="disabled"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Selo de Vendedor Verificado</li>
+          <li class="disabled"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Destaque na Home</li>
+        </ul>
+        
+        <a href="login.html" class="btn btn--outline" style="justify-content: center;">Começar Grátis</a>
+      </div>
+
+      <!-- PLANO PRO -->
+      <div class="pricing-card popular">
+        <div class="popular-badge">Mais Popular</div>
+        <h3 class="plan-name">Produtor PRO</h3>
+        <p class="plan-desc">Para produtores rurais e pequenas empresas que vendem com frequência.</p>
+        <div class="plan-price">R$ 89<span>/mês</span></div>
+        
+        <ul class="plan-features">
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Anúncios Ilimitados</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 15 fotos por anúncio + Vídeo</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Suporte prioritário via WhatsApp</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Selo de Vendedor Verificado</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 5 Destaques mensais</li>
+        </ul>
+        
+        <a href="login.html" class="btn btn--primary" style="justify-content: center;">Assinar Plano PRO</a>
+      </div>
+
+      <!-- PLANO EMPRESA -->
+      <div class="pricing-card">
+        <h3 class="plan-name">Empresa / Leilão</h3>
+        <p class="plan-desc">Para concessionárias, revendas e organizadores de grandes leilões.</p>
+        <div class="plan-price">R$ 299<span>/mês</span></div>
+        
+        <ul class="plan-features">
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Tudo do plano PRO</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Página exclusiva da empresa</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Transmissão de Leilões ao Vivo</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Relatórios de engajamento</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Gerente de conta dedicado</li>
+        </ul>
+        
+        <a href="login.html" class="btn btn--outline" style="justify-content: center;">Contatar Vendas</a>
+      </div>
+
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-bottom">
+      <p>&copy; 2026 Tauze Class. Todos os direitos reservados.</p>
+    </div>
+  </footer>
+
+  <script src="js/data.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

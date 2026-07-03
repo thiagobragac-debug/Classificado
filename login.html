@@ -3,59 +3,204 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Entrar — Tauze Class</title>
-  <link rel="stylesheet" href="css/style.css">
+  <title>Criar Conta — Tauze Class</title>
+  <link rel="stylesheet" href="css/style.css?v=7">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2316A34A'/%3E%3Ctext y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'%3ET%3C/text%3E%3C/svg%3E">
 </head>
 <body style="background: white">
   
-  <main class="login-split">
+  <main class="login-split v2">
     <!-- Left Banner -->
     <div class="login-banner">
-      <h2>O maior portal do agronegócio.</h2>
-      <p>Conecte-se com milhares de produtores, compre e venda maquinários, insumos e muito mais.</p>
+      <a href="index.html" class="logo" style="margin-bottom: 3rem; filter: brightness(0) invert(1);">
+        <div class="logo-mark" style="background: var(--clr-primary); color: white; border-color: white;">TC</div>
+        <div class="logo-text">
+          <span class="logo-name" style="font-size: 1.4rem;">Tauze Class</span>
+          <span class="logo-tagline" style="color: rgba(255,255,255,0.7);">CLASSIFICADOS AGRO</span>
+        </div>
+      </a>
+
+      <h2>O agronegócio do <br><span data-i18n="login_mercosul" style="color: #F59E0B;">Mercosul</span><br> em um só lugar.</h2>
+      <p>Anuncie gratuitamente para milhares de compradores no Brasil, Argentina, Paraguai e Uruguai.</p>
+      
+      <div class="login-badges">
+        <span class="badge"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> Gratuito para anunciar</span>
+        <span class="badge"><span style="font-size:14px">🌎</span> Mercosul completo</span>
+        <span class="badge"><span style="font-size:14px">🐄</span> 62.000+ anúncios</span>
+        <span class="badge"><span style="font-size:14px">🛡️</span> Vendedores verificados</span>
+      </div>
     </div>
 
     <!-- Right Form -->
     <div class="login-form-area">
-      <div style="max-width: 400px; width: 100%; margin: 0 auto;">
-        <a href="index.html" class="logo" style="margin-bottom: 2rem; display: inline-flex; align-items: center; gap: 0.8rem; text-decoration: none;">
-          <div class="logo-mark" style="width: 40px; height: 40px; background: var(--clr-primary); color: white; border-radius: 0.8rem; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.2rem;">TC</div>
-          <div class="logo-text" style="display: flex; flex-direction: column;">
-            <span class="logo-name" style="color: var(--clr-text); font-weight: 800; font-size: 1.5rem; line-height: 1.1;">Tauze Class</span>
-            <span class="logo-tagline" style="color: var(--clr-primary); font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Classificados Agro</span>
-          </div>
-        </a>
+      <div style="max-width: 480px; width: 100%; margin: 0 auto;">
+        
+        <div class="login-header">
+          <h1>Criar conta grátis</h1>
+          <p>Junte-se a 18.000+ vendedores no Mercosul.</p>
+        </div>
 
-        <h1 style="font-size: 2rem; font-weight: 800; color: var(--clr-text); margin-bottom: 0.5rem">Bem-vindo de volta!</h1>
-        <p style="color: var(--clr-text-light); margin-bottom: 2rem">Por favor, insira seus dados para acessar sua conta.</p>
+        <div class="auth-toggle">
+          <button class="toggle-btn" onclick="toggleAuth('login')" id="btn-toggle-login">Entrar</button>
+          <button class="toggle-btn active" onclick="toggleAuth('register')" id="btn-toggle-register">Criar Conta</button>
+        </div>
 
-        <form onsubmit="event.preventDefault(); window.location.href='painel.html'">
-          <div class="form-group" style="margin-bottom: 1rem">
-            <label class="form-label">E-mail</label>
-            <input type="email" class="form-input" placeholder="exemplo@email.com" required>
-          </div>
-          <div class="form-group" style="margin-bottom: 0.5rem">
-            <label class="form-label">Senha</label>
-            <input type="password" class="form-input" placeholder="••••••••" required>
-          </div>
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; font-size: 0.9rem">
-            <label style="display: flex; align-items: center; gap: 0.5rem; color: var(--clr-text); cursor: pointer">
-              <input type="checkbox" style="accent-color: var(--clr-primary)"> Lembrar-me
-            </label>
-            <a href="#" style="color: var(--clr-accent); font-weight: 600; text-decoration: none">Esqueceu a senha?</a>
-          </div>
+        <div class="social-login">
+          <button class="btn-social">
+            <svg width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+            Continuar com Google
+          </button>
+          <button class="btn-social">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="#25D366" xmlns="http://www.w3.org/2000/svg"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.125.553 4.122 1.523 5.855L.057 23.268a.5.5 0 0 0 .618.635l5.579-1.461A11.942 11.942 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.75c-1.924 0-3.72-.523-5.256-1.43l-.377-.224-3.914 1.025 1.044-3.81-.246-.393A9.716 9.716 0 0 1 2.25 12C2.25 6.615 6.615 2.25 12 2.25S21.75 6.615 21.75 12 17.385 21.75 12 21.75z"/></svg>
+            Continuar com WhatsApp
+          </button>
+        </div>
 
-          <button type="submit" class="btn btn--accent btn--lg" style="width: 100%; justify-content: center; margin-bottom: 1.5rem">Entrar na Conta</button>
-          
-          <div style="text-align: center; color: var(--clr-text-light); font-size: 0.9rem">
-            Ainda não tem uma conta? <a href="#" style="color: var(--clr-primary); font-weight: 700; text-decoration: none">Criar Conta Grátis</a>
-          </div>
-        </form>
+        <div class="divider">
+          <span>OU</span>
+        </div>
+
+        <!-- FORMULÁRIO REGISTRO -->
+        <div id="register-form">
+          <form onsubmit="event.preventDefault(); window.location.href='painel.html'">
+            <div class="form-grid" style="margin-bottom: 1rem">
+              <div class="form-group">
+                <label class="form-label">NOME</label>
+                <div class="input-with-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                  <input type="text" class="form-input" placeholder="João" oninput="validateInput(this)" required>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">SOBRENOME</label>
+                <input type="text" class="form-input" placeholder="Silva" oninput="validateInput(this)" required>
+              </div>
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 1rem">
+              <label class="form-label">E-MAIL</label>
+              <div class="input-with-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                <input type="email" class="form-input" placeholder="seu@email.com" oninput="validateInput(this)" required>
+              </div>
+            </div>
+
+            <div class="form-grid" style="margin-bottom: 2rem">
+              <div class="form-group">
+                <label class="form-label">WHATSAPP</label>
+                <div class="input-with-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                  <input type="text" class="form-input" placeholder="+55 (65) 99999-9999" oninput="maskWhatsApp(this)" required>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">PAÍS</label>
+                <select class="form-input" required>
+                  <option value="BR">🇧🇷 Brasil</option>
+                  <option value="AR">🇦🇷 Argentina</option>
+                  <option value="PY">🇵🇾 Paraguai</option>
+                  <option value="UY">🇺🇾 Uruguai</option>
+                </select>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn--accent btn--lg" style="width: 100%; justify-content: center;">Finalizar Cadastro</button>
+          </form>
+        </div>
+
+        <!-- FORMULÁRIO LOGIN -->
+        <div id="login-form" style="display: none;">
+          <form onsubmit="event.preventDefault(); window.location.href='painel.html'">
+            <div class="form-group" style="margin-bottom: 1rem">
+              <label class="form-label">E-MAIL</label>
+              <div class="input-with-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                <input type="email" class="form-input" placeholder="seu@email.com" oninput="validateInput(this)" required>
+              </div>
+            </div>
+            <div class="form-group" style="margin-bottom: 2rem">
+              <label class="form-label">SENHA</label>
+              <div class="input-with-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                <input type="password" class="form-input" placeholder="••••••••" oninput="validateInput(this)" required>
+                <svg class="toggle-password" onclick="togglePassword(this)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              </div>
+              <div style="text-align: right; margin-top: 0.5rem;">
+                <a href="#" style="color: var(--clr-primary); font-size: 0.85rem; font-weight: 600; text-decoration: none;">Esqueceu a senha?</a>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn--accent btn--lg" style="width: 100%; justify-content: center;">Entrar na Conta</button>
+          </form>
+        </div>
+
       </div>
     </div>
   </main>
 
+  <script>
+    function toggleAuth(type) {
+      const btnLogin = document.getElementById('btn-toggle-login');
+      const btnRegister = document.getElementById('btn-toggle-register');
+      const formLogin = document.getElementById('login-form');
+      const formRegister = document.getElementById('register-form');
+      const title = document.querySelector('.login-header h1');
+      const sub = document.querySelector('.login-header p');
+
+      if (type === 'login') {
+        btnLogin.classList.add('active');
+        btnRegister.classList.remove('active');
+        formLogin.style.display = 'block';
+        formRegister.style.display = 'none';
+        title.textContent = 'Bem-vindo de volta';
+        sub.textContent = 'Insira seus dados para acessar sua conta.';
+        document.title = 'Entrar — Tauze Class';
+      } else {
+        btnRegister.classList.add('active');
+        btnLogin.classList.remove('active');
+        formRegister.style.display = 'block';
+        formLogin.style.display = 'none';
+        title.textContent = 'Criar conta grátis';
+        sub.textContent = 'Junte-se a 18.000+ vendedores no Mercosul.';
+        document.title = 'Criar Conta — Tauze Class';
+      }
+    }
+    
+    function validateInput(input) {
+      if (input.validity.valid && input.value.trim() !== '') {
+        input.classList.add('valid');
+      } else {
+        input.classList.remove('valid');
+      }
+    }
+
+    function maskWhatsApp(input) {
+      let v = input.value.replace(/\D/g, "");
+      if (v.length > 2) v = "(" + v.substring(0, 2) + ") " + v.substring(2);
+      if (v.length > 10) v = v.substring(0, 10) + "-" + v.substring(10, 14);
+      input.value = "+55 " + v;
+      validateInput(input);
+    }
+
+    function togglePassword(btn) {
+      const input = btn.previousElementSibling;
+      if (input.type === 'password') {
+        input.type = 'text';
+        btn.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>';
+      } else {
+        input.type = 'password';
+        btn.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
+      }
+    }
+
+    // Check URL params for mode
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('mode') === 'register') {
+      toggleAuth('register');
+    }
+  </script>
+  <script src="js/data.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

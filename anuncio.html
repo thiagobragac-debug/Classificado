@@ -106,10 +106,20 @@
             <strong>Dica de Segurança:</strong> Nunca faça depósitos antecipados sem ver o produto pessoalmente. Desconfie de preços muito abaixo do mercado.
           </div>
         </div>
+
+        <!-- BANNER ANUNCIO SIDEBAR -->
+        <div id="banner-anuncio-sidebar" style="margin-top: 1.5rem;"></div>
       </div>
     </div>
   </main>
 
   <script src="js/main.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      if (typeof renderAdBanner === 'function') {
+        renderAdBanner('anuncio_sidebar', 'banner-anuncio-sidebar');
+      }
+    });
+  </script>
 </body>
 </html>

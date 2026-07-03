@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestão de Leilões — Admin Tauze Class</title>
+  <link rel="stylesheet" href="/admin/css/admin.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2316A34A'/%3E%3Ctext y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'%3ET%3C/text%3E%3C/svg%3E">
+  <style>
+    .modal-lg { max-width: 800px; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .form-group { margin-bottom: 1rem; }
+    .form-label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--adm-text); margin-bottom: 0.5rem; }
+    .form-input, .form-select { width: 100%; padding: 0.75rem 1rem; background: rgba(0,0,0,0.2); border: 1px solid var(--adm-border); border-radius: 0.5rem; color: var(--adm-text); transition: all 0.2s; font-family: inherit; }
+    .form-input:focus, .form-select:focus { border-color: #16A34A; outline: none; box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.2); }
+    
+    .status-badge { padding: 0.25rem 0.75rem; border-radius: 1rem; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; }
+    .status-agendado { background: rgba(59, 130, 246, 0.2); color: #60A5FA; border: 1px solid rgba(59, 130, 246, 0.4); }
+    .status-aovivo { background: rgba(239, 68, 68, 0.2); color: #F87171; border: 1px solid rgba(239, 68, 68, 0.4); animation: pulse-red 2s infinite; }
+    .status-finalizado { background: rgba(156, 163, 175, 0.2); color: #9CA3AF; border: 1px solid rgba(156, 163, 175, 0.4); }
+
+    @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); } 70% { box-shadow: 0 0 0 6px rgba(239,68,68,0); } 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); } }
+
+    /* Lotes Table */
+    .lots-table th { background: rgba(255,255,255,0.02); }
+  </style>
+</head>
+<body>
+<div class="adm-layout">
+  <aside class="adm-sidebar" id="adm-sidebar"></aside>
+  <div class="adm-main">
+
+    <header class="adm-topbar">
+      <div class="adm-breadcrumb">
+        <a href="/admin/index.html">Dashboard</a>
+        <span>›</span>
+        <strong>Leilões</strong>
+      </div>
+    </header>
+
+    <main class="adm-content">
+      <div class="adm-page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div>
+          <h1 class="adm-page-title">Gestão de Leilões e Remates</h1>
+          <p class="adm-page-sub">Crie eventos, gerencie transmissões e associe lotes.</p>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="adm-btn adm-btn--primary" onclick="openAuctionModal()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Novo Leilão
+          </button>
+        </div>
+      </div>
+
+      <!-- Table Card -->
+      <div class="adm-card">
+        <div class="adm-table-wrap">
+          <table class="adm-table" id="auctions-table">
+            <thead>
+              <tr>
+                <th>Evento</th>
+                <th>Data / Hora</th>
+                <th>Status</th>
+                <th>Lotes</th>
+                <th style="text-align:right">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="auctions-tbody">
+              <!-- JS Populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Modal: Create/Edit Auction -->
+<div class="adm-overlay" id="auctionModal">
+  <div class="adm-modal" style="max-width: 800px; padding: 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+      <h3 id="auctionModalTitle" class="adm-modal-title" style="margin: 0;">Novo Leilão</h3>
+      <button class="adm-btn" style="background: transparent; padding: 5px; color: var(--adm-text-muted);" onclick="closeModal('auctionModal')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div>
+      <form id="auctionForm">
+        <input type="hidden" id="auId">
+        
+        <div class="form-group">
+          <label class="form-label">Título do Evento</label>
+          <input type="text" id="auTitle" class="form-input" required placeholder="Ex: Megaleilão Genética de Ponta">
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Data e Hora de Início</label>
+            <input type="datetime-local" id="auDate" class="form-input" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <select id="auStatus" class="form-select">
+              <option value="agendado">Agendado</option>
+              <option value="aovivo">Ao Vivo</option>
+              <option value="finalizado">Finalizado</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">URL da Transmissão (YouTube)</label>
+            <input type="url" id="auYt" class="form-input" placeholder="https://youtube.com/watch?v=...">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Catálogo PDF</label>
+            <input type="file" id="auCatalog" class="form-input" accept=".pdf">
+            <input type="hidden" id="auCatalogBase64">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Foto de Capa</label>
+          <input type="file" id="auCover" class="form-input" accept="image/*">
+          <input type="hidden" id="auCoverBase64">
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Lance Mínimo Padrão (R$)</label>
+            <input type="number" id="auMinBid" class="form-input" placeholder="Ex: 500" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Incremento de Lance (R$)</label>
+            <input type="number" id="auStep" class="form-input" placeholder="Ex: 100" required>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Comissão Leiloeiro (%)</label>
+            <input type="number" id="auComm" class="form-input" placeholder="Ex: 8" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-top: 2rem;">
+              <input type="checkbox" id="auAcceptsBids" checked style="width: 18px; height: 18px; accent-color: var(--adm-primary);">
+              Aceitar Lances pelo Site
+            </label>
+          </div>
+        </div>
+      </form>
+    </div>
+    <div class="adm-modal-footer">
+      <button class="adm-btn adm-btn--outline" onclick="closeModal('auctionModal')">Cancelar</button>
+      <button class="adm-btn adm-btn--primary" onclick="saveAuction()">Salvar Evento</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Manage Lots -->
+<div class="adm-overlay" id="lotsModal">
+  <div class="adm-modal" style="max-width: 800px; padding: 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+      <h3 class="adm-modal-title" style="margin: 0;">Gerenciar Lotes: <span id="lotsEventTitle" style="color:#16A34A"></span></h3>
+      <button class="adm-btn" style="background: transparent; padding: 5px; color: var(--adm-text-muted);" onclick="closeModal('lotsModal')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div>
+      
+      <!-- Add Lot Form -->
+      <div class="adm-card" style="padding: 1.5rem; margin-bottom: 2rem;">
+        <h4 style="margin-bottom: 1rem; color: var(--adm-text);">Adicionar Novo Lote</h4>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Número do Lote</label>
+            <input type="text" id="lotNumber" class="form-input" placeholder="Ex: 01, 02A..." required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Título do Lote</label>
+            <input type="text" id="lotTitle" class="form-input" placeholder="Ex: Matriz Nelore Elite" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Lance Inicial (R$)</label>
+            <input type="number" id="lotMinBid" class="form-input" placeholder="Ex: 5000">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Foto do Lote (Upload)</label>
+            <input type="file" id="lotImage" class="form-input" accept="image/*">
+            <input type="hidden" id="lotImageBase64">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Vídeo do Lote (YouTube URL)</label>
+            <input type="url" id="lotVideo" class="form-input" placeholder="https://www.youtube.com/watch?v=...">
+          </div>
+          <div class="form-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; grid-column: 1 / -1;">
+            <div>
+              <label class="form-label">Genealogia: Pai</label>
+              <input type="text" id="lotSire" class="form-input" placeholder="Ex: Rambo da MN">
+            </div>
+            <div>
+              <label class="form-label">Genealogia: Mãe</label>
+              <input type="text" id="lotDam" class="form-input" placeholder="Ex: Ópera da SC">
+            </div>
+          </div>
+          <div class="form-group" style="grid-column: 1 / -1;">
+            <label class="form-label">Descrição (Opcional)</label>
+            <textarea id="lotDesc" class="form-input" rows="3" placeholder="Informações de pedigree, idade, peso..."></textarea>
+          </div>
+        </div>
+        <div class="form-group" style="text-align: right; margin-top: 1rem;">
+          <button class="adm-btn adm-btn--primary" onclick="addLot()">+ Inserir Lote</button>
+        </div>
+      </div>
+
+      <!-- Lots List -->
+      <h4 style="margin-bottom: 1rem; color: var(--adm-text);">Lotes Cadastrados</h4>
+      <div class="adm-table-wrap">
+        <table class="adm-table lots-table">
+          <thead>
+            <tr>
+              <th>Lote</th>
+              <th>Descrição</th>
+              <th>Lance Mín.</th>
+              <th style="text-align:right">Ações</th>
+            </tr>
+          </thead>
+          <tbody id="lots-tbody">
+            <!-- JS Populated -->
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+    <div class="adm-modal-footer">
+      <button class="adm-btn adm-btn--primary" onclick="closeModal('lotsModal')">Concluir</button>
+    </div>
+  </div>
+</div>
+
+<script src="/admin/js/admin.js"></script>
+<script>
+  renderSidebar('/admin/leiloes.html');
+
+  // File Upload Handlers
+  function handleFileUpload(inputId, hiddenId) {
+    const input = document.getElementById(inputId);
+    input.addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if(!file) {
+        document.getElementById(hiddenId).value = '';
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        document.getElementById(hiddenId).value = evt.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  handleFileUpload('auCover', 'auCoverBase64');
+  handleFileUpload('auCatalog', 'auCatalogBase64');
+  handleFileUpload('lotImage', 'lotImageBase64');
+
+  function generateId() { return Date.now().toString(36) + Math.random().toString(36).substring(2); }
+
+  function seedMockData() {
+    if (!localStorage.getItem('tc_seeded_v2')) {
+      const auId1 = generateId();
+      const d1 = new Date(); d1.setDate(d1.getDate() + 3); d1.setHours(20, 0, 0);
+      const mockAuctions = [
+        {
+          id: auId1,
+          title: "Leilão Haras Santa Esmeralda",
+          date: d1.toISOString().slice(0, 16),
+          status: "agendado",
+          youtube: "https://youtube.com/watch?v=mock",
+          cover: "https://images.unsplash.com/photo-1598974357801-cbca100e65d3?auto=format&fit=crop&q=80",
+          catalog: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
+          minBid: 1000,
+          step: 250,
+          commission: 8,
+          acceptsBids: true
+        }
+      ];
+      const lotDesc1 = 'Animal de pelagem exuberante, morfologia impecável e excelente temperamento. Linhagem de campeões, ideal para reprodução ou competições de alto nível.';
+      const lotDesc2 = 'Fêmea jovem com excelente conformação carcaça e genética superior. Avaliação genômica destacada para ganho de peso e precocidade sexual.';
+      const lotDesc3 = 'Lote padronizado de bezerros para recria. Animais sadios, vacinados e com excelente histórico sanitário da fazenda de origem.';
+
+      const mockLots = [
+        { id: generateId(), auctionId: auId1, number: '01', title: 'Garanhão Puro Sangue Lusitano', minBid: 45000, description: lotDesc1, image: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&q=80', video: 'https://www.youtube.com/embed/ScMzIvxBSi4', sire: 'Spartacus Comando', dam: 'Bailarina Real' },
+        { id: generateId(), auctionId: auId1, number: '02', title: 'Égua Crioula Pelagem Baia', minBid: 22000, description: lotDesc2, image: 'https://images.unsplash.com/photo-1595166415510-b4bdc6fb79bc?auto=format&fit=crop&q=80', video: '', sire: 'Fogo de Chão TR', dam: 'Preciosa do Pago' },
+        { id: generateId(), auctionId: auId1, number: '03', title: 'Lote 50 Bezerros Nelore', minBid: 125000, description: lotDesc3, image: 'https://images.unsplash.com/photo-1582215956008-01d8487b2826?auto=format&fit=crop&q=80', video: '', sire: 'Vários touros PO', dam: 'Matrizes comerciais da fazenda' },
+        { id: generateId(), auctionId: auId1, number: "04", title: "Matriz Mangalarga Marchador", minBid: 30000, image: "https://images.unsplash.com/photo-1566838391515-59f77f395562?auto=format&fit=crop&q=80", video: '', sire: 'Tigre da Marcha', dam: 'Sinfonia Azul' }
+      ];
+      localStorage.setItem('tc_auctions', JSON.stringify(mockAuctions));
+      localStorage.setItem('tc_lots', JSON.stringify(mockLots));
+      localStorage.setItem('tc_seeded_v2', 'true');
+    }
+  }
+
+  seedMockData();
+
+  // Database Simulation
+  let auctions = JSON.parse(localStorage.getItem('tc_auctions')) || [];
+  let lots = JSON.parse(localStorage.getItem('tc_lots')) || [];
+  
+  let currentAuctionId = null;
+
+  function formatDate(isoString) {
+    if(!isoString) return '--';
+    const d = new Date(isoString);
+    return d.toLocaleDateString('pt-BR') + ' às ' + d.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+  }
+
+  function getStatusBadge(status) {
+    if(status === 'aovivo') return '<span class="status-badge status-aovivo">Ao Vivo</span>';
+    if(status === 'finalizado') return '<span class="status-badge status-finalizado">Finalizado</span>';
+    return '<span class="status-badge status-agendado">Agendado</span>';
+  }
+
+  function renderAuctions() {
+    const tbody = document.getElementById('auctions-tbody');
+    tbody.innerHTML = '';
+    
+    if(auctions.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 3rem; color: var(--adm-text-muted);">Nenhum leilão cadastrado.</td></tr>`;
+      return;
+    }
+
+    auctions.forEach(au => {
+      const auLots = lots.filter(l => l.auctionId === au.id).length;
+      
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>
+          <div style="font-weight:600; color:white;">${au.title}</div>
+        </td>
+        <td style="color:var(--adm-text-muted)">${formatDate(au.date)}</td>
+        <td>${getStatusBadge(au.status)}</td>
+        <td><span style="background:rgba(255,255,255,0.1); padding: 0.2rem 0.6rem; border-radius: 1rem; font-size: 0.8rem;">${auLots} lotes</span></td>
+        <td style="text-align:right">
+          <button class="adm-btn adm-btn--outline" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; margin-right: 0.5rem;" onclick="openLotsModal('${au.id}')">Gerenciar Lotes</button>
+          <button class="adm-btn adm-btn--outline" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; border-color: rgba(239,68,68,0.3); color: #ef4444;" onclick="editAuction('${au.id}')">Editar</button>
+          <button class="adm-btn adm-btn--outline" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; border-color: rgba(239,68,68,0.3); color: #ef4444;" onclick="deleteAuction('${au.id}')">Excluir</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  // Modals
+  function openAuctionModal() {
+    document.getElementById('auctionForm').reset();
+    document.getElementById('auId').value = '';
+    document.getElementById('auCoverBase64').value = '';
+    document.getElementById('auCatalogBase64').value = '';
+    document.getElementById('auAcceptsBids').checked = true;
+    document.getElementById('auctionModalTitle').innerText = 'Novo Leilão';
+    document.getElementById('auctionModal').classList.add('open');
+  }
+
+  function editAuction(id) {
+    const a = auctions.find(au => au.id === id);
+    if (!a) return;
+    document.getElementById('auId').value = a.id;
+    document.getElementById('auTitle').value = a.title || '';
+    document.getElementById('auDate').value = a.date || '';
+    document.getElementById('auStatus').value = a.status || 'agendado';
+    document.getElementById('auYt').value = a.youtube || '';
+    document.getElementById('auCoverBase64').value = a.cover || '';
+    document.getElementById('auCatalogBase64').value = a.catalog || '';
+    document.getElementById('auMinBid').value = a.minBid || '';
+    document.getElementById('auStep').value = a.step || '';
+    document.getElementById('auComm').value = a.commission || '';
+    document.getElementById('auAcceptsBids').checked = a.acceptsBids !== false;
+
+    document.getElementById('auctionModalTitle').innerText = 'Editar Leilão';
+    document.getElementById('auctionModal').classList.add('open');
+  }
+
+  function saveAuction() {
+    const id = document.getElementById('auId').value || generateId();
+    const au = {
+      id: id,
+      title: document.getElementById('auTitle').value,
+      date: document.getElementById('auDate').value,
+      status: document.getElementById('auStatus').value,
+      youtube: document.getElementById('auYt').value,
+      cover: document.getElementById('auCoverBase64').value,
+      catalog: document.getElementById('auCatalogBase64').value,
+      minBid: document.getElementById('auMinBid').value,
+      step: document.getElementById('auStep').value,
+      commission: document.getElementById('auComm').value,
+      acceptsBids: document.getElementById('auAcceptsBids').checked
+    };
+
+    if(!au.title || !au.date) {
+      showToast('Preencha os campos obrigatórios', 'error');
+      return;
+    }
+
+    const index = auctions.findIndex(a => a.id === id);
+    if(index > -1) auctions[index] = au;
+    else auctions.push(au);
+
+    localStorage.setItem('tc_auctions', JSON.stringify(auctions));
+    closeModal('auctionModal');
+    showToast('Leilão salvo com sucesso!', 'success');
+    renderAuctions();
+  }
+
+  function deleteAuction(id) {
+    if(!confirm('Tem certeza que deseja excluir este evento? Todos os lotes associados também serão removidos.')) return;
+    auctions = auctions.filter(a => a.id !== id);
+    lots = lots.filter(l => l.auctionId !== id);
+    localStorage.setItem('tc_auctions', JSON.stringify(auctions));
+    localStorage.setItem('tc_lots', JSON.stringify(lots));
+    renderAuctions();
+    showToast('Leilão removido', 'info');
+  }
+
+  // Lots Management
+  function openLotsModal(auctionId) {
+    currentAuctionId = auctionId;
+    const au = auctions.find(a => a.id === auctionId);
+    document.getElementById('lotsEventTitle').innerText = au.title;
+    
+    // Auto-fill default min bid
+    document.getElementById('lotMinBid').value = au.minBid || '';
+    document.getElementById('lotNumber').value = String(lots.filter(l => l.auctionId === auctionId).length + 1).padStart(2, '0');
+    document.getElementById('lotTitle').value = '';
+    document.getElementById('lotImage').value = '';
+    document.getElementById('lotVideo').value = '';
+    document.getElementById('lotSire').value = '';
+    document.getElementById('lotDam').value = '';
+    document.getElementById('lotDesc').value = '';
+
+    renderLots();
+    document.getElementById('lotsModal').classList.add('open');
+  }
+
+  function renderLots() {
+    const tbody = document.getElementById('lots-tbody');
+    tbody.innerHTML = '';
+    
+    const auLots = lots.filter(l => l.auctionId === currentAuctionId).sort((a,b) => a.number.localeCompare(b.number));
+
+    if(auLots.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding: 2rem; color: var(--adm-text-muted);">Nenhum lote adicionado a este evento.</td></tr>`;
+      return;
+    }
+
+    auLots.forEach(lot => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="font-weight: 700; color: white;">#${lot.number}</td>
+        <td>${lot.title}</td>
+        <td>R$ ${parseFloat(lot.minBid || 0).toLocaleString('pt-BR')}</td>
+        <td style="text-align:right">
+          <button class="adm-btn" style="padding: 0.2rem 0.5rem; font-size: 0.8rem; background: transparent; color: #ef4444;" onclick="deleteLot('${lot.id}')">X Remover</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  window.addLot = function() {
+    const number = document.getElementById('lotNumber').value;
+    const title = document.getElementById('lotTitle').value;
+    const minBid = document.getElementById('lotMinBid').value;
+    const image = document.getElementById('lotImageBase64').value;
+    const video = document.getElementById('lotVideo').value;
+    const sire = document.getElementById('lotSire').value;
+    const dam = document.getElementById('lotDam').value;
+    const description = document.getElementById('lotDesc').value;
+
+    if (!number || !title) {
+      showToast('Preencha os campos obrigatórios do lote.', 'error');
+      return;
+    }
+
+    lots.push({
+      id: generateId(),
+      auctionId: currentAuctionId,
+      number,
+      title,
+      minBid,
+      image,
+      video,
+      sire,
+      dam,
+      description
+    });
+    localStorage.setItem('tc_lots', JSON.stringify(lots));
+    
+    // Reset fields
+    document.getElementById('lotNumber').value = String(lots.filter(l => l.auctionId === currentAuctionId).length + 1).padStart(2, '0');
+    document.getElementById('lotTitle').value = '';
+    document.getElementById('lotImage').value = '';
+    document.getElementById('lotImageBase64').value = '';
+    document.getElementById('lotVideo').value = '';
+    document.getElementById('lotSire').value = '';
+    document.getElementById('lotDam').value = '';
+    document.getElementById('lotDesc').value = '';
+    
+    renderLots();
+    renderAuctions(); // Update badge in background
+    showToast('Lote adicionado', 'success');
+  }
+
+  function deleteLot(id) {
+    lots = lots.filter(l => l.id !== id);
+    localStorage.setItem('tc_lots', JSON.stringify(lots));
+    renderLots();
+    renderAuctions();
+  }
+
+  // Initial render
+  renderAuctions();
+</script>
+</body>
+</html>
