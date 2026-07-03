@@ -132,13 +132,18 @@ function initObserver() {
   // Fade in elements
   const fadeEls = document.querySelectorAll('.fade-in-up');
   if (fadeEls.length) {
+    let delayIndex = 0;
+    let delayTimeout = null;
     const obs = new IntersectionObserver((entries) => {
-      entries.forEach((e, i) => {
+      entries.forEach((e) => {
         if (e.isIntersecting) {
-          setTimeout(() => e.target.classList.add('visible'), i * 80);
+          setTimeout(() => e.target.classList.add('visible'), delayIndex * 80);
+          delayIndex++;
           obs.unobserve(e.target);
         }
       });
+      clearTimeout(delayTimeout);
+      delayTimeout = setTimeout(() => { delayIndex = 0; }, 100);
     }, { threshold: 0.1 });
     fadeEls.forEach(el => obs.observe(el));
   }
@@ -177,7 +182,7 @@ function buildAdCard(ad, lang) {
              aria-label="${title}"
              onkeydown="if(event.key==='Enter')location.href='anuncio.html?id=${ad.id}'">
       <div class="ad-card__image">
-        <img src="${ad.image}" alt="${title}" loading="lazy">
+        <img src="${escapeHTML(ad.image)}" alt="${title}" loading="lazy">
         <button class="ad-card__fav" onclick="event.stopPropagation(); toggleFavorite(this)" title="Favoritar" aria-label="Favoritar">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
         </button>
