@@ -29,48 +29,36 @@
   <!-- HEADER -->
   <header class="site-header" role="banner">
     <div class="container header-inner">
-      <a href="index.html" class="logo" aria-label="Tauze Class — Início">
+      <a href="index.html" class="logo" aria-label="Tauze Class">
         <div class="logo-mark">TC</div>
         <div class="logo-text">
           <span class="logo-name">Tauze Class</span>
           <span class="logo-tagline">Classificados Agro</span>
         </div>
       </a>
-
-      <nav class="header-nav" role="navigation" aria-label="Menu principal">
-        <a href="index.html" data-i18n="nav_home">Início</a>
-        <a href="listagem.html" data-i18n="nav_ads">Anúncios</a>
-        <a href="eventos.html" data-i18n="nav_events">Eventos</a>
-        <a href="leiloes.html" class="nav-live"><span class="live-indicator"></span><span data-i18n="nav_auctions">Leilões Ao Vivo</span></a>
-        <a href="planos.html" data-i18n="nav_plans">Planos</a>
-        <div class="auth-wrapper"><a href="login.html" data-i18n="nav_login">Entrar</a></div>
-      </nav>
-
-      <div class="lang-toggle" role="group" aria-label="Selecionar idioma">
-        <button data-lang="pt" class="active" aria-label="Português">PT</button>
-        <button data-lang="es" aria-label="Español">ES</button>
+      <div class="header-search" role="search">
+        <span class="search-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        </span>
+        <input type="search" id="header-search-input" placeholder="Buscar animais, mÃ¡quinas, insumos..." aria-label="Buscar anÃºncios">
       </div>
-
-      <a href="anunciar.html" class="btn-anunciar-header" id="btn-post-header">
+      <nav class="header-nav" role="navigation" aria-label="Menu principal">
+        <a href="index.html">InÃ­cio</a>
+        <a href="pesquisa.html">AnÃºncios</a>
+        <a href="index.html#categorias">Categorias</a>
+        <div id="header-avatar" style="width:40px;height:40px;border-radius:50%;background:var(--clr-primary);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;cursor:pointer;font-size:.9rem">?</div>
+      </nav>
+      <div class="lang-toggle" role="group" aria-label="Selecionar idioma">
+        <button data-lang="pt" class="active" aria-label="PortuguÃªs">PT</button>
+        <button data-lang="es" aria-label="EspaÃ±ol">ES</button>
+      </div>
+      <a href="anunciar.html" class="btn-anunciar-header">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        <span data-i18n="btn_post">Anunciar Grátis</span>
+        <span>Anunciar GrÃ¡tis</span>
       </a>
-
-      <button class="hamburger" aria-label="Abrir menu" aria-expanded="false" aria-controls="mobile-menu">
-        <span></span><span></span><span></span>
-      </button>
+      <button class="hamburger" aria-label="Abrir menu" aria-expanded="false"><span></span><span></span><span></span></button>
     </div>
   </header>
-
-  <!-- Mobile Menu -->
-  <nav class="mobile-menu" id="mobile-menu" aria-label="Menu mobile">
-    <a href="index.html" data-i18n="nav_home">Início</a>
-    <a href="listagem.html" data-i18n="nav_ads">Anúncios</a>
-    <a href="eventos.html" data-i18n="nav_events">Eventos</a>
-    <a href="leiloes.html" class="nav-live"><span class="live-indicator"></span><span data-i18n="nav_auctions">Leilões Ao Vivo</span></a>
-    <a href="planos.html" data-i18n="nav_plans">Planos</a>
-    <div class="auth-wrapper" style="width:100%;"><a href="login.html" class="btn-login-mobile" data-i18n="nav_login">Entrar / Cadastrar</a></div>
-  </nav>
 
   <!-- PAINEL LAYOUT -->
   <div class="painel-wrap" style="display:grid;grid-template-columns:280px 1fr;gap:1.75rem;padding-top:calc(var(--header-h,70px) + 2rem);padding-bottom:4rem;max-width:1280px;margin:0 auto;padding-left:1.5rem;padding-right:1.5rem;align-items:start">
@@ -109,10 +97,6 @@
         <button id="tab-profile" onclick="switchTab('profile')" style="display:flex;align-items:center;gap:.7rem;padding:.75rem 1rem;border-radius:.75rem;font-size:.9rem;font-weight:600;color:#64748b;cursor:pointer;border:none;background:transparent;width:100%;text-align:left;margin-bottom:.25rem;transition:background .15s,color .15s">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           Meu Perfil
-        </button>
-        <button id="tab-verification" onclick="switchTab('verification')" style="display:flex;align-items:center;gap:.7rem;padding:.75rem 1rem;border-radius:.75rem;font-size:.9rem;font-weight:600;color:#64748b;cursor:pointer;border:none;background:transparent;width:100%;text-align:left;margin-bottom:.25rem;transition:background .15s,color .15s">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          Verificação KYC
         </button>
         <div style="height:1px;background:#f1f5f9;margin:.5rem 0"></div>
         <button onclick="handleLogout()" style="display:flex;align-items:center;gap:.7rem;padding:.75rem 1rem;border-radius:.75rem;font-size:.9rem;font-weight:600;color:#dc2626;cursor:pointer;border:none;background:transparent;width:100%;text-align:left;transition:background .15s">
@@ -278,39 +262,6 @@
         </div>
       </div>
 
-      <!-- TAB 5: VERIFICATION KYC -->
-      <div id="panel-verification" class="p-panel" style="display:none">
-        <div style="margin-bottom:1.5rem">
-          <h1 style="font-size:1.75rem;font-weight:800;color:var(--clr-text)">Verificação KYC</h1>
-          <p style="color:#64748b;font-size:.85rem;margin-top:.2rem">Verifique sua identidade para maior confiança</p>
-        </div>
-        <div style="background:#fff;border-radius:1rem;box-shadow:0 2px 16px rgba(0,0,0,.06);padding:2rem">
-          <div id="kyc-status" style="display:flex;align-items:center;gap:1rem;margin-bottom:2rem">
-            <div style="width:56px;height:56px;border-radius:50%;background:#fef3c7;display:flex;align-items:center;justify-content:center">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-            </div>
-            <div>
-              <div id="kyc-status-title" style="font-weight:700;font-size:1.1rem;color:var(--clr-text)">Não verificado</div>
-              <div id="kyc-status-desc" style="font-size:.85rem;color:#64748b">Envie seus documentos para verificação</div>
-            </div>
-          </div>
-          <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:.75rem;padding:1.25rem;margin-bottom:1.5rem">
-            <div style="font-weight:700;color:#92400e;margin-bottom:.5rem">Por que verificar?</div>
-            <ul style="color:#92400e;font-size:.85rem;list-style:disc;padding-left:1.25rem;display:flex;flex-direction:column;gap:.35rem">
-              <li>Selo de vendedor verificado no seu perfil</li>
-              <li>Maior visibilidade nos resultados de busca</li>
-              <li>Mais confiança para compradores</li>
-            </ul>
-          </div>
-          <div id="kyc-upload-area" style="border:2px dashed #e2e8f0;border-radius:.75rem;padding:2rem;text-align:center;cursor:pointer;transition:border-color .2s" onclick="document.getElementById('kyc-file-input').click()">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto .75rem"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            <p style="font-weight:600;color:var(--clr-text);margin-bottom:.35rem">Clique ou arraste seu documento</p>
-            <p style="font-size:.8rem;color:#94a3b8">RG, CNH ou Passaporte (JPG, PNG ou PDF, máx 5MB)</p>
-            <input type="file" id="kyc-file-input" accept="image/*,.pdf" style="display:none" onchange="handleKycUpload(this)">
-          </div>
-        </div>
-      </div>
-
     </div>
   </div><!-- /painel-wrap -->
 
@@ -355,7 +306,7 @@
     const meta=PLAN_META[plan]||PLAN_META.free;
     const ini=name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
     sTxt('sidebar-avatar',ini); sTxt('sidebar-name',name); sTxt('sidebar-email',user.email||'');
-    const ha=document.getElementById('header-avatar'); if(ha)ha.textContent=ini;
+    document.getElementById('header-avatar').textContent=ini;
     const badge=document.getElementById('sidebar-plan-badge');
     badge.textContent=meta.label;
     if(plan!=='free'){badge.style.background=meta.cardBg;badge.style.color='#fff';}
@@ -378,7 +329,7 @@
   }
 
   /* â”€â”€ TAB SWITCHING â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-  const TABS=['ads','messages','favorites','profile','verification'];
+  const TABS=['ads','messages','favorites','profile'];
   function switchTab(tab){
     TABS.forEach(t=>{
       const p=document.getElementById('panel-'+t),b=document.getElementById('tab-'+t);
@@ -566,16 +517,6 @@
   }
 
   /* â”€â”€ LOGOUT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-  function handleKycUpload(input){
-    if(!input.files||!input.files[0])return;
-    const file=input.files[0];
-    if(file.size>5*1024*1024){showToast('Arquivo muito grande (máx 5MB)','error');return;}
-    showToast('Documento enviado para análise!','success');
-    const st=document.getElementById('kyc-status-title');
-    const sd=document.getElementById('kyc-status-desc');
-    if(st)st.textContent='Em análise';
-    if(sd)sd.textContent='Seu documento está sendo verificado';
-  }
   async function handleLogout(){try{await logout();}catch(e){window.location.href='/login.html';}}
 
   /* â”€â”€ REAL-TIME â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
