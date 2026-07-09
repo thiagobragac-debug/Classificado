@@ -1,0 +1,45 @@
+/* ─── EVENTOS CSS ─────────────────────── */
+
+.location-prompt { background: white; border: 1px solid var(--clr-border); border-radius: 16px; padding: 3rem; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.04); }
+.location-prompt-content { max-width: 500px; margin: 0 auto; }
+.location-prompt h3 { font-family: var(--font-heading); font-size: 1.5rem; color: var(--clr-text); margin-bottom: 0.5rem; }
+.location-prompt p { color: var(--clr-text-light); margin-bottom: 2rem; line-height: 1.5; }
+.location-actions { display: flex; flex-direction: column; gap: 1rem; align-items: center; }
+@media (min-width: 600px) { .location-actions { flex-direction: row; justify-content: center; } }
+
+.location-banner { background: var(--clr-primary-pale); border: 1px solid #bbf7d0; border-radius: 12px; padding: 1rem 1.5rem; display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem; }
+.location-banner svg { color: var(--clr-primary); flex-shrink: 0; }
+.location-banner-text { flex: 1; }
+.location-banner-text h3 { color: #16A34A; font-size: 1.1rem; font-weight: 600; margin-bottom: 0.25rem; }
+.location-banner-text p { color: var(--clr-primary); font-size: 0.85rem; margin: 0; }
+
+.events-section { margin-bottom: 4rem; }
+.section-title { font-family: var(--font-heading); font-size: 1.75rem; color: var(--clr-text); margin-bottom: 1.5rem; position: relative; padding-left: 1rem; }
+.section-title::before { content: ''; position: absolute; left: 0; top: 0.25rem; bottom: 0.25rem; width: 4px; background: var(--clr-primary); border-radius: 2px; }
+
+.events-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem; }
+
+.event-card { background: white; border-radius: 16px; overflow: hidden; border: 1px solid var(--clr-border); transition: transform 0.3s, box-shadow 0.3s; cursor: pointer; display: flex; flex-direction: column; }
+.event-card:hover { transform: translateY(-4px); box-shadow: 0 12px 30px rgba(0,0,0,0.08); border-color: var(--clr-primary-soft); }
+.event-card-img { width: 100%; height: 200px; object-fit: cover; border-bottom: 1px solid var(--clr-border); }
+.event-card-body { padding: 1.5rem; flex: 1; display: flex; flex-direction: column; }
+.event-card-tag { align-self: flex-start; background: #FEF3C7; color: #D97706; font-size: 0.75rem; font-weight: 700; padding: 4px 10px; border-radius: 99px; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.5px; }
+.event-card-title { font-family: var(--font-heading); font-size: 1.25rem; font-weight: 700; color: var(--clr-text); margin-bottom: 0.5rem; }
+.event-card-info { display: flex; align-items: center; gap: 0.5rem; color: var(--clr-text-light); font-size: 0.9rem; margin-bottom: 0.5rem; }
+.event-card-info svg { width: 16px; height: 16px; color: var(--clr-primary); flex-shrink: 0; }
+.event-dist-badge { margin-top: auto; padding-top: 1rem; border-top: 1px dashed var(--clr-border); display: flex; align-items: center; justify-content: space-between; }
+.dist-text { font-weight: 600; color: var(--clr-primary-mid); font-size: 0.85rem; background: var(--clr-primary-pale); padding: 4px 10px; border-radius: 6px; }
+
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 9999; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.3s; padding: 1rem; }
+.modal-overlay.active { opacity: 1; pointer-events: auto; }
+.event-modal-box { background: white; width: 100%; max-width: 600px; border-radius: 20px; overflow: hidden; position: relative; transform: translateY(20px); transition: transform 0.3s; max-height: 90vh; display: flex; flex-direction: column; }
+.modal-overlay.active .event-modal-box { transform: translateY(0); }
+.modal-close { position: absolute; top: 1rem; right: 1rem; background: rgba(0,0,0,0.5); color: white; border: none; width: 32px; height: 32px; border-radius: 50%; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10; transition: background 0.2s; }
+.modal-close:hover { background: black; }
+.modal-cover { width: 100%; height: 250px; object-fit: cover; }
+.modal-body-content { padding: 2rem; overflow-y: auto; }
+.modal-title { font-family: var(--font-heading); font-size: 1.8rem; font-weight: 800; color: var(--clr-text); margin-bottom: 1rem; }
+.modal-meta { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.5rem; }
+.modal-meta-item { display: flex; align-items: center; gap: 0.75rem; color: var(--clr-text); font-size: 1rem; }
+.modal-meta-item svg { color: var(--clr-primary); width: 20px; height: 20px; flex-shrink: 0; }
+.modal-actions { display: flex; gap: 1rem; margin-top: 2rem; border-top: 1px solid var(--clr-border); padding-top: 1.5rem; }

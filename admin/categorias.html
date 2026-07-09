@@ -11,6 +11,7 @@
 <div class="adm-layout">
   <aside class="adm-sidebar" id="adm-sidebar"></aside>
   <div class="adm-main">
+<div id="global-error-banner" style="display:none; background:red; color:white; padding:15px; font-weight:bold; z-index:9999; position:relative;"></div><script>window.addEventListener('error', function(e) { const b = document.getElementById('global-error-banner'); if(b) { b.style.display = 'block'; b.innerHTML += e.message + '<br>'; } }); window.addEventListener('unhandledrejection', function(e) { const b = document.getElementById('global-error-banner'); if(b) { b.style.display = 'block'; b.innerHTML += e.reason + '<br>'; } });</script>
 
     <header class="adm-topbar">
       <div class="adm-breadcrumb">
@@ -27,20 +28,25 @@
       <div class="adm-page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px">
         <div>
           <h1 class="adm-page-title">Gerenciar Categorias</h1>
-          <p class="adm-page-sub">Ative, edite ou crie categorias do portal.</p>
+          <p class="adm-page-sub">Ative, edite ou crie categorias do portal. Arraste para reordenar.</p>
         </div>
-        <button class="adm-btn adm-btn--primary" onclick="openModal('modal-nova-cat')">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Nova Categoria
-        </button>
+        <div style="display:flex; gap:12px">
+          <button class="adm-btn adm-btn--outline" id="btn-save-order" style="display:none; border-color:var(--adm-primary); color:var(--adm-primary)" onclick="saveCategoryOrder()">
+            💾 Salvar Ordem
+          </button>
+          <button class="adm-btn adm-btn--primary" onclick="openModal('modal-nova-cat')">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Nova Categoria
+          </button>
+        </div>
       </div>
 
       <!-- Stats -->
       <div class="adm-stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">
-        <div class="adm-stat-card"><div><div class="adm-stat-val" data-count="12">0</div><div class="adm-stat-lbl">Total Categorias</div></div><div class="adm-stat-icon adm-stat-icon--green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></div></div>
-        <div class="adm-stat-card"><div><div class="adm-stat-val" style="color:var(--adm-accent)" data-count="11">0</div><div class="adm-stat-lbl">Ativas</div></div><div class="adm-stat-icon adm-stat-icon--green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div></div>
-        <div class="adm-stat-card"><div><div class="adm-stat-val" style="color:var(--adm-amber)" data-count="1">0</div><div class="adm-stat-lbl">Desativadas</div></div><div class="adm-stat-icon adm-stat-icon--amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg></div></div>
-        <div class="adm-stat-card"><div><div class="adm-stat-val" data-count="62847">0</div><div class="adm-stat-lbl">Total Anúncios</div></div><div class="adm-stat-icon adm-stat-icon--blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></div></div>
+        <div class="adm-stat-card"><div><div class="adm-stat-val" id="stat-total-cat" data-count="12">0</div><div class="adm-stat-lbl">Total Categorias</div></div><div class="adm-stat-icon adm-stat-icon--green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></div></div>
+        <div class="adm-stat-card"><div><div class="adm-stat-val" id="stat-active-cat" style="color:var(--adm-accent)" data-count="11">0</div><div class="adm-stat-lbl">Ativas</div></div><div class="adm-stat-icon adm-stat-icon--green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div></div>
+        <div class="adm-stat-card"><div><div class="adm-stat-val" id="stat-inactive-cat" style="color:var(--adm-amber)" data-count="1">0</div><div class="adm-stat-lbl">Desativadas</div></div><div class="adm-stat-icon adm-stat-icon--amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg></div></div>
+        <div class="adm-stat-card"><div><div class="adm-stat-val" id="stat-total-ads" data-count="0">0</div><div class="adm-stat-lbl">Total Anúncios</div></div><div class="adm-stat-icon adm-stat-icon--blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></div></div>
       </div>
 
       <!-- Category Grid -->
@@ -55,7 +61,7 @@
     <h3 class="adm-modal-title">➕ Nova Categoria</h3>
     <div class="adm-field">
       <label>Nome (Português)</label>
-      <input type="text" class="adm-input" id="new-cat-name-pt" placeholder="Ex: Caprinos">
+      <input type="text" class="adm-input" id="new-cat-name-pt" placeholder="Ex: Caprinos" oninput="autoTranslate('new-cat-name-pt', 'new-cat-name-es')">
     </div>
     <div class="adm-field">
       <label>Nome (Espanhol)</label>
@@ -65,6 +71,23 @@
       <div class="adm-field">
         <label>Ícone (Emoji)</label>
         <input type="text" class="adm-input" id="new-cat-icon" placeholder="🐐" maxlength="2" style="font-size:1.2rem;text-align:center">
+        <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;font-size:1.2rem;cursor:pointer;justify-content:center">
+          <span onclick="document.getElementById('new-cat-icon').value='🐄'">🐄</span>
+          <span onclick="document.getElementById('new-cat-icon').value='🐎'">🐎</span>
+          <span onclick="document.getElementById('new-cat-icon').value='🐷'">🐷</span>
+          <span onclick="document.getElementById('new-cat-icon').value='🐑'">🐑</span>
+          <span onclick="document.getElementById('new-cat-icon').value='🐔'">🐔</span>
+          <span onclick="document.getElementById('new-cat-icon').value='🐐'">🐐</span>
+          <span onclick="document.getElementById('new-cat-icon').value='🌱'">🌱</span>
+          <span onclick="document.getElementById('new-cat-icon').value='🚜'">🚜</span>
+          <span onclick="document.getElementById('new-cat-icon').value='🏡'">🏡</span>
+          <span onclick="document.getElementById('new-cat-icon').value='🐟'">🐟</span>
+          <span onclick="document.getElementById('new-cat-icon').value='🔧'">🔧</span>
+          <span onclick="document.getElementById('new-cat-icon').value='📦'">📦</span>
+          <span onclick="document.getElementById('new-cat-icon').value='💊'">💊</span>
+          <span onclick="document.getElementById('new-cat-icon').value='💉'">💉</span>
+          <span onclick="document.getElementById('new-cat-icon').value='🧪'">🧪</span>
+        </div>
       </div>
       <div class="adm-field">
         <label>Cor Principal</label>
@@ -91,7 +114,7 @@
     <h3 class="adm-modal-title">✏️ Editar Categoria</h3>
     <div class="adm-field">
       <label>Nome (Português)</label>
-      <input type="text" class="adm-input" id="edit-cat-name-pt">
+      <input type="text" class="adm-input" id="edit-cat-name-pt" oninput="autoTranslate('edit-cat-name-pt', 'edit-cat-name-es')">
     </div>
     <div class="adm-field">
       <label>Nome (Espanhol)</label>
@@ -101,6 +124,23 @@
       <div class="adm-field">
         <label>Ícone (Emoji)</label>
         <input type="text" class="adm-input" id="edit-cat-icon" maxlength="2" style="font-size:1.2rem;text-align:center">
+        <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;font-size:1.2rem;cursor:pointer;justify-content:center">
+          <span onclick="document.getElementById('edit-cat-icon').value='🐄'">🐄</span>
+          <span onclick="document.getElementById('edit-cat-icon').value='🐎'">🐎</span>
+          <span onclick="document.getElementById('edit-cat-icon').value='🐷'">🐷</span>
+          <span onclick="document.getElementById('edit-cat-icon').value='🐑'">🐑</span>
+          <span onclick="document.getElementById('edit-cat-icon').value='🐔'">🐔</span>
+          <span onclick="document.getElementById('edit-cat-icon').value='🐐'">🐐</span>
+          <span onclick="document.getElementById('edit-cat-icon').value='🌱'">🌱</span>
+          <span onclick="document.getElementById('edit-cat-icon').value='🚜'">🚜</span>
+          <span onclick="document.getElementById('edit-cat-icon').value='🏡'">🏡</span>
+          <span onclick="document.getElementById('edit-cat-icon').value='🐟'">🐟</span>
+          <span onclick="document.getElementById('edit-cat-icon').value='🔧'">🔧</span>
+          <span onclick="document.getElementById('edit-cat-icon').value='📦'">📦</span>
+          <span onclick="document.getElementById('edit-cat-icon').value='💊'">💊</span>
+          <span onclick="document.getElementById('edit-cat-icon').value='💉'">💉</span>
+          <span onclick="document.getElementById('edit-cat-icon').value='🧪'">🧪</span>
+        </div>
       </div>
       <div class="adm-field">
         <label>Cor Principal</label>
@@ -120,20 +160,117 @@
   </div>
 </div>
 
-<script src="/admin/js/admin.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/supabase.js"></script>
+<script src="/admin/js/admin.js?v=20240708_8"></script>
 <script>
 let currentEditCat = null;
 
-document.addEventListener('DOMContentLoaded', () => {
+const dictES = {
+  'bovinos': 'Bovinos', 'equinos': 'Equinos', 'suínos': 'Porcinos', 'suinos': 'Porcinos',
+  'ovinos': 'Ovinos', 'aves': 'Aves', 'insumos': 'Insumos', 'máquinas': 'Maquinaria',
+  'maquinas': 'Maquinaria', 'imóveis': 'Inmuebles', 'imoveis': 'Inmuebles', 'genética': 'Genética',
+  'genetica': 'Genética', 'aquicultura': 'Acuicultura', 'serviços': 'Servicios', 'servicos': 'Servicios',
+  'outros': 'Otros', 'caprinos': 'Caprinos', 'sementes': 'Semillas', 'tratores': 'Tractores'
+};
+
+function autoTranslate(ptId, esId) {
+  const ptVal = document.getElementById(ptId).value;
+  const esEl = document.getElementById(esId);
+  if (!ptVal) { esEl.value = ''; return; }
+  const lower = ptVal.toLowerCase().trim();
+  esEl.value = dictES[lower] || ptVal;
+}
+
+function syncCatsToStorage() {
+  localStorage.setItem('tc_admin_cats', JSON.stringify(ADMIN_CATS));
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
   checkAuth();
   renderSidebar('categorias.html');
-  renderCatsGrid();
+  await loadAdminCategories();
 });
+
+async function updateTopStats() {
+  let active = 0, inactive = 0;
+  ADMIN_CATS.forEach(c => {
+    if (c.active) active++; else inactive++;
+  });
+  
+  const elTotal = document.getElementById('stat-total-cat');
+  const elActive = document.getElementById('stat-active-cat');
+  const elInactive = document.getElementById('stat-inactive-cat');
+  const elAds = document.getElementById('stat-total-ads');
+  
+  if (elTotal) elTotal.innerText = ADMIN_CATS.length;
+  if (elActive) elActive.innerText = active;
+  if (elInactive) elInactive.innerText = inactive;
+  
+  if (elAds) {
+    const totalAds = await fetchCount('ads');
+    if (totalAds >= 1000) {
+      elAds.innerText = (totalAds/1000).toFixed(1) + 'k';
+    } else {
+      elAds.innerText = totalAds.toLocaleString('pt-BR');
+    }
+  }
+}
+
+async function loadAdminCategories() {
+  try {
+    const sb = typeof getSupabase === 'function' ? getSupabase() : null;
+    if (!sb) return;
+    
+    // Fetch categories
+    const { data: catData, error: catError } = await sb.from('categories').select('id, name_pt, name_es, icon, color, active, sort_order').order('sort_order', { ascending: true });
+    if (catError) throw catError;
+    
+    ADMIN_CATS.length = 0;
+    if (catData) {
+      catData.forEach(c => {
+        ADMIN_CATS.push({
+          id: c.id,
+          name: c.name_pt,
+          nameEs: c.name_es,
+          icon: c.icon,
+          color: c.color,
+          bg: c.color + '22',
+          active: c.active,
+          ads: 0,
+          sort_order: c.sort_order
+        });
+      });
+    }
+
+    // Fetch counts
+    const { data: counts, error: countsError } = await sb.rpc('get_category_counts');
+    if (!countsError && counts) {
+      const countMap = {};
+      counts.forEach(r => { if (r.category_id) countMap[r.category_id] = Number(r.total); });
+      ADMIN_CATS.forEach(cat => {
+         const realCount = countMap[cat.id] ?? countMap['cat-' + cat.id] ?? 0;
+         cat.ads = realCount; 
+      });
+    }
+    
+    renderCatsGrid();
+    updateTopStats();
+  } catch (e) {
+    console.error('Erro ao buscar estatísticas de categorias:', e);
+  }
+}
 
 function renderCatsGrid() {
   const grid = document.getElementById('cats-grid');
-  grid.innerHTML = ADMIN_CATS.map(cat => `
-    <div class="adm-cat-card${cat.active?'':' adm-cat-card--inactive'}" style="${cat.active?'':'opacity:.55;filter:grayscale(.5)'}">
+  grid.innerHTML = ADMIN_CATS.map((cat, idx) => `
+    <div class="adm-cat-card${cat.active?'':' adm-cat-card--inactive'}" 
+         style="${cat.active?'':'opacity:.55;filter:grayscale(.5)'}; cursor: grab;"
+         draggable="true" 
+         ondragstart="catDragStart(event, ${idx})" 
+         ondragover="catDragOver(event)" 
+         ondrop="catDrop(event, ${idx})"
+         ondragend="catDragEnd(event)">
       <div style="display:flex;align-items:center;justify-content:space-between">
         <div class="adm-cat-icon" style="background:${cat.bg};font-size:1.4rem">${cat.icon}</div>
         <label class="adm-toggle" title="${cat.active?'Desativar':'Ativar'} categoria">
@@ -155,13 +292,76 @@ function renderCatsGrid() {
   `).join('');
 }
 
-function toggleCat(id, checkbox) {
-  const cat = ADMIN_CATS.find(c=>c.id===id);
-  if (cat) {
-    cat.active = checkbox.checked;
-    showToast(`Categoria "${cat.name}" ${cat.active?'ativada':'desativada'}.`, cat.active?'success':'warning');
-    renderCatsGrid();
+let draggedCatIdx = null;
+
+function catDragStart(e, idx) {
+  draggedCatIdx = idx;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', idx);
+  e.target.style.opacity = '0.5';
+}
+
+function catDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+}
+
+function catDrop(e, targetIdx) {
+  e.preventDefault();
+  if (draggedCatIdx === null || draggedCatIdx === targetIdx) return;
+  
+  const item = ADMIN_CATS.splice(draggedCatIdx, 1)[0];
+  ADMIN_CATS.splice(targetIdx, 0, item);
+  
+  renderCatsGrid();
+  document.getElementById('btn-save-order').style.display = 'block';
+}
+
+async function saveCategoryOrder() {
+  const sb = typeof getSupabase === 'function' ? getSupabase() : null;
+  if (!sb) return;
+  const updates = ADMIN_CATS.map((c, idx) => ({
+    id: c.id,
+    name_pt: c.name,
+    name_es: c.nameEs || c.name,
+    icon: c.icon,
+    color: c.color,
+    active: c.active,
+    sort_order: idx
+  }));
+  try {
+    const { error } = await sb.from('categories').upsert(updates);
+    if (error) throw error;
+    document.getElementById('btn-save-order').style.display = 'none';
+    showToast('Ordem das categorias salva com sucesso!', 'success');
+  } catch (e) {
+    console.error(e);
+    showToast('Erro ao salvar a ordem no banco', 'error');
   }
+}
+
+function catDragEnd(e) {
+  e.target.style.opacity = '';
+  draggedCatIdx = null;
+}
+
+async function toggleCat(id, checkbox) {
+  const cat = ADMIN_CATS.find(c=>c.id===id);
+  if (!cat) return;
+  cat.active = checkbox.checked;
+  const sb = typeof getSupabase === 'function' ? getSupabase() : null;
+  if (sb) {
+    const { error } = await sb.from('categories').update({ active: cat.active }).eq('id', id);
+    if (error) {
+      showToast('Erro ao atualizar categoria', 'error');
+      cat.active = !checkbox.checked;
+      checkbox.checked = cat.active;
+      return;
+    }
+  }
+  showToast(`Categoria "${cat.name}" ${cat.active?'ativada':'desativada'}.`, cat.active?'success':'warning');
+  renderCatsGrid();
+  updateTopStats();
 }
 
 function editCat(id) {
@@ -174,24 +374,66 @@ function editCat(id) {
   openModal('modal-edit-cat');
 }
 
-function saveEditCategory() {
+async function saveEditCategory() {
   if (!currentEditCat) return;
-  currentEditCat.name  = document.getElementById('edit-cat-name-pt').value;
-  currentEditCat.icon  = document.getElementById('edit-cat-icon').value;
-  currentEditCat.color = document.getElementById('edit-cat-color').value;
+  const namePt = document.getElementById('edit-cat-name-pt').value.trim();
+  const nameEs = document.getElementById('edit-cat-name-es').value.trim();
+  const icon = document.getElementById('edit-cat-icon').value.trim();
+  const color = document.getElementById('edit-cat-color').value;
+  
+  const sb = typeof getSupabase === 'function' ? getSupabase() : null;
+  if (sb) {
+    const { error } = await sb.from('categories').update({
+      name_pt: namePt,
+      name_es: nameEs,
+      icon: icon,
+      color: color
+    }).eq('id', currentEditCat.id);
+    if (error) {
+      showToast('Erro ao salvar categoria', 'error');
+      return;
+    }
+  }
+  
+  currentEditCat.name = namePt;
+  currentEditCat.nameEs = nameEs;
+  currentEditCat.icon = icon;
+  currentEditCat.color = color;
+  currentEditCat.bg = color + '22';
+  
   closeModal('modal-edit-cat');
   renderCatsGrid();
   showToast(`Categoria "${currentEditCat.name}" atualizada!`, 'success');
 }
 
-function saveNewCategory() {
+async function saveNewCategory() {
   const name = document.getElementById('new-cat-name-pt').value.trim();
+  const nameEs = document.getElementById('new-cat-name-es').value.trim();
   const icon = document.getElementById('new-cat-icon').value.trim() || '📦';
   const color = document.getElementById('new-cat-color').value;
   if (!name) { showToast('Informe um nome para a categoria.','warning'); return; }
-  ADMIN_CATS.push({ id: name.toLowerCase().replace(/\s/g,'_'), name, icon, color, bg: color+'22', ads: 0, active: true });
+  
+  const id = name.toLowerCase().replace(/\s/g,'_');
+  const maxOrder = ADMIN_CATS.length > 0 ? Math.max(...ADMIN_CATS.map(c => c.sort_order || 0)) : 0;
+  const newOrder = maxOrder + 1;
+  
+  const sb = typeof getSupabase === 'function' ? getSupabase() : null;
+  if (sb) {
+    const { error } = await sb.from('categories').insert({
+      id, name_pt: name, name_es: nameEs || name, icon, color, active: true, sort_order: newOrder
+    });
+    if (error) {
+      showToast('Erro ao criar categoria no banco', 'error');
+      console.error(error);
+      return;
+    }
+  }
+  
+  ADMIN_CATS.push({ id, name, nameEs, icon, color, bg: color+'22', ads: 0, active: true, sort_order: newOrder });
   closeModal('modal-nova-cat');
+  
   renderCatsGrid();
+  updateTopStats();
   showToast(`Categoria "${name}" criada com sucesso!`, 'success');
   document.getElementById('new-cat-name-pt').value = '';
   document.getElementById('new-cat-name-es').value = '';

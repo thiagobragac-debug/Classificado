@@ -347,6 +347,47 @@
       photoCount.textContent=count+' de '+MAX_FILES+' foto'+(count!==1?'s':'')+' selecionada'+(count!==1?'s':'');
     }
 
+    // ── Compressão client-side via Canvas API ──────────────────────
+    // Redimensiona para max 1280px e comprime em JPEG quality=0.82.
+    // PNG com alfa (transpariência) mantém PNG para preservar qualidade.
+    function compressImage(file, maxPx, quality) {
+      maxPx   = maxPx   || 1280;
+      quality = quality || 0.82;
+      return new Promise(function(resolve) {
+        if (!file.type.startsWith('image/') || typeof document.createElement('canvas').getContext !== 'function') {
+          return resolve(file);
+        }
+        var reader = new FileReader();
+        reader.onload = function(ev) {
+          var img = new Image();
+          img.onload = function() {
+            var w = img.width, h = img.height;
+            if (w > maxPx || h > maxPx) {
+              if (w >= h) { h = Math.round(h * (maxPx / w)); w = maxPx; }
+              else        { w = Math.round(w * (maxPx / h)); h = maxPx; }
+            }
+            var canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            var ctx = canvas.getContext('2d');
+            var isPng = file.type === 'image/png';
+            if (!isPng) { ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, w, h); }
+            ctx.drawImage(img, 0, 0, w, h);
+            var mime = isPng ? 'image/png' : 'image/jpeg';
+            canvas.toBlob(function(blob) {
+              if (!blob || blob.size >= file.size) return resolve(file);
+              var out = new File([blob], file.name, { type: mime, lastModified: Date.now() });
+              console.log('[img] ' + (file.size/1024).toFixed(0) + 'KB → ' + (out.size/1024).toFixed(0) + 'KB (' + file.name + ')');
+              resolve(out);
+            }, mime, quality);
+          };
+          img.onerror = function() { resolve(file); };
+          img.src = ev.target.result;
+        };
+        reader.onerror = function() { resolve(file); };
+        reader.readAsDataURL(file);
+      });
+    }
+
     async function handleSubmit(e){
       e.preventDefault();hideError();
       if(!form.checkValidity()){form.reportValidity();return;}
@@ -366,11 +407,19 @@
         var validFiles=selectedFiles.filter(Boolean);
         var imageUrls=[];
         if(validFiles.length>0){
-          showUploadProgress(0,validFiles.length);
-          for(var i=0;i<validFiles.length;i++){
-            var url=await uploadAdImage(validFiles[i],'draft');
-            imageUrls.push(url);
-            showUploadProgress(i+1,validFiles.length);
+          // Fase 1: Otimizar client-side
+          uploadWrap.classList.add('visible');
+          var compressedFiles=[];
+          for(var ci=0;ci<validFiles.length;ci++){
+            uploadLabel.textContent='Otimizando foto '+(ci+1)+' de '+validFiles.length+'...';
+            uploadBar.style.width=Math.round(((ci+0.5)/validFiles.length)*50)+'%';
+            compressedFiles.push(await compressImage(validFiles[ci],1280,0.82));
+          }
+          // Fase 2: Upload das imagens já otimizadas
+          for(var i=0;i<compressedFiles.length;i++){
+            uploadLabel.textContent='Enviando foto '+(i+1)+' de '+compressedFiles.length+'...';
+            uploadBar.style.width=(50+Math.round(((i+1)/compressedFiles.length)*50))+'%';
+            imageUrls.push(await uploadAdImage(compressedFiles[i],'draft'));
           }
           hideUploadProgress();
         }

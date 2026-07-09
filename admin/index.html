@@ -11,6 +11,17 @@
 <div class="adm-layout">
   <aside class="adm-sidebar" id="adm-sidebar"></aside>
   <div class="adm-main">
+    <div id="global-error-banner" style="display:none; background:red; color:white; padding:15px; font-weight:bold; z-index:9999; position:relative;"></div>
+    <script>
+      window.addEventListener('error', function(e) {
+        const b = document.getElementById('global-error-banner');
+        if(b) { b.style.display = 'block'; b.innerHTML += e.message + '<br>'; }
+      });
+      window.addEventListener('unhandledrejection', function(e) {
+        const b = document.getElementById('global-error-banner');
+        if(b) { b.style.display = 'block'; b.innerHTML += e.reason + '<br>'; }
+      });
+    </script>
 
     <!-- Topbar -->
     <header class="adm-topbar">
@@ -91,9 +102,9 @@
         </div>
         <div class="adm-stat-card">
           <div>
-            <div class="adm-stat-val" data-count="12400" style="font-size:1.4rem">0</div>
+            <div class="adm-stat-val" data-count="0" style="font-size:1.4rem">0</div>
             <div class="adm-stat-lbl">Receita do Mês (R$)</div>
-            <div class="adm-stat-delta adm-stat-delta--up">↑ +8.3% vs mês anterior</div>
+            <div class="adm-stat-delta adm-stat-delta--up">↑ 0% vs mês anterior</div>
           </div>
           <div class="adm-stat-icon adm-stat-icon--green">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
@@ -150,65 +161,205 @@
   </div>
 </div>
 
-<script src="/admin/js/admin.js"></script>
+<script src="/admin/js/admin.js?v=20240708_8"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   checkAuth();
   renderSidebar('index.html');
-  renderChart('adm-chart');
 
   // Date
   document.getElementById('adm-date').textContent = new Date().toLocaleDateString('pt-BR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
 
-  // Top categories
-  const topCats = [...ADMIN_CATS].filter(c=>c.active).sort((a,b)=>b.ads-a.ads).slice(0,6);
-  const maxAds = topCats[0].ads;
-  document.getElementById('top-cats').innerHTML = topCats.map(c => `
-    <div class="adm-progress-row">
-      <span class="adm-progress-label">${c.icon} ${c.name}</span>
-      <div class="adm-progress-track"><div class="adm-progress-fill" style="width:${Math.round(c.ads/maxAds*100)}%"></div></div>
-      <span class="adm-progress-val">${(c.ads/1000).toFixed(1)}k</span>
-    </div>
-  `).join('');
+  // Top categories will be loaded in loadDashboardData()
 
-  // Pending ads
-  const pending = ADMIN_ADS.filter(a=>a.status==='pending');
-  document.getElementById('pending-ads').innerHTML = pending.length ? pending.map(ad => `
-    <div class="adm-mini-item">
-      <img class="adm-mini-thumb" src="${ad.image}" alt="${ad.title}" onerror="this.style.background='var(--adm-surface-2)'">
-      <div class="adm-mini-info">
-        <div class="adm-mini-title">${ad.title}</div>
-        <div class="adm-mini-sub">${ad.seller} · ${ad.category}</div>
-      </div>
-      <div class="adm-mini-actions">
-        <button class="adm-btn-icon adm-btn-icon--green" onclick="approveAd(${ad.id})" title="Aprovar">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-        </button>
-        <button class="adm-btn-icon adm-btn-icon--red" onclick="rejectAd(${ad.id})" title="Rejeitar">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
-      </div>
-    </div>
-  `).join('') : '<div class="adm-empty"><div class="adm-empty-icon">✅</div><h3>Tudo em dia!</h3><p>Nenhum anúncio pendente.</p></div>';
-
-  // Pending reports
-  const reports = ADMIN_REPORTS.filter(r=>r.status==='pending');
-  document.getElementById('pending-reports').innerHTML = reports.length ? reports.map(r => `
-    <div class="adm-mini-item" id="row-rep-${r.id}">
-      <div style="width:8px;height:8px;border-radius:50%;background:${r.severity==='high'?'var(--adm-red)':r.severity==='medium'?'var(--adm-amber)':'var(--adm-blue)'};flex-shrink:0"></div>
-      <div class="adm-mini-info">
-        <div class="adm-mini-title">${r.ad}</div>
-        <div class="adm-mini-sub">${r.reason} · ${r.date}</div>
-      </div>
-      <div class="adm-mini-actions">
-        ${severityBadge(r.severity)}
-        <button class="adm-btn-icon adm-btn-icon--green" onclick="resolveReport(${r.id})" title="Resolver">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-        </button>
-      </div>
-    </div>
-  `).join('') : '<div class="adm-empty"><div class="adm-empty-icon">🎉</div><h3>Sem denúncias!</h3><p>Nenhuma pendente.</p></div>';
+  // Fetch real data from Supabase
+  loadDashboardData();
 });
+
+async function loadDashboardData() {
+  const session = JSON.parse(sessionStorage.getItem('tc_admin_session') || '{}');
+  const token = session.token || ADM_SB_ANON;
+  
+  // Load Top Categories
+  try {
+    const sb = typeof getSupabase === 'function' ? getSupabase() : null;
+    if(sb) {
+      const [{data: cats}, {data: counts}] = await Promise.all([
+        sb.from('categories').select('id, name_pt, icon, active').eq('active', true),
+        sb.rpc('get_category_counts')
+      ]);
+      if(cats && counts) {
+        let merged = cats.map(c => {
+          const countRow = counts.find(x => x.category_id === c.id);
+          return { ...c, ads: countRow ? countRow.count : 0 };
+        }).sort((a, b) => b.ads - a.ads).slice(0, 6);
+        
+        if (merged.length > 0) {
+          const maxAds = Math.max(merged[0].ads, 1);
+          document.getElementById('top-cats').innerHTML = merged.map(c => `
+            <div class="adm-progress-row">
+              <span class="adm-progress-label">${escapeHTML(c.icon || '📌')} ${escapeHTML(c.name_pt)}</span>
+              <div class="adm-progress-track"><div class="adm-progress-fill" style="width:${Math.round(c.ads/maxAds*100)}%"></div></div>
+              <span class="adm-progress-val">${c.ads >= 1000 ? (c.ads/1000).toFixed(1)+'k' : c.ads}</span>
+            </div>
+          `).join('');
+        } else {
+          document.getElementById('top-cats').innerHTML = '<div style="color:var(--adm-text-muted);font-size:.85rem;padding:1rem 0">Nenhuma categoria encontrada.</div>';
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Erro top categories', e);
+  }
+  const headers = { 'apikey': ADM_SB_ANON, 'Authorization': `Bearer ${token}` };
+
+  try {
+    // Fetch Pending Ads
+    const adsRes = await fetch(`${ADM_SB_URL}/rest/v1/ads?status=eq.pending&select=id,title_pt,profiles(name),category_id,images&order=created_at.desc&limit=5`, { headers });
+    if (adsRes.ok) {
+      const pendingAds = await adsRes.json();
+      const container = document.getElementById('pending-ads');
+      if (pendingAds.length) {
+        container.innerHTML = pendingAds.map(ad => `
+          <div class="adm-mini-item" id="dash-ad-${ad.id}">
+            <img class="adm-mini-thumb" src="${ad.images && ad.images.length ? ad.images[0] : ''}" alt="Thumb" onerror="this.style.background='var(--adm-surface-2)'">
+            <div class="adm-mini-info">
+              <div class="adm-mini-title">${ad.title_pt || 'Sem Título'}</div>
+              <div class="adm-mini-sub">${ad.profiles?.name || 'Desconhecido'}</div>
+            </div>
+            <div class="adm-mini-actions">
+              <button class="adm-btn-icon adm-btn-icon--green" onclick="dashApproveAd('${ad.id}')" title="Aprovar">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </button>
+            </div>
+          </div>
+        `).join('');
+      } else {
+        container.innerHTML = '<div class="adm-empty"><div class="adm-empty-icon">✅</div><h3>Tudo em dia!</h3><p>Nenhum anúncio pendente.</p></div>';
+      }
+      const pendingKpi = document.querySelector('.adm-stat-card:nth-child(4) .adm-stat-val');
+      if(pendingKpi) pendingKpi.dataset.count = pendingAds.length;
+    }
+
+    // Fetch Pending Reports
+    const repRes = await fetch(`${ADM_SB_URL}/rest/v1/reports?status=eq.pending&select=id,reason,severity,created_at,ads(title_pt)&order=created_at.desc&limit=5`, { headers });
+    if (repRes.ok) {
+      const reports = await repRes.json();
+      const container = document.getElementById('pending-reports');
+      if (reports.length) {
+        container.innerHTML = reports.map(r => `
+          <div class="adm-mini-item" id="dash-rep-${r.id}">
+            <div style="width:8px;height:8px;border-radius:50%;background:${r.severity==='high'?'var(--adm-red)':r.severity==='medium'?'var(--adm-amber)':'var(--adm-blue)'};flex-shrink:0"></div>
+            <div class="adm-mini-info">
+              <div class="adm-mini-title">${r.ads?.title_pt || 'Anúncio Apagado'}</div>
+              <div class="adm-mini-sub">${r.reason}</div>
+            </div>
+            <div class="adm-mini-actions">
+              <button class="adm-btn-icon adm-btn-icon--green" onclick="dashResolveReport('${r.id}')" title="Resolver">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </button>
+            </div>
+          </div>
+        `).join('');
+      } else {
+        container.innerHTML = '<div class="adm-empty"><div class="adm-empty-icon">🎉</div><h3>Sem denúncias!</h3><p>Nenhuma pendente.</p></div>';
+      }
+      const reportKpi = document.querySelector('.adm-stat-card:nth-child(5) .adm-stat-val');
+      if(reportKpi) reportKpi.dataset.count = reports.length;
+    }
+
+    // Get Real Counts using fetchCount helper
+    const totalAds = await fetchCount('ads');
+    const totalUsers = await fetchCount('profiles');
+    const pendingAds = await fetchCount('ads', 'status=eq.pending');
+    const pendingReports = await fetchCount('ad_reports', 'status=eq.pending');
+
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const newToday = await fetchCount('ads', `created_at=gte.${today.toISOString()}`);
+
+    // Update DOM KPIs
+    const kpiElements = document.querySelectorAll('.adm-stat-card .adm-stat-val');
+    if (kpiElements.length >= 5) {
+      kpiElements[0].dataset.count = totalAds;
+      kpiElements[1].dataset.count = newToday;
+      kpiElements[2].dataset.count = totalUsers;
+      kpiElements[3].dataset.count = pendingAds;
+      kpiElements[4].dataset.count = pendingReports;
+    }
+
+    // Get Chart Data (Ads in last 7 days)
+    const d7 = new Date();
+    d7.setDate(d7.getDate() - 6);
+    d7.setHours(0,0,0,0);
+    const chartRes = await fetch(`${ADM_SB_URL}/rest/v1/ads?created_at=gte.${d7.toISOString()}&select=created_at`, { headers });
+    if (chartRes.ok) {
+      const adsLast7Days = await chartRes.json();
+      const grouped = {};
+      for(let i=0; i<7; i++) {
+         let d = new Date(d7);
+         d.setDate(d.getDate() + i);
+         grouped[d.toISOString().split('T')[0]] = 0;
+      }
+      adsLast7Days.forEach(ad => {
+         const dt = ad.created_at.split('T')[0];
+         if(grouped[dt] !== undefined) grouped[dt]++;
+      });
+      const chartData = Object.keys(grouped).map(k => {
+         const [y, m, d] = k.split('-');
+         return { label: `${d}/${m}`, val: grouped[k] };
+      });
+      renderChart('adm-chart', chartData);
+    } else {
+      renderChart('adm-chart'); // fallback
+    }
+
+    // Animate KPI numbers
+    document.querySelectorAll('.adm-stat-val').forEach(el => {
+      const target = parseInt(el.dataset.count) || 0;
+      el.textContent = target.toLocaleString('pt-BR');
+    });
+
+  } catch (err) {
+    console.warn('Dashboard fetch error:', err);
+    // Animate default mock values if fetch fails
+    document.querySelectorAll('.adm-stat-val').forEach(el => {
+      el.textContent = (parseInt(el.dataset.count)||0).toLocaleString('pt-BR');
+    });
+    renderChart('adm-chart'); // fallback
+  }
+}
+
+async function dashApproveAd(id) {
+  try {
+    const session = JSON.parse(sessionStorage.getItem('tc_admin_session') || '{}');
+    await fetch(`${ADM_SB_URL}/rest/v1/ads?id=eq.${id}`, {
+      method: 'PATCH',
+      headers: { 'apikey': ADM_SB_ANON, 'Authorization': `Bearer ${session.token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'active' })
+    });
+    document.getElementById('dash-ad-'+id)?.remove();
+    showToast('Anúncio aprovado', 'success');
+    let kpi = document.querySelector('.adm-stat-card:nth-child(4) .adm-stat-val');
+    if(kpi) kpi.textContent = Math.max(0, parseInt(kpi.textContent) - 1);
+  } catch(e) { console.error(e); }
+}
+
+async function dashResolveReport(id) {
+  try {
+    const session = JSON.parse(sessionStorage.getItem('tc_admin_session') || '{}');
+    await fetch(`${ADM_SB_URL}/rest/v1/reports?id=eq.${id}`, {
+      method: 'PATCH',
+      headers: { 'apikey': ADM_SB_ANON, 'Authorization': `Bearer ${session.token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'resolved' })
+    });
+    document.getElementById('dash-rep-'+id)?.remove();
+    showToast('Denúncia resolvida', 'success');
+    let kpi = document.querySelector('.adm-stat-card:nth-child(5) .adm-stat-val');
+    if(kpi) kpi.textContent = Math.max(0, parseInt(kpi.textContent) - 1);
+  } catch(e) { console.error(e); }
+}
+
 </script>
 </body>
 </html>

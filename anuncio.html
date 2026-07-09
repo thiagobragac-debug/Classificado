@@ -1,19 +1,48 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Trator Massey Ferguson 2018 �?" Tauze Class</title>
-  <link rel="stylesheet" href="css/style.css">
+  <title>Anúncio — Tauze Class</title>
+  <meta name="description" content="Confira os detalhes deste anúncio no Tauze Class, o maior portal de classificados do agronegócio do Mercosul.">
+  <meta name="keywords" content="anuncio agro, classificados agronegocio, comprar, vender, mercosul">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://tauzeclass.com.br/anuncio.html">
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Anúncio — Tauze Class">
+  <meta property="og:description" content="Confira os detalhes deste anúncio no Tauze Class, o maior portal de classificados do agronegócio do Mercosul.">
+  <meta property="og:url" content="https://tauzeclass.com.br/anuncio.html">
+  <meta property="og:image" content="https://tauzeclass.com.br/assets/og-home.jpg">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:site_name" content="Tauze Class">
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Anúncio — Tauze Class">
+  <meta name="twitter:description" content="Confira os detalhes deste anúncio no Tauze Class.">
+  <meta name="twitter:image" content="https://tauzeclass.com.br/assets/og-home.jpg">
+  <link rel="stylesheet" href="css/style.css?v=1783509347880">
+  <link rel="stylesheet" href="css/anuncio.css">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2316A34A'/%3E%3Ctext y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'%3ET%3C/text%3E%3C/svg%3E">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Supabase SDK removido do head — carregado no final do body para não bloquear FCP -->
+  <script>
+    let hasToken = false;
+    for(let i=0; i<localStorage.length; i++){
+      if(localStorage.key(i).includes('auth-token')){ hasToken=true; break; }
+    }
+    if (hasToken) {
+      document.documentElement.classList.add('is-logged-in');
+      let ini = localStorage.getItem('tc_user_initials');
+      if (ini) document.documentElement.style.setProperty('--tc-user-ini', '"' + ini + '"');
+    }
+  </script>
 </head>
 <body>
   
   <header class="site-header" role="banner">
   <div class="container header-inner">
 
-    <a href="index.html" class="logo" aria-label="Tauze Class �?" Início">
+    <a href="index.html" class="logo" aria-label="Tauze Class — Início">
       <div class="logo-mark">TC</div>
       <div class="logo-text">
         <span class="logo-name">Tauze Class</span>
@@ -21,20 +50,14 @@
       </div>
     </a>
 
-    <div class="header-search" role="search">
-      <span class="search-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-      </span>
-      <input type="search" id="header-search-input" placeholder="Buscar animais, máquinas, insumos..."
-             data-i18n-placeholder="search_placeholder" aria-label="Buscar anúncios">
-    </div>
-
-    <nav class="header-nav" role="navigation" aria-label="Menu principal">
-      <a href="index.html" class="active" data-i18n="nav_home">Início</a>
-      <a href="pesquisa.html" data-i18n="nav_ads">Anúncios</a>
-      <a href="index.html#categorias" data-i18n="nav_categories">Categorias</a>
-      <a href="login.html" data-i18n="nav_login">Entrar</a>
-    </nav>
+<nav class="header-nav" role="navigation" aria-label="Menu principal">
+        <a href="index.html" data-i18n="nav_home" >Início</a>
+        <a href="listagem.html" data-i18n="nav_ads" class="active">Anúncios</a>
+        <a href="eventos.html" data-i18n="nav_events" >Eventos</a>
+        <a href="leiloes.html" class="nav-live "><span class="live-indicator"></span><span data-i18n="nav_auctions">Leilões Ao Vivo</span></a>
+        <a href="planos.html" data-i18n="nav_plans" >Planos</a>
+        <div class="auth-wrapper"><a href="login.html" data-i18n="nav_login">Entrar</a></div>
+      </nav>
 
     <div class="lang-toggle" role="group" aria-label="Selecionar idioma">
       <button data-lang="pt" class="active" aria-label="Português">PT</button>
@@ -52,127 +75,199 @@
   </div>
 </header>
 
-  <main class="container" style="padding-top: calc(var(--header-h) + 2rem);">
-    <div class="breadcrumb" style="margin-top: 2rem">
-      <a href="index.html">Home</a> <span>�?�</span> <a href="pesquisa.html">Máquinas e Equipamentos</a> <span>�?�</span> <strong>Trator Massey Ferguson</strong>
+  <div class="page-header" style="padding-top: calc(var(--header-h) + 2rem); padding-bottom: 6rem; background: linear-gradient(135deg, var(--clr-primary-mid, #16A34A), var(--clr-primary, #15803D)); position: relative; border-radius: 0 0 2rem 2rem;">
+    <!-- Abstract pattern for premium feel -->
+    <div style="position:absolute; inset:0; opacity:0.05; background-image: radial-gradient(#fff 1px, transparent 1px); background-size: 20px 20px;"></div>
+    <div class="container" style="position: relative; z-index: 2;">
+      <div class="breadcrumb" style="justify-content: flex-start; margin-bottom: 0;">
+        <a href="index.html">Home</a> <span>›</span> <a href="pesquisa.html">Máquinas e Equipamentos</a> <span>›</span> <strong>Anúncio</strong>
+      </div>
     </div>
+  </div>
 
+  <main class="container" style="position: relative; z-index: 10; margin-top: -4rem;">
     <div class="product-grid">
       <!-- Gallery Column -->
-      <div>
-        <img src="https://images.unsplash.com/photo-1592982537447-6f233481f9a2?auto=format&fit=crop&q=80" alt="Produto" class="gallery-main" id="ad-main-img">
-        <div class="gallery-thumbs">
-          <img src="https://images.unsplash.com/photo-1592982537447-6f233481f9a2?auto=format&fit=crop&q=80" class="active" onclick="document.getElementById('main-img').src=this.src; document.querySelectorAll('.gallery-thumbs img').forEach(i=>i.classList.remove('active')); this.classList.add('active');">
-          <img src="https://images.unsplash.com/photo-1579705904818-f2b7a9505c2a?auto=format&fit=crop&q=80" onclick="document.getElementById('main-img').src=this.src; document.querySelectorAll('.gallery-thumbs img').forEach(i=>i.classList.remove('active')); this.classList.add('active');">
-          <img src="https://images.unsplash.com/photo-1592982537447-6f233481f9a2?auto=format&fit=crop&q=80" onclick="document.getElementById('main-img').src=this.src; document.querySelectorAll('.gallery-thumbs img').forEach(i=>i.classList.remove('active')); this.classList.add('active');">
+      <div class="product-gallery-area">
+        <div class="gallery-main-wrapper" style="position:relative;">
+          <button id="btn-gallery-prev" style="display:none; position:absolute; left:1rem; top:50%; transform:translateY(-50%); background:rgba(255,255,255,0.85); border:none; border-radius:50%; width:44px; height:44px; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 10px rgba(0,0,0,0.15); z-index:5; transition:background 0.2s;" onmouseover="this.style.background='#fff'" onmouseout="this.style.background='rgba(255,255,255,0.85)'" aria-label="Foto anterior">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--clr-text)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:2px"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          </button>
+          <button id="btn-gallery-next" style="display:none; position:absolute; right:1rem; top:50%; transform:translateY(-50%); background:rgba(255,255,255,0.85); border:none; border-radius:50%; width:44px; height:44px; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 10px rgba(0,0,0,0.15); z-index:5; transition:background 0.2s;" onmouseover="this.style.background='#fff'" onmouseout="this.style.background='rgba(255,255,255,0.85)'" aria-label="Próxima foto">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--clr-text)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left:2px"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </button>
+          <div id="ad-video-container" style="display:none; width:100%; height:100%; background:#000;"><video id="ad-main-video" controls style="width:100%; height:100%; object-fit:contain;"></video></div>
+          <img src="https://images.unsplash.com/photo-1592982537447-6f233481f9a2?auto=format&fit=crop&q=80" alt="Produto" class="gallery-main" id="ad-main-img">
+        </div>
+        <div class="gallery-thumbs" id="ad-thumbs-container">
+          <!-- Dynamically populated -->
         </div>
 
-        <div style="margin-top: 3rem;">
-          <h3 style="font-size: 1.3rem; font-weight: 700; margin-bottom: 1rem; color: var(--clr-text)">Descrição do Vendedor</h3>
-          <p style="color: var(--clr-text-light); line-height: 1.8; font-size: 1.05rem;">
-            Trator Massey Ferguson modelo 2018 em perfeito estado de conservação. �snico dono, todas as revisões feitas em concessionária. Pneus novos, cabine original com ar condicionado gelando. Máquina pronta para trabalhar na safra. Motivo da venda: renovação de frota. Não aceito troca.
-          </p>
+        <div class="details-section">
+          <h3>Descrição do Vendedor</h3>
+          <p class="desc-text" id="ad-desc"></p>
         </div>
       </div>
 
       <!-- Info Column -->
-      <div class="product-info">
-        <div style="display:flex; align-items:flex-start; gap:0.75rem; flex-wrap:wrap;">
-          <h1 id="ad-title" style="flex:1; min-width:0;">Trator Massey Ferguson 2018 Conservado</h1>
-          <button id="btn-favorite" style="flex-shrink:0; margin-top:0.25rem; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); color:var(--clr-text-light); padding:0.45rem 0.9rem; border-radius:2rem; cursor:pointer; font-size:0.9rem; transition:all .2s;" title="Salvar anúncio">�Y�� Salvar</button>
-        </div>
-        <div class="product-price" id="ad-price">
-          R$ 185.000 <span>Negociável</span>
-        </div>
-
-        <div class="product-meta">
-          <div><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Publicado há 2 dias</div>
-          <div id="ad-location"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> Ribeirão Preto, SP</div>
-          <div id="ad-views" style="display:none;"></div>
-        </div>
-
-        <div class="seller-card">
-          <div class="seller-header">
-            <div class="seller-avatar">JC</div>
-            <div>
-              <div class="seller-name">João Carlos</div>
-              <div class="seller-member">Membro desde Agosto de 2023</div>
-            </div>
+      <div class="sidebar-fixed-container">
+        <div class="sidebar-sticky-wrapper">
+          <div class="product-info-panel">
+          <div class="product-meta-top">
+            <span class="tag-status" id="ad-condition">Condição: Usado</span>
+            <span class="tag-date" id="ad-date">Publicado há 2 dias</span>
           </div>
-          <!-- WhatsApp CTA -->
-          <a id="btn-whatsapp" href="#" target="_blank" rel="noopener"
-             style="display:flex; align-items:center; justify-content:center; gap:0.6rem; width:100%; padding:0.85rem 1.2rem; border-radius:0.8rem; background:linear-gradient(135deg,#25D366,#128C7E); color:#fff; font-weight:700; font-size:1.05rem; text-decoration:none; box-shadow:0 4px 18px rgba(37,211,102,0.3); transition:opacity .2s;" onmouseover="this.style.opacity='.88'" onmouseout="this.style.opacity='1'">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2 22l4.978-1.413A9.953 9.953 0 0 0 12 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18a7.95 7.95 0 0 1-4.031-1.094l-.29-.172-2.953.839.84-2.87-.19-.298A7.95 7.95 0 0 1 4 12c0-4.411 3.589-8 8-8s8 3.589 8 8-3.589 8-8 8z"/></svg>
-            Falar pelo WhatsApp
-          </a>
-        </div>
 
-        <!-- Collapsible Message Form (hidden for ad owner) -->
-        <div id="msg-section" style="margin-top:1.2rem; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:1rem; overflow:hidden;">
-          <button id="btn-toggle-msg"
-                  style="width:100%; display:flex; align-items:center; justify-content:space-between; padding:0.85rem 1.1rem; background:none; border:none; color:var(--clr-text); font-weight:600; font-size:0.97rem; cursor:pointer;"
-                  onclick="(function(){
-                    var body=document.getElementById('msg-body');
-                    var arrow=document.getElementById('msg-arrow');
-                    var open=body.style.display==='block';
-                    body.style.display=open?'none':'block';
-                    arrow.style.transform=open?'rotate(0deg)':'rotate(180deg)';
-                  })()">
-            <span style="display:flex;align-items:center;gap:0.5rem;">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-              Enviar Mensagem
-            </span>
-            <svg id="msg-arrow" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .25s;"><polyline points="6 9 12 15 18 9"/></svg>
-          </button>
-          <div id="msg-body" style="display:none; padding:0 1.1rem 1.1rem;">
-            <div id="msg-alert" style="display:none; margin-bottom:0.75rem; padding:0.65rem 0.85rem; border-radius:0.6rem; font-size:0.88rem;"></div>
-            <textarea id="msg-text"
-                      rows="4"
-                      placeholder="Olá! Tenho interesse no anúncio..."
-                      style="width:100%; box-sizing:border-box; background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.12); border-radius:0.7rem; color:#fff; padding:0.75rem 0.9rem; font-size:0.95rem; resize:vertical; outline:none; transition:border-color .2s;"
-                      onfocus="this.style.borderColor='#16A34A'; this.style.boxShadow='0 0 0 2px rgba(22,163,74,0.25)'"
-                      onblur="this.style.borderColor='rgba(255,255,255,0.12)'; this.style.boxShadow='none'"></textarea>
-            <button id="btn-send-msg"
-                    style="margin-top:0.65rem; width:100%; padding:0.75rem; border:none; border-radius:0.75rem; background:linear-gradient(135deg,#16A34A,#15803d); color:#fff; font-weight:700; font-size:0.97rem; cursor:pointer; transition:opacity .2s;"
-                    onmouseover="this.style.opacity='.88'" onmouseout="this.style.opacity='1'">
-              Enviar Mensagem
-            </button>
-            <div style="margin-top:0.9rem; text-align:center;">
-              <a id="btn-report" href="#" style="color:rgba(255,255,255,0.35); font-size:0.8rem; text-decoration:none;"
+          <h1 id="ad-title" class="product-title">Carregando...</h1>
+          
+          <div class="product-price" id="ad-price">
+            R$ --
+            <span class="tag-negotiable" id="ad-negotiable" style="display:none;">Negociável</span>
+          </div>
+
+          <div style="font-size:0.95rem; color:var(--clr-text-light); margin-top:-0.5rem;" id="ad-location">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-top:-2px"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> <span>---</span>
+          </div>
+
+          <img id="seller-banner" src="" style="width:100%; height:80px; object-fit:cover; border-radius:1rem 1rem 0 0; display:none;">
+          <a href="#" class="seller-card-mini" id="seller-link" style="text-decoration: none; color: inherit;">
+            <div class="seller-avatar-lg" id="seller-avatar">U</div>
+            <div>
+              <div class="seller-name" id="seller-name" style="display:flex;align-items:center;gap:.4rem;">
+                Vendedor
+                <span id="seller-verif-badge" style="display:none;background:#dcfce7;color:#166534;font-size:.65rem;padding:.1rem .4rem;border-radius:1rem;font-weight:800;letter-spacing:.02em;" title="Vendedor Verificado">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-top:-1px;margin-right:2px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>VERIFICADO
+                </span>
+                <span id="seller-unverif-badge" style="display:none;background:#f1f5f9;color:#64748b;font-size:.65rem;padding:.1rem .4rem;border-radius:1rem;font-weight:700;letter-spacing:.02em;" title="Conta não verificada">Não verificado</span>
+              </div>
+              <div id="seller-badges-container" style="display:flex;gap:.25rem;flex-wrap:wrap;margin-top:.25rem">
+                <span id="seller-kyc-doc-badge" style="display:none;background:#fef3c7;color:#b45309;font-size:.65rem;padding:.1rem .4rem;border-radius:1rem;font-weight:800;letter-spacing:.02em;" title="Identidade Confirmada">🏅 Identidade Confirmada</span>
+                <span id="seller-kyc-email-badge" style="display:none;background:#dcfce7;color:#166534;font-size:.65rem;padding:.1rem .4rem;border-radius:1rem;font-weight:700;letter-spacing:.02em;" title="E-mail Verificado">✓ E-mail</span>
+                <span id="seller-kyc-phone-badge" style="display:none;background:#dcfce7;color:#166534;font-size:.65rem;padding:.1rem .4rem;border-radius:1rem;font-weight:700;letter-spacing:.02em;" title="WhatsApp Verificado">✓ WhatsApp</span>
+              </div>
+              <div class="seller-member" id="seller-date">Membro</div>
+            </div>
+          </a>
+
+          <div class="action-column" style="display:flex; flex-direction:column; gap:0.8rem;">
+            <a id="btn-whatsapp" href="#" target="_blank" class="btn-whatsapp-large" style="display:none;">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2 22l4.978-1.413A9.953 9.953 0 0 0 12 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18a7.95 7.95 0 0 1-4.031-1.094l-.29-.172-2.953.839.84-2.87-.19-.298A7.95 7.95 0 0 1 4 12c0-4.411 3.589-8 8-8s8 3.589 8 8-3.589 8-8 8z"/></svg>
+              Falar pelo WhatsApp
+            </a>
+            
+            <!-- Discreet Actions Row -->
+            <div style="display:flex; align-items:center; justify-content:center; gap:1.5rem; margin-top:0.5rem; padding-bottom:0.5rem;">
+              <button style="background:none; border:none; color:var(--clr-text-light); font-weight:600; font-size:0.9rem; cursor:pointer; display:flex; align-items:center; gap:0.4rem; transition:color .2s;"
+                      onmouseover="this.style.color='var(--clr-primary)'" onmouseout="this.style.color='var(--clr-text-light)'"
+                      onclick="navigator.clipboard.writeText(window.location.href); const orig=this.innerHTML; this.innerHTML='<svg width=\'16\' height=\'16\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><polyline points=\'20 6 9 17 4 12\'></polyline></svg> Copiado!'; this.style.color='#16a34a'; setTimeout(()=> {this.innerHTML=orig; this.style.color='';}, 2000);">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                Compartilhar
+              </button>
+              
+              <button id="btn-favorite" style="background:none; border:none; color:var(--clr-text-light); font-weight:600; font-size:0.9rem; cursor:pointer; display:flex; align-items:center; gap:0.4rem; transition:color .2s;"
+                      title="Salvar anúncio">🤍 Salvar</button>
+                      
+              <a id="btn-report" href="#" style="color:var(--clr-text-light); font-weight:600; font-size:0.9rem; text-decoration:none; display:flex; align-items:center; gap:0.4rem; transition:color .2s;"
+                 onmouseover="this.style.color='#f59e0b'" onmouseout="this.style.color='var(--clr-text-light)'"
                  onclick="(function(e){
                    e.preventDefault();
-                   var reason=prompt('Motivo da denúncia (ex: Fraude, Conteúdo inadequado, Preço enganoso):');
-                   if(!reason||!reason.trim()) return;
-                   var adId=document.getElementById('btn-send-msg').dataset.adId;
-                   if(typeof reportAd==='function' && adId){
-                     reportAd(adId, reason.trim()).then(function(){
-                       alert('Denúncia enviada. Obrigado!');
-                     }).catch(function(err){
-                       alert('Erro ao enviar denúncia: '+(err.message||err));
-                     });
-                   } else {
-                     alert('Não foi possível enviar a denúncia. Tente novamente.');
-                   }
-                 })(event)">�s' Denunciar Anúncio</a>
+                   document.getElementById('report-modal').style.display = 'flex';
+                   document.getElementById('report-reason').value = '';
+                   document.getElementById('report-alert').style.display = 'none';
+                   document.getElementById('btn-submit-report').textContent = 'Enviar';
+                   document.getElementById('btn-submit-report').disabled = false;
+                   document.getElementById('btn-submit-report').onclick = function() {
+                     var reason = document.getElementById('report-reason').value.trim();
+                     if(!reason) return;
+                     var adId = document.getElementById('btn-send-msg').dataset.adId || new URLSearchParams(location.search).get('id');
+                     var btn = this;
+                     var alertBox = document.getElementById('report-alert');
+                     btn.textContent = 'Enviando...';
+                     btn.disabled = true;
+                     if(typeof reportAd === 'function' && adId) {
+                       reportAd(adId, reason).then(function() {
+                         alertBox.style.display = 'block';
+                         alertBox.style.background = 'rgba(22,163,74,0.12)';
+                         alertBox.style.color = '#16a34a';
+                         alertBox.textContent = '✓ Denúncia enviada. Obrigado!';
+                         setTimeout(() => document.getElementById('report-modal').style.display='none', 2000);
+                       }).catch(function(err) {
+                         alertBox.style.display = 'block';
+                         alertBox.style.background = 'rgba(239,68,68,0.12)';
+                         alertBox.style.color = '#ef4444';
+                         alertBox.textContent = '❌ Erro: ' + (err.message||err);
+                         btn.textContent = 'Enviar';
+                         btn.disabled = false;
+                       });
+                     } else {
+                       alertBox.style.display = 'block';
+                       alertBox.style.background = 'rgba(239,68,68,0.12)';
+                       alertBox.style.color = '#ef4444';
+                       alertBox.textContent = '❌ Não foi possível enviar.';
+                       btn.textContent = 'Enviar';
+                       btn.disabled = false;
+                     }
+                   };
+                 })(event)">⚠️ Denunciar</a>
+            </div>
+            
+            <!-- Collapsible Message Form -->
+            <div id="msg-section" style="margin-top:0.5rem; background:rgba(0,0,0,0.02); border:1px solid rgba(0,0,0,0.06); border-radius:1rem; overflow:hidden;">
+              <button id="btn-toggle-msg"
+                      style="width:100%; display:flex; align-items:center; justify-content:space-between; padding:1.1rem; background:none; border:none; color:var(--clr-text); font-weight:700; font-size:1.05rem; cursor:pointer;"
+                      onclick="(function(){
+                        var body=document.getElementById('msg-body');
+                        var arrow=document.getElementById('msg-arrow');
+                        var open=body.style.display==='block';
+                        body.style.display=open?'none':'block';
+                        arrow.style.transform=open?'rotate(0deg)':'rotate(180deg)';
+                      })()">
+                <span style="display:flex;align-items:center;gap:0.5rem;">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                  Enviar Mensagem
+                </span>
+                <svg id="msg-arrow" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .25s;"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <div id="msg-body" style="display:none; padding:0 1.1rem 1.1rem;">
+                <div id="msg-alert" style="display:none; margin-bottom:0.75rem; padding:0.65rem 0.85rem; border-radius:0.6rem; font-size:0.88rem;"></div>
+                <textarea id="msg-text"
+                          rows="4"
+                          placeholder="Olá! Tenho interesse no anúncio..."
+                          style="width:100%; box-sizing:border-box; background:white; border:1px solid rgba(0,0,0,0.12); border-radius:0.7rem; color:var(--clr-text); padding:0.75rem 0.9rem; font-size:0.95rem; resize:vertical; outline:none; transition:border-color .2s;"
+                          onfocus="this.style.borderColor='var(--clr-primary)'; this.style.boxShadow='0 0 0 2px rgba(22,163,74,0.1)'"
+                          onblur="this.style.borderColor='rgba(0,0,0,0.12)'; this.style.boxShadow='none'"></textarea>
+                <button id="btn-send-msg"
+                        style="margin-top:0.65rem; width:100%; padding:0.75rem; border:none; border-radius:0.75rem; background:linear-gradient(135deg,var(--clr-primary-mid),var(--clr-primary)); color:#fff; font-weight:700; font-size:0.97rem; cursor:pointer; transition:opacity .2s;"
+                        onmouseover="this.style.opacity='.88'" onmouseout="this.style.opacity='1'">
+                  Enviar Mensagem
+                </button>
+              </div>
+            </div>
+
+          </div> <!-- end action-column -->
+        
+          <div style="background: #FEF2F2; color: #B91C1C; padding: 1.2rem; border-radius: 1rem; font-size: 0.95rem; display: flex; gap: 0.8rem; align-items: start; margin-top: 1rem;">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:2px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <div>
+              <strong>Dica de Segurança:</strong> Nunca faça depósitos antecipados sem ver o produto pessoalmente. Desconfie de preços muito abaixo do mercado.
             </div>
           </div>
-        </div>
-        
-        <div style="background: #FEF2F2; color: #B91C1C; padding: 1rem; border-radius: 0.8rem; font-size: 0.9rem; display: flex; gap: 0.8rem; align-items: start;">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:2px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          <div>
-            <strong>Dica de Segurança:</strong> Nunca faça depósitos antecipados sem ver o produto pessoalmente. Desconfie de preços muito abaixo do mercado.
-          </div>
-        </div>
 
-        <!-- BANNER ANUNCIO SIDEBAR -->
-        <div id="banner-anuncio-sidebar" style="margin-top: 1.5rem;"></div>
-      </div>
+        </div> <!-- end product-info-panel -->
+        </div> <!-- end sidebar-sticky-wrapper -->
+
+        <!-- BANNER ANUNCIO SIDEBAR (FIXED OUTSIDE SCROLL) -->
+        <div id="banner-anuncio-sidebar" style="flex-shrink: 0;"></div>
+      </div> <!-- end grid cell wrapper -->
     </div>
   </main>
 
-  <script src="js/supabase.js"></script>
-  <script src="js/ui_constants.js"></script>`r`n  <script src="js/data.js"></script>`r`n  <script src="js/main.js"></script>
+  <!-- Supabase SDK movido do head para cá: não bloqueia FCP -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase.js?v=1783509347784"></script>
+  <script src="js/ui_constants.js"></script>
+  <script src="js/data.js?v=1783509347784"></script>
+  <script src="js/main.js?v=1783509347784"></script>
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
       if (typeof renderAdBanner === 'function') {
@@ -189,11 +284,85 @@
         if (!ad) return;
 
         // Update page title
-        document.title = (ad.title_pt || 'Anúncio') + ' �?" Tauze Class';
+        document.title = (ad.title_pt || 'Anúncio') + ' — Tauze Class';
 
-        // Update main image
+        if (ad.status !== 'active') {
+          const pPanel = document.querySelector('.product-info-panel');
+          if (pPanel) {
+            const banner = document.createElement('div');
+            banner.style.cssText = 'background:#fee2e2;color:#991b1b;padding:1rem;border-radius:1rem;margin-bottom:1rem;font-weight:700;text-align:center;border:1px solid #f87171;';
+            banner.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:8px;margin-top:-2px"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg> Este anúncio não está mais disponível.';
+            pPanel.insertBefore(banner, pPanel.firstChild);
+          }
+          
+          const actionCol = document.querySelector('.action-column');
+          if (actionCol) {
+            actionCol.style.display = 'none';
+          }
+          
+          const mainImg = document.getElementById('ad-main-img');
+          if (mainImg) {
+            mainImg.style.opacity = '0.6';
+            mainImg.style.filter = 'grayscale(100%)';
+          }
+        }
+
+        // Update images and thumbnails
         const mainImg = document.getElementById('ad-main-img');
-        if (mainImg && ad.images && ad.images.length > 0) mainImg.src = ad.images[0];
+        const thumbsContainer = document.getElementById('ad-thumbs-container');
+        const btnPrev = document.getElementById('btn-gallery-prev');
+        const btnNext = document.getElementById('btn-gallery-next');
+        let currentImageIndex = 0;
+
+        const updateGalleryUI = () => {
+          if (!ad.images || ad.images.length === 0) return;
+          if (mainImg) mainImg.src = ad.images[currentImageIndex];
+          if (thumbsContainer) {
+            thumbsContainer.querySelectorAll('img').forEach((i, idx) => {
+              if (idx === currentImageIndex) i.classList.add('active');
+              else i.classList.remove('active');
+            });
+          }
+          if (ad.images.length > 1) {
+            if(btnPrev) btnPrev.style.display = 'flex';
+            if(btnNext) btnNext.style.display = 'flex';
+          } else {
+            if(btnPrev) btnPrev.style.display = 'none';
+            if(btnNext) btnNext.style.display = 'none';
+          }
+        };
+
+        if (ad.images && ad.images.length > 0) {
+          if (thumbsContainer) {
+            thumbsContainer.innerHTML = '';
+            ad.images.forEach((imgUrl, index) => {
+              const img = document.createElement('img');
+              img.src = imgUrl;
+              img.dataset.index = index;
+              thumbsContainer.appendChild(img);
+            });
+            
+            thumbsContainer.addEventListener('click', (e) => {
+              const img = e.target.closest('img');
+              if (!img) return;
+              currentImageIndex = parseInt(img.dataset.index);
+              updateGalleryUI();
+            });
+          }
+
+          if (btnPrev && btnNext) {
+            btnPrev.addEventListener('click', () => {
+              currentImageIndex = (currentImageIndex > 0) ? currentImageIndex - 1 : ad.images.length - 1;
+              updateGalleryUI();
+            });
+            btnNext.addEventListener('click', () => {
+              currentImageIndex = (currentImageIndex < ad.images.length - 1) ? currentImageIndex + 1 : 0;
+              updateGalleryUI();
+            });
+          }
+
+          updateGalleryUI();
+        }
 
         // Update title
         const titleEl = document.getElementById('ad-title');
@@ -201,8 +370,13 @@
 
         // Update price
         const priceEl = document.getElementById('ad-price');
-        if (priceEl) priceEl.textContent = ad.negotiable ? 'A negociar' :
-          new Intl.NumberFormat('pt-BR', { style: 'currency', currency: ad.currency || 'BRL' }).format(ad.price);
+        if (priceEl) {
+          const priceStr = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: ad.currency || 'BRL' }).format(ad.price);
+          priceEl.innerHTML = ad.price > 0 ? priceStr : 'A negociar';
+          if (ad.negotiable && ad.price > 0) {
+            priceEl.innerHTML += ' <span class="tag-negotiable" style="font-size:0.9rem; background:#FEF3C7; color:#D97706; padding:0.3rem 0.8rem; border-radius:2rem; font-weight:700;">Negociável</span>';
+          }
+        }
 
         // Update description
         const descEl = document.getElementById('ad-desc');
@@ -221,23 +395,108 @@
         if (waBtn && ad.profiles?.phone_whatsapp) {
           const msg = encodeURIComponent('Olá! Vi seu anúncio no Tauze Class: ' + ad.title_pt);
           waBtn.href = 'https://wa.me/' + ad.profiles.phone_whatsapp.replace(/\D/g,'') + '?text=' + msg;
+          waBtn.style.display = 'flex';
         }
 
         // Seller / ownership data
         const sellerId = ad.profiles?.id || ad.user_id || null;
         const adOwnerId = sellerId;
+        
+        // Populate seller card
+        const sellerNameEl = document.getElementById('seller-name');
+        const sellerAvatarEl = document.getElementById('seller-avatar');
+        const sellerDateEl = document.getElementById('seller-date');
+        
+        
+        if(ad.video_url) {
+            const vid = document.getElementById('ad-main-video');
+            const vidCont = document.getElementById('ad-video-container');
+            const mainImg = document.getElementById('ad-main-img');
+            if(vid && vidCont) {
+                vid.src = ad.video_url;
+                vidCont.style.display = 'block';
+                mainImg.style.display = 'none';
+            }
+        }
+        if (ad.profiles) {
+            const bannerImg = document.getElementById('seller-banner');
+            if(bannerImg && ad.profiles.banner_url) {
+                bannerImg.src = ad.profiles.banner_url;
+                bannerImg.style.display = 'block';
+                // Adjust border radius of seller-card-mini
+                const sellerCard = document.querySelector('.seller-card-mini');
+                if(sellerCard) {
+                    sellerCard.style.borderRadius = '0 0 1rem 1rem';
+                }
+            }
+          
+          const sellerLink = document.getElementById('seller-link');
+          if (sellerLink && sellerId) {
+             sellerLink.href = 'vendedor.html?id=' + sellerId;
+          }
 
-        // Favorite button
+          if (sellerNameEl) sellerNameEl.childNodes[0].textContent = (ad.profiles.name || ad.profiles.full_name || 'Vendedor') + ' ';
+          if (sellerAvatarEl) {
+            const initial = (ad.profiles.name || ad.profiles.full_name || 'U').charAt(0).toUpperCase();
+            sellerAvatarEl.textContent = initial;
+          }
+          if (sellerDateEl && ad.profiles.created_at) {
+            const date = new Date(ad.profiles.created_at);
+            const formatter = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' });
+            sellerDateEl.textContent = 'Membro desde ' + formatter.format(date);
+          }
+          
+          // Setup KYC Badges based on ad.profiles
+          const p = ad.profiles;
+          if (p) {
+            let hasAnyBadge = false;
+            if (p.kyc_status === 'approved' || p.verified) {
+              document.getElementById('seller-kyc-doc-badge').style.display = 'inline-block';
+              hasAnyBadge = true;
+            }
+            if (p.email_verified) {
+              document.getElementById('seller-kyc-email-badge').style.display = 'inline-block';
+              hasAnyBadge = true;
+            }
+            if (p.phone_verified) {
+              document.getElementById('seller-kyc-phone-badge').style.display = 'inline-block';
+              hasAnyBadge = true;
+            }
+            if (!hasAnyBadge) {
+              document.getElementById('seller-unverif-badge').style.display = 'inline-block';
+            }
+            // Hide the old generic verified badge to favor the new specific ones
+            document.getElementById('seller-verif-badge').style.display = 'none';
+          }
+        }
+
+        // Favorite button — usa toggleFavorite(null, adId) e isFavorite() para visual
         const favBtn = document.getElementById('btn-favorite');
+        
+        const updateFavBtn = (saved) => {
+          if (saved) {
+            favBtn.style.color = '#ef4444';
+            favBtn.style.borderColor = '#ef4444';
+            favBtn.textContent = '❤️ Salvo';
+          } else {
+            favBtn.style.color = '';
+            favBtn.style.borderColor = '';
+            favBtn.textContent = '🤍 Salvar';
+          }
+        };
+
         if (favBtn) {
+          // Estado inicial
+          updateFavBtn(isFavorite(adId));
+
           favBtn.addEventListener('click', async () => {
-            const added = await toggleFavorite(adId);
-            favBtn.innerHTML = added ? '❤️ Salvo' : '�Y�� Salvar';
+            await toggleFavorite(null, adId);
+            updateFavBtn(isFavorite(adId));
           });
         }
 
-        // Ownership check �?" hide message section for the ad owner
-        const { data: { session } } = await supabase.auth.getSession();
+        // Ownership check — cacheia sessão em variável local (1 chamada apenas)
+        const session = await getSession();
         const currentUserId = session?.user?.id || null;
         const msgSection = document.getElementById('msg-section');
         if (adOwnerId && currentUserId && currentUserId === adOwnerId) {
@@ -254,14 +513,13 @@
             const msgText  = document.getElementById('msg-text');
             const text = msgText.value.trim();
 
-            // Auth guard
-            const { data: { session: s } } = await supabase.auth.getSession();
-            if (!s) {
+            // Auth guard — reutiliza sessão já carregada (sem nova chamada ao banco)
+            if (!session) {
               msgAlert.style.display = 'block';
               msgAlert.style.background = 'rgba(239,68,68,0.12)';
               msgAlert.style.border = '1px solid rgba(239,68,68,0.3)';
               msgAlert.style.color = '#FCA5A5';
-              msgAlert.innerHTML = '�s�️ <a href="/login.html" style="color:#FCA5A5;font-weight:700;">Faça login</a> para enviar mensagens.';
+              msgAlert.innerHTML = '🔒 <a href="/login.html" style="color:#FCA5A5;font-weight:700;">Faça login</a> para enviar mensagens.';
               return;
             }
 
@@ -270,7 +528,7 @@
               msgAlert.style.background = 'rgba(251,191,36,0.1)';
               msgAlert.style.border = '1px solid rgba(251,191,36,0.3)';
               msgAlert.style.color = '#FDE68A';
-              msgAlert.textContent = '�o�️ Escreva uma mensagem antes de enviar.';
+              msgAlert.textContent = '✏️ Escreva uma mensagem antes de enviar.';
               return;
             }
 
@@ -283,12 +541,12 @@
               await sendMessage(adId, sellerId, text);
               msgText.value = '';
               sendBtn.style.background = 'linear-gradient(135deg,#16A34A,#166534)';
-              sendBtn.innerHTML = '�o. Mensagem enviada!';
+              sendBtn.innerHTML = '✓ Mensagem enviada!';
               msgAlert.style.display = 'block';
               msgAlert.style.background = 'rgba(22,163,74,0.12)';
               msgAlert.style.border = '1px solid rgba(22,163,74,0.3)';
               msgAlert.style.color = '#86EFAC';
-              msgAlert.textContent = '�o. Mensagem enviada! O vendedor receberá uma notificação.';
+              msgAlert.textContent = '✓ Mensagem enviada! O vendedor receberá uma notificação.';
               setTimeout(() => {
                 sendBtn.disabled = false;
                 sendBtn.textContent = 'Enviar Mensagem';
@@ -299,7 +557,7 @@
               msgAlert.style.background = 'rgba(239,68,68,0.12)';
               msgAlert.style.border = '1px solid rgba(239,68,68,0.3)';
               msgAlert.style.color = '#FCA5A5';
-              msgAlert.textContent = '�O Erro: ' + (err.message || 'Não foi possível enviar a mensagem.');
+              msgAlert.textContent = '❌ Erro: ' + (err.message || 'Não foi possível enviar a mensagem.');
               sendBtn.disabled = false;
               sendBtn.textContent = 'Tentar novamente';
             }
@@ -311,6 +569,22 @@
       }
     });
   </script>
+
+  <!-- Report Modal -->
+  <div id="report-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center; backdrop-filter:blur(4px);">
+    <div style="background:var(--clr-surface); width:90%; max-width:400px; border-radius:1rem; padding:1.5rem; box-shadow:0 10px 25px rgba(0,0,0,0.2);">
+      <h3 style="margin-top:0; color:var(--clr-text); font-size:1.25rem;">Denunciar Anúncio</h3>
+      <p style="color:var(--clr-text-light); font-size:0.95rem; margin-bottom:1rem;">Por favor, informe o motivo da denúncia (ex: Fraude, Conteúdo inadequado, Preço enganoso).</p>
+      
+      <textarea id="report-reason" rows="3" placeholder="Motivo da denúncia..." style="width:100%; box-sizing:border-box; background:white; border:1px solid rgba(0,0,0,0.12); border-radius:0.7rem; color:var(--clr-text); padding:0.75rem; font-size:0.95rem; resize:vertical; outline:none; transition:border-color .2s; margin-bottom:1rem;" onfocus="this.style.borderColor='var(--clr-primary)'" onblur="this.style.borderColor='rgba(0,0,0,0.12)'"></textarea>
+      
+      <div id="report-alert" style="display:none; margin-bottom:1rem; padding:0.75rem; border-radius:0.5rem; font-size:0.85rem;"></div>
+
+      <div style="display:flex; justify-content:flex-end; gap:0.75rem;">
+        <button onclick="document.getElementById('report-modal').style.display='none'" style="background:none; border:none; color:var(--clr-text-light); font-weight:600; cursor:pointer; padding:0.5rem 1rem; border-radius:0.5rem;" onmouseover="this.style.background='rgba(0,0,0,0.05)'" onmouseout="this.style.background='none'">Cancelar</button>
+        <button id="btn-submit-report" style="background:#ef4444; border:none; color:white; font-weight:700; border-radius:0.5rem; padding:0.5rem 1.25rem; cursor:pointer; transition:background .2s;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">Enviar</button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
-

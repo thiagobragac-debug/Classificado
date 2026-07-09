@@ -1,0 +1,168 @@
+const fs = require('fs');
+
+const htmlContent = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Painel Admin - KYC | Tauze Class</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body { font-family: 'Inter', sans-serif; background: #f8fafc; color: #0f172a; margin:0; padding:0; }
+    .header { background: #fff; padding: 1rem 2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
+    .container { max-width: 1000px; margin: 2rem auto; padding: 0 1rem; }
+    .card { background: #fff; border-radius: 1rem; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 1.5rem; }
+    .card-header { font-size: 1.25rem; font-weight: 700; margin-bottom: 1rem; color: #1e293b; }
+    .table { width: 100%; border-collapse: collapse; }
+    .table th, .table td { padding: 1rem; text-align: left; border-bottom: 1px solid #e2e8f0; }
+    .table th { background: #f1f5f9; font-weight: 600; color: #475569; }
+    .btn { padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 600; cursor: pointer; border: none; font-size: 0.875rem; }
+    .btn-approve { background: #16a34a; color: #fff; }
+    .btn-reject { background: #dc2626; color: #fff; }
+    .badge { padding: 0.25rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+    .badge-pending { background: #fef08a; color: #854d0e; }
+    .link { color: #2563eb; text-decoration: none; font-weight: 500; }
+    .link:hover { text-decoration: underline; }
+    
+    /* Toast */
+    #toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%) translateY(120%); background: #1e293b; color: #fff; padding: 0.75rem 1.5rem; border-radius: 2rem; font-size: 0.9rem; font-weight: 600; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.2); transition: all 0.3s cubic-bezier(0.68,-0.55,0.265,1.55); z-index: 9999; opacity: 0; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div style="font-weight: 800; font-size: 1.25rem; color: #16a34a;">Tauze Admin</div>
+    <div>
+      <a href="painel.html" class="link" style="margin-right: 1rem;">Voltar ao Painel</a>
+    </div>
+  </div>
+
+  <div class="container" id="main-content" style="display:none;">
+    <div class="card">
+      <div class="card-header">Solicitações de Verificação Pendentes (KYC)</div>
+      <div style="overflow-x: auto;">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Usuário</th>
+              <th>Data</th>
+              <th>Tipo</th>
+              <th>Documentos</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody id="kyc-table-body">
+            <tr><td colspan="5" style="text-align:center;">Carregando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  
+  <div class="container" id="loading-content" style="text-align:center; padding: 4rem;">
+    <h2 style="color: #64748b;">Verificando permissões...</h2>
+  </div>
+
+  <div id="toast"></div>
+
+  <script src="js/supabase.js"></script>
+  <script>
+    let _toastTimer;
+    function showToast(msg,type=''){
+      const t=document.getElementById('toast');
+      t.textContent=msg;
+      t.style.background=type==='success'?'#166534':type==='error'?'#991b1b':'#1e293b';
+      t.style.transform='translateX(-50%) translateY(0)';
+      t.style.opacity='1';
+      t.style.pointerEvents='auto';
+      clearTimeout(_toastTimer);
+      _toastTimer=setTimeout(()=>{t.style.transform='translateX(-50%) translateY(120%)';t.style.opacity='0';t.style.pointerEvents='none';},3500);
+    }
+
+    async function loadKYC() {
+      try {
+        const data = await getPendingVerifications();
+        const tbody = document.getElementById('kyc-table-body');
+        
+        if (!data || data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#64748b;">Nenhuma solicitação pendente.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = data.map(req => {
+          const name = req.profiles?.full_name || 'Usuário Sem Nome';
+          const email = req.profiles?.email || 'Sem E-mail';
+          const date = new Date(req.submitted_at).toLocaleDateString('pt-BR');
+          
+          return \`
+            <tr>
+              <td>
+                <div style="font-weight:600;">\${name}</div>
+                <div style="font-size:0.8rem; color:#64748b;">\${email}</div>
+              </td>
+              <td>\${date}</td>
+              <td>\${req.doc_type === 'pessoa_fisica' ? 'Pessoa Física' : 'Pessoa Jurídica'}</td>
+              <td>
+                <a href="\${req.doc_front_url}" target="_blank" class="link" style="display:block;">Frente Doc</a>
+                \${req.doc_back_url ? \`<a href="\${req.doc_back_url}" target="_blank" class="link" style="display:block;">Verso Doc</a>\` : ''}
+                <a href="\${req.selfie_url}" target="_blank" class="link" style="display:block;">Selfie</a>
+              </td>
+              <td>
+                <button class="btn btn-approve" onclick="handleApprove('\${req.id}')" style="margin-right:0.5rem; margin-bottom:0.5rem;">Aprovar</button>
+                <button class="btn btn-reject" onclick="handleReject('\${req.id}')">Rejeitar</button>
+              </td>
+            </tr>
+          \`;
+        }).join('');
+
+      } catch (err) {
+        showToast('Erro ao carregar KYC: ' + err.message, 'error');
+      }
+    }
+
+    window.handleApprove = async (id) => {
+      if(!confirm('Tem certeza que deseja aprovar este vendedor?')) return;
+      try {
+        await updateVerificationStatus(id, 'approved', 'Documentação verificada.');
+        showToast('Vendedor aprovado!', 'success');
+        loadKYC();
+      } catch(e) {
+        showToast('Erro: ' + e.message, 'error');
+      }
+    };
+
+    window.handleReject = async (id) => {
+      const notes = prompt('Motivo da rejeição (será exibido ao usuário):', 'Documentação inválida ou ilegível.');
+      if(notes === null) return;
+      try {
+        await updateVerificationStatus(id, 'rejected', notes);
+        showToast('Solicitação rejeitada.', 'success');
+        loadKYC();
+      } catch(e) {
+        showToast('Erro: ' + e.message, 'error');
+      }
+    };
+
+    (async function init() {
+      try {
+        const isAdmin = await checkIsAdmin();
+        if (!isAdmin) {
+          document.getElementById('loading-content').innerHTML = '<h2 style="color: #dc2626;">Acesso Negado</h2><p>Você não tem permissão para acessar esta página.</p><a href="index.html" class="link">Ir para o Início</a>';
+          return;
+        }
+        
+        document.getElementById('loading-content').style.display = 'none';
+        document.getElementById('main-content').style.display = 'block';
+        loadKYC();
+
+      } catch (err) {
+        document.getElementById('loading-content').innerHTML = '<h2 style="color: #dc2626;">Erro</h2><p>' + err.message + '</p>';
+      }
+    })();
+  </script>
+</body>
+</html>
+`;
+
+fs.writeFileSync('c:/classificado/admin.html', htmlContent);

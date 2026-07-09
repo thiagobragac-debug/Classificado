@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Limpando cache...</title>
+  <meta name="robots" content="noindex, nofollow">
+  <style>
+    body { font-family: sans-serif; background: #0f172a; color: #e2e8f0; display:flex; align-items:center; justify-content:center; height:100vh; margin:0; flex-direction:column; gap:16px; }
+    .ok { color: #22c55e; font-size: 1.2rem; }
+    .spin { width:40px; height:40px; border:3px solid #334155; border-top-color:#22c55e; border-radius:50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+  <script>
+    let hasToken = false;
+    for(let i=0; i<localStorage.length; i++){
+      if(localStorage.key(i).includes('auth-token')){ hasToken=true; break; }
+    }
+    if (hasToken) {
+      document.documentElement.classList.add('is-logged-in');
+      let ini = localStorage.getItem('tc_user_initials');
+      if (ini) document.documentElement.style.setProperty('--tc-user-ini', '"' + ini + '"');
+    }
+  </script>
+</head>
+<body>
+  <div class="spin"></div>
+  <div class="ok">Limpando cache e redirecionando...</div>
+  <script>
+    // Limpa cache de geo (localStorage, TTL 24h)
+    try { localStorage.removeItem('user_loc_v3'); } catch(_) {}
+    // Limpa cache de stats (sessionStorage, TTL 2min)
+    const statsKeys = ['tc_platform_stats_v4','tc_platform_stats_v3','tc_platform_stats_v2','tc_platform_stats'];
+    statsKeys.forEach(k => { try { sessionStorage.removeItem(k); } catch(_) {} });
+    console.log('[cache-reset] cache limpo');
+    // Redireciona para home com cache-bust
+    setTimeout(() => {
+      window.location.href = '/?v=' + Date.now();
+    }, 800);
+  </script>
+</body>
+</html>

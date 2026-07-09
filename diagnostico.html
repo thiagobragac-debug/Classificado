@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TC — Diagnóstico</title>
+  <meta name="robots" content="noindex, nofollow">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body { font-family: monospace; background: #0f172a; color: #e2e8f0; padding: 20px; }
+    h1 { color: #22c55e; }
+    .ok   { color: #22c55e; }
+    .err  { color: #ef4444; }
+    .warn { color: #f59e0b; }
+    .info { color: #60a5fa; }
+    pre   { background: #1e293b; padding: 12px; border-radius: 8px; overflow-x: auto; font-size: 12px; }
+    .section { margin: 20px 0; border: 1px solid #334155; border-radius: 8px; padding: 16px; }
+    h2 { margin: 0 0 12px; color: #94a3b8; font-size: 14px; text-transform: uppercase; }
+    .row { display: flex; gap: 12px; align-items: baseline; margin: 4px 0; }
+    .label { color: #94a3b8; min-width: 220px; }
+    button { background: #22c55e; color: #fff; border: none; padding: 8px 20px; border-radius: 6px; cursor: pointer; font-size: 14px; margin: 4px; }
+  </style>
+  <script>
+    let hasToken = false;
+    for(let i=0; i<localStorage.length; i++){
+      if(localStorage.key(i).includes('auth-token')){ hasToken=true; break; }
+    }
+    if (hasToken) {
+      document.documentElement.classList.add('is-logged-in');
+      let ini = localStorage.getItem('tc_user_initials');
+      if (ini) document.documentElement.style.setProperty('--tc-user-ini', '"' + ini + '"');
+    }
+  </script>
+</head>
+<body>
+<h1>🔍 Tauze Class — Diagnóstico</h1>
+<div id="output"></div>
+<button onclick="runAll()">▶ Rodar Todos os Testes</button>
+<button onclick="clearCache()">🗑 Limpar Cache (sessionStorage)</button>
+
+<script>
+const SUPABASE_URL  = 'https://rfzuzuobwuanmbrcthqe.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmenV6dW9id3Vhbm1icmN0aHFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwNzg1OTMsImV4cCI6MjA5ODY1NDU5M30.m-Mop7RgpVo730lwjcra1egF8p9APv6AGnW1YnFvOgY';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+const out = document.getElementById('output');
+
+function log(html) {
+  out.innerHTML += html + '\n';
+}
+
+function section(title) {
+  log(`<div class="section"><h2>${title}</h2><div id="s_${title.replace(/\W/g,'_')}">`);
+}
+
+function row(label, ok, val) {
+  log(`<div class="row"><span class="label">${label}</span><span class="${ok ? 'ok' : 'err'}">${ok ? '✅' : '❌'} ${val}</span></div>`);
+}
+
+function endSection() {
+  log('</div></div>');
+}
+
+function clearCache() {
+  // Limpa cache de geo (localStorage, TTL 24h) e stats (sessionStorage, TTL 2min)
+  ['user_loc_v3'].forEach(k => { try { localStorage.removeItem(k); } catch(e) {} });
+  ['tc_platform_stats_v4','tc_platform_stats_v3','tc_platform_stats_v2','tc_platform_stats'].forEach(k => {
+    try { sessionStorage.removeItem(k); } catch(e) {}
+  });
+  alert('Cache limpo! Rode os testes novamente.');
+}
+
+async function runAll() {
+  out.innerHTML = '';
+
+  // ── 1. Supabase conectado ────────────────────
+  section('1. Conexão Supabase');
+  try {
+    const { data, error } = await sb.from('ads').select('id').limit(1);
+    row('Supabase Client', !error, error ? error.message : 'OK');
+    row('Ads table acessível', !error && data, `${(data||[]).length} row(s)`);
+  } catch(e) {
+    row('Supabase Client', false, e.message);
+  }
+  endSection();
+
+  // ── 2. RPCs ────────────────────────────────
+  section('2. RPCs no Banco');
+
+  try {
+    const { data, error } = await sb.rpc('get_platform_stats');
+    const ok = !error && data;
+    row('get_platform_stats()', ok, ok ? JSON.stringify(data) : (error?.message || 'null'));
+  } catch(e) { row('get_platform_stats()', false, e.message); }
+
+  try {
+    const { data, error } = await sb.rpc('get_category_counts');
+    const ok = !error && data && data.length > 0;
+    row('get_category_counts()', ok, ok ? `${data.length} categorias` : (error?.message || 'vazio'));
+    if (ok) {
+      log(`<pre>${JSON.stringify(data, null, 2)}</pre>`);
+    }
+  } catch(e) { row('get_category_counts()', false, e.message); }
+
+  try {
+    const { data, error } = await sb.rpc('get_localized_featured_ads', {
+      p_city: null, p_state: null, p_country: 'Brasil', p_limit: 4
+    });
+    const ok = !error && data;
+    row('get_localized_featured_ads()', ok, ok ? `${data.length} anúncios` : (error?.message || 'erro'));
+    if (ok && data.length > 0) {
+      log(`<pre>${JSON.stringify(data[0], null, 2)}</pre>`);
+    }
+  } catch(e) { row('get_localized_featured_ads()', false, e.message); }
+
+  try {
+    const { data, error } = await sb.rpc('get_localized_recent_ads', {
+      p_city: null, p_state: null, p_country: 'Brasil', p_limit: 8
+    });
+    const ok = !error && data;
+    row('get_localized_recent_ads()', ok, ok ? `${data.length} anúncios` : (error?.message || 'erro'));
+  } catch(e) { row('get_localized_recent_ads()', false, e.message); }
+
+  endSection();
+
+  // ── 3. Geolocalização ─────────────────────
+  section('3. Geolocalização do Usuário');
+  try {
+    // Chave correta: user_loc_v3 em localStorage (TTL 24h)
+    const cached = localStorage.getItem('user_loc_v3');
+    if (cached) {
+      const { ts, loc } = JSON.parse(cached);
+      const ageMin = Math.round((Date.now() - ts) / 60000);
+      row('Cache localStorage (user_loc_v3)', true, `${JSON.stringify(loc)} — ${ageMin}min atrás`);
+    } else {
+      row('Cache localStorage', false, 'não encontrado — testando ip-api.com...');
+      const r = await fetch('https://ip-api.com/json/?fields=city,regionName,country,countryCode,status');
+      const d = await r.json();
+      const ok = d.status === 'success';
+      row('ip-api.com (fallback de geo)', ok, ok ? `${d.city}, ${d.regionName}, ${d.country}` : 'falhou');
+    }
+  } catch(e) { row('Geolocalização', false, e.message); }
+  endSection();
+
+  // ── 4. Dados Reais ─────────────────────────
+  section('4. Anúncios no Banco');
+  try {
+    const { count } = await sb.from('ads').select('*', { count: 'exact', head: true }).eq('status', 'active');
+    row('Total anúncios ativos', count > 0, count);
+
+    const { count: featured } = await sb.from('ads').select('*', { count: 'exact', head: true }).eq('status', 'active').eq('featured', true);
+    row('Anúncios em destaque', featured >= 0, featured);
+
+    // Usa RPC get_category_counts em vez de buscar todas as linhas sem LIMIT
+    const { data: catCounts, error: catErr } = await sb.rpc('get_category_counts');
+    if (catErr) throw catErr;
+    const catMap = {};
+    (catCounts || []).forEach(r => { catMap[r.category_id] = r.total; });
+    log(`<pre>Por categoria: ${JSON.stringify(catMap, null, 2)}</pre>`);
+  } catch(e) { row('Contagem', false, e.message); }
+  endSection();
+
+  // ── 5. JS Files carregados ────────────────
+  section('5. Verificações JS (abrir em index.html para resultado completo)');
+  row('Este é o diagnóstico standalone', true, 'As funções abaixo só existem na index.html');
+  endSection();
+
+  log('<span class="ok" style="font-size:18px">✅ Diagnóstico concluído! Veja os resultados acima.</span>');
+}
+
+// Roda automático
+runAll();
+</script>
+</body>
+</html>

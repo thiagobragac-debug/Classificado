@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "puppeteer": "^25.3.0"
   }
 }

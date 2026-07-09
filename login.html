@@ -4,441 +4,272 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Entrar — Tauze Class</title>
-  <link rel="stylesheet" href="css/style.css">
+  <meta name="description" content="Acesse sua conta no Tauze Class para gerenciar seus anúncios e mensagens.">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="stylesheet" href="css/style.css?v=1783509347880">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2316A34A'/%3E%3Ctext y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'%3ET%3C/text%3E%3C/svg%3E">
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#16A34A">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Tauze Class">
+  <!-- Supabase SDK -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      min-height: 100vh;
-      background: #0A0F0D;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: 'Inter', system-ui, sans-serif;
-      padding: 1rem;
-      position: relative;
-      overflow: hidden;
-    }
-
-    /* Animated background */
-    body::before {
-      content: '';
-      position: fixed; inset: 0;
-      background: radial-gradient(ellipse 80% 60% at 20% 20%, rgba(22,163,74,.12) 0%, transparent 60%),
-                  radial-gradient(ellipse 60% 50% at 80% 80%, rgba(21,128,61,.08) 0%, transparent 60%);
-      pointer-events: none;
-    }
-
-    .auth-card {
-      width: 100%;
-      max-width: 460px;
-      background: rgba(15, 23, 18, 0.85);
-      backdrop-filter: blur(24px);
-      border: 1px solid rgba(255,255,255,.07);
-      border-radius: 20px;
-      padding: 2.5rem 2rem;
-      box-shadow: 0 40px 80px rgba(0,0,0,.6);
-      position: relative;
-      z-index: 1;
-    }
-
-    /* Logo */
-    .auth-logo {
-      display: flex; align-items: center; gap: .75rem;
-      margin-bottom: 2rem; justify-content: center;
-    }
-    .auth-logo-mark {
-      width: 44px; height: 44px; border-radius: 10px;
-      background: linear-gradient(135deg, #16A34A, #15803D);
-      display: flex; align-items: center; justify-content: center;
-      font-weight: 900; font-size: 1.1rem; color: #fff;
-      box-shadow: 0 4px 16px rgba(22,163,74,.4);
-    }
-    .auth-logo-text .name { font-size: 1.3rem; font-weight: 800; color: #fff; display: block; }
-    .auth-logo-text .tagline { font-size: .75rem; color: rgba(255,255,255,.4); }
-
-    /* Tabs */
-    .auth-tabs {
-      display: flex; gap: 0;
-      background: rgba(255,255,255,.04);
-      border-radius: 10px; padding: 4px;
-      margin-bottom: 2rem;
-    }
-    .auth-tab {
-      flex: 1; padding: .6rem 1rem; border-radius: 7px;
-      font-size: .9rem; font-weight: 600; cursor: pointer;
-      border: none; background: transparent;
-      color: rgba(255,255,255,.4); transition: all .2s;
-    }
-    .auth-tab.active {
-      background: rgba(22,163,74,.2);
-      color: #4ADE80;
-      box-shadow: 0 2px 8px rgba(22,163,74,.2);
-    }
-
-    /* Panels */
-    .auth-panel { display: none; }
-    .auth-panel.active { display: block; animation: fadeUp .3s ease; }
-    @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
-
-    /* Fields */
-    .field { margin-bottom: 1.1rem; }
-    .field label {
-      display: block; font-size: .82rem; font-weight: 600;
-      color: rgba(255,255,255,.6); margin-bottom: .4rem;
-    }
-    .field input {
-      width: 100%; padding: .75rem 1rem;
-      background: rgba(255,255,255,.05);
-      border: 1px solid rgba(255,255,255,.1);
-      border-radius: 10px; color: #fff;
-      font-size: .95rem; font-family: inherit;
-      transition: border .2s, box-shadow .2s;
-    }
-    .field input:focus {
-      outline: none;
-      border-color: rgba(22,163,74,.6);
-      box-shadow: 0 0 0 3px rgba(22,163,74,.15);
-    }
-    .field input::placeholder { color: rgba(255,255,255,.2); }
-
-    /* Btn */
-    .btn-auth {
-      width: 100%; padding: .85rem;
-      background: linear-gradient(135deg, #16A34A, #15803D);
-      border: none; border-radius: 10px;
-      color: #fff; font-size: 1rem; font-weight: 700;
-      cursor: pointer; transition: all .2s;
-      display: flex; align-items: center; justify-content: center; gap: .5rem;
-      box-shadow: 0 4px 20px rgba(22,163,74,.35);
-      margin-top: 1.5rem;
-    }
-    .btn-auth:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 8px 28px rgba(22,163,74,.4); }
-    .btn-auth:disabled { opacity: .6; cursor: not-allowed; transform: none; }
-
-    /* Google button */
-    .btn-google {
-      width: 100%; padding: .75rem;
-      background: rgba(255,255,255,.05);
-      border: 1px solid rgba(255,255,255,.1);
-      border-radius: 10px; color: #fff;
-      font-size: .9rem; font-weight: 600;
-      cursor: pointer; transition: all .2s;
-      display: flex; align-items: center; justify-content: center; gap: .75rem;
-      margin-bottom: 1.25rem;
-    }
-    .btn-google:hover { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.2); }
-    .btn-google svg { width: 18px; height: 18px; flex-shrink: 0; }
-
-    /* Divider */
-    .divider {
-      display: flex; align-items: center; gap: .75rem;
-      margin-bottom: 1.25rem;
-    }
-    .divider::before, .divider::after {
-      content: ''; flex: 1; height: 1px;
-      background: rgba(255,255,255,.08);
-    }
-    .divider span { font-size: .78rem; color: rgba(255,255,255,.3); white-space: nowrap; }
-
-    /* Alert */
-    .alert {
-      padding: .75rem 1rem; border-radius: 8px;
-      font-size: .85rem; font-weight: 500;
-      margin-bottom: 1rem; display: none;
-      animation: fadeUp .2s ease;
-    }
-    .alert.error   { background: rgba(239,68,68,.12); color: #FCA5A5; border: 1px solid rgba(239,68,68,.25); display: flex; gap: .5rem; align-items: flex-start; }
-    .alert.success { background: rgba(16,185,129,.12); color: #6EE7B7; border: 1px solid rgba(16,185,129,.25); display: flex; gap: .5rem; align-items: flex-start; }
-
-    /* Forgot link */
-    .forgot-link {
-      font-size: .8rem; color: rgba(22,163,74,.8);
-      text-decoration: none; float: right; margin-top: .3rem;
-      cursor: pointer; background: none; border: none; padding: 0;
-      font-family: inherit;
-    }
-    .forgot-link:hover { color: #4ADE80; }
-
-    /* Spinner */
-    .spinner {
-      width: 18px; height: 18px;
-      border: 2px solid rgba(255,255,255,.3);
-      border-top-color: #fff;
-      border-radius: 50%;
-      animation: spin .7s linear infinite;
-      display: none;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* Verify box */
-    .verify-box {
-      text-align: center; padding: 2rem 1rem; display: none;
-    }
-    .verify-box .icon { font-size: 3rem; margin-bottom: 1rem; }
-    .verify-box h3 { color: #fff; font-size: 1.2rem; margin-bottom: .5rem; }
-    .verify-box p { color: rgba(255,255,255,.5); font-size: .9rem; line-height: 1.5; }
-
-    /* Password strength */
-    .pwd-strength { margin-top: .4rem; display: flex; gap: 4px; height: 3px; }
-    .pwd-bar { flex: 1; border-radius: 2px; background: rgba(255,255,255,.08); transition: background .3s; }
-
-    /* Back link */
-    .back-link {
-      display: block; text-align: center; margin-top: 1.5rem;
-      font-size: .82rem; color: rgba(255,255,255,.3);
-    }
-    .back-link a { color: rgba(22,163,74,.8); text-decoration: none; }
-    .back-link a:hover { color: #4ADE80; }
-  </style>
-</head>
-<body>
-
-  <div class="auth-card">
-
-    <!-- Logo -->
-    <div class="auth-logo">
-      <div class="auth-logo-mark">TC</div>
-      <div class="auth-logo-text">
-        <span class="name">Tauze Class</span>
-        <span class="tagline">Classificados do Agronegócio</span>
-      </div>
-    </div>
-
-    <!-- Tabs -->
-    <div class="auth-tabs">
-      <button class="auth-tab active" onclick="switchTab('login')">Entrar</button>
-      <button class="auth-tab" onclick="switchTab('cadastro')">Criar Conta</button>
-    </div>
-
-    <!-- ── LOGIN PANEL ── -->
-    <div class="auth-panel active" id="panel-login">
-
-      <!-- Google -->
-      <button class="btn-google" onclick="handleGoogle()">
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
-          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-        </svg>
-        Continuar com Google
-      </button>
-
-      <div class="divider"><span>ou continue com e-mail</span></div>
-
-      <div id="alert-login" class="alert error"></div>
-
-      <form id="form-login" onsubmit="handleLogin(event)">
-        <div class="field">
-          <label>E-mail</label>
-          <input type="email" id="login-email" placeholder="seu@email.com" required autocomplete="email">
-        </div>
-        <div class="field">
-          <label>
-            Senha
-            <button type="button" class="forgot-link" onclick="handleForgot()">Esqueceu a senha?</button>
-          </label>
-          <input type="password" id="login-password" placeholder="••••••••" required autocomplete="current-password">
-        </div>
-        <button type="submit" class="btn-auth" id="btn-login">
-          <div class="spinner" id="spin-login"></div>
-          <span id="btn-login-txt">Entrar na conta</span>
-        </button>
-      </form>
-
-    </div>
-
-    <!-- ── CADASTRO PANEL ── -->
-    <div class="auth-panel" id="panel-cadastro">
-
-      <div id="verify-box" class="verify-box">
-        <div class="icon">📬</div>
-        <h3>Verifique seu e-mail!</h3>
-        <p>Enviamos um link de confirmação. Clique nele para ativar sua conta e começar a anunciar.</p>
-        <button class="btn-auth" style="max-width:220px;margin:1.5rem auto 0" onclick="switchTab('login')">Ir para o Login</button>
-      </div>
-
-      <div id="form-cadastro-wrap">
-        <button class="btn-google" onclick="handleGoogle()">
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
-            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-          </svg>
-          Cadastrar com Google
-        </button>
-
-        <div class="divider"><span>ou crie com e-mail</span></div>
-
-        <div id="alert-cadastro" class="alert error"></div>
-
-        <form id="form-cadastro" onsubmit="handleSignup(event)">
-          <div class="field">
-            <label>Nome completo</label>
-            <input type="text" id="cad-name" placeholder="João da Silva" required autocomplete="name">
-          </div>
-          <div class="field">
-            <label>E-mail</label>
-            <input type="email" id="cad-email" placeholder="seu@email.com" required autocomplete="email">
-          </div>
-          <div class="field">
-            <label>Senha</label>
-            <input type="password" id="cad-password" placeholder="Mínimo 8 caracteres" required minlength="8" oninput="checkStrength(this.value)">
-            <div class="pwd-strength">
-              <div class="pwd-bar" id="s1"></div>
-              <div class="pwd-bar" id="s2"></div>
-              <div class="pwd-bar" id="s3"></div>
-              <div class="pwd-bar" id="s4"></div>
-            </div>
-          </div>
-          <div class="field">
-            <label>Confirmar senha</label>
-            <input type="password" id="cad-confirm" placeholder="Repita a senha" required>
-          </div>
-          <button type="submit" class="btn-auth" id="btn-cadastro">
-            <div class="spinner" id="spin-cadastro"></div>
-            <span id="btn-cadastro-txt">Criar conta grátis</span>
-          </button>
-        </form>
-      </div>
-
-    </div>
-
-    <!-- Back link -->
-    <p class="back-link"><a href="index.html">← Voltar para o portal</a></p>
-
-  </div>
-
-  <script src="/js/supabase.js"></script>
-  <script src="/js/main.js"></script>
+  <!-- Error Monitor (deve ser o primeiro script carregado) -->
+  <script src="/js/error-monitor.js"></script>
+  <!-- Service Worker Registration -->
   <script>
-    // ─── REDIRECT IF ALREADY LOGGED IN ────────────────────────
-    (async function checkExistingSession() {
-      try {
-        const session = await getSession();
-        if (session) window.location.replace('/painel.html');
-      } catch(e) { /* ignore */ }
-    })();
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then(r => console.log('[SW] Registrado:', r.scope))
+          .catch(e => console.warn('[SW] Falha ao registrar:', e));
+      });
+    }
+  </script>
+  <script>
+    let hasToken = false;
+    for(let i=0; i<localStorage.length; i++){
+      if(localStorage.key(i).includes('auth-token')){ hasToken=true; break; }
+    }
+    if (hasToken) {
+      document.documentElement.classList.add('is-logged-in');
+      let ini = localStorage.getItem('tc_user_initials');
+      if (ini) document.documentElement.style.setProperty('--tc-user-ini', '"' + ini + '"');
+    }
+  </script>
+</head>
+<body style="background: white">
+  
+  <main class="login-split v2">
+    <!-- Left Banner -->
+    <div class="login-banner">
+      <a href="index.html" class="logo" style="margin-bottom: 3rem; filter: brightness(0) invert(1);">
+        <div class="logo-mark" style="background: var(--clr-primary); color: white; border-color: white;">TC</div>
+        <div class="logo-text">
+          <span class="logo-name" style="font-size: 1.4rem;">Tauze Class</span>
+          <span class="logo-tagline" style="color: rgba(255,255,255,0.7);">CLASSIFICADOS AGRO</span>
+        </div>
+      </a>
 
-    // ─── TAB SWITCHER ──────────────────────────────────────────
-    function switchTab(tab) {
-      document.querySelectorAll('.auth-tab').forEach((t, i) =>
-        t.classList.toggle('active', (i === 0) === (tab === 'login'))
-      );
-      document.getElementById('panel-login').classList.toggle('active', tab === 'login');
-      document.getElementById('panel-cadastro').classList.toggle('active', tab === 'cadastro');
-      clearAlerts();
+      <h2>O agronegócio do <br><span data-i18n="login_mercosul" style="color: #F59E0B;">Mercosul</span><br> em um só lugar.</h2>
+      <p>Anuncie gratuitamente para milhares de compradores no Brasil, Argentina, Paraguai e Uruguai.</p>
+
+      <div class="login-badges">
+        <span class="badge"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> Gratuito para anunciar</span>
+        <span class="badge"><span style="font-size:14px">🌎</span> Mercosul completo</span>
+        <span class="badge"><span style="font-size:14px">🐄</span> 62.000+ anúncios</span>
+      </div>
+    </div>
+
+    <!-- Right Form -->
+    <div class="login-form-area">
+      <div style="max-width: 400px; width: 100%; margin: 0 auto;">
+
+        <div class="auth-toggle">
+          <button class="toggle-btn active" onclick="toggleSection('login', event)" id="btn-toggle-login">Entrar</button>
+          <button class="toggle-btn" onclick="toggleSection('register', event)" id="btn-toggle-register">Criar Conta</button>
+        </div>
+
+        <div class="social-login">
+          <button class="btn-social" onclick="handleGoogle()">
+            <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+            Continuar com Google
+          </button>
+        </div>
+
+        <div class="divider">
+          <span>ou continue com e-mail</span>
+        </div>
+
+        <!-- LOGIN FORM -->
+        <div id="login-section">
+            <div id="login-alert" style="display: none; padding: 1rem; margin-bottom: 1rem; border-radius: 8px; font-size: 0.9rem;"></div>
+
+            <form id="form-login">
+            <div class="form-group" style="margin-bottom: 1rem">
+                <label class="form-label">E-mail</label>
+                <div class="input-with-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                  <input type="email" id="login-email" class="form-input" placeholder="seu@email.com" required oninput="validateInput(this)">
+                </div>
+            </div>
+            <div class="form-group" style="margin-bottom: 0.5rem">
+                <label class="form-label">Senha</label>
+                <div class="input-with-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                  <input type="password" id="login-password" class="form-input" placeholder="••••••••" required oninput="validateInput(this)">
+                  <svg class="toggle-password" onclick="togglePassword(this)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                </div>
+            </div>
+            <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 2rem; font-size: 0.9rem">
+                <a href="#" onclick="handleForgot(event)" style="color: var(--clr-accent); font-weight: 600; text-decoration: none">Esqueceu a senha?</a>
+            </div>
+
+            <button type="submit" id="btn-login" class="btn btn--accent btn--lg" style="width: 100%; justify-content: center; margin-bottom: 1.5rem">Entrar na Conta</button>
+            </form>
+        </div>
+
+        <!-- REGISTER FORM -->
+        <div id="register-section" style="display: none;">
+            <div id="register-alert" style="display: none; padding: 1rem; margin-bottom: 1rem; border-radius: 8px; font-size: 0.9rem;"></div>
+
+            <form id="form-register">
+            <div class="form-group" style="margin-bottom: 1rem">
+                <label class="form-label">Nome Completo</label>
+                <div class="input-with-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                  <input type="text" id="register-name" class="form-input" placeholder="João da Silva" required oninput="validateInput(this)">
+                </div>
+            </div>
+            <div class="form-group" style="margin-bottom: 1rem">
+                <label class="form-label">E-mail</label>
+                <div class="input-with-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                  <input type="email" id="register-email" class="form-input" placeholder="seu@email.com" required oninput="validateInput(this)">
+                </div>
+            </div>
+            <div class="form-group" style="margin-bottom: 2rem">
+                <label class="form-label">Senha</label>
+                <div class="input-with-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                  <input type="password" id="register-password" class="form-input" placeholder="••••••••" required minlength="8" oninput="validateInput(this)">
+                  <svg class="toggle-password" onclick="togglePassword(this)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                </div>
+            </div>
+
+            <button type="submit" id="btn-register" class="btn btn--primary btn--lg" style="width: 100%; justify-content: center; margin-bottom: 1.5rem">Criar Conta</button>
+            </form>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/supabase.js?v=1783509347784"></script>
+  <script src="js/data.js?v=1783509347784"></script>
+  <script>
+    function toggleSection(section, e) {
+      if (e) e.preventDefault();
+      document.getElementById('login-section').style.display = section === 'login' ? 'block' : 'none';
+      document.getElementById('register-section').style.display = section === 'register' ? 'block' : 'none';
+      
+      const btnLogin = document.getElementById('btn-toggle-login');
+      const btnRegister = document.getElementById('btn-toggle-register');
+      
+      if (section === 'login') {
+        btnLogin.classList.add('active');
+        btnRegister.classList.remove('active');
+      } else {
+        btnRegister.classList.add('active');
+        btnLogin.classList.remove('active');
+      }
+      document.title = section === 'login' ? 'Entrar — Tauze Class' : 'Criar Conta — Tauze Class';
     }
 
-    function clearAlerts() {
-      document.getElementById('alert-login').style.display = 'none';
-      document.getElementById('alert-cadastro').style.display = 'none';
-    }
-
-    function showAlert(id, msg, type = 'error') {
-      const el = document.getElementById(id);
-      el.textContent = (type === 'error' ? '⚠ ' : '✓ ') + msg;
-      el.className = 'alert ' + type;
-      el.style.display = 'flex';
-    }
-
-    function setLoading(btnId, spinId, txtId, loading) {
-      document.getElementById(btnId).disabled = loading;
-      document.getElementById(spinId).style.display = loading ? 'block' : 'none';
-      document.getElementById(txtId).style.display = loading ? 'none' : 'inline';
-    }
-
-    // ─── LOGIN ────────────────────────────────────────────────
-    async function handleLogin(e) {
-      e.preventDefault();
-      const email = document.getElementById('login-email').value.trim();
-      const pass  = document.getElementById('login-password').value;
-      clearAlerts();
-      setLoading('btn-login', 'spin-login', 'btn-login-txt', true);
-      try {
-        await loginWithEmail(email, pass);
-        window.location.href = '/painel.html';
-      } catch(err) {
-        const msg = err.message?.includes('Invalid login') ? 'E-mail ou senha incorretos.' :
-                    err.message?.includes('Email not confirmed') ? 'Confirme seu e-mail antes de entrar.' :
-                    err.message || 'Erro ao entrar. Tente novamente.';
-        showAlert('alert-login', msg, 'error');
-        setLoading('btn-login', 'spin-login', 'btn-login-txt', false);
+    function validateInput(input) {
+      if (input.validity.valid && input.value.trim() !== '') {
+        input.classList.add('valid');
+      } else {
+        input.classList.remove('valid');
       }
     }
 
-    // ─── SIGNUP ───────────────────────────────────────────────
-    async function handleSignup(e) {
-      e.preventDefault();
-      const name    = document.getElementById('cad-name').value.trim();
-      const email   = document.getElementById('cad-email').value.trim();
-      const pass    = document.getElementById('cad-password').value;
-      const confirm = document.getElementById('cad-confirm').value;
-      clearAlerts();
-
-      if (pass !== confirm) {
-        showAlert('alert-cadastro', 'As senhas não coincidem.', 'error');
-        return;
-      }
-      if (pass.length < 8) {
-        showAlert('alert-cadastro', 'A senha deve ter pelo menos 8 caracteres.', 'error');
-        return;
-      }
-
-      setLoading('btn-cadastro', 'spin-cadastro', 'btn-cadastro-txt', true);
-      try {
-        await signupWithEmail(email, pass, name);
-        document.getElementById('form-cadastro-wrap').style.display = 'none';
-        document.getElementById('verify-box').style.display = 'block';
-      } catch(err) {
-        const msg = err.message?.includes('already registered') ? 'Este e-mail já está cadastrado. Tente entrar.' :
-                    err.message || 'Erro ao criar conta. Tente novamente.';
-        showAlert('alert-cadastro', msg, 'error');
-        setLoading('btn-cadastro', 'spin-cadastro', 'btn-cadastro-txt', false);
+    function togglePassword(btn) {
+      const input = btn.previousElementSibling;
+      if (input.type === 'password') {
+        input.type = 'text';
+        btn.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>';
+      } else {
+        input.type = 'password';
+        btn.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
       }
     }
 
-    // ─── GOOGLE ───────────────────────────────────────────────
     async function handleGoogle() {
       try {
         await loginWithGoogle();
       } catch(err) {
-        showAlert('alert-login', err.message || 'Erro ao conectar com Google.', 'error');
+        showAlert('login-alert', err.message || 'Erro ao conectar com Google.', 'error');
       }
     }
 
-    // ─── FORGOT PASSWORD ──────────────────────────────────────
-    async function handleForgot() {
+    function showAlert(id, msg, type) {
+      const alert = document.getElementById(id);
+      alert.textContent = msg;
+      alert.style.display = 'block';
+      alert.style.background = type === 'error' ? '#fef2f2' : '#f0fdf4';
+      alert.style.color = type === 'error' ? '#dc2626' : '#16a34a';
+      alert.style.border = type === 'error' ? '1px solid #fecaca' : '1px solid #bbf7d0';
+    }
+
+    document.getElementById('form-login').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('login-email').value.trim();
+      const pass = document.getElementById('login-password').value;
+      const btn = document.getElementById('btn-login');
+
+      document.getElementById('login-alert').style.display = 'none';
+      btn.disabled = true;
+      btn.textContent = 'Entrando...';
+
+      try {
+        await loginWithEmail(email, pass);
+        const params = new URLSearchParams(window.location.search);
+        window.location.href = params.get('redirect') || 'painel.html';
+      } catch (err) {
+        showAlert('login-alert', err.message || 'Erro ao fazer login.', 'error');
+        btn.disabled = false;
+        btn.textContent = 'Entrar na Conta';
+      }
+    });
+
+    document.getElementById('form-register').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('register-name').value.trim();
+      const email = document.getElementById('register-email').value.trim();
+      const pass = document.getElementById('register-password').value;
+      const btn = document.getElementById('btn-register');
+
+      document.getElementById('register-alert').style.display = 'none';
+      btn.disabled = true;
+      btn.textContent = 'Criando conta...';
+
+      try {
+        await signupWithEmail(email, pass, name);
+        showAlert('register-alert', 'Conta criada! Você já pode fazer login.', 'success');
+        document.getElementById('form-register').reset();
+      } catch (err) {
+        const msg = err.message?.includes('already registered') ? 'Este e-mail já está cadastrado.' : err.message;
+        showAlert('register-alert', msg || 'Erro ao criar conta.', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Criar Conta';
+      }
+    });
+
+    async function handleForgot(e) {
+      e.preventDefault();
       const email = document.getElementById('login-email').value.trim();
       if (!email) {
-        showAlert('alert-login', 'Digite seu e-mail acima antes de solicitar a redefinição.', 'error');
+        showAlert('login-alert', 'Digite seu e-mail primeiro no campo acima.', 'error');
         return;
       }
       try {
         await resetPassword(email);
-        showAlert('alert-login', 'Link de redefinição enviado! Verifique sua caixa de entrada.', 'success');
-      } catch(err) {
-        showAlert('alert-login', err.message || 'Erro ao enviar o e-mail.', 'error');
+        showAlert('login-alert', 'E-mail de redefinição enviado.', 'success');
+      } catch (err) {
+        showAlert('login-alert', err.message || 'Erro ao enviar.', 'error');
       }
     }
 
-    // ─── PASSWORD STRENGTH ────────────────────────────────────
-    function checkStrength(val) {
-      const bars = ['s1','s2','s3','s4'];
-      const colors = ['#EF4444','#F59E0B','#3B82F6','#22C55E'];
-      let score = 0;
-      if (val.length >= 8) score++;
-      if (/[A-Z]/.test(val)) score++;
-      if (/[0-9]/.test(val)) score++;
-      if (/[^A-Za-z0-9]/.test(val)) score++;
-      bars.forEach((id, i) => {
-        document.getElementById(id).style.background = i < score ? colors[score - 1] : 'rgba(255,255,255,.08)';
-      });
+    // Check mode
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('mode') === 'register') {
+      toggleSection('register');
     }
   </script>
+  <script src="js/main.js?v=1783509347784"></script>
 </body>
 </html>

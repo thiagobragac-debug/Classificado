@@ -3,15 +3,75 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Tauze Class — O maior portal de classificados do agronegócio do Mercosul. Compre e venda animais, insumos, máquinas e imóveis rurais.">
-  <meta property="og:title" content="Tauze Class — Classificados do Agronegócio">
   <title>Tauze Class — Classificados do Agronegócio Mercosul</title>
-  <link rel="stylesheet" href="css/style.css">
+  <meta name="description" content="Tauze Class — O maior portal de classificados do agronegocio do Mercosul. Compre e venda animais, insumos, maquinas e imoveis rurais no Brasil, Argentina, Paraguai e Uruguai.">
+  <meta name="keywords" content="classificados agronegocio, venda animais, bovinos, equinos, maquinas agricolas, imoveis rurais, mercosul, brasil, argentina">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://tauzeclass.com.br/index.html">
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Tauze Class — Classificados do Agronegocio Mercosul">
+  <meta property="og:description" content="O maior portal de classificados do agronegocio do Mercosul. Bovinos, equinos, maquinas, insumos e imoveis rurais.">
+  <meta property="og:url" content="https://tauzeclass.com.br">
+  <meta property="og:image" content="https://tauzeclass.com.br/assets/og-home.jpg">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:site_name" content="Tauze Class">
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Tauze Class — Classificados do Agronegocio">
+  <meta name="twitter:description" content="Compre e venda no maior classificado agro do Mercosul.">
+  <meta name="twitter:image" content="https://tauzeclass.com.br/assets/og-home.jpg">
+  <link rel="stylesheet" href="css/style.css?v=1783509347880">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%2316A34A'/><text y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'>T</text></svg>">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#16A34A">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Tauze Class">
+  <!-- Error Monitor (defer) -->
+  <script defer src="/js/error-monitor.js"></script>
+  <!-- Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then(r => console.log('[SW] Registrado:', r.scope))
+          .catch(e => console.warn('[SW] Falha ao registrar:', e));
+      });
+    }
+  </script>
+  <script>
+    let hasToken = false;
+    for(let i=0; i<localStorage.length; i++){
+      if(localStorage.key(i).includes('auth-token')){ hasToken=true; break; }
+    }
+    if (hasToken) {
+      document.documentElement.classList.add('is-logged-in');
+      let ini = localStorage.getItem('tc_user_initials');
+      if (ini) document.documentElement.style.setProperty('--tc-user-ini', '"' + ini + '"');
+    }
+  </script>
 </head>
 <body>
 
+<!-- Anti-FOUC: esconde o body até o idioma correto ser aplicado.
+     Executado imediatamente após <body> para garantir que document.body existe.
+     setLang() em main.js revela a página com fade suave de 150ms. -->
+<script>
+  (function() {
+    var lang = localStorage.getItem('tc_lang') || 'pt';
+    // Só esconde para idioma Espanhol (evita penalizar usuários PT, maioria)
+    if (lang !== 'pt') {
+      document.body.style.visibility = 'hidden';
+      // Fallback: revela em 600ms mesmo se JS principal falhar
+      window.__tcFoucTimer = setTimeout(function() {
+        document.body.style.visibility = '';
+      }, 600);
+    }
+  })();
+</script>
 <!-- ═══ HEADER ═══════════════════════════════ -->
 <header class="site-header" role="banner">
   <div class="container header-inner">
@@ -27,12 +87,13 @@
 
 
     <nav class="header-nav" role="navigation" aria-label="Menu principal">
-      <a href="index.html" class="active" data-i18n="nav_home">Início</a>
-      <a href="listagem.html" data-i18n="nav_ads">Anúncios</a>
-      <a href="#categorias" data-i18n="nav_categories">Categorias</a>
-      <a href="leiloes.html" class="nav-live"><span class="live-indicator"></span><span data-i18n="nav_auctions">Leilões Ao Vivo</span></a>
-      <a href="login.html" data-i18n="nav_login">Entrar</a>
-    </nav>
+        <a href="index.html" data-i18n="nav_home" class="active">Início</a>
+        <a href="listagem.html" data-i18n="nav_ads" >Anúncios</a>
+        <a href="eventos.html" data-i18n="nav_events" >Eventos</a>
+        <a href="leiloes.html" class="nav-live "><span class="live-indicator"></span><span data-i18n="nav_auctions">Leilões Ao Vivo</span></a>
+        <a href="planos.html" data-i18n="nav_plans" >Planos</a>
+        <div class="auth-wrapper"><a href="login.html" data-i18n="nav_login">Entrar</a></div>
+      </nav>
 
     <div class="lang-toggle" role="group" aria-label="Selecionar idioma">
       <button data-lang="pt" class="active" aria-label="Português">PT</button>
@@ -52,17 +113,13 @@
 
 <!-- Mobile Menu -->
 <nav class="mobile-menu" id="mobile-menu" aria-label="Menu mobile">
-  <a href="index.html" data-i18n="nav_home">Início</a>
-  <a href="listagem.html" data-i18n="nav_ads">Anúncios</a>
-  <a href="#categorias" data-i18n="nav_categories">Categorias</a>
-  <a href="#" class="nav-live"><span class="live-indicator"></span><span data-i18n="nav_auctions">Leilões</span></a>
-  <a href="login.html" data-i18n="nav_login">Entrar</a>
-  <a href="anunciar.html" style="color:var(--clr-accent-dark);font-weight:700" data-i18n="btn_post">Anunciar Grátis</a>
-  <div style="display:flex;gap:8px;padding:8px 0;border-top:1px solid var(--clr-border)">
-    <button data-lang-btn="pt" onclick="setLang('pt')" style="padding:6px 16px;border-radius:99px;font-weight:600;font-size:.8rem;border:1.5px solid var(--clr-border);cursor:pointer;background:white">🇧🇷 PT</button>
-    <button data-lang-btn="es" onclick="setLang('es')" style="padding:6px 16px;border-radius:99px;font-weight:600;font-size:.8rem;border:1.5px solid var(--clr-border);cursor:pointer;background:white">🌎 ES</button>
-  </div>
-</nav>
+      <a href="index.html" data-i18n="nav_home" class="active">Início</a>
+      <a href="listagem.html" data-i18n="nav_ads" >Anúncios</a>
+      <a href="eventos.html" data-i18n="nav_events" >Eventos</a>
+      <a href="leiloes.html" class="nav-live "><span class="live-indicator"></span><span data-i18n="nav_auctions">Leilões Ao Vivo</span></a>
+      <a href="planos.html" data-i18n="nav_plans" >Planos</a>
+      <div class="auth-wrapper" style="width:100%;"><a href="login.html" class="btn-login-mobile" data-i18n="nav_login">Entrar / Cadastrar</a></div>
+    </nav>
 
 <main id="main-content">
 
@@ -80,14 +137,12 @@
         </div>
 
         <h1 class="hero-h1" id="hero-heading">
-          <span data-i18n="hero_title">O maior classificado do</span><br>
-          <span class="grad" data-i18n="hero_highlight">Agronegócio</span><br>
+          <span data-i18n="hero_title">O maior classificado do</span>
+          <span class="grad" data-i18n="hero_highlight"> Agronegócio</span><br>
           <span data-i18n="hero_title2">do Mercosul</span>
         </h1>
 
-        <p class="hero-sub" data-i18n="hero_sub">
-          Compre, venda e anuncie animais, insumos, máquinas e propriedades rurais com segurança e facilidade.
-        </p>
+        <p class="hero-sub" data-i18n="hero_sub">Compre, venda e anuncie animais, máquinas e imóveis rurais no Mercosul.</p>
 
         <!-- Search Box -->
         <div class="hero-search-box" role="search" aria-label="Busca principal">
@@ -107,8 +162,8 @@
         </div>
 
         <div class="hero-popular-tags" aria-label="Buscas populares">
-          <span data-i18n="popular">Popular:</span>
-          <div id="popular-tags" style="display:contents"></div>
+          <span data-i18n="popular" style="flex-shrink:0">Popular:</span>
+          <div id="popular-tags" style="display:flex;align-items:center;gap:8px;overflow:hidden;flex-wrap:nowrap"></div>
         </div>
 
         <div class="hero-actions">
@@ -116,28 +171,28 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             <span data-i18n="btn_post_hero">Anunciar Grátis</span>
           </a>
-          <a href="listagem.html" class="btn btn--ghost-dark btn--lg">
+          <a href="listagem.html" class="hero-explore-link">
             <span data-i18n="btn_explore">Explorar Anúncios</span>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
           </a>
         </div>
 
         <!-- Mini stats -->
         <div class="hero-mini-stats" aria-label="Estatísticas">
           <div class="hero-mini-stat">
-            <span class="num" data-target="62000" data-suffix="+">62k+</span>
-            <span class="lbl" data-i18n="stats_0">Anúncios Ativos</span>
+            <span class="num" id="stat-ads" data-target="2520" data-suffix="+">2.5k+</span>
+            <span class="lbl" data-i18n="stats_0">Ativos</span>
           </div>
           <div class="hero-mini-stat">
-            <span class="num" data-target="18000" data-suffix="+">18k+</span>
-            <span class="lbl" data-i18n="stats_3">Vendedores</span>
+            <span class="num" id="stat-users" data-target="450" data-suffix="+">450+</span>
+            <span class="lbl" data-i18n="stats_3">Verificados</span>
           </div>
           <div class="hero-mini-stat">
-            <span class="num" data-target="4">4</span>
+            <span class="num" id="stat-paises" data-target="4">4</span>
             <span class="lbl" data-i18n="stats_2">Países</span>
           </div>
           <div class="hero-mini-stat">
-            <span class="num" data-target="1200" data-suffix="+">1.2k+</span>
+            <span class="num" id="stat-cidades" data-target="120" data-suffix="+">120+</span>
             <span class="lbl" data-i18n="stats_1">Cidades</span>
           </div>
         </div>
@@ -152,24 +207,32 @@
           <div class="hero-float-card hero-float-card--1" aria-hidden="true">
             <div class="fc-icon fc-icon--green">🐄</div>
             <div>
-              <div class="fc-text-main">12.847 Bovinos</div>
-              <div class="fc-text-sub">anúncios disponíveis</div>
+              <div class="fc-text-main"><span class="num" id="fc-bovinos" data-target="18400">18.4k</span> <span data-i18n="fc_bovinos">Bovinos</span></div>
+              <div class="fc-text-sub" data-i18n="fc_ads_available">anúncios disponíveis</div>
             </div>
           </div>
 
           <div class="hero-float-card hero-float-card--2" aria-hidden="true">
             <div class="fc-icon fc-icon--amber">⭐</div>
             <div>
-              <div class="fc-text-main">Verificado ✓</div>
-              <div class="fc-text-sub">18k+ vendedores</div>
+              <div class="fc-text-main" data-i18n="fc_verified">Verificado ✓</div>
+              <div class="fc-text-sub"><span class="num" id="fc-verificados" data-target="450" data-suffix="+">450+</span> <span data-i18n="fc_sellers">vendedores</span></div>
             </div>
           </div>
 
           <div class="hero-float-card hero-float-card--3" aria-hidden="true">
-            <div class="fc-icon fc-icon--blue">🌎</div>
+            <div class="fc-icon" style="color:var(--clr-accent)">🔨</div>
             <div>
-              <div class="fc-text-main">4 países</div>
-              <div class="fc-text-sub">Mercosul completo</div>
+              <div class="fc-text-main"><span class="num" id="fc-leiloes" data-target="15">15</span> <span data-i18n="fc_auctions">Leilões</span></div>
+              <div class="fc-text-sub" data-i18n="fc_scheduled">agendados esta semana</div>
+            </div>
+          </div>
+
+          <div class="hero-float-card hero-float-card--4" aria-hidden="true">
+            <div class="fc-icon" style="color:var(--clr-primary)">🚜</div>
+            <div>
+              <div class="fc-text-main"><span class="num" id="fc-maquinas" data-target="1200">1.2k</span> <span data-i18n="fc_machines">Máquinas</span></div>
+              <div class="fc-text-sub" data-i18n="fc_machines_sub">prontas para trabalho</div>
             </div>
           </div>
 
@@ -205,6 +268,18 @@
   </div>
 </section>
 
+<!-- ═══ RECENTLY VIEWED (Dynamic) ════════════ -->
+<section id="recently-viewed-section" class="section fade-in-up" style="display:none; padding-bottom: 0;">
+  <div class="container">
+    <div class="section-header">
+      <h2 class="section-title">Vistos Recentemente</h2>
+    </div>
+    <div class="grid" id="recently-viewed-ads">
+      <!-- Injected via JS -->
+    </div>
+  </div>
+</section>
+
 <!-- ═══ FEATURED ADS ══════════════════════════ -->
 <section class="section" aria-labelledby="featured-heading">
   <div class="container">
@@ -218,6 +293,7 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
       </a>
     </div>
+    <div id="featured-geo-badge"></div>
     <div class="ads-grid" id="featured-ads" role="list" aria-label="Anúncios em destaque"></div>
   </div>
 </section>
@@ -269,7 +345,11 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
       </a>
     </div>
+    <div id="recent-geo-badge"></div>
     <div class="ads-grid" id="recent-ads" role="list" aria-label="Últimos anúncios publicados"></div>
+    <div style="text-align: center; margin-top: 2rem;">
+      <button id="btn-load-more" style="padding: 0.8rem 2rem; border-radius: 99px; background: white; border: 2px solid var(--clr-border); font-weight: 600; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--clr-primary)'; this.style.color='var(--clr-primary)'" onmouseout="this.style.borderColor='var(--clr-border)'; this.style.color='var(--clr-text)'">Carregar mais anúncios</button>
+    </div>
   </div>
 </section>
 
@@ -340,123 +420,68 @@
   </div>
 </footer>
 
-<script src="js/supabase.js"></script>
-<script src="js/data.js"></script>
-<script src="js/ui_constants.js"></script>
-<script src="js/main.js"></script>
+<!-- Scripts com defer: baixados em paralelo, executados na ordem correta
+     após o HTML ser parseado — máxima performance de carregamento -->
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script defer src="js/supabase.js?v=1783509347784"></script>
+<script defer src="js/data.js?v=1783509347784"></script>
+<script defer src="js/ui_constants.js"></script>
+<script defer src="js/main.js?v=1783509347784"></script>
+<script defer src="js/home.js"></script>
+<script defer src="js/search_autocomplete.js"></script>
+
 <script>
   document.addEventListener('DOMContentLoaded', () => {
-    // Render Ad Banners (static fallback)
+    // Render Ad Banners
     if (typeof renderAdBanner === 'function') {
       renderAdBanner('home_top', 'banner-home-top');
       renderAdBanner('home_mid', 'banner-home-mid');
     }
+
+    // Badge geográfico — usa os dados do RPC já carregado pelo hero
+    // Zero queries extras: reutiliza o cache sessionStorage de fetchPlatformStats()
+    if (typeof fetchPlatformStats === 'function') {
+      fetchPlatformStats().then(stats => {
+        const badge = document.getElementById('recent-geo-badge');
+        if (!badge || !stats) return;
+        const cities    = stats.total_cities    || 0;
+        const countries = stats.total_countries || 0;
+        badge.innerHTML = `
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:1rem">
+            <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(22,163,74,.08);border:1px solid rgba(22,163,74,.2);border-radius:99px;padding:4px 12px;font-size:13px;font-weight:600;color:var(--clr-primary,#16a34a)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+              ${cities} cidade${cities !== 1 ? 's' : ''}
+            </span>
+            <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.2);border-radius:99px;padding:4px 12px;font-size:13px;font-weight:600;color:#3b82f6">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+              ${countries} pa${countries !== 1 ? 'íses' : 'ís'}
+            </span>
+            <span style="font-size:12px;color:var(--clr-muted,#6b7280)">com anúncios ativos</span>
+          </div>`;
+      }).catch(() => {}); // silencia erro se stats não disponível
+    }
   });
 </script>
 
-<script>
-(function () {
-  /* ── helpers ───────────────────────────────────────────── */
-  const PIN_SVG = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`;
-
-  function formatPrice(price, currency) {
-    if (!price) return 'Consulte';
-    const sym = currency === 'USD' ? 'US$' : currency === 'ARS' ? 'ARS$' : currency === 'PYG' ? '₲' : currency === 'UYU' ? '$U' : 'R$';
-    return sym + ' ' + Number(price).toLocaleString('pt-BR');
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "Tauze Class",
+  "description": "O maior portal de classificados do agronegocio do Mercosul",
+  "url": "https://tauzeclass.com.br",
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": "https://tauzeclass.com.br/listagem.html?q={search_term_string}",
+    "query-input": "required name=search_term_string"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Tauze Class",
+    "url": "https://tauzeclass.com.br"
   }
-
-  function buildCard(ad) {
-    const img  = (ad.images && ad.images.length) ? escapeHTML(ad.images[0]) : 'https://placehold.co/400x280/e8f5e9/16a34a?text=Sem+Foto';
-    const cat  = ad.categories ? escapeHTML(`${ad.categories.icon || ''} ${ad.categories.name_pt || ''}`.trim()) : '';
-    const href = `anuncio.html?id=${escapeHTML(ad.id)}`;
-    const badge = ad.featured ? '<span class="card-badge">Destaque</span>' : '';
-    const title = escapeHTML(ad.title_pt);
-    const loc = escapeHTML(ad.location_text || '');
-    return `
-      <a href="${href}" class="card" role="listitem">
-        <div class="card-img-wrapper">
-          ${badge}
-          <img src="${img}" alt="${title}" class="card-img" loading="lazy" onerror="this.src='https://placehold.co/400x280/e8f5e9/16a34a?text=Sem+Foto'">
-        </div>
-        <div class="card-content">
-          ${cat ? `<span style="font-size:.72rem;color:var(--clr-accent-dark);font-weight:600;margin-bottom:.2rem;display:block">${cat}</span>` : ''}
-          <h3 class="card-title">${title}</h3>
-          <div class="card-price">${escapeHTML(formatPrice(ad.price, ad.currency))}</div>
-          <div class="card-meta">
-            <div class="card-meta-item">${PIN_SVG} ${loc}</div>
-          </div>
-        </div>
-      </a>`;
-  }
-
-  /* ── fetch featured ads ──────────────────────────────── */
-  async function loadFeatured() {
-    const sb = getSupabase();
-    if (!sb) return;
-    try {
-      const { data, error } = await sb
-        .from('ads')
-        .select('*, profiles(name), categories(name_pt, icon)')
-        .eq('status', 'active')
-        .eq('featured', true)
-        .order('created_at', { ascending: false })
-        .limit(6);
-      if (error || !data || data.length === 0) return;
-      const grid = document.getElementById('featured-ads');
-      if (grid) grid.innerHTML = data.map(buildCard).join('');
-    } catch (e) {
-      console.warn('[Supabase] featured fallback:', e);
-    }
-  }
-
-  /* ── fetch recent ads ────────────────────────────────── */
-  async function loadRecent() {
-    const sb = getSupabase();
-    if (!sb) return;
-    try {
-      const { data, error } = await sb
-        .from('ads')
-        .select('*, profiles(name), categories(name_pt, icon)')
-        .eq('status', 'active')
-        .order('created_at', { ascending: false })
-        .limit(8);
-      if (error || !data || data.length === 0) return;
-      const grid = document.getElementById('recent-ads');
-      if (grid) grid.innerHTML = data.map(buildCard).join('');
-    } catch (e) {
-      console.warn('[Supabase] recent fallback:', e);
-    }
-  }
-
-  /* ── fetch banners ───────────────────────────────────── */
-  async function loadBanners() {
-    const sb = getSupabase();
-    if (!sb) return;
-    try {
-      const { data } = await sb
-        .from('banners')
-        .select('*')
-        .eq('status', 'active');
-      if (!data || data.length === 0) return;
-      data.forEach(function (banner) {
-        const el = document.getElementById(banner.slot_id || '') ||
-                   document.querySelector(`[data-banner="${banner.slot_id}"]`);
-        if (!el) return;
-        const link = banner.url ? `<a href="${banner.url}" target="_blank" rel="noopener">` : '';
-        const close = banner.url ? '</a>' : '';
-        el.innerHTML = `${link}<img src="${banner.image_url}" alt="${banner.alt_text || 'Banner'}" style="width:100%;max-height:90px;object-fit:cover;border-radius:8px;display:block">${close}`;
-      });
-    } catch (e) {
-      console.warn('[Supabase] banners fallback:', e);
-    }
-  }
-
-  document.addEventListener('DOMContentLoaded', function () {
-    loadFeatured();
-    loadRecent();
-    loadBanners();
-  });
-}());
+}
 </script>
+
 </body>
 </html>

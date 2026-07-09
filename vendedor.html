@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Perfil do Vendedor — Tauze Class</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css?v=1783509347880">
+  <link rel="stylesheet" href="css/listagem.css?v=999">
+  <style>
+    /* Replaced profile hero with page-header pattern */
+    .seller-profile-info {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      position: relative;
+    }
+    .seller-avatar-large {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      background: var(--clr-primary-dark);
+      color: white;
+      font-size: 2.5rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 4px solid var(--clr-surface, #fff);
+      flex-shrink: 0;
+    }
+    .seller-details {
+      flex: 1;
+      padding-bottom: 0.5rem;
+    }
+    .seller-details h1 {
+      margin: 0;
+      font-size: 1.5rem;
+      color: var(--clr-text);
+    }
+    .seller-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 0.85rem;
+      padding: 0.25rem 0.75rem;
+      background: #ecfdf5;
+      color: #059669;
+      border-radius: 2rem;
+      font-weight: 600;
+      margin-top: 0.5rem;
+    }
+    .verified-icon {
+      width: 16px;
+      height: 16px;
+      stroke: currentColor;
+      stroke-width: 2.5;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .seller-meta {
+      font-size: 0.9rem;
+      color: var(--clr-text-light);
+      margin-top: 0.25rem;
+    }
+  </style>
+  <script>
+    let hasToken = false;
+    for(let i=0; i<localStorage.length; i++){
+      if(localStorage.key(i).includes('auth-token')){ hasToken=true; break; }
+    }
+    if (hasToken) {
+      document.documentElement.classList.add('is-logged-in');
+      let ini = localStorage.getItem('tc_user_initials');
+      if (ini) document.documentElement.style.setProperty('--tc-user-ini', '"' + ini + '"');
+    }
+  </script>
+</head>
+<body>
+
+<header class="site-header" role="banner">
+  <div class="container header-inner">
+    <a href="index.html" class="logo" aria-label="Tauze Class — Início">
+      <div class="logo-mark">TC</div>
+      <div class="logo-text">
+        <span class="logo-name">Tauze Class</span>
+        <span class="logo-tagline">Classificados Agro</span>
+      </div>
+    </a>
+
+    <nav class="header-nav" role="navigation" aria-label="Menu principal">
+        <a href="index.html" data-i18n="nav_home" >Início</a>
+        <a href="listagem.html" data-i18n="nav_ads" >Anúncios</a>
+        <a href="eventos.html" data-i18n="nav_events" >Eventos</a>
+        <a href="leiloes.html" class="nav-live "><span class="live-indicator"></span><span data-i18n="nav_auctions">Leilões Ao Vivo</span></a>
+        <a href="planos.html" data-i18n="nav_plans" >Planos</a>
+        <div class="auth-wrapper"><a href="login.html" data-i18n="nav_login">Entrar</a></div>
+      </nav>
+
+    <div class="lang-toggle" role="group" aria-label="Selecionar idioma">
+      <button data-lang="pt" class="active" aria-label="Português">PT</button>
+      <button data-lang="es" aria-label="Español">ES</button>
+    </div>
+
+    <a href="anunciar.html" class="btn-anunciar-header" id="btn-post-header">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <span data-i18n="btn_post">Anunciar Grátis</span>
+    </a>
+
+    <button class="hamburger" aria-label="Abrir menu" aria-expanded="false" aria-controls="mobile-menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</header>
+
+<div class="page-header" id="seller-banner" style="padding-top: calc(var(--header-h) + 2rem); padding-bottom: 6rem; background: linear-gradient(135deg, var(--clr-primary-mid, #16A34A), var(--clr-primary, #15803D)); background-size: cover; background-position: center; position: relative; border-radius: 0 0 2rem 2rem;">
+  <div style="position:absolute; inset:0; opacity:0.05; background-image: radial-gradient(#fff 1px, transparent 1px); background-size: 20px 20px; border-radius: 0 0 2rem 2rem;"></div>
+  <div class="container" style="position: relative; z-index: 2;">
+    <div class="breadcrumb" style="justify-content: flex-start; margin-bottom: 0; font-size: 0.95rem;">
+      <a href="index.html">Home</a> <span>›</span> <a href="listagem.html">Vendedores</a> <span>›</span> <strong id="breadcrumb-seller-name">Perfil</strong>
+    </div>
+  </div>
+</div>
+
+<main class="container" style="position: relative; z-index: 10; margin-top: -4rem; min-height:80vh; padding-bottom: 3rem;">
+  
+  <!-- Profile Card -->
+  <div id="profile-container" style="display:none; background: var(--clr-surface); border-radius: 1rem; box-shadow: var(--shadow-sm); padding: 1.5rem; margin-bottom: 2rem;">
+    <div class="seller-profile-info" style="display:flex; flex-direction:column; align-items:center; text-align:center; gap: 1rem;">
+      <div class="seller-avatar-large" id="seller-avatar" style="background: var(--clr-primary, #15803D); box-shadow: var(--shadow-md);">U</div>
+      <div class="seller-details" style="flex:1;">
+        <h1 id="seller-name" style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap; margin:0; font-size:1.5rem; color:var(--clr-text);">
+          Carregando...
+          <span id="seller-verification" style="display:none;" class="seller-badge">
+            <svg class="verified-icon" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+            Identidade Verificada
+          </span>
+          <span id="seller-unverified" style="display:none;" class="seller-badge" style="background:#f1f5f9; color:#64748b;">
+            Conta Não Verificada
+          </span>
+        </h1>
+        <div class="seller-meta" id="seller-date" style="font-size:0.9rem; color:var(--clr-text-light); margin-top:0.25rem;">Membro</div>
+      </div>
+      <div class="seller-actions" style="margin-left:auto;">
+        <button class="btn-secondary" style="display:inline-flex;align-items:center;gap:.4rem;padding:.5rem 1rem;border-radius:.5rem;background:#fff;border:1px solid #e2e8f0;color:#475569;font-weight:600;font-size:.85rem;cursor:pointer;transition:all .2s" onclick="navigator.clipboard.writeText(window.location.href); const orig = this.innerHTML; this.innerHTML = '<svg width=\'16\' height=\'16\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><polyline points=\'20 6 9 17 4 12\'></polyline></svg> Link Copiado!'; this.style.color = '#16a34a'; this.style.borderColor = '#16a34a'; setTimeout(() => { this.innerHTML = orig; this.style.color = ''; this.style.borderColor = ''; }, 2000);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          Compartilhar Perfil
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div id="loading-state" style="text-align:center; padding: 4rem;">Carregando perfil...</div>
+    <div id="error-state" style="text-align:center; padding: 4rem; color:red; display:none;">Vendedor não encontrado.</div>
+
+    <h2 style="margin-bottom: 1.5rem; display:none;" id="ads-title">Anúncios deste vendedor</h2>
+    
+    <!-- Ad Grid -->
+    <div class="ads-grid" id="seller-ads-grid">
+      <!-- Ads populated via JS -->
+    </div>
+    
+    <div id="empty-state" style="text-align:center; padding: 4rem; color:var(--clr-text-light); display:none;">Este vendedor não possui anúncios ativos no momento.</div>
+
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js?v=1783509347784"></script>
+<script src="js/ui_constants.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', async () => {
+    const params = new URLSearchParams(window.location.search);
+    const sellerId = params.get('id');
+
+    if (!sellerId) {
+      document.getElementById('loading-state').style.display = 'none';
+      document.getElementById('error-state').style.display = 'block';
+      return;
+    }
+
+    try {
+      const sb = getSupabase();
+      if (!sb) throw new Error('Supabase not initialized');
+
+      // 1. Fetch Profile
+      const { data: profile, error: profileErr } = await sb
+        .from('profiles')
+        .select('*')
+        .eq('id', sellerId)
+        .single();
+        
+      if (profileErr || !profile) throw new Error('Profile not found');
+
+      // Update UI with profile data
+      document.getElementById('loading-state').style.display = 'none';
+      document.getElementById('profile-container').style.display = 'block';
+      document.getElementById('ads-title').style.display = 'block';
+
+      const fullName = profile.name || profile.full_name || 'Vendedor';
+      document.getElementById('seller-name').childNodes[0].textContent = fullName + ' ';
+      document.getElementById('breadcrumb-seller-name').textContent = fullName;
+      document.title = fullName + ' — Perfil do Vendedor';
+      document.getElementById('seller-avatar').textContent = fullName.charAt(0).toUpperCase();
+
+      if (profile.created_at) {
+        const date = new Date(profile.created_at);
+        const formatter = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' });
+        document.getElementById('seller-date').textContent = 'Membro desde ' + formatter.format(date);
+      }
+
+      if (profile.banner_url) {
+        document.getElementById('seller-banner').style.backgroundImage = `url('${profile.banner_url}')`;
+      }
+
+      // 2. Fetch Verification Status
+      try {
+        const { data: verif } = await sb.from('user_verifications').select('status').eq('user_id', sellerId).eq('status', 'approved').maybeSingle();
+        if (verif) {
+          document.getElementById('seller-verification').style.display = 'block';
+        } else {
+          document.getElementById('seller-unverified').style.display = 'block';
+        }
+      } catch(e) {}
+
+      // 3. Fetch Ads
+      const { data: ads, error: adsErr } = await sb
+        .from('ads')
+        .select('*')
+        .eq('user_id', sellerId)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false });
+
+      if (adsErr) throw adsErr;
+
+      const grid = document.getElementById('seller-ads-grid');
+      if (ads && ads.length > 0) {
+        let adsHTML = '';
+        ads.forEach(ad => {
+           const imageUrl = (ad.images && ad.images.length > 0) ? ad.images[0] : 'https://placehold.co/400x300?text=Sem+Foto';
+           const priceStr = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: ad.currency || 'BRL' }).format(ad.price);
+           const displayPrice = ad.price > 0 ? priceStr : 'A negociar';
+           const locParts = [ad.city, ad.state].filter(Boolean);
+           const loc = locParts.length ? locParts.join(', ') : '';
+           
+           adsHTML += `
+            <article class="ad-card" onclick="location.href='anuncio.html?id=${ad.id}'" style="cursor:pointer;">
+              <div class="ad-card__image">
+                <img src="${imageUrl}" alt="${ad.title_pt}" loading="lazy">
+              </div>
+              <div class="ad-card__body">
+                <h3 class="ad-card__title">${ad.title_pt}</h3>
+                <div class="ad-card__price">${displayPrice}</div>
+                <div class="ad-card__meta">
+                  <div class="ad-card__location">
+                    <span>${loc}</span>
+                  </div>
+                </div>
+              </div>
+            </article>
+           `;
+        });
+        grid.innerHTML = adsHTML;
+      } else {
+        document.getElementById('empty-state').style.display = 'block';
+      }
+
+    } catch (err) {
+      console.error(err);
+      document.getElementById('loading-state').style.display = 'none';
+      document.getElementById('error-state').style.display = 'block';
+    }
+  });
+</script>
+</body>
+</html>

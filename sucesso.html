@@ -1,12 +1,33 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pagamento Aprovado â€” Tauze Class</title>
-  <link rel="stylesheet" href="css/style.css">
+  <title>Pagamento Aprovado — Tauze Class</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="stylesheet" href="css/style.css?v=1783509347880">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2316A34A'/%3E%3Ctext y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'%3ET%3C/text%3E%3C/svg%3E">
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#16A34A">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Tauze Class">
+  <!-- Supabase SDK -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Error Monitor (deve ser o primeiro script carregado) -->
+  <script src="/js/error-monitor.js"></script>
+  <!-- Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then(r => console.log('[SW] Registrado:', r.scope))
+          .catch(e => console.warn('[SW] Falha ao registrar:', e));
+      });
+    }
+  </script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{
@@ -94,8 +115,25 @@
       to{transform:translateY(110vh) rotate(720deg);opacity:0}
     }
   </style>
+  <script>
+    let hasToken = false;
+    for(let i=0; i<localStorage.length; i++){
+      if(localStorage.key(i).includes('auth-token')){ hasToken=true; break; }
+    }
+    if (hasToken) {
+      document.documentElement.classList.add('is-logged-in');
+      let ini = localStorage.getItem('tc_user_initials');
+      if (ini) document.documentElement.style.setProperty('--tc-user-ini', '"' + ini + '"');
+    }
+  </script>
 </head>
 <body>
+
+  <!-- Lang Toggle -->
+  <div class="lang-toggle" style="position:fixed;top:1.2rem;right:1.5rem;z-index:1000">
+    <button data-lang="pt">PT</button>
+    <button data-lang="es">ES</button>
+  </div>
 
   <!-- Confetti -->
   <div class="confetti-wrap" id="confetti"></div>
@@ -107,25 +145,27 @@
       </svg>
     </div>
 
-    <h1>Pagamento Aprovado! ðŸŽ‰</h1>
-    <p class="subtitle">Seu plano foi ativado com sucesso. Agora vocÃª tem acesso a todos os recursos premium do Tauze Class.</p>
+    <h1 data-i18n="sucesso_title">Pagamento Aprovado! 🎉</h1>
+    <p class="subtitle" data-i18n="sucesso_sub">Seu plano foi ativado com sucesso. Agora você tem acesso a todos os recursos premium do Tauze Class.</p>
 
     <div class="plan-badge" id="plan-badge">
-      âœ¦ Plano Ativo
+      ❖ Plano Ativo
     </div>
 
     <div class="actions">
-      <a href="/anunciar.html" class="btn-primary">Publicar meu primeiro anÃºncio</a>
-      <a href="/painel.html" class="btn-secondary">Ir para o Meu Painel</a>
+      <a href="/anunciar.html" class="btn-primary" data-i18n="sucesso_btn_post">Publicar meu primeiro anúncio</a>
+      <a href="/painel.html" class="btn-secondary" data-i18n="sucesso_btn_panel">Ir para o Meu Painel</a>
     </div>
   </div>
 
-  <script src="/js/supabase.js"></script>
+  <script src="/js/supabase.js?v=1783509347784"></script>
+  <script src="/js/data.js?v=1783509347784"></script>
+  <script src="/js/main.js?v=1783509347784"></script>
   <script>
     // Show plan name
     const params = new URLSearchParams(window.location.search);
     const plan = params.get('plan') || 'pro';
-    const planNames = { pro: 'Plano Pro âœ¦', premium: 'Plano Premium â˜…' };
+    const planNames = { pro: 'Plano Pro ✦', premium: 'Plano Premium ★' };
     document.getElementById('plan-badge').textContent = planNames[plan] || 'Plano Ativo';
 
     // Generate confetti
