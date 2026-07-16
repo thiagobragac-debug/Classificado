@@ -228,7 +228,9 @@ function readFilters() {
   const searchEl  = document.getElementById('header-search-input');
 
   const countryOpt  = countryEl && countryEl.selectedIndex >= 0 ? countryEl.options[countryEl.selectedIndex] : null;
-  const stateName   = stateEl && stateEl.selectedIndex > 0 ? stateEl.options[stateEl.selectedIndex].text : '';
+  const stateOpt    = stateEl && stateEl.selectedIndex > 0 ? stateEl.options[stateEl.selectedIndex] : null;
+  const stateName   = stateOpt ? stateOpt.text : '';
+  const stateSigla  = stateOpt && stateOpt.dataset.sigla ? stateOpt.dataset.sigla : '';
   const cityName    = cityEl  && cityEl.selectedIndex  > 0 ? cityEl.options[cityEl.selectedIndex].text   : '';
 
   return {
@@ -236,12 +238,12 @@ function readFilters() {
     category: catRadio?.value || '',
     country:  countryEl && countryEl.selectedIndex > 0 ? countryEl.options[countryEl.selectedIndex].text : '',
 
-    state:    stateName,
+    state:    stateSigla || stateName,
     city:     cityName,
     priceMin: parseFloat(document.getElementById('price-min')?.value) || null,
     priceMax: parseFloat(document.getElementById('price-max')?.value) || null,
     featured: document.getElementById('chk-featured')?.checked  || false,
-    countryOpt, stateName, cityName,
+    countryOpt, stateName, cityName, stateSigla,
     lang,
   };
 }
@@ -387,7 +389,7 @@ async function fetchAndRenderAds(append = false) {
         const hasGeoFilter = geoParams.city || geoParams.state || geoParams.country;
         const geoLabel = hasGeoFilter && (
           geoParams.city    ? `em ${geoParams.city}`    :
-          geoParams.state   ? `em ${geoParams.state}`   :
+          geoParams.state   ? `em ${f.stateName || geoParams.state}`   :
           geoParams.country ? `em ${geoParams.country}` : ''
         );
 

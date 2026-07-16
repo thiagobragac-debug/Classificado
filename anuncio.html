@@ -484,7 +484,7 @@
 
         // Update description
         const descEl = document.getElementById('ad-desc');
-        if (descEl) descEl.textContent = ad.description || '';
+        if (descEl) descEl.innerHTML = ad.description || '';
 
         // Update location
         const locEl = document.getElementById('ad-location');

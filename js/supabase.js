@@ -180,9 +180,46 @@ async function getAds({ category, country, state, city, search, preco_min, preco
     .order('created_at', { ascending: false })
     .range((currentPage - 1) * limit, currentPage * limit - 1);
 
+  const BR_STATES = {
+    "Acre": "AC", "AC": "Acre",
+    "Alagoas": "AL", "AL": "Alagoas",
+    "Amapá": "AP", "AP": "Amapá",
+    "Amazonas": "AM", "AM": "Amazonas",
+    "Bahia": "BA", "BA": "Bahia",
+    "Ceará": "CE", "CE": "Ceará",
+    "Distrito Federal": "DF", "DF": "Distrito Federal",
+    "Espírito Santo": "ES", "ES": "Espírito Santo",
+    "Goiás": "GO", "GO": "Goiás",
+    "Maranhão": "MA", "MA": "Maranhão",
+    "Mato Grosso": "MT", "MT": "Mato Grosso",
+    "Mato Grosso do Sul": "MS", "MS": "Mato Grosso do Sul",
+    "Minas Gerais": "MG", "MG": "Minas Gerais",
+    "Pará": "PA", "PA": "Pará",
+    "Paraíba": "PB", "PB": "Paraíba",
+    "Paraná": "PR", "PR": "Paraná",
+    "Pernambuco": "PE", "PE": "Pernambuco",
+    "Piauí": "PI", "PI": "Piauí",
+    "Rio de Janeiro": "RJ", "RJ": "Rio de Janeiro",
+    "Rio Grande do Norte": "RN", "RN": "Rio Grande do Norte",
+    "Rio Grande do Sul": "RS", "RS": "Rio Grande do Sul",
+    "Rondônia": "RO", "RO": "Rondônia",
+    "Roraima": "RR", "RR": "Roraima",
+    "Santa Catarina": "SC", "SC": "Santa Catarina",
+    "São Paulo": "SP", "SP": "São Paulo",
+    "Sergipe": "SE", "SE": "Sergipe",
+    "Tocantins": "TO", "TO": "Tocantins"
+  };
+
   if (category)  q = q.eq('category_id', category);
   if (country)   q = q.eq('country', country);
-  if (state)     q = q.eq('state', state);
+  if (state) {
+    const altState = BR_STATES[state];
+    if (altState) {
+      q = q.in('state', [state, altState]);
+    } else {
+      q = q.eq('state', state);
+    }
+  }
   if (city)      q = q.eq('city', city);
   if (search)    q = q.ilike('title_pt', `%${search}%`);
   if (preco_min) q = q.gte('price', preco_min);
