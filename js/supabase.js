@@ -749,3 +749,28 @@ async function getSellerAds(userId) {
 
 window.getSellerProfile = getSellerProfile;
 window.getSellerAds = getSellerAds;
+
+
+/* ── ANALYTICS: VIEWS ─────────────────────────────────────────────── */
+async function incrementAdView(adId) {
+  try {
+    // Basic IP hash generation on client side (for debounce logic)
+    const ipStr = window.navigator.userAgent + '_' + window.screen.width; 
+    let hash = 0;
+    for (let i = 0; i < ipStr.length; i++) {
+        hash = ((hash << 5) - hash) + ipStr.charCodeAt(i);
+        hash |= 0;
+    }
+    const ipHash = 'client_' + Math.abs(hash).toString(16);
+
+    const { data, error } = await getSupabase().rpc('increment_ad_view_safe', {
+      p_ad_id: adId,
+      p_ip_hash: ipHash
+    });
+    
+    // If RPC fails (maybe not deployed yet), fail silently
+  } catch (err) {
+    console.warn('Could not increment views via RPC', err);
+  }
+}
+window.incrementAdView = incrementAdView;

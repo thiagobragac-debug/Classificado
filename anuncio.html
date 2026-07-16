@@ -328,7 +328,7 @@
         // Update page title
                 document.title = (ad.title_pt || 'Anúncio') + ' — Tauze Class';
 
-        // Atualizar Open Graph tags dinamicamente
+                // Atualizar Open Graph tags dinamicamente
         const ogTitle = document.querySelector('meta[property="og:title"]');
         const ogDesc = document.querySelector('meta[property="og:description"]');
         const ogImage = document.querySelector('meta[property="og:image"]');
@@ -346,6 +346,11 @@
         if(ad.images && ad.images.length > 0) {
             if(ogImage) ogImage.content = ad.images[0];
             if(twImage) twImage.content = ad.images[0];
+        }
+
+        // Incrementar visualizações via RPC (com debounce)
+        if (typeof incrementAdView === 'function') {
+           incrementAdView(ad.id);
         }
 
         if (ad.status !== 'active') {
