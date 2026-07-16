@@ -326,7 +326,27 @@
         if (!ad) return;
 
         // Update page title
-        document.title = (ad.title_pt || 'Anúncio') + ' — Tauze Class';
+                document.title = (ad.title_pt || 'Anúncio') + ' — Tauze Class';
+
+        // Atualizar Open Graph tags dinamicamente
+        const ogTitle = document.querySelector('meta[property="og:title"]');
+        const ogDesc = document.querySelector('meta[property="og:description"]');
+        const ogImage = document.querySelector('meta[property="og:image"]');
+        const twTitle = document.querySelector('meta[name="twitter:title"]');
+        const twDesc = document.querySelector('meta[name="twitter:description"]');
+        const twImage = document.querySelector('meta[name="twitter:image"]');
+        
+        if(ogTitle) ogTitle.content = document.title;
+        if(twTitle) twTitle.content = document.title;
+        if(ad.description_pt) {
+            const descTxt = ad.description_pt.substring(0, 150) + '...';
+            if(ogDesc) ogDesc.content = descTxt;
+            if(twDesc) twDesc.content = descTxt;
+        }
+        if(ad.images && ad.images.length > 0) {
+            if(ogImage) ogImage.content = ad.images[0];
+            if(twImage) twImage.content = ad.images[0];
+        }
 
         if (ad.status !== 'active') {
           const pPanel = document.querySelector('.product-info-panel');
