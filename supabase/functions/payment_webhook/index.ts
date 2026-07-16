@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1"
 
 // O mesmo padrão de roteamento
-const ACTIVE_GATEWAY = Deno.env.get("ACTIVE_GATEWAY") || "mercadopago"; 
+ 
 
 serve(async (req) => {
   try {
@@ -10,6 +10,18 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '' // Precisa de Service Role para bypass RLS
     )
+
+        // Buscar configurações do painel admin (Multi-Gateway)
+    const { data: settingsArr, error: settingsErr } = await supabaseClient
+      .from('platform_settings')
+      .select('*');
+
+    const settings = (settingsArr || []).reduce((acc, curr) => {
+      acc[curr.key] = curr.value;
+      return acc;
+    }, {});
+
+    const ACTIVE_GATEWAY = settings['active_gateway'] || 'mercadopago';
 
     let ad_id = '';
     let plan_id = '';
@@ -32,7 +44,7 @@ serve(async (req) => {
         return new Response('Ignorado', { status: 200 });
       }
 
-      const mpToken = Deno.env.get('MP_ACCESS_TOKEN');
+      const mpToken = settings['mp_access_token'];
       
       // Busca os detalhes do pagamento no Mercado Pago para validar
       const paymentRes = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {

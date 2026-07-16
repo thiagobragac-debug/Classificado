@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1"
 
 // Padrão Multi-Gateway: Define o gateway ativo
-const ACTIVE_GATEWAY = Deno.env.get("ACTIVE_GATEWAY") || "mercadopago"; 
+ 
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -29,6 +29,19 @@ serve(async (req) => {
     if (userError || !user) throw new Error('Usuário não autenticado')
 
     const { ad_id, plan_id } = await req.json()
+
+    // Buscar configurações do painel admin (Multi-Gateway)
+    const { data: settingsArr, error: settingsErr } = await supabaseClient
+      .from('platform_settings')
+      .select('*');
+
+    if (settingsErr) throw new Error('Erro ao carregar configurações de pagamento.');
+    const settings = (settingsArr || []).reduce((acc, curr) => {
+      acc[curr.key] = curr.value;
+      return acc;
+    }, {});
+
+    const ACTIVE_GATEWAY = settings['active_gateway'] || 'mercadopago';
 
     // Validação do anúncio
     const { data: ad, error: adError } = await supabaseClient
@@ -58,7 +71,7 @@ serve(async (req) => {
     // Arquitetura Abstract Factory: Roteamento
     if (ACTIVE_GATEWAY === 'mercadopago') {
       // Implementação Mercado Pago
-      const mpToken = Deno.env.get('MP_ACCESS_TOKEN');
+      const mpToken = settings['mp_access_token'];
       if (!mpToken) throw new Error('Chave do Mercado Pago não configurada no servidor.');
 
       const response = await fetch('https://api.mercadopago.com/checkout/preferences', {
