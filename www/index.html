@@ -493,28 +493,9 @@
       renderAdBanner('home_mid', 'banner-home-mid');
     }
 
-    // Badge geográfico — usa os dados do RPC já carregado pelo hero
-    // Zero queries extras: reutiliza o cache sessionStorage de fetchPlatformStats()
-    if (typeof fetchPlatformStats === 'function') {
-      fetchPlatformStats().then(stats => {
-        const badge = document.getElementById('recent-geo-badge');
-        if (!badge || !stats) return;
-        const cities    = stats.total_cities    || 0;
-        const countries = stats.total_countries || 0;
-        badge.innerHTML = `
-          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:1rem">
-            <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(22,163,74,.08);border:1px solid rgba(22,163,74,.2);border-radius:99px;padding:4px 12px;font-size:13px;font-weight:600;color:var(--clr-primary,#16a34a)">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
-              ${cities} cidade${cities !== 1 ? 's' : ''}
-            </span>
-            <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.2);border-radius:99px;padding:4px 12px;font-size:13px;font-weight:600;color:#3b82f6">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-              ${countries} pa${countries !== 1 ? 'íses' : 'ís'}
-            </span>
-            <span style="font-size:12px;color:var(--clr-muted,#6b7280)">com anúncios ativos</span>
-          </div>`;
-      }).catch(() => {}); // silencia erro se stats não disponível
-    }
+    // #recent-geo-badge é gerenciado exclusivamente por home.js (renderRecentAdsHome)
+    // que usa a geolocalização real do usuário via _locationPromise.
+    // Removido bloco duplicado que sobrescrevia o badge com dados genéricos.
   });
 </script>
 

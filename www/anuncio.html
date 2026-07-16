@@ -153,10 +153,9 @@
             <span class="tag-date" id="ad-date"></span>
           </div>
 
-          <h1 id="ad-title" class="product-title">Carregando...</h1>
+          <h1 id="ad-title" class="product-title" aria-live="polite"></h1>
           
-          <div class="product-price" id="ad-price">
-            R$ --
+          <div class="product-price" id="ad-price" aria-live="polite">
             <span class="tag-negotiable" id="ad-negotiable" style="display:none;" data-i18n="ad_negotiable">Negociável</span>
           </div>
 
@@ -506,10 +505,18 @@
         const priceEl = document.getElementById('ad-price');
         if (priceEl) {
           const priceStr = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: ad.currency || 'BRL' }).format(ad.price);
-          priceEl.innerHTML = ad.price > 0 ? priceStr : 'A negociar';
-          if (ad.negotiable) {
-            priceEl.innerHTML += ' <span class="tag-negotiable" style="font-size:0.9rem; background:#FEF3C7; color:#D97706; padding:0.3rem 0.8rem; border-radius:2rem; font-weight:700;">Negociável</span>';
+          // Define o texto do preço sem tocar nos filhos (preserva #ad-negotiable no DOM)
+          const priceText = ad.price > 0 ? priceStr : 'A negociar';
+          let priceNode = null;
+          for (let i = 0; i < priceEl.childNodes.length; i++) {
+            if (priceEl.childNodes[i].nodeType === 3) { priceNode = priceEl.childNodes[i]; break; }
           }
+          if (priceNode) { priceNode.nodeValue = priceText + ' '; }
+          else { priceEl.insertBefore(document.createTextNode(priceText + ' '), priceEl.firstChild); }
+
+          // Exibe/oculta o <span id="ad-negotiable"> existente — sem criar duplicata
+          const negEl = document.getElementById('ad-negotiable');
+          if (negEl) negEl.style.display = ad.negotiable ? 'inline-flex' : 'none';
         }
 
         // Update description
