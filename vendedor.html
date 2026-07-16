@@ -125,7 +125,25 @@
   </div>
 
   <!-- Main Content -->
-  <div class="container list-layout">
+  
+  <!-- Seller Profile Header -->
+  <div class="container" style="margin-top:2rem;">
+    <div id="seller-profile-card" style="background:#fff;border:1px solid #e2e8f0;border-radius:1rem;padding:2rem;display:flex;align-items:center;gap:2rem;box-shadow:0 4px 15px rgba(0,0,0,0.05);position:relative;overflow:hidden;">
+      <div style="width:80px;height:80px;border-radius:50%;background:#16a34a;color:white;display:flex;align-items:center;justify-content:center;font-size:2.5rem;font-weight:900;" id="seller-avatar">?</div>
+      <div style="flex:1;">
+        <h2 id="seller-name" style="margin:0;font-size:1.8rem;color:#0f172a;">Carregando...</h2>
+        <div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.5rem;">
+          <div id="seller-stars" style="color:#f59e0b;font-size:1.2rem;letter-spacing:2px;">☆☆☆☆☆</div>
+          <span id="seller-rating-text" style="color:#64748b;font-weight:700;font-size:0.95rem;">(0 avaliações)</span>
+        </div>
+      </div>
+      <div>
+        <button onclick="openReviewModal()" style="background:#16a34a;color:#fff;border:none;padding:0.75rem 1.5rem;border-radius:0.75rem;font-weight:700;font-size:1rem;cursor:pointer;box-shadow:0 4px 10px rgba(22,163,74,0.3);transition:all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">⭐ Deixar Avaliação</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="container list-layout" style="margin-top:2rem;">
 
     <!-- ─── SIDEBAR FILTERS ─── -->
     <aside class="filter-sidebar" aria-label="Filtros">
@@ -306,5 +324,136 @@
     // initFiltersPage() é chamado pelo filters.js via DOMContentLoaded
   });
 </script>
+
+<!-- Review Modal -->
+<div id="review-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;align-items:center;justify-content:center;backdrop-filter:blur(4px);">
+  <div style="background:#fff;width:90%;max-width:450px;border-radius:1rem;padding:2rem;position:relative;">
+    <button onclick="closeReviewModal()" style="position:absolute;top:1rem;right:1rem;background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--clr-text-light);">&times;</button>
+    <h3 style="margin-top:0;color:var(--clr-text);font-size:1.5rem;">Avaliar Vendedor</h3>
+    <p style="color:#64748b;font-size:0.95rem;margin-bottom:1.5rem;">Sua avaliação ajuda a construir um ambiente seguro para todos.</p>
+    
+    <div style="display:flex;justify-content:center;gap:0.5rem;margin-bottom:1.5rem;" id="star-selector">
+      <span class="star-btn" data-val="1" style="font-size:2.5rem;color:#e2e8f0;cursor:pointer;transition:color 0.2s;">★</span>
+      <span class="star-btn" data-val="2" style="font-size:2.5rem;color:#e2e8f0;cursor:pointer;transition:color 0.2s;">★</span>
+      <span class="star-btn" data-val="3" style="font-size:2.5rem;color:#e2e8f0;cursor:pointer;transition:color 0.2s;">★</span>
+      <span class="star-btn" data-val="4" style="font-size:2.5rem;color:#e2e8f0;cursor:pointer;transition:color 0.2s;">★</span>
+      <span class="star-btn" data-val="5" style="font-size:2.5rem;color:#e2e8f0;cursor:pointer;transition:color 0.2s;">★</span>
+    </div>
+    
+    <textarea id="review-comment" placeholder="Deixe um comentário curto (opcional)" style="width:100%;border:2px solid #e2e8f0;border-radius:0.75rem;padding:1rem;resize:vertical;min-height:80px;font-family:inherit;margin-bottom:1rem;"></textarea>
+    
+    <div id="review-alert" style="display:none;margin-bottom:1rem;padding:0.75rem;border-radius:0.5rem;font-size:0.85rem;"></div>
+
+    <button id="btn-submit-review" onclick="submitReview()" style="width:100%;background:#16a34a;border:none;color:white;font-size:1.1rem;font-weight:800;padding:1rem;border-radius:.75rem;cursor:pointer;box-shadow:0 8px 20px rgba(22,163,74,0.4);">Enviar Avaliação</button>
+  </div>
+</div>
+
+<script>
+  let selectedRating = 0;
+  const sellerId = new URLSearchParams(window.location.search).get('id');
+
+  // Star Logic
+  document.querySelectorAll('.star-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      selectedRating = parseInt(btn.dataset.val);
+      document.querySelectorAll('.star-btn').forEach(b => {
+        if(parseInt(b.dataset.val) <= selectedRating) b.style.color = '#f59e0b';
+        else b.style.color = '#e2e8f0';
+      });
+    });
+  });
+
+  function openReviewModal() {
+    if (!localStorage.getItem('auth-token')) {
+      alert("Você precisa estar logado (com e-mail/telefone autenticado) para avaliar vendedores.");
+      window.location.href = "login.html?redirect=" + encodeURIComponent(window.location.href);
+      return;
+    }
+    document.getElementById('review-modal').style.display = 'flex';
+  }
+
+  function closeReviewModal() {
+    document.getElementById('review-modal').style.display = 'none';
+  }
+
+  async function submitReview() {
+    if (selectedRating === 0) {
+      alert("Selecione pelo menos 1 estrela.");
+      return;
+    }
+    const btn = document.getElementById('btn-submit-review');
+    btn.innerHTML = 'Enviando...'; btn.disabled = true;
+
+    try {
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) throw new Error("Usuário não autenticado");
+
+      // Pegar o nome do próprio reviewer para salvar na tabela
+      const { data: prof } = await sb.from('profiles').select('name').eq('id', user.id).single();
+      const reviewerName = prof?.name || 'Usuário Verificado';
+
+      const comment = document.getElementById('review-comment').value.trim();
+
+      const { error } = await sb.from('seller_reviews').insert({
+        seller_id: sellerId,
+        reviewer_id: user.id,
+        reviewer_name: reviewerName,
+        rating: selectedRating,
+        comment: comment
+      });
+
+      if (error) {
+         if(error.message.includes('duplicate')) throw new Error("Você já avaliou este vendedor.");
+         throw error;
+      }
+      
+      closeReviewModal();
+      alert("Avaliação enviada com sucesso! Obrigado por ajudar a comunidade.");
+      window.location.reload();
+
+    } catch (e) {
+      const alertDiv = document.getElementById('review-alert');
+      alertDiv.style.display = 'block';
+      alertDiv.style.background = '#fef2f2';
+      alertDiv.style.color = '#991b1b';
+      alertDiv.innerHTML = e.message;
+      btn.innerHTML = 'Enviar Avaliação'; btn.disabled = false;
+    }
+  }
+
+  async function loadSellerProfile() {
+    if(!sellerId) {
+      document.getElementById('seller-name').textContent = "Vendedor não encontrado";
+      return;
+    }
+    
+    // Pegar nome
+    const { data: profile } = await sb.from('profiles').select('name').eq('id', sellerId).single();
+    const name = profile?.name || 'Vendedor Anônimo';
+    document.getElementById('seller-name').textContent = name;
+    document.getElementById('seller-avatar').textContent = name.charAt(0).toUpperCase();
+
+    // Pegar reviews
+    const { data: reviews } = await sb.from('seller_reviews').select('rating').eq('seller_id', sellerId);
+    if(reviews && reviews.length > 0) {
+      const total = reviews.reduce((sum, r) => sum + r.rating, 0);
+      const avg = total / reviews.length;
+      document.getElementById('seller-rating-text').textContent = `(${reviews.length} avaliação${reviews.length>1?'ões':''}) • Média ${avg.toFixed(1)}`;
+      
+      let starsHtml = '';
+      for(let i=1; i<=5; i++) {
+        starsHtml += (i <= Math.round(avg)) ? '★' : '☆';
+      }
+      document.getElementById('seller-stars').textContent = starsHtml;
+    } else {
+      document.getElementById('seller-rating-text').textContent = "(Nenhuma avaliação ainda)";
+    }
+  }
+  
+  // Call on load
+  document.addEventListener('DOMContentLoaded', loadSellerProfile);
+
+</script>
+
 </body>
 </html>

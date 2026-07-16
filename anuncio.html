@@ -564,7 +564,27 @@
              sellerLink.href = 'vendedor.html?id=' + sellerId;
           }
 
+          
           if (sellerNameEl) sellerNameEl.childNodes[0].textContent = (ad.profiles.display_name || ad.profiles.name || ad.profiles.full_name || 'Vendedor') + ' ';
+          
+          // Inject Reviews logic
+          try {
+            const { data: revs } = await sb.from('seller_reviews').select('rating').eq('seller_id', sellerId);
+            let avgHtml = '';
+            if(revs && revs.length > 0) {
+              const avg = revs.reduce((sum, r) => sum + r.rating, 0) / revs.length;
+              let stars = '';
+              for(let i=1; i<=5; i++) stars += (i <= Math.round(avg)) ? '★' : '☆';
+              avgHtml = `<div style="color:#f59e0b;font-size:1.1rem;margin-top:2px;">${stars} <span style="color:#64748b;font-size:0.8rem;font-weight:700;">(${revs.length})</span></div>`;
+            }
+            if(!document.getElementById('injected-stars-badge')) {
+               const starDiv = document.createElement('div');
+               starDiv.id = 'injected-stars-badge';
+               starDiv.innerHTML = avgHtml;
+               sellerNameEl.parentNode.insertBefore(starDiv, sellerNameEl.nextSibling);
+            }
+          } catch(err) { console.error('Erro ao buscar reviews', err); }
+
           if (sellerAvatarEl) {
             const initial = (ad.profiles.display_name || ad.profiles.name || ad.profiles.full_name || 'U').charAt(0).toUpperCase();
             sellerAvatarEl.textContent = initial;
