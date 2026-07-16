@@ -236,12 +236,12 @@ async function renderCountriesHome() {
   if (!grid) return;
 
   try {
-    const sb = getSupabase(); // C5: sb não era declarado — corrigido
+    const sb = getSupabase();
     if (!sb) return;
     const { data, error } = await sb.rpc('get_country_counts');
     if (error) throw error;
 
-    // Mapa: nome do país → código ISO (SVGs hospedados localmente em assets/flags/)
+    // Mapa: nome → código ISO — SVGs em assets/flags/ (hospedados localmente)
     const flagMap = {
       'Brasil':    'br',
       'Argentina': 'ar',
@@ -253,20 +253,26 @@ async function renderCountriesHome() {
     };
 
     const lang = (typeof currentLang !== 'undefined') ? currentLang : 'pt';
-    const adsLabel = lang === 'es' ? 'anuncios' : 'anúncios';
+    const imgStyle = 'width:42px;height:42px;object-fit:cover;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.1);flex-shrink:0;';
+
+    function adsLabel(total) {
+      const n = Number(total);
+      if (lang === 'es') return n === 1 ? '1 anuncio' : n.toLocaleString('pt-BR') + ' anuncios';
+      return n === 1 ? '1 anúncio' : n.toLocaleString('pt-BR') + ' anúncios';
+    }
 
     if (data && data.length > 0) {
       grid.innerHTML = data.map(c => {
         const code = flagMap[c.country_name] || '';
-        const flagTag = code
-          ? `<img src="assets/flags/${code}.svg" alt="${c.country_name}" class="country-flag" loading="lazy" width="42" height="42">`
-          : '<span style="font-size:2rem;">🌎</span>';
-        const total = Number(c.total).toLocaleString('pt-BR');
-        return `
-          <div class="country-card fade-in-up">
-            ${flagTag}
-            <div class="country-name">${c.country_name}</div>
-            <div class="country-ads">${total} ${adsLabel}</div>
+        const imgTag = code
+          ? `<img src="assets/flags/${code}.svg" alt="${c.country_name}" class="country-flag" width="42" height="42" style="${imgStyle}" loading="lazy">`
+          : `<span class="country-flag" style="font-size:2rem;">🌎</span>`;
+        return `<div class="country-card fade-in-up">
+            ${imgTag}
+            <div>
+              <div style="font-weight:700;color:var(--clr-heading);font-size:1.05rem;">${c.country_name}</div>
+              <div style="font-size:0.85rem;color:var(--clr-text-muted);margin-top:2px;">${adsLabel(c.total)}</div>
+            </div>
           </div>`;
       }).join('');
     } else {
