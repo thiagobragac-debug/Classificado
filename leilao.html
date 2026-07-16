@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -6,7 +6,7 @@
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Leilões ao Vivo — Tauze Class</title>
+  <title>LeilÃµes ao Vivo â€” Tauze Class</title>
   <link rel="stylesheet" href="css/style.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2316A34A'/%3E%3Ctext y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'%3ET%3C/text%3E%3C/svg%3E">
@@ -16,7 +16,7 @@
   <header class="site-header" role="banner">
     <div class="container header-inner">
 
-      <a href="index.html" class="logo" aria-label="Tauze Class — Início">
+      <a href="index.html" class="logo" aria-label="Tauze Class â€” InÃ­cio">
         <div class="logo-mark">TC</div>
         <div class="logo-text">
           <span class="logo-name">Tauze Class</span>
@@ -28,27 +28,27 @@
         <span class="search-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         </span>
-        <input type="search" id="header-search-input" placeholder="Buscar leilões e remates..."
-               data-i18n-placeholder="search_placeholder" aria-label="Buscar anúncios">
+        <input type="search" id="header-search-input" placeholder="Buscar leilÃµes e remates..."
+               data-i18n-placeholder="search_placeholder" aria-label="Buscar anÃºncios">
       </div>
 
       <nav class="header-nav" role="navigation" aria-label="Menu principal">
-        <a href="index.html" data-i18n="nav_home" >Início</a>
-        <a href="listagem.html" data-i18n="nav_ads" >Anúncios</a>
+        <a href="index.html" data-i18n="nav_home" >InÃ­cio</a>
+        <a href="listagem.html" data-i18n="nav_ads" >AnÃºncios</a>
         <a href="eventos.html" data-i18n="nav_events" >Eventos</a>
-        <a href="leiloes.html" class="nav-live active"><span class="live-indicator"></span><span data-i18n="nav_auctions">Leilões Ao Vivo</span></a>
+        <a href="leiloes.html" class="nav-live active"><span class="live-indicator"></span><span data-i18n="nav_auctions">LeilÃµes Ao Vivo</span></a>
         <a href="planos.html" data-i18n="nav_plans" >Planos</a>
         <div class="auth-wrapper"><a href="login.html" data-i18n="nav_login">Entrar</a></div>
       </nav>
 
       <div class="lang-toggle" role="group" aria-label="Selecionar idioma">
-        <button data-lang="pt" class="active" aria-label="Português">PT</button>
-        <button data-lang="es" aria-label="Español">ES</button>
+        <button data-lang="pt" class="active" aria-label="PortuguÃªs">PT</button>
+        <button data-lang="es" aria-label="EspaÃ±ol">ES</button>
       </div>
 
       <a href="anunciar.html" class="btn-anunciar-header" id="btn-post-header">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        <span data-i18n="btn_post">Anunciar Grátis</span>
+        <span data-i18n="btn_post">Anunciar GrÃ¡tis</span>
       </a>
 
       <button class="hamburger" aria-label="Abrir menu" aria-expanded="false" aria-controls="mobile-menu">
@@ -57,7 +57,7 @@
     </div>
   </header>
 
-  <!-- LEILÕES HEADER -->
+  <!-- LEILÃ•ES HEADER -->
   <section id="leiloes-header" class="page-header" style="background: linear-gradient(135deg, #111827, #1f2937); background-size: cover; background-position: center; text-align: left; padding: calc(var(--header-h) + 3rem) 0 3rem; position: relative; overflow: hidden;">
     <div style="position: absolute; inset: 0; background: linear-gradient(90deg, rgba(17,24,39,0.95) 0%, rgba(17,24,39,0.5) 100%); z-index: 0;"></div>
     
@@ -66,11 +66,11 @@
         <div style="flex: 1; min-width: 300px; display: flex; flex-direction: column; justify-content: center;">
           <div>
             <div id="live-indicator-container" style="display: none; align-items: center; gap: 0.5rem; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #ef4444; padding: 0.3rem 0.8rem; border-radius: 2rem; font-weight: 700; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.75rem;">
-              <span class="live-indicator"></span> Transmissão Ao Vivo
+              <span class="live-indicator"></span> TransmissÃ£o Ao Vivo
             </div>
           </div>
-          <h1 id="leiloes-title" style="font-size: 2.2rem; margin-bottom: 0.2rem; color: white;">Leilões e Remates</h1>
-          <p id="leiloes-subtitle" style="font-size: 1rem; max-width: 500px; color: rgba(255,255,255,0.7); margin-bottom: 0;">Acompanhe os melhores lotes e dê seu lance em tempo real.</p>
+          <h1 id="leiloes-title" style="font-size: 2.2rem; margin-bottom: 0.2rem; color: white;">LeilÃµes e Remates</h1>
+          <p id="leiloes-subtitle" style="font-size: 1rem; max-width: 500px; color: rgba(255,255,255,0.7); margin-bottom: 0;">Acompanhe os melhores lotes e dÃª seu lance em tempo real.</p>
           <div id="catalog-btn-container" style="margin-top: 1rem; display: flex; gap: 0.8rem; flex-wrap: wrap;">
              <!-- JS will inject the catalog and access buttons here -->
           </div>
@@ -81,7 +81,7 @@
           <div id="live-overlay-content" style="position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 20; background: transparent;">
           </div>
           
-          <!-- CONTEÚDO DO CRONÔMETRO -->
+          <!-- CONTEÃšDO DO CRONÃ”METRO -->
           <div id="countdown-wrapper" style="display: flex; flex-direction: column; align-items: center; width: 100%; transition: opacity 0.3s;">
             <h3 id="countdown-title" style="margin-bottom: 1rem; color: white; font-size: 1rem; text-align: center; font-weight: 600;">Tempo restante:</h3>
             <div id="countdown-timer" style="display: flex; gap: 0.8rem; text-align: center;">
@@ -128,8 +128,8 @@
 
     <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
       <div>
-        <h2 id="lots-section-title" class="section-title">Catálogo de Lotes</h2>
-        <p id="lots-section-subtitle" style="color: var(--clr-text-light);">Navegue por todos os animais e itens deste leilão.</p>
+        <h2 id="lots-section-title" class="section-title">CatÃ¡logo de Lotes</h2>
+        <p id="lots-section-subtitle" style="color: var(--clr-text-light);">Navegue por todos os animais e itens deste leilÃ£o.</p>
       </div>
       <div style="display: flex; gap: 1rem; flex-wrap: nowrap; align-items: center; width: 100%; max-width: 600px;">
         <div style="position: relative; flex: 1; min-width: 0;">
@@ -137,7 +137,7 @@
           <input type="text" id="filterSearch" placeholder="Buscar..." class="form-input" style="padding: 0.6rem 1rem 0.6rem 2.5rem; border-radius: 2rem; width: 100%; border: 1px solid #d1d5db; box-sizing: border-box;" onkeyup="filterLots()">
         </div>
         <select id="filterOrder" class="form-input" style="padding: 0.6rem 1rem; border-radius: 2rem; border: 1px solid #d1d5db; width: auto; min-width: 150px; flex-shrink: 0; box-sizing: border-box;" onchange="filterLots()">
-          <option value="num_asc">Ordem Padrão</option>
+          <option value="num_asc">Ordem PadrÃ£o</option>
           <option value="price_asc">Menor Lance</option>
           <option value="price_desc">Maior Lance</option>
         </select>
@@ -149,7 +149,7 @@
         <!-- Lotes renderizados dinamicamente via JS -->
       </div>
 
-      <!-- BANNER LEILÃO FOOTER -->
+      <!-- BANNER LEILÃƒO FOOTER -->
       <div id="banner-leilao-footer" style="margin-top: 2rem;"></div>
     </main>
 
@@ -166,7 +166,7 @@
         </div>
         <div style="display: flex; gap: 2rem;">
           <div style="flex: 1;">
-            <p style="color: var(--clr-text-light); font-size: 0.9rem; margin-bottom: 0.2rem;">Lote Número</p>
+            <p style="color: var(--clr-text-light); font-size: 0.9rem; margin-bottom: 0.2rem;">Lote NÃºmero</p>
             <p id="modalLotNumber" style="font-size: 1.2rem; font-weight: 700;">00</p>
           </div>
           <div style="flex: 1;">
@@ -181,25 +181,25 @@
             <p id="modalLotSire" style="font-weight: 600;">-</p>
           </div>
           <div style="flex: 1;">
-            <p style="font-size: 0.8rem; color: var(--clr-primary); font-weight: 700; text-transform: uppercase;">Mãe</p>
+            <p style="font-size: 0.8rem; color: var(--clr-primary); font-weight: 700; text-transform: uppercase;">MÃ£e</p>
             <p id="modalLotDam" style="font-weight: 600;">-</p>
           </div>
         </div>
 
         <div style="margin-top: 1.5rem; background: #f9fafb; padding: 1rem; border-radius: 0.5rem; border: 1px solid #e5e7eb;">
-          <h4 style="font-size: 1rem; margin-bottom: 0.5rem; font-weight: 600;">Descrição do Lote</h4>
-          <p id="modalLotDesc" style="font-size: 0.9rem; color: #4b5563; line-height: 1.5;">Nenhuma descrição detalhada informada para este lote.</p>
+          <h4 style="font-size: 1rem; margin-bottom: 0.5rem; font-weight: 600;">DescriÃ§Ã£o do Lote</h4>
+          <p id="modalLotDesc" style="font-size: 0.9rem; color: #4b5563; line-height: 1.5;">Nenhuma descriÃ§Ã£o detalhada informada para este lote.</p>
         </div>
         
         <div style="margin-top: 2rem; background: linear-gradient(135deg, #f0fdf4, #ffffff); border: 2px solid #bbf7d0; padding: 1.5rem; border-radius: 1rem; text-align: center; box-shadow: 0 10px 25px rgba(34, 197, 94, 0.1);">
           <div style="display: inline-flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; color: var(--clr-primary); font-weight: 800; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 0.05em;">
             <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-            Lances Rápidos
+            Lances RÃ¡pidos
           </div>
           <div style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem;">
-            <button type="button" class="btn" style="flex: 1; justify-content: center; background: #dcfce7; color: #166534; border: 1px solid #22c55e; font-weight: 700; font-size: 1rem; border-radius: 0.5rem; transition: all 0.2s;" onmouseover="this.style.background='#bbf7d0'" onmouseout="this.style.background='#dcfce7'" onclick="alert('Lances disponíveis após o login.')">+ R$ 500</button>
-            <button type="button" class="btn" style="flex: 1; justify-content: center; background: #dcfce7; color: #166534; border: 1px solid #22c55e; font-weight: 700; font-size: 1rem; border-radius: 0.5rem; transition: all 0.2s;" onmouseover="this.style.background='#bbf7d0'" onmouseout="this.style.background='#dcfce7'" onclick="alert('Lances disponíveis após o login.')">+ R$ 1.000</button>
-            <button type="button" class="btn" style="flex: 1; justify-content: center; background: #dcfce7; color: #166534; border: 1px solid #22c55e; font-weight: 700; font-size: 1rem; border-radius: 0.5rem; transition: all 0.2s;" onmouseover="this.style.background='#bbf7d0'" onmouseout="this.style.background='#dcfce7'" onclick="alert('Lances disponíveis após o login.')">+ R$ 5.000</button>
+            <button type="button" class="btn" style="flex: 1; justify-content: center; background: #dcfce7; color: #166534; border: 1px solid #22c55e; font-weight: 700; font-size: 1rem; border-radius: 0.5rem; transition: all 0.2s;" onmouseover="this.style.background='#bbf7d0'" onmouseout="this.style.background='#dcfce7'" onclick="alert('Lances disponÃ­veis apÃ³s o login.')">+ R$ 500</button>
+            <button type="button" class="btn" style="flex: 1; justify-content: center; background: #dcfce7; color: #166534; border: 1px solid #22c55e; font-weight: 700; font-size: 1rem; border-radius: 0.5rem; transition: all 0.2s;" onmouseover="this.style.background='#bbf7d0'" onmouseout="this.style.background='#dcfce7'" onclick="alert('Lances disponÃ­veis apÃ³s o login.')">+ R$ 1.000</button>
+            <button type="button" class="btn" style="flex: 1; justify-content: center; background: #dcfce7; color: #166534; border: 1px solid #22c55e; font-weight: 700; font-size: 1rem; border-radius: 0.5rem; transition: all 0.2s;" onmouseover="this.style.background='#bbf7d0'" onmouseout="this.style.background='#dcfce7'" onclick="alert('Lances disponÃ­veis apÃ³s o login.')">+ R$ 5.000</button>
           </div>
           
           <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
@@ -208,7 +208,7 @@
             <div style="flex: 1; height: 1px; background: #d1d5db;"></div>
           </div>
           
-          <button type="button" class="btn btn--primary" style="width: 100%; justify-content: center; padding: 1rem; font-size: 1.1rem; font-weight: 800; box-shadow: 0 8px 16px rgba(34, 197, 94, 0.3); text-transform: uppercase;" onclick="alert('Autenticação necessária para dar lances!')">Dar Lance Personalizado</button>
+          <button type="button" class="btn btn--primary" style="width: 100%; justify-content: center; padding: 1rem; font-size: 1.1rem; font-weight: 800; box-shadow: 0 8px 16px rgba(34, 197, 94, 0.3); text-transform: uppercase;" onclick="alert('AutenticaÃ§Ã£o necessÃ¡ria para dar lances!')">Dar Lance Personalizado</button>
         </div>
       </div>
     </div>
@@ -222,9 +222,9 @@
   </footer>
 
   <script src="js/data.js"></script>
-  <script src="/js/supabase.js"></script>
+  <script src="/js/supabase.js?v=639197771809908242"></script>
   <script src="js/ui_constants.js"></script>
-<script src="js/main.js"></script>
+<script src="js/main.js?v=639197771809908242"></script>
 
   <script>
     // ------------------------------------
@@ -256,7 +256,7 @@
       const urlParams = new URLSearchParams(window.location.search);
       let auctionId = urlParams.get('id');
       
-      // Fallback robusto caso o servidor de desenvolvimento remova os parâmetros da URL
+      // Fallback robusto caso o servidor de desenvolvimento remova os parÃ¢metros da URL
       if (!auctionId) {
         auctionId = localStorage.getItem('tc_selected_auction');
       }
@@ -273,7 +273,7 @@
       } else {
         targetDate.setDate(targetDate.getDate() + 3);
         targetDate.setHours(20, 0, 0, 0);
-        document.getElementById('lotes-container').innerHTML = `<p style="grid-column: 1/-1; text-align:center; padding: 3rem; color: var(--clr-text-light);">Nenhum leilão ativo no momento.</p>`;
+        document.getElementById('lotes-container').innerHTML = `<p style="grid-column: 1/-1; text-align:center; padding: 3rem; color: var(--clr-text-light);">Nenhum leilÃ£o ativo no momento.</p>`;
       }
 
       function renderSlide(index) {
@@ -306,7 +306,7 @@
         }
 
         if (auction.catalog) {
-          btnsHTML += `<a href="${auction.catalog}" download="catalogo.pdf" class="btn btn--primary" style="display:inline-flex; align-items:center; gap:8px;"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Baixar Catálogo</a>`;
+          btnsHTML += `<a href="${auction.catalog}" download="catalogo.pdf" class="btn btn--primary" style="display:inline-flex; align-items:center; gap:8px;"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Baixar CatÃ¡logo</a>`;
         }
         catContainer.style.display = btnsHTML ? 'flex' : 'none';
         catContainer.innerHTML = btnsHTML;
@@ -322,7 +322,7 @@
           liveInd.style.background = 'rgba(239, 68, 68, 0.15)';
           liveInd.style.borderColor = 'rgba(239, 68, 68, 0.4)';
           liveInd.style.color = '#ef4444';
-          liveInd.innerHTML = '<span class="live-indicator"></span> Transmissão Ao Vivo';
+          liveInd.innerHTML = '<span class="live-indicator"></span> TransmissÃ£o Ao Vivo';
           
           countdownWrapper.style.opacity = '0';
           countdownWrapper.style.pointerEvents = 'none';
@@ -330,15 +330,15 @@
           liveOverlay.style.display = 'flex';
           liveOverlay.innerHTML = `
             <div style="display: flex; align-items: center; gap: 0.5rem; color: #ef4444; font-weight: 700; font-size: 1rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 1rem;">
-              <span class="live-indicator"></span> O LEILÃO JÁ COMEÇOU
+              <span class="live-indicator"></span> O LEILÃƒO JÃ COMEÃ‡OU
             </div>
             <button class="btn btn--primary" style="padding: 0.6rem 1.8rem; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3); transition: all 0.3s;" onclick="document.getElementById('live-video-container').scrollIntoView({behavior: 'smooth'})" onmouseover="this.style.boxShadow='0 6px 20px rgba(16, 185, 129, 0.6)'; this.style.transform='translateY(-2px)'" onmouseout="this.style.boxShadow='0 4px 15px rgba(16, 185, 129, 0.3)'; this.style.transform='translateY(0)'">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
               Participar Agora
             </button>
           `;
-          lotsSectionTitle.innerText = "Catálogo de Lotes";
-          lotsSectionSubtitle.innerText = "Navegue por todos os animais e itens deste leilão.";
+          lotsSectionTitle.innerText = "CatÃ¡logo de Lotes";
+          lotsSectionSubtitle.innerText = "Navegue por todos os animais e itens deste leilÃ£o.";
           document.querySelector('main.container').style.marginTop = '0';
         } else {
           headerEl.style.display = 'block';
@@ -353,8 +353,8 @@
           liveOverlay.style.display = 'none';
           liveOverlay.innerHTML = '';
 
-          lotsSectionTitle.innerText = "Catálogo de Lotes";
-          lotsSectionSubtitle.innerText = "Este leilão ainda não começou. Confira os lotes agendados abaixo.";
+          lotsSectionTitle.innerText = "CatÃ¡logo de Lotes";
+          lotsSectionSubtitle.innerText = "Este leilÃ£o ainda nÃ£o comeÃ§ou. Confira os lotes agendados abaixo.";
           document.querySelector('main.container').style.marginTop = '0';
         }
         liveInd.style.display = 'inline-flex';
@@ -387,7 +387,7 @@
         const container = document.getElementById('lotes-container');
         container.innerHTML = '';
         if(lots.length === 0) {
-          container.innerHTML = `<p style="grid-column: 1/-1; text-align:center; padding: 3rem; color: var(--clr-text-light);">Nenhum lote cadastrado para o próximo leilão.</p>`;
+          container.innerHTML = `<p style="grid-column: 1/-1; text-align:center; padding: 3rem; color: var(--clr-text-light);">Nenhum lote cadastrado para o prÃ³ximo leilÃ£o.</p>`;
           return;
         }
 
@@ -431,12 +431,12 @@
               </div>
               <div style="display: flex; gap: 0.5rem;">
                 ${auction.acceptsBids !== false ? `
-                  <button type="button" class="btn btn--primary" style="flex: 1; justify-content: center; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; box-shadow: 0 4px 10px rgba(34, 197, 94, 0.2);" onclick="alert('Área de lances em breve!')">
+                  <button type="button" class="btn btn--primary" style="flex: 1; justify-content: center; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; box-shadow: 0 4px 10px rgba(34, 197, 94, 0.2);" onclick="alert('Ãrea de lances em breve!')">
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 5px;"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
                     Dar Lance
                   </button>
                 ` : `
-                  <button type="button" class="btn" style="flex: 1; justify-content: center; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; background: #e5e7eb; color: #4b5563; cursor: not-allowed;" disabled title="Este leilão aceita lances apenas de forma presencial ou via telefone da leiloeira.">
+                  <button type="button" class="btn" style="flex: 1; justify-content: center; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; background: #e5e7eb; color: #4b5563; cursor: not-allowed;" disabled title="Este leilÃ£o aceita lances apenas de forma presencial ou via telefone da leiloeira.">
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 5px;"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
                     Lances na Mesa/Telefone
                   </button>
@@ -456,7 +456,7 @@
           console.log('Abrindo modal para lote:', lotId);
           const lot = allLots.find(l => String(l.id) === String(lotId));
           if(!lot) {
-            alert('Lote não encontrado no banco de dados local.');
+            alert('Lote nÃ£o encontrado no banco de dados local.');
             return;
           }
           
@@ -465,12 +465,12 @@
           
           const minBidFormatted = parseFloat(lot.minBid || currentAuction?.minBid || 0).toLocaleString('pt-BR');
           document.getElementById('modalLotBid').innerText = `R$ ${minBidFormatted}`;
-          document.getElementById('modalLotDesc').innerText = lot.description || 'Nenhuma descrição detalhada informada para este lote.';
+          document.getElementById('modalLotDesc').innerText = lot.description || 'Nenhuma descriÃ§Ã£o detalhada informada para este lote.';
           
           if (lot.sire || lot.dam) {
             document.getElementById('modalLotPedigree').style.display = 'flex';
-            document.getElementById('modalLotSire').innerText = lot.sire || 'Não informado';
-            document.getElementById('modalLotDam').innerText = lot.dam || 'Não informado';
+            document.getElementById('modalLotSire').innerText = lot.sire || 'NÃ£o informado';
+            document.getElementById('modalLotDam').innerText = lot.dam || 'NÃ£o informado';
           } else {
             document.getElementById('modalLotPedigree').style.display = 'none';
           }
@@ -480,11 +480,11 @@
             // Clean up youtube url to embed format if needed, assuming the user inputs a valid embed url or we just try to use it directly
             let videoSrc = lot.video;
             if(videoSrc.includes('watch?v=')) videoSrc = videoSrc.replace('watch?v=', 'embed/');
-            imgContainer.innerHTML = `<iframe width="100%" height="100%" src="${videoSrc}" title="Vídeo do Lote" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+            imgContainer.innerHTML = `<iframe width="100%" height="100%" src="${videoSrc}" title="VÃ­deo do Lote" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
           } else if(lot.image) {
             imgContainer.innerHTML = `<img src="${safeImage}" style="width:100%; height:100%; object-fit:cover;">`;
           } else {
-            imgContainer.innerHTML = `<span style="color:#9ca3af;">Sem mídia disponível</span>`;
+            imgContainer.innerHTML = `<span style="color:#9ca3af;">Sem mÃ­dia disponÃ­vel</span>`;
           }
           
           document.getElementById('lotDetailsModal').classList.add('open');
@@ -581,7 +581,7 @@
           const timerEl = document.getElementById('auction-timer') || document.querySelector('.timer');
           if (timerEl) timerEl.textContent = 'ENCERRADO';
           const bidBtn = document.getElementById('btn-bid') || document.querySelector('.btn-bid');
-          if (bidBtn) { bidBtn.disabled = true; bidBtn.textContent = 'Leilão Encerrado'; }
+          if (bidBtn) { bidBtn.disabled = true; bidBtn.textContent = 'LeilÃ£o Encerrado'; }
           return;
         }
         const h = Math.floor(diff / 3600000);
@@ -621,13 +621,13 @@
           const amount = parseFloat(bidInput?.value || 0);
           const minBid = (auction.current_bid || auction.start_price) + (auction.min_increment || 100);
           if (!amount || amount < minBid) {
-            alert(`Lance mínimo: ${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(minBid)}`);
+            alert(`Lance mÃ­nimo: ${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(minBid)}`);
             return;
           }
           try {
             bidBtn.disabled = true; bidBtn.textContent = 'Enviando...';
             await placeBid(auctionId, amount);
-            bidBtn.textContent = '✓ Lance enviado!';
+            bidBtn.textContent = 'âœ“ Lance enviado!';
             setTimeout(() => { bidBtn.disabled = false; bidBtn.textContent = 'Fazer Lance'; }, 2000);
           } catch(e) {
             alert('Erro ao enviar lance: ' + e.message);
@@ -660,11 +660,11 @@
         }
 
         // Show toast
-        if (typeof showToast === 'function') showToast('🔨 Novo lance: ' + new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(newAmount));
+        if (typeof showToast === 'function') showToast('ðŸ”¨ Novo lance: ' + new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(newAmount));
       });
 
     } catch(e) {
-      console.warn('Usando dados mock para leilão:', e.message);
+      console.warn('Usando dados mock para leilÃ£o:', e.message);
     }
   });
   </script>

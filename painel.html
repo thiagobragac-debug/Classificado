@@ -126,7 +126,7 @@
             <p id="ads-count-subtitle" style="color:#64748b;font-size:.85rem;margin-top:.2rem">Carregando…</p>
           </div>
           <div style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap">
-            <select id="my-ads-filter" onchange="renderAds()" style="padding:.65rem 1rem;border-radius:.75rem;border:1px solid #e2e8f0;background:#fff;color:var(--clr-text);font-size:.9rem;font-weight:600;outline:none;cursor:pointer">
+            <select id="my-ads-filter" onchange="currentAdsPage=1;renderAds()" style="padding:.65rem 1rem;border-radius:.75rem;border:1px solid #e2e8f0;background:#fff;color:var(--clr-text);font-size:.9rem;font-weight:600;outline:none;cursor:pointer">
               <option value="all" data-i18n="pnl_all_status">Todos os Status</option>
               <option value="active" data-i18n="pnl_active">Ativos</option>
               <option value="pending" data-i18n="pnl_pending">Pendentes</option>
@@ -135,7 +135,7 @@
             </select>
           </div>
         </div>
-        <div id="ads-container" style="background:#fff;border-radius:1rem;box-shadow:0 2px 16px rgba(0,0,0,.06);overflow:hidden">
+        <div id="ads-container">
           <div style="display:grid;grid-template-columns:110px 1fr;gap:1rem;align-items:center;padding:1rem 1.25rem">
             <div style="width:110px;height:82px;border-radius:.6rem;background:linear-gradient(90deg,#f1f5f9 25%,#e9eff5 50%,#f1f5f9 75%);background-size:200% 100%;animation:shimmer 1.4s infinite"></div>
             <div style="display:flex;flex-direction:column;gap:.6rem">
@@ -212,7 +212,7 @@
             <input type="text" id="fav-search" data-i18n-placeholder="pnl_search_favs" placeholder="Buscar favoritos..." oninput="renderFavorites()" style="width:100%;box-sizing:border-box;padding:.75rem 1rem .75rem 2.8rem;border-radius:2rem;border:1px solid #e2e8f0;background:#fff;font-size:.9rem;outline:none;transition:all .2s;color:#0f172a" onfocus="this.style.borderColor='#16a34a';this.style.boxShadow='0 0 0 4px #16a34a1a'" onblur="this.style.borderColor='#e2e8f0';this.style.boxShadow='none'">
           </div>
         </div>
-        <div id="favorites-container" style="background:#fff;border-radius:1rem;box-shadow:0 2px 16px rgba(0,0,0,.06);overflow:hidden">
+        <div id="favorites-container">
           <div id="favs-spinner" style="display:flex;align-items:center;justify-content:center;padding:3rem">
             <div style="width:28px;height:28px;border-radius:50%;border:3px solid #e2e8f0;border-top-color:#16a34a;animation:spin .7s linear infinite"></div>
           </div>
@@ -477,10 +477,10 @@
       <div id="toast" role="alert" aria-live="polite"
     style="position:fixed;bottom:2rem;right:2rem;z-index:9999;padding:.85rem 1.25rem;border-radius:.85rem;background:#1e293b;color:#fff;font-size:.88rem;font-weight:600;box-shadow:0 8px 32px rgba(0,0,0,.2);display:flex;align-items:center;gap:.6rem;transform:translateY(120%);opacity:0;transition:all .3s cubic-bezier(.4,0,.2,1);max-width:340px;pointer-events:none"></div>
 
-  <script src="js/supabase.js"></script>
+  <script src="js/supabase.js?v=2"></script>
   <script src="js/data.js"></script>
   <script src="js/ui_constants.js"></script>
-  <script src="js/main.js"></script>
+  <script src="js/main.js?v=2"></script>
   <script>
   /* ================================================================
      PAINEL ─ Integração real com Supabase
@@ -492,6 +492,7 @@
   };
 
   let _currentUser=null,_myAds=[],_messages=[],_favs=[];
+  let currentAdsPage = 1;
   let _conversations={},_activeConvKey=null,_unreadCount=0;
   let _loadedTabs=new Set(),_toastTimer;
   let _myBilling=[], _billingPage=1; const BILLING_PAGE_SIZE=5;
@@ -851,7 +852,23 @@
       </div>`;
     }
 
-    c.innerHTML = analyticsHtml + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:2rem;padding:0 0 1.5rem 0">' + filteredAds.map(renderAdCard).join('') + '</div>';
+    
+    const itemsPerPage = 12;
+    const totalPages = Math.ceil(filteredAds.length / itemsPerPage);
+    if (currentAdsPage > totalPages && totalPages > 0) currentAdsPage = totalPages;
+    const pagedAds = filteredAds.slice((currentAdsPage - 1) * itemsPerPage, currentAdsPage * itemsPerPage);
+
+    let paginationHtml = '';
+    if (totalPages > 1) {
+        paginationHtml = `<div style="display:flex;align-items:center;justify-content:center;gap:1rem;margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid #f1f5f9">
+            <button onclick="changeAdsPage(-1)" style="padding:0.6rem 1rem;border-radius:0.5rem;border:1px solid #e2e8f0;background:${currentAdsPage === 1 ? '#f8fafc' : '#fff'};color:${currentAdsPage === 1 ? '#94a3b8' : '#1e293b'};font-weight:600;cursor:${currentAdsPage === 1 ? 'not-allowed' : 'pointer'}" ${currentAdsPage === 1 ? 'disabled' : ''}>Anterior</button>
+            <span style="font-size:0.9rem;font-weight:600;color:#64748b">Página ${currentAdsPage} de ${totalPages}</span>
+            <button onclick="changeAdsPage(1)" style="padding:0.6rem 1rem;border-radius:0.5rem;border:1px solid #e2e8f0;background:${currentAdsPage === totalPages ? '#f8fafc' : '#fff'};color:${currentAdsPage === totalPages ? '#94a3b8' : '#1e293b'};font-weight:600;cursor:${currentAdsPage === totalPages ? 'not-allowed' : 'pointer'}" ${currentAdsPage === totalPages ? 'disabled' : ''}>Próxima</button>
+        </div>`;
+    }
+
+    c.innerHTML = analyticsHtml + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:1.5rem;padding:0 0 1.5rem 0">' + pagedAds.map(renderAdCard).join('') + '</div>' + paginationHtml;
+    
   }
 
   function renderAdCard(ad){
@@ -1630,4 +1647,4 @@
   </script>
 </body>
 </html>
-
+

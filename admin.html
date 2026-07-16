@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -53,16 +53,16 @@
 
   <div class="container" id="main-content" style="display:none;">
     <div class="card">
-      <div class="card-header">Solicitações de Verificação Pendentes (KYC)</div>
+      <div class="card-header">SolicitaÃ§Ãµes de VerificaÃ§Ã£o Pendentes (KYC)</div>
       <div style="overflow-x: auto;">
         <table class="table">
           <thead>
             <tr>
-              <th>Usuário</th>
+              <th>UsuÃ¡rio</th>
               <th>Data</th>
               <th>Tipo</th>
               <th>Documentos</th>
-              <th>Ações</th>
+              <th>AÃ§Ãµes</th>
             </tr>
           </thead>
           <tbody id="kyc-table-body">
@@ -74,7 +74,7 @@
 
     <div class="card" style="margin-top:2rem;">
       <div class="card-header">Gerenciar Administradores</div>
-      <p style="color:#64748b; font-size:0.9rem; margin-bottom:1rem;">Conceda permissão de administrador a outros usuários informando o e-mail cadastrado.</p>
+      <p style="color:#64748b; font-size:0.9rem; margin-bottom:1rem;">Conceda permissÃ£o de administrador a outros usuÃ¡rios informando o e-mail cadastrado.</p>
       <div style="display:flex; gap:1rem; max-width:500px;">
         <input type="email" id="new-admin-email" placeholder="email@exemplo.com" style="flex:1; padding:0.75rem 1rem; border-radius:0.5rem; border:1px solid #e2e8f0; font-family:inherit; outline:none;">
         <button class="btn btn-approve" onclick="handleAddAdmin()">Adicionar Admin</button>
@@ -83,12 +83,12 @@
   </div>
   
   <div class="container" id="loading-content" style="text-align:center; padding: 4rem;">
-    <h2 style="color: #64748b;">Verificando permissões...</h2>
+    <h2 style="color: #64748b;">Verificando permissÃµes...</h2>
   </div>
 
   <div id="toast"></div>
 
-  <script src="js/supabase.js?v=1784070010052"></script>
+  <script src="js/supabase.js?v=639197771809908242"></script>
   <script>
     let _toastTimer;
     function showToast(msg,type=''){
@@ -108,7 +108,7 @@
         const tbody = document.getElementById('kyc-table-body');
         
         if (!data || data.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#64748b;">Nenhuma solicitação pendente.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#64748b;">Nenhuma solicitaÃ§Ã£o pendente.</td></tr>';
           return;
         }
 
@@ -120,7 +120,7 @@
         };
 
         tbody.innerHTML = data.map(req => {
-          const name = escapeHTML(req.profiles?.full_name || 'Usuário Sem Nome');
+          const name = escapeHTML(req.profiles?.full_name || 'UsuÃ¡rio Sem Nome');
           const email = escapeHTML(req.profiles?.email || 'Sem E-mail');
           const date = new Date(req.submitted_at).toLocaleDateString('pt-BR');
           
@@ -131,7 +131,7 @@
                 <div style="font-size:0.8rem; color:#64748b;">${email}</div>
               </td>
               <td>${date}</td>
-              <td>${req.doc_type === 'pessoa_fisica' ? 'Pessoa Física' : 'Pessoa Jurídica'}</td>
+              <td>${req.doc_type === 'pessoa_fisica' ? 'Pessoa FÃ­sica' : 'Pessoa JurÃ­dica'}</td>
               <td>
                 <a href="${sanitizeUrl(req.doc_front_url)}" target="_blank" class="link" style="display:block;">Frente Doc</a>
                 ${req.doc_back_url ? `<a href="${sanitizeUrl(req.doc_back_url)}" target="_blank" class="link" style="display:block;">Verso Doc</a>` : ''}
@@ -153,7 +153,7 @@
     window.handleApprove = async (id) => {
       if(!confirm('Tem certeza que deseja aprovar este vendedor?')) return;
       try {
-        await updateVerificationStatus(id, 'approved', 'Documentação verificada.');
+        await updateVerificationStatus(id, 'approved', 'DocumentaÃ§Ã£o verificada.');
         showToast('Vendedor aprovado!', 'success');
         loadKYC();
       } catch(e) {
@@ -162,11 +162,11 @@
     };
 
     window.handleReject = async (id) => {
-      const notes = prompt('Motivo da rejeição (será exibido ao usuário):', 'Documentação inválida ou ilegível.');
+      const notes = prompt('Motivo da rejeiÃ§Ã£o (serÃ¡ exibido ao usuÃ¡rio):', 'DocumentaÃ§Ã£o invÃ¡lida ou ilegÃ­vel.');
       if(notes === null) return;
       try {
         await updateVerificationStatus(id, 'rejected', notes);
-        showToast('Solicitação rejeitada.', 'success');
+        showToast('SolicitaÃ§Ã£o rejeitada.', 'success');
         loadKYC();
       } catch(e) {
         showToast('Erro: ' + e.message, 'error');
@@ -177,7 +177,7 @@
       try {
         const isAdmin = await checkIsAdmin();
         if (!isAdmin) {
-          document.getElementById('loading-content').innerHTML = '<h2 style="color: #dc2626;">Acesso Negado</h2><p>Você não tem permissão para acessar esta página.</p><a href="index.html" class="link">Ir para o Início</a>';
+          document.getElementById('loading-content').innerHTML = '<h2 style="color: #dc2626;">Acesso Negado</h2><p>VocÃª nÃ£o tem permissÃ£o para acessar esta pÃ¡gina.</p><a href="index.html" class="link">Ir para o InÃ­cio</a>';
           return;
         }
         

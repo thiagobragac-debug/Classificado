@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -6,7 +6,7 @@
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Leilões ao Vivo — Tauze Class</title>
+  <title>LeilÃµes ao Vivo â€” Tauze Class</title>
   <link rel="stylesheet" href="css/style.css?v=1784160758676">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2316A34A'/%3E%3Ctext y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'%3ET%3C/text%3E%3C/svg%3E">
@@ -16,7 +16,7 @@
   <header class="site-header" role="banner">
     <div class="container header-inner">
 
-      <a href="index.html" class="logo" aria-label="Tauze Class — Início">
+      <a href="index.html" class="logo" aria-label="Tauze Class â€” InÃ­cio">
         <div class="logo-mark">TC</div>
         <div class="logo-text">
           <span class="logo-name">Tauze Class</span>
@@ -28,27 +28,27 @@
         <span class="search-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         </span>
-        <input type="search" id="header-search-input" placeholder="Buscar leilões e remates..."
-               data-i18n-placeholder="search_placeholder" aria-label="Buscar anúncios">
+        <input type="search" id="header-search-input" placeholder="Buscar leilÃµes e remates..."
+               data-i18n-placeholder="search_placeholder" aria-label="Buscar anÃºncios">
       </div>
 
       <nav class="header-nav" role="navigation" aria-label="Menu principal">
-        <a href="index.html" data-i18n="nav_home" >Início</a>
-        <a href="listagem.html" data-i18n="nav_ads" >Anúncios</a>
+        <a href="index.html" data-i18n="nav_home" >InÃ­cio</a>
+        <a href="listagem.html" data-i18n="nav_ads" >AnÃºncios</a>
         <a href="eventos.html" data-i18n="nav_events" >Eventos</a>
-        <a href="leiloes.html" class="nav-live active"><span class="live-indicator"></span><span data-i18n="nav_auctions">Leilões Ao Vivo</span></a>
+        <a href="leiloes.html" class="nav-live active"><span class="live-indicator"></span><span data-i18n="nav_auctions">LeilÃµes Ao Vivo</span></a>
         <a href="planos.html" data-i18n="nav_plans" >Planos</a>
         <div class="auth-wrapper"><a href="login.html" data-i18n="nav_login">Entrar</a></div>
       </nav>
 
       <div class="lang-toggle" role="group" aria-label="Selecionar idioma">
-        <button data-lang="pt" class="active" aria-label="Português">PT</button>
-        <button data-lang="es" aria-label="Español">ES</button>
+        <button data-lang="pt" class="active" aria-label="PortuguÃªs">PT</button>
+        <button data-lang="es" aria-label="EspaÃ±ol">ES</button>
       </div>
 
       <a href="anunciar.html" class="btn-anunciar-header" id="btn-post-header">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        <span data-i18n="btn_post">Anunciar Grátis</span>
+        <span data-i18n="btn_post">Anunciar GrÃ¡tis</span>
       </a>
 
       <button class="hamburger" aria-label="Abrir menu" aria-expanded="false" aria-controls="mobile-menu">
@@ -57,7 +57,7 @@
     </div>
   </header>
 
-  <!-- LEILÕES HEADER -->
+  <!-- LEILÃ•ES HEADER -->
   <section id="leiloes-header" class="page-header" style="background: linear-gradient(135deg, #111827, #1f2937); background-size: cover; background-position: center; text-align: left; padding: calc(var(--header-h) + 3rem) 0 3rem; position: relative; overflow: hidden;">
     <div style="position: absolute; inset: 0; background: linear-gradient(90deg, rgba(17,24,39,0.95) 0%, rgba(17,24,39,0.5) 100%); z-index: 0;"></div>
     
@@ -75,11 +75,11 @@
         <div style="flex: 1; min-width: 300px; display: flex; flex-direction: column; justify-content: center;">
           <div>
             <div id="live-indicator-container" style="display: inline-flex; align-items: center; gap: 0.5rem; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #ef4444; padding: 0.3rem 0.8rem; border-radius: 2rem; font-weight: 700; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.75rem;">
-              <span class="live-indicator"></span> Transmissão Ao Vivo
+              <span class="live-indicator"></span> TransmissÃ£o Ao Vivo
             </div>
           </div>
-          <h1 id="leiloes-title" style="font-size: 2.2rem; margin-bottom: 0.2rem; color: white;">Leilões e Remates</h1>
-          <p id="leiloes-subtitle" style="font-size: 1rem; max-width: 500px; color: rgba(255,255,255,0.7); margin-bottom: 0;">Acompanhe os melhores lotes e dê seu lance em tempo real.</p>
+          <h1 id="leiloes-title" style="font-size: 2.2rem; margin-bottom: 0.2rem; color: white;">LeilÃµes e Remates</h1>
+          <p id="leiloes-subtitle" style="font-size: 1rem; max-width: 500px; color: rgba(255,255,255,0.7); margin-bottom: 0;">Acompanhe os melhores lotes e dÃª seu lance em tempo real.</p>
           <div id="catalog-btn-container" style="margin-top: 1rem; display: flex; gap: 0.8rem; flex-wrap: wrap;">
              <!-- JS will inject the catalog and access buttons here -->
           </div>
@@ -90,7 +90,7 @@
         <div id="live-overlay-content" style="position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 20; background: transparent;">
         </div>
         
-        <!-- CONTEÚDO DO CRONÔMETRO (sempre dita o tamanho da caixa) -->
+        <!-- CONTEÃšDO DO CRONÃ”METRO (sempre dita o tamanho da caixa) -->
         <div id="countdown-wrapper" style="display: flex; flex-direction: column; align-items: center; width: 100%; transition: opacity 0.3s;">
           <h3 id="countdown-title" style="margin-bottom: 1rem; color: white; font-size: 1rem; text-align: center; font-weight: 600;">Tempo restante:</h3>
         <div id="countdown-timer" style="display: flex; gap: 0.8rem; text-align: center;">
@@ -130,17 +130,17 @@
     </div>
   </section>
 
-  <!-- LISTAGEM DE LEILÕES -->
+  <!-- LISTAGEM DE LEILÃ•ES -->
   <main class="container" style="padding: 3rem 1.5rem;">
     <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
       <div>
-        <h2 id="lotes-grid-title" class="section-title">Próximos Leilões</h2>
-        <p style="color: var(--clr-text-light);">Confira o calendário completo de eventos e remates.</p>
+        <h2 id="lotes-grid-title" class="section-title">PrÃ³ximos LeilÃµes</h2>
+        <p style="color: var(--clr-text-light);">Confira o calendÃ¡rio completo de eventos e remates.</p>
       </div>
       <div style="display: flex; gap: 0.8rem; flex-wrap: wrap; align-items: center; width: 100%; max-width: 650px; justify-content: flex-end;">
         <div style="position: relative; flex: 1; min-width: 200px;">
           <svg style="position: absolute; left: 1.2rem; top: 50%; transform: translateY(-50%); color: #6b7280; pointer-events: none;" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-          <input type="text" id="filterSearchLeiloes" placeholder="Buscar por raça, fazenda, nome..." class="form-input premium-filter" onkeyup="filterLeiloesList()">
+          <input type="text" id="filterSearchLeiloes" placeholder="Buscar por raÃ§a, fazenda, nome..." class="form-input premium-filter" onkeyup="filterLeiloesList()">
         </div>
           
         <div class="custom-select-wrapper" style="position: relative; min-width: 160px; flex-shrink: 0;">
@@ -164,16 +164,16 @@
       <!-- Lotes renderizados dinamicamente via JS -->
     </div>
 
-    <!-- BANNER LEILÃO FOOTER -->
+    <!-- BANNER LEILÃƒO FOOTER -->
     <div id="banner-leiloes-footer" style="margin-top: 2rem;"></div>
   </main>
 
   <!-- FOOTER -->
       <footer class="site-footer simplified-footer" style="background: #020617; color: rgba(255,255,255,0.6); padding: 1.25rem 0; margin-top: auto;" role="contentinfo">
     <div class="container" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
-      <div style="font-weight: 600; color: white; font-size: 0.9rem;">Tauze Class <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.6; margin-left: 0.5rem;" data-i18n="footer_copy">© 2026. Todos os direitos reservados.</span></div>
+      <div style="font-weight: 600; color: white; font-size: 0.9rem;">Tauze Class <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.6; margin-left: 0.5rem;" data-i18n="footer_copy">Â© 2026. Todos os direitos reservados.</span></div>
       <div style="display:flex; gap: 1.5rem; font-size: var(--fs-sm);">
-        <a href="index.html" style="transition: color 0.2s; color: rgba(255,255,255,0.6);" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,0.6)'">Início</a>
+        <a href="index.html" style="transition: color 0.2s; color: rgba(255,255,255,0.6);" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,0.6)'">InÃ­cio</a>
         <a href="#" style="transition: color 0.2s; color: rgba(255,255,255,0.6);" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,0.6)'">Suporte</a>
         <a href="institucional.html#termos">Termos de Uso</a>
       </div>
@@ -181,9 +181,9 @@
   </footer>
 
   <script src="js/data.js"></script>
-  <script src="/js/supabase.js"></script>
+  <script src="/js/supabase.js?v=639197771809908242"></script>
   <script src="js/ui_constants.js"></script>
-<script src="js/main.js"></script>
+<script src="js/main.js?v=639197771809908242"></script>
 
   <script>
     document.addEventListener("DOMContentLoaded", async function() {
@@ -253,7 +253,7 @@
       } else {
         targetDate.setDate(targetDate.getDate() + 3);
         targetDate.setHours(20, 0, 0, 0);
-        document.getElementById('lotes-container').innerHTML = `<p style="grid-column: 1/-1; text-align:center; padding: 3rem; color: var(--clr-text-light);">Nenhum leilão ativo no momento.</p>`;
+        document.getElementById('lotes-container').innerHTML = `<p style="grid-column: 1/-1; text-align:center; padding: 3rem; color: var(--clr-text-light);">Nenhum leilÃ£o ativo no momento.</p>`;
       }
 
       function renderSlide(index) {
@@ -271,10 +271,10 @@
         }
 
         const catContainer = document.getElementById('catalog-btn-container');
-        let btnsHTML = `<a href="leilao.html?id=${auction.id}" class="btn btn--outline" style="border-color: white; color: white; display:inline-flex; align-items:center; gap:8px;">Acessar Leilão Completo</a>`;
+        let btnsHTML = `<a href="leilao.html?id=${auction.id}" class="btn btn--outline" style="border-color: white; color: white; display:inline-flex; align-items:center; gap:8px;">Acessar LeilÃ£o Completo</a>`;
         
         if (auction.catalog) {
-          btnsHTML += `<a href="${auction.catalog}" download="catalogo.pdf" class="btn btn--primary" style="display:inline-flex; align-items:center; gap:8px;"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Baixar Catálogo</a>`;
+          btnsHTML += `<a href="${auction.catalog}" download="catalogo.pdf" class="btn btn--primary" style="display:inline-flex; align-items:center; gap:8px;"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Baixar CatÃ¡logo</a>`;
         }
         catContainer.style.display = 'flex';
         catContainer.innerHTML = btnsHTML;
@@ -287,17 +287,17 @@
           liveInd.style.background = 'rgba(239, 68, 68, 0.15)';
           liveInd.style.borderColor = 'rgba(239, 68, 68, 0.4)';
           liveInd.style.color = '#ef4444';
-          liveInd.innerHTML = '<span class="live-indicator"></span> Transmissão Ao Vivo';
+          liveInd.innerHTML = '<span class="live-indicator"></span> TransmissÃ£o Ao Vivo';
           
-          // Oculta o cronômetro mantendo o espaço ocupado
+          // Oculta o cronÃ´metro mantendo o espaÃ§o ocupado
           countdownWrapper.style.opacity = '0';
           countdownWrapper.style.pointerEvents = 'none';
           
-          // Exibe o conteúdo ao vivo por cima
+          // Exibe o conteÃºdo ao vivo por cima
           liveOverlay.style.display = 'flex';
           liveOverlay.innerHTML = `
             <div style="display: flex; align-items: center; gap: 0.5rem; color: #ef4444; font-weight: 700; font-size: 1rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 1rem;">
-              <span class="live-indicator"></span> O LEILÃO JÁ COMEÇOU
+              <span class="live-indicator"></span> O LEILÃƒO JÃ COMEÃ‡OU
             </div>
             <button class="btn btn--primary" style="padding: 0.6rem 1.8rem; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3); transition: all 0.3s;" onclick="window.location.href='leilao.html?id=${auction.id}'" onmouseover="this.style.boxShadow='0 6px 20px rgba(16, 185, 129, 0.6)'; this.style.transform='translateY(-2px)'" onmouseout="this.style.boxShadow='0 4px 15px rgba(16, 185, 129, 0.3)'; this.style.transform='translateY(0)'">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
@@ -310,7 +310,7 @@
           liveInd.style.color = '#fff';
           liveInd.innerHTML = 'Evento Agendado';
           
-          // Exibe o cronômetro normalmente
+          // Exibe o cronÃ´metro normalmente
           countdownWrapper.style.opacity = '1';
           countdownWrapper.style.pointerEvents = 'auto';
           
@@ -324,7 +324,7 @@
         const container = document.getElementById('lotes-container');
         container.innerHTML = '';
         if(auctionsList.length === 0) {
-          container.innerHTML = `<p style="grid-column: 1/-1; text-align:center; padding: 3rem; color: var(--clr-text-light);">Nenhum leilão cadastrado no momento.</p>`;
+          container.innerHTML = `<p style="grid-column: 1/-1; text-align:center; padding: 3rem; color: var(--clr-text-light);">Nenhum leilÃ£o cadastrado no momento.</p>`;
           return;
         }
 
@@ -369,10 +369,10 @@
               
               <div style="display: flex; gap: 0.5rem; margin-top: auto;">
                 <a href="leilao.html?id=${auction.id}" onclick="localStorage.setItem('tc_selected_auction', '${auction.id}')" class="btn btn--${auction.status === 'aovivo' ? 'primary' : 'outline'}" style="flex: 1; justify-content: center; text-decoration: none;">Ver Lotes</a>
-                <button onclick="if(typeof showToast === 'function') showToast('Lembrete definido com sucesso! Você será notificado antes do início do leilão.', 'success'); else alert('Lembrete definido com sucesso!');" class="btn btn--outline" style="padding: 0 1rem;" title="Definir Lembrete">
+                <button onclick="if(typeof showToast === 'function') showToast('Lembrete definido com sucesso! VocÃª serÃ¡ notificado antes do inÃ­cio do leilÃ£o.', 'success'); else alert('Lembrete definido com sucesso!');" class="btn btn--outline" style="padding: 0 1rem;" title="Definir Lembrete">
                   <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
                 </button>
-                ${auction.catalog ? `<a href="${auction.catalog}" download class="btn btn--outline" style="padding: 0 1rem;" title="Baixar Catálogo"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg></a>` : ''}
+                ${auction.catalog ? `<a href="${auction.catalog}" download class="btn btn--outline" style="padding: 0 1rem;" title="Baixar CatÃ¡logo"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg></a>` : ''}
               </div>
             </div>
           `;
@@ -475,7 +475,7 @@
       container.innerHTML = '';
 
       dbAuctions.forEach(auction => {
-        const title     = auction.ads?.title_pt || auction.title || 'Leilão';
+        const title     = auction.ads?.title_pt || auction.title || 'LeilÃ£o';
         const image     = auction.ads?.images?.[0] || auction.cover || '';
         const category  = auction.ads?.category_id || '';
         const currentBid = auction.current_bid || auction.start_price || 0;
@@ -513,7 +513,7 @@
               <div style="font-size:1.6rem;font-weight:800;color:var(--clr-primary);">${fmtCurrency(currentBid)}</div>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;font-size:.8rem;color:var(--clr-text-light);margin-bottom:.75rem;">
-              <span>⏱ <span id="${cdId}">${buildCountdown(endAt)}</span></span>
+              <span>â± <span id="${cdId}">${buildCountdown(endAt)}</span></span>
               <a href="/leilao.html?id=${auction.id}" class="btn btn--${isLive ? 'primary' : 'outline'}" style="padding:.4rem .9rem;font-size:.8rem;text-decoration:none;" onclick="event.stopPropagation();">${isLive ? 'Participar' : 'Ver Lotes'}</a>
             </div>
           </div>
@@ -530,7 +530,7 @@
       });
 
     } catch(e) {
-      console.warn('Usando dados mock para lista de leilões:', e.message);
+      console.warn('Usando dados mock para lista de leilÃµes:', e.message);
     }
   });
   </script>

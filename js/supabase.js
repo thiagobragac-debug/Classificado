@@ -33,7 +33,7 @@ async function getCurrentUser() {
     .from('profiles')
     .select('*')
     .eq('id', session.user.id)
-    .single();
+    .maybeSingle();
   return { ...session.user, profile };
 }
 
@@ -87,10 +87,10 @@ function onAuthChange(callback) {
 
 async function getProfile(userId) {
   const { data, error } = await getSupabase()
-    .from('profiles').select('*').eq('id', userId).single();
+    .from('profiles').select('*').eq('id', userId).maybeSingle();
   if (error) throw error;
   try {
-    const { data: secrets } = await getSupabase().from('profile_secrets').select('*').eq('id', userId).single();
+    const { data: secrets } = await getSupabase().from('profile_secrets').select('*').eq('id', userId).maybeSingle();
     if (secrets) Object.assign(data, secrets);
   } catch(e) {}
   return data;
@@ -111,7 +111,7 @@ async function updateProfile(userId, updates) {
   if (Object.keys(profileUpdates).length > 0) {
     const { data: pData, error } = await getSupabase()
       .from('profiles').update({ ...profileUpdates, updated_at: new Date().toISOString() })
-      .eq('id', userId).select().single();
+      .eq('id', userId).select().maybeSingle();
     if (error) throw error;
     data = pData;
   }
@@ -240,7 +240,7 @@ async function getAdById(id) {
     .from('ads')
     .select('*, profiles(id, name, display_name, avatar_url, verified, phone_whatsapp, country, created_at), categories(name_pt, name_es, icon)')
     .eq('id', id)
-    .single();
+    .maybeSingle();
   if (error) throw error;
 
   // Incrementa visualizações via RPC server-side com debounce por IP (30min)
@@ -274,7 +274,7 @@ async function createAd(adData) {
   const { data, error } = await getSupabase()
     .from('ads')
     .insert({ ...adData, user_id: session.user.id })
-    .select().single();
+    .select().maybeSingle();
   if (error) throw error;
   return data;
 }
@@ -282,7 +282,7 @@ async function createAd(adData) {
 async function updateAd(adId, updates) {
   const { data, error } = await getSupabase()
     .from('ads').update({ ...updates, updated_at: new Date().toISOString() })
-    .eq('id', adId).select().single();
+    .eq('id', adId).select().maybeSingle();
   if (error) throw error;
   return data;
 }
@@ -358,15 +358,21 @@ async function uploadAdImage(rawFile, adId) {
 
 // ─── FAVORITOS ────────────────────────────────────────────────
 
-async function toggleFavorite(adId) {
+async function _rpcToggleFav(adId) {
   const session = await getSession();
   if (!session) { window.location.href = '/login.html'; return; }
 
-  const { data: existing } = await getSupabase()
-    .from('favorites').select('id').eq('user_id', session.user.id).eq('ad_id', adId).single();
+  const { data: existingRecords, error } = await getSupabase()
+    .from('favorites').select('id').eq('user_id', session.user.id).eq('ad_id', adId);
 
-  if (existing) {
-    await getSupabase().from('favorites').delete().eq('id', existing.id);
+  if (error) {
+    console.error('Erro ao buscar favorito:', error);
+    throw error;
+  }
+
+  if (existingRecords && existingRecords.length > 0) {
+    const idsToDelete = existingRecords.map(r => r.id);
+    await getSupabase().from('favorites').delete().in('id', idsToDelete);
     return false; // removido
   } else {
     await getSupabase().from('favorites').insert({ user_id: session.user.id, ad_id: adId });
@@ -391,7 +397,7 @@ async function sendMessage(adId, receiverId, content) {
   if (!session) throw new Error('Não autenticado');
   const { data, error } = await getSupabase().from('messages').insert({
     ad_id: adId, sender_id: session.user.id, receiver_id: receiverId, content
-  }).select().single();
+  }).select().maybeSingle();
   if (error) throw error;
   return data;
 }
@@ -540,7 +546,7 @@ async function getMySubscription() {
   if (!session) return null;
   const { data } = await getSupabase()
     .from('subscriptions').select('*').eq('user_id', session.user.id)
-    .order('created_at', { ascending: false }).limit(1).single();
+    .order('created_at', { ascending: false }).limit(1).maybeSingle();
   return data;
 }
 
