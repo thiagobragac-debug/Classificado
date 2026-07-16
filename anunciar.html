@@ -659,6 +659,18 @@
             var isPng = file.type === 'image/png';
             if (!isPng) { ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, w, h); }
             ctx.drawImage(img, 0, 0, w, h);
+            
+            // Marca d'água
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.font = 'bold ' + Math.max(16, w * 0.04) + 'px sans-serif';
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'bottom';
+            ctx.shadowColor = 'rgba(0,0,0,0.5)';
+            ctx.shadowBlur = 4;
+            ctx.shadowOffsetX = 1;
+            ctx.shadowOffsetY = 1;
+            ctx.fillText('Tauze Class', w - (w * 0.02), h - (h * 0.02));
+            
             var mime = isPng ? 'image/png' : 'image/jpeg';
             canvas.toBlob(function(blob) {
               if (!blob || blob.size >= file.size) return resolve(file);

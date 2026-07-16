@@ -967,7 +967,34 @@ async function updateHeaderAuth() {
         msgWrapper.appendChild(msgBadge);
         wrapper.appendChild(msgWrapper);
 
+        
         const avatar = document.createElement('div');
+        
+        // -- Notificação Global de Mensagens --
+        if (window.getMyMessages) {
+          getMyMessages().then(msgs => {
+            if(!msgs || !msgs.length) return;
+            let uid = localStorage.getItem('tc_user_id');
+            if(!uid) return;
+            let convs = {};
+            msgs.forEach(m => {
+              let otherId = (m.sender_id === uid) ? m.receiver_id : m.sender_id;
+              let key = m.ad_id + '_' + otherId;
+              if(!convs[key]) convs[key] = [];
+              convs[key].push(m);
+            });
+            let unread = 0;
+            Object.values(convs).forEach(arr => {
+               arr.sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+               if(arr[arr.length-1].sender_id !== uid) unread++;
+            });
+            if (unread > 0) {
+              msgBadge.textContent = unread;
+              msgBadge.style.display = 'flex';
+            }
+          }).catch(()=>{});
+        }
+
         avatar.id = 'header-avatar';
         avatar.style = 'width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg, var(--clr-primary), #0ea5e9);color:white !important;display:flex;align-items:center;justify-content:center;font-weight:700;cursor:pointer;font-size:1rem;transition:all .3s cubic-bezier(0.4, 0, 0.2, 1);user-select:none;box-shadow:0 4px 10px rgba(22, 163, 74, 0.25);border:2px solid #fff;';
         avatar.onmouseover = () => { avatar.style.transform = 'scale(1.08) translateY(-2px)'; avatar.style.boxShadow = '0 6px 14px rgba(22, 163, 74, 0.35)'; };
@@ -1371,7 +1398,7 @@ window.renderAdBanner = async function(position, containerId) {
 })();
 
 // ─── PWA CUSTOM INSTALL MODAL ─────────────────────────────
-let deferredPrompt;
+var deferredPrompt;
 const pwaModalId = 'tc-pwa-modal';
 
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -1445,3 +1472,42 @@ function showCustomPwaPrompt() {
     }
   });
 }
+
+
+// ── PWA Install Prompt ──────────────────────
+var deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  
+  if (window.location.pathname.endsWith('index.html') || window.location.pathname === '/' || window.location.pathname.endsWith('classificado/')) {
+    const banner = document.createElement('div');
+    banner.id = 'pwa-install-banner';
+    banner.style = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:12px 20px;border-radius:12px;display:flex;align-items:center;gap:15px;box-shadow:0 10px 25px -5px rgba(0,0,0,0.3);z-index:9999;width:90%;max-width:400px;justify-content:space-between;';
+    banner.innerHTML = `
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="background:#16a34a;color:#fff;width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:18px;">T</div>
+        <div>
+          <div style="font-weight:700;font-size:0.95rem;">Tauze Class App</div>
+          <div style="font-size:0.8rem;color:#cbd5e1;">Acesse mais rápido!</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button id="pwa-install-btn" style="background:#16a34a;color:#fff;border:none;padding:6px 12px;border-radius:6px;font-weight:600;font-size:0.85rem;cursor:pointer;">Instalar</button>
+        <button id="pwa-close-btn" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:1.2rem;line-height:1;">&times;</button>
+      </div>
+    `;
+    document.body.appendChild(banner);
+    
+    document.getElementById('pwa-install-btn').addEventListener('click', async () => {
+      banner.style.display = 'none';
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      deferredPrompt = null;
+    });
+    
+    document.getElementById('pwa-close-btn').addEventListener('click', () => {
+      banner.style.display = 'none';
+    });
+  }
+});

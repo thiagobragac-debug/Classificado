@@ -324,6 +324,18 @@ function compressImage(file, maxWidth = 1200, quality = 0.8) {
         canvas.width = width; canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, width, height);
+        
+        // Marca d'água
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.font = 'bold ' + Math.max(16, width * 0.04) + 'px sans-serif';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'bottom';
+        ctx.shadowColor = 'rgba(0,0,0,0.5)';
+        ctx.shadowBlur = 4;
+        ctx.shadowOffsetX = 1;
+        ctx.shadowOffsetY = 1;
+        ctx.fillText('Tauze Class', width - (width * 0.02), height - (height * 0.02));
+
         canvas.toBlob((blob) => {
           if (!blob) return resolve(file);
           const newFile = new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), { type: 'image/jpeg' });
@@ -712,3 +724,28 @@ async function fetchEventsFromDB() {
     return [];
   }
 }
+
+/* ── PUBLIC SELLER PROFILE ────────────────────────────────────────── */
+async function getSellerProfile(userId) {
+  const { data, error } = await getSupabase()
+    .from('profiles')
+    .select('id, name, display_name, avatar_url, verified, phone_whatsapp, country, created_at')
+    .eq('id', userId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+async function getSellerAds(userId) {
+  const { data, error } = await getSupabase()
+    .from('ads')
+    .select('id, title_pt, title_es, price, currency, category_id, location, status, images, is_featured, created_at, categories(name_pt, name_es, icon)')
+    .eq('user_id', userId)
+    .eq('status', 'active')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+window.getSellerProfile = getSellerProfile;
+window.getSellerAds = getSellerAds;
