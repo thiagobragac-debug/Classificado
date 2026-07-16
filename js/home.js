@@ -232,6 +232,9 @@ let _recentCursor = null;
 let _recentHasMore = false;
 
 async function renderCountriesHome() {
+  // ESTRATÉGIA: NÃO substitui o HTML existente.
+  // Apenas atualiza o texto de contagem em cada card já renderizado estaticamente.
+  // Isso preserva 100% do visual original (layout, imagens, CSS) e só injeta dados reais.
   const grid = document.getElementById('countries-grid');
   if (!grid) return;
 
@@ -240,44 +243,29 @@ async function renderCountriesHome() {
     if (!sb) return;
     const { data, error } = await sb.rpc('get_country_counts');
     if (error) throw error;
-
-    // Mapa: nome → código ISO — SVGs em assets/flags/ (hospedados localmente)
-    const flagMap = {
-      'Brasil':    'br',
-      'Argentina': 'ar',
-      'Paraguai':  'py',
-      'Uruguai':   'uy',
-      'Bolivia':   'bo',
-      'Chile':     'cl',
-      'Colombia':  'co',
-    };
+    if (!data || !data.length) return;
 
     const lang = (typeof currentLang !== 'undefined') ? currentLang : 'pt';
-    const imgStyle = 'width:42px;height:42px;object-fit:cover;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.1);flex-shrink:0;';
 
-    function adsLabel(total) {
-      const n = Number(total);
-      if (lang === 'es') return n === 1 ? '1 anuncio' : n.toLocaleString('pt-BR') + ' anuncios';
-      return n === 1 ? '1 anúncio' : n.toLocaleString('pt-BR') + ' anúncios';
-    }
+    data.forEach(c => {
+      // Encontra o card pelo atributo data-country (sem tocar no HTML do card)
+      const card = grid.querySelector('[data-country="' + c.country_name + '"]');
+      if (!card) return;
 
-    if (data && data.length > 0) {
-      grid.innerHTML = data.map(c => {
-        const code = flagMap[c.country_name] || '';
-        const imgTag = code
-          ? `<img src="assets/flags/${code}.svg" alt="${c.country_name}" class="country-flag" width="42" height="42" style="${imgStyle}" loading="lazy">`
-          : `<span class="country-flag" style="font-size:2rem;">🌎</span>`;
-        return `<div class="country-card fade-in-up">
-            ${imgTag}
-            <div>
-              <div style="font-weight:700;color:var(--clr-heading);font-size:1.05rem;">${c.country_name}</div>
-              <div style="font-size:0.85rem;color:var(--clr-text-muted);margin-top:2px;">${adsLabel(c.total)}</div>
-            </div>
-          </div>`;
-      }).join('');
-    } else {
-      grid.innerHTML = '<p style="text-align:center;width:100%;color:var(--text-light)">Nenhum anúncio por país no momento.</p>';
-    }
+      // Atualiza apenas o elemento de contagem
+      const countEl = card.querySelector('[data-country-count]');
+      if (!countEl) return;
+
+      const n = Number(c.total);
+      let label;
+      if (lang === 'es') {
+        label = n === 1 ? '1 anuncio' : n.toLocaleString('pt-BR') + ' anuncios';
+      } else {
+        label = n === 1 ? '1 anúncio' : n.toLocaleString('pt-BR') + ' anúncios';
+      }
+      countEl.textContent = label;
+    });
+
   } catch(e) {
     console.error('Erro em renderCountriesHome:', e);
   }
