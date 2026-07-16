@@ -234,31 +234,41 @@ let _recentHasMore = false;
 async function renderCountriesHome() {
   const grid = document.getElementById('countries-grid');
   if (!grid) return;
-  
+
   try {
     const sb = getSupabase(); // C5: sb não era declarado — corrigido
     if (!sb) return;
     const { data, error } = await sb.rpc('get_country_counts');
     if (error) throw error;
-    
-    const flags = {
-      'Brasil': '🇧🇷',
-      'Argentina': '🇦🇷',
-      'Paraguai': '🇵🇾',
-      'Uruguai': '🇺🇾',
-      'Bolivia': '🇧🇴',
-      'Chile': '🇨🇱',
-      'Colombia': '🇨🇴'
+
+    // Mapa: nome do país → código ISO (SVGs hospedados localmente em assets/flags/)
+    const flagMap = {
+      'Brasil':    'br',
+      'Argentina': 'ar',
+      'Paraguai':  'py',
+      'Uruguai':   'uy',
+      'Bolivia':   'bo',
+      'Chile':     'cl',
+      'Colombia':  'co',
     };
-    
+
+    const lang = (typeof currentLang !== 'undefined') ? currentLang : 'pt';
+    const adsLabel = lang === 'es' ? 'anuncios' : 'anúncios';
+
     if (data && data.length > 0) {
-      grid.innerHTML = data.map(c => `
-        <div class="country-card fade-in-up">
-          <div class="country-flag">${flags[c.country_name] || '🌎'}</div>
-          <div class="country-name">${c.country_name}</div>
-          <div class="country-ads">${c.total.toLocaleString('pt-BR')} ${t('country_ads_label') || 'anúncios'}</div>
-        </div>
-      `).join('');
+      grid.innerHTML = data.map(c => {
+        const code = flagMap[c.country_name] || '';
+        const flagTag = code
+          ? `<img src="assets/flags/${code}.svg" alt="${c.country_name}" class="country-flag" loading="lazy" width="42" height="42">`
+          : '<span style="font-size:2rem;">🌎</span>';
+        const total = Number(c.total).toLocaleString('pt-BR');
+        return `
+          <div class="country-card fade-in-up">
+            ${flagTag}
+            <div class="country-name">${c.country_name}</div>
+            <div class="country-ads">${total} ${adsLabel}</div>
+          </div>`;
+      }).join('');
     } else {
       grid.innerHTML = '<p style="text-align:center;width:100%;color:var(--text-light)">Nenhum anúncio por país no momento.</p>';
     }
@@ -266,7 +276,6 @@ async function renderCountriesHome() {
     console.error('Erro em renderCountriesHome:', e);
   }
 }
-
 async function renderRecentAdsHome() {
   const grid  = document.getElementById('recent-ads');
   const badge = document.getElementById('recent-geo-badge');
