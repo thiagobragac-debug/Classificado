@@ -801,7 +801,15 @@
 
   /* ── TAB 1 ─────────────────────────────────────── */
   async function loadAds(){
-    try{_myAds=await getMyAds();}catch(e){_myAds=[];showToast('Erro ao carregar anúncios.','error');}
+    try {
+      _myAds=await getMyAds();
+      const { data: vData } = await sb.from('ad_views_daily').select('view_date, views_count');
+      window._dailyViews = vData || [];
+    } catch(e) {
+      _myAds=[];
+      window._dailyViews=[];
+      showToast('Erro ao carregar anúncios.','error');
+    }
     renderAds();
   }
 
@@ -886,6 +894,58 @@
     }
 
     c.innerHTML = analyticsHtml + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:1.5rem;padding:0 0 1.5rem 0">' + pagedAds.map(renderAdCard).join('') + '</div>' + paginationHtml;
+    
+    // Inject Chart render logic
+    setTimeout(() => {
+      const ctx = document.getElementById('viewsChart');
+      if(ctx && window._dailyViews) {
+        const dateMap = {};
+        for(let i=6; i>=0; i--){
+          const d = new Date();
+          d.setDate(d.getDate() - i);
+          dateMap[d.toISOString().split('T')[0]] = 0;
+        }
+        window._dailyViews.forEach(v => {
+          if(dateMap[v.view_date] !== undefined) dateMap[v.view_date] += v.views_count;
+        });
+        
+        const labels = Object.keys(dateMap).map(d => {
+          const parts = d.split('-');
+          return parts[2] + '/' + parts[1];
+        });
+        const data = Object.values(dateMap);
+        
+        if(window.myViewsChart) window.myViewsChart.destroy();
+        window.myViewsChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Visualizações',
+              data: data,
+              borderColor: '#16a34a',
+              backgroundColor: 'rgba(22, 163, 74, 0.1)',
+              borderWidth: 3,
+              fill: true,
+              tension: 0.4,
+              pointBackgroundColor: '#fff',
+              pointBorderColor: '#16a34a',
+              pointBorderWidth: 2,
+              pointRadius: 4
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              y: { beginAtZero: true, grid: { borderDash: [2, 4], color: '#e2e8f0' } },
+              x: { grid: { display: false } }
+            }
+          }
+        });
+      }
+    }, 100);
     
   }
 
