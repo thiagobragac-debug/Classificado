@@ -1,7 +1,20 @@
+require('dotenv').config({ path: require('path').join(__dirname, '../api/.env') });
 const fs = require('fs');
 
-const SUPABASE_URL = 'https://rfzuzuobwuanmbrcthqe.supabase.co';
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmenV6dW9id3Vhbm1icmN0aHFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwNzg1OTMsImV4cCI6MjA5ODY1NDU5M30.m-Mop7RgpVo730lwjcra1egF8p9APv6AGnW1YnFvOgY';
+const SUPABASE_URL  = process.env.SUPABASE_URL;
+const SUPABASE_ANON = process.env.SUPABASE_ANON_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_ANON) {
+  console.error('❌  SUPABASE_URL e SUPABASE_ANON_KEY devem estar definidos em api/.env');
+  process.exit(1);
+}
+
+// ATENÇÃO: Defina SEED_DEFAULT_PASSWORD em api/.env — nunca hardcode senhas.
+const SEED_DEFAULT_PASSWORD = process.env.SEED_DEFAULT_PASSWORD || '';
+if (!SEED_DEFAULT_PASSWORD) {
+  console.warn('⚠️  SEED_DEFAULT_PASSWORD não definido em api/.env — abortando para evitar uso de senha vazia.');
+  process.exit(1);
+}
 
 const MOCK_DATA = [
   // Bovinos
@@ -31,7 +44,7 @@ async function seed() {
   
   // 1. Criar um usuário de teste para inserir os dados e passar no RLS
   const email = `test.seed.${Date.now()}@tauze.com`;
-  const password = 'Password123!';
+  const password = SEED_DEFAULT_PASSWORD;
   
   const authRes = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
     method: 'POST',

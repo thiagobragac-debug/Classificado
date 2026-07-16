@@ -21,7 +21,7 @@
   <meta name="twitter:title" content="Planos e Preços — Tauze Class">
   <meta name="twitter:description" content="Escolha o plano ideal para vender no maior classificado agro do Mercosul.">
   <meta name="twitter:image" content="https://tauzeclass.com.br/assets/og-home.jpg">
-  <link rel="stylesheet" href="css/style.css?v=1783509347880">
+  <link rel="stylesheet" href="css/style.css?v=1784160758676">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2316A34A'/%3E%3Ctext y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'%3ET%3C/text%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -207,6 +207,72 @@
       .pricing-grid { grid-template-columns: 1fr; }
       .pricing-hero { padding: 6rem 0 8rem; }
     }
+    /* --- Checkout Modal Premium --- */
+    #tc-checkout-overlay {
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(8px);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9999; opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+    }
+    #tc-checkout-overlay.active { opacity: 1; pointer-events: auto; }
+    
+    #tc-checkout-modal {
+      background: #ffffff; width: 100%; max-width: 500px;
+      border-radius: 20px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+      overflow: hidden; transform: translateY(20px); transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      border: 1px solid rgba(0,0,0,0.1);
+      color: #1e293b; /* Força texto escuro no modal claro */
+    }
+    #tc-checkout-overlay.active #tc-checkout-modal { transform: translateY(0); }
+    
+    .checkout-header {
+      padding: 1.5rem 2rem; border-bottom: 1px solid rgba(0,0,0,0.05);
+      display: flex; justify-content: space-between; align-items: center;
+      background: #f8fafc;
+      color: #0f172a;
+    }
+    .checkout-header h3 { font-size: 1.25rem; color: #0f172a; margin: 0; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .close-checkout-btn {
+      background: none; border: none; font-size: 1.5rem; color: #64748b; cursor: pointer;
+      width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: 0.2s;
+    }
+    .close-checkout-btn:hover { background: #e2e8f0; color: #0f172a; }
+    
+    .checkout-body { padding: 2rem; }
+    .checkout-summary {
+      background: #f1f5f9; padding: 1rem 1.5rem; border-radius: 12px;
+      margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center;
+      color: #334155;
+    }
+    .checkout-summary .plan-name { font-weight: 600; color: #0f172a; font-size: 1.1rem; }
+    .checkout-summary .plan-price { font-weight: 800; color: var(--primary); font-size: 1.3rem; }
+    
+    #payment-form-container { min-height: 200px; position: relative; }
+    .gateway-loading {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--bg-card); z-index: 10;
+    }
+    .spinner { width: 30px; height: 30px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* For Stripe custom styling */
+    .stripe-field-group { margin-bottom: 1rem; }
+    .stripe-field-group label { display: block; font-size: 0.9rem; font-weight: 600; color: #475569; margin-bottom: 6px; }
+    .stripe-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .StripeElement, .pagarme-input { box-sizing: border-box; height: 50px; padding: 14px 16px; border: 1px solid rgba(0,0,0,0.1); border-radius: 10px; background-color: #f8fafc; transition: 0.3s; width: 100%; font-size: 16px; color: #1e293b; font-family: 'Inter', sans-serif; }
+    .StripeElement--focus, .pagarme-input:focus { outline: none; box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2); border-color: #10b981; background: #ffffff; }
+    .step-container { display: none; }
+    .step-container.active { display: block; animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: translateX(0); } }
+    
+    .checkout-submit-btn {
+      width: 100%; padding: 1rem; background: #10b981; color: #ffffff;
+      border: none; border-radius: 10px; font-size: 1.1rem; font-weight: 600;
+      cursor: pointer; transition: 0.3s; margin-top: 1rem; display: flex; justify-content: center; align-items: center; gap: 8px;
+    }
+    .checkout-submit-btn:hover { background: #059669; transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.3); }
+    .checkout-submit-btn:disabled { background: #cbd5e1; cursor: not-allowed; transform: none; box-shadow: none; color: #64748b; }
   </style>
   <script>
     let hasToken = false;
@@ -294,67 +360,8 @@
             <th class="th-prem">Premium</th>
           </tr>
         </thead>
-        <tbody>
-          <tr>
-            <td><span class="feat-name">Anúncios ativos</span></td>
-            <td><span class="tbl-pill pill-free">3</span></td>
-            <td><span class="tbl-pill pill-pro">15</span></td>
-            <td><span class="tbl-pill pill-unlimited">Ilimitado</span></td>
-          </tr>
-          <tr>
-            <td><span class="feat-name">Fotos por anúncio</span></td>
-            <td><span class="tbl-pill pill-free">5</span></td>
-            <td><span class="tbl-pill pill-pro">15</span></td>
-            <td><span class="tbl-pill pill-premium">30</span></td>
-          </tr>
-          <tr>
-            <td><span class="feat-name">Vídeo no anúncio</span><span class="feat-desc">Upload de vídeo demonstração</span></td>
-            <td><span class="tbl-cross">✕</span></td>
-            <td><span class="tbl-check">✓</span></td>
-            <td><span class="tbl-gold">✓</span></td>
-          </tr>
-          <tr>
-            <td><span class="feat-name">Selo Verificado</span><span class="feat-desc">Aumenta a confiança do comprador</span></td>
-            <td><span class="tbl-cross">✕</span></td>
-            <td><span class="tbl-check">✓</span></td>
-            <td><span class="tbl-gold">✓</span></td>
-          </tr>
-          <tr>
-            <td><span class="feat-name">Destaques na Home</span><span class="feat-desc">Anúncios em posição privilegiada</span></td>
-            <td><span class="tbl-cross">✕</span></td>
-            <td><span class="tbl-pill pill-pro">2/mês</span></td>
-            <td><span class="tbl-pill pill-premium">10/mês</span></td>
-          </tr>
-          <tr>
-            <td><span class="feat-name">Banner de perfil</span><span class="feat-desc">Sua marca em destaque no perfil</span></td>
-            <td><span class="tbl-cross">✕</span></td>
-            <td><span class="tbl-cross">✕</span></td>
-            <td><span class="tbl-gold">✓</span></td>
-          </tr>
-          <tr>
-            <td><span class="feat-name">Suporte</span></td>
-            <td>Email</td>
-            <td>WhatsApp</td>
-            <td><span class="tbl-gold">VIP 24/7</span></td>
-          </tr>
-          <tr>
-            <td><span class="feat-name">Análise de desempenho</span><span class="feat-desc">Visualizações, cliques, conversões</span></td>
-            <td><span class="tbl-cross">✕</span></td>
-            <td>Básica</td>
-            <td><span class="tbl-gold">Avançada</span></td>
-          </tr>
-          <tr>
-            <td><span class="feat-name">Participação em Leilões</span></td>
-            <td><span class="tbl-check">✓</span></td>
-            <td><span class="tbl-check">✓</span></td>
-            <td><span class="tbl-gold">✓</span></td>
-          </tr>
-          <tr>
-            <td><span class="feat-name">Preço</span></td>
-            <td><strong style="color:#818cf8">Grátis</strong></td>
-            <td><strong style="color:#22c55e">R$79/mês</strong></td>
-            <td><strong style="color:#f59e0b">R$149/mês</strong></td>
-          </tr>
+        <tbody id="compare-tbody">
+          <!-- Renderizado dinamicamente -->
         </tbody>
       </table>
     </section>
@@ -449,7 +456,7 @@
   <script src="js/supabase.js?v=1783509347784"></script>
   <script src="js/data.js?v=1783509347784"></script>
   <script src="js/ui_constants.js"></script>
-<script src="js/main.js?v=1783509347784"></script>
+<script src="js/main.js?v=1784163733347"></script>
   <script>
     /* ================================================================
        PLANOS — Checkout Integration
@@ -483,11 +490,11 @@
         if (data.url) {
           window.location.href = data.url;
         } else {
-          alert('Erro: ' + (data.error || 'Tente novamente'));
+          showToast('Erro: ' + (data.error || 'Tente novamente'), 'error');
           resetBtn(plan);
         }
       } catch (err) {
-        alert('Erro de conexão. Verifique sua internet e tente novamente.');
+        showToast('Erro de conexão. Verifique sua internet e tente novamente.', 'error');
         resetBtn(plan);
       }
     }
@@ -508,7 +515,7 @@
         currentUser = await getCurrentUser();
         const navLink = document.getElementById('nav-auth-link');
         if (navLink && currentUser) {
-          navLink.textContent = (currentUser.profile && currentUser.profile.name) ? currentUser.profile.name : 'Painel';
+          navLink.textContent = (currentUser.profile && (currentUser.profile.display_name || currentUser.profile.name)) ? (currentUser.profile.display_name || currentUser.profile.name) : 'Painel';
           navLink.href = '/painel.html';
         }
       } catch (e) { /* silent */ }
@@ -591,28 +598,114 @@
            badgeHtml = '<div class="current-badge" style="background:linear-gradient(135deg, #3b82f6, #6366f1);color:white;position:absolute;top:-12px;left:50%;transform:translateX(-50%);padding:4px 12px;border-radius:20px;font-size:0.75rem;font-weight:700">✓ Plano Atual</div>';
         }
 
-        const btnOnclick = isCurrent ? '' : `onclick="handlePlanClick('${plan.id}')"`;
-
-        const card = `
-          <div class="pricing-card ${extraClass}" style="position:relative">
+        const btnOnclick = isCurrent ? '' : `onclick="handlePlanClick('${plan.id}', event)"`;
+        
+        grid.innerHTML += `
+          <div class="pricing-card ${extraClass}">
             ${badgeHtml}
-            <div class="plan-icon">${plan.icon || '📦'}</div>
-            <h3 class="plan-name">${plan.name}</h3>
-            <p class="plan-desc">${plan.description || ''}</p>
-            ${priceHtml}
-            <ul class="plan-features">
-              ${featuresHtml}
-            </ul>
-            <button class="btn-plan ${btnClass}" ${isCurrent ? 'disabled' : ''} ${btnOnclick}>${btnText}</button>
+            <div class="plan-header">
+              <h3>${plan.name_pt || plan.name}</h3>
+              <p>${plan.description || ''}</p>
+              ${priceHtml}
+            </div>
+            <div class="plan-features">
+              <ul>${featuresHtml}</ul>
+            </div>
+            <button id="btn-${plan.id}" class="btn-plan ${btnClass}" ${isCurrent ? 'disabled' : ''} ${btnOnclick}>
+              ${btnText}
+            </button>
           </div>
         `;
-        grid.innerHTML += card;
       });
+      
+      renderCompareTable(plans);
     }
 
-    async function handlePlanClick(planId) {
+    function renderCompareTable(plans) {
+      const tbody = document.getElementById('compare-tbody');
+      if (!tbody) return;
+      
+      const free = plans.find(p => p.sort_order === 1) || {};
+      const pro = plans.find(p => p.sort_order === 2) || {};
+      const premium = plans.find(p => p.sort_order === 3) || {};
+      
+      const getPill = (val, css) => val >= 9999 ? `<span class="tbl-pill ${css}">Ilimitado</span>` : `<span class="tbl-pill ${css}">${val}</span>`;
+      const getCheck = (has, isGold=false) => has ? `<span class="${isGold ? 'tbl-gold' : 'tbl-check'}">✓</span>` : `<span class="tbl-cross">✕</span>`;
+      const getFeats = (p) => { try { return typeof p.features === 'string' ? JSON.parse(p.features) : (p.features || []); } catch(e){ return []; } };
+      
+      const hasSelo = (p) => getFeats(p).some(f => f.toLowerCase().includes('selo'));
+      const getSuporte = (p) => getFeats(p).find(f => f.toLowerCase().includes('suporte')) || 'Email';
+      const hasAnalise = (p) => getFeats(p).some(f => f.toLowerCase().includes('análise'));
+      
+      tbody.innerHTML = `
+        <tr>
+          <td><span class="feat-name">Anúncios ativos</span></td>
+          <td>${getPill(free.max_ads, 'pill-free')}</td>
+          <td>${getPill(pro.max_ads, 'pill-pro')}</td>
+          <td>${getPill(premium.max_ads, 'pill-unlimited')}</td>
+        </tr>
+        <tr>
+          <td><span class="feat-name">Fotos por anúncio</span></td>
+          <td>${getPill(free.max_photos, 'pill-free')}</td>
+          <td>${getPill(pro.max_photos, 'pill-pro')}</td>
+          <td>${getPill(premium.max_photos, 'pill-premium')}</td>
+        </tr>
+        <tr>
+          <td><span class="feat-name">Vídeo no anúncio</span><span class="feat-desc">Upload de vídeo demonstração</span></td>
+          <td>${getCheck(free.has_video)}</td>
+          <td>${getCheck(pro.has_video)}</td>
+          <td>${getCheck(premium.has_video, true)}</td>
+        </tr>
+        <tr>
+          <td><span class="feat-name">Selo Verificado</span><span class="feat-desc">Aumenta a confiança do comprador</span></td>
+          <td>${getCheck(hasSelo(free))}</td>
+          <td>${getCheck(hasSelo(pro))}</td>
+          <td>${getCheck(hasSelo(premium), true)}</td>
+        </tr>
+        <tr>
+          <td><span class="feat-name">Destaques na Home</span><span class="feat-desc">Anúncios em posição privilegiada</span></td>
+          <td><span class="tbl-cross">✕</span></td>
+          <td><span class="tbl-pill pill-pro">${pro.highlight_count}/mês</span></td>
+          <td><span class="tbl-pill pill-premium">${premium.highlight_count}/mês</span></td>
+        </tr>
+        <tr>
+          <td><span class="feat-name">Banner de perfil</span><span class="feat-desc">Sua marca em destaque no perfil</span></td>
+          <td>${getCheck(free.has_banner)}</td>
+          <td>${getCheck(pro.has_banner)}</td>
+          <td>${getCheck(premium.has_banner, true)}</td>
+        </tr>
+        <tr>
+          <td><span class="feat-name">Suporte</span></td>
+          <td>${getSuporte(free).replace('Suporte por', '').replace('Suporte', '').trim()}</td>
+          <td>${getSuporte(pro).replace('Suporte prioritário', '').replace('Suporte', '').trim()}</td>
+          <td><span class="tbl-gold">${getSuporte(premium).replace('Suporte', '').trim()}</span></td>
+        </tr>
+        <tr>
+          <td><span class="feat-name">Análise de desempenho</span><span class="feat-desc">Visualizações, cliques, conversões</span></td>
+          <td><span class="tbl-cross">✕</span></td>
+          <td>Básica</td>
+          <td><span class="tbl-gold">${hasAnalise(premium) ? 'Avançada' : '✕'}</span></td>
+        </tr>
+        <tr>
+          <td><span class="feat-name">Participação em Leilões</span></td>
+          <td><span class="tbl-check">✓</span></td>
+          <td><span class="tbl-check">✓</span></td>
+          <td><span class="tbl-gold">✓</span></td>
+        </tr>
+        <tr>
+          <td><span class="feat-name">Preço</span></td>
+          <td><strong style="color:#818cf8">${free.price <= 0 ? 'Grátis' : 'R$'+free.price+'/mês'}</strong></td>
+          <td><strong style="color:#22c55e">R$${pro.price}/mês</strong></td>
+          <td><strong style="color:#f59e0b">R$${premium.price}/mês</strong></td>
+        </tr>
+      `;
+    }
+
+    const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:3000' : '';
+
+    async function handlePlanClick(planId, event) {
       if (!currentUser) {
-        window.location.href = '/login.html';
+        window.location.href = '/login.html?mode=register';
         return;
       }
       
@@ -622,9 +715,13 @@
       if (plan.price <= 0) {
         if (confirm('Tem certeza que deseja fazer downgrade para o plano Grátis?')) {
            // Calls API to set plan to free immediately
-           const res = await fetch('/api/checkout/subscription', {
+           const session = typeof getSession === 'function' ? await getSession() : null;
+           const res = await fetch(API_BASE + '/api/checkout/subscription/intent', {
              method: 'POST',
-             headers: { 'Content-Type': 'application/json' },
+             headers: { 
+               'Content-Type': 'application/json',
+               'Authorization': 'Bearer ' + (session ? session.access_token : '')
+             },
              body: JSON.stringify({ planId: plan.id, userId: currentUser.id, userEmail: currentUser.email })
            });
            const data = await res.json();
@@ -632,27 +729,442 @@
         }
       } else {
         // Redireciona para o gateway
-        const btn = event.target;
-        btn.textContent = 'Processando...';
-        btn.disabled = true;
+        const btn = event ? event.currentTarget || event.target : null;
+        if (btn) {
+          btn.textContent = 'Processando...';
+          btn.disabled = true;
+        }
 
         try {
-          const res = await fetch('/api/checkout/subscription', {
+          const session = typeof getSession === 'function' ? await getSession() : null;
+          const res = await fetch(API_BASE + '/api/checkout/subscription/intent', {
              method: 'POST',
-             headers: { 'Content-Type': 'application/json' },
+             headers: { 
+               'Content-Type': 'application/json',
+               'Authorization': 'Bearer ' + (session ? session.access_token : '')
+             },
              body: JSON.stringify({ planId: plan.id, userId: currentUser.id, userEmail: currentUser.email })
            });
            const data = await res.json();
-           if (data.init_point) {
-             window.location.href = data.init_point;
+           
+           if (data.free) {
+             showToast('Plano gratuito ativado!', 'success');
+             setTimeout(() => window.location.href = 'painel.html', 1500);
+             return;
+           }
+
+            if (!data.transactionId) {
+              throw new Error('Erro na integração: Transaction ID ausente da resposta');
+            }
+
+            if (data.publicKey || data.clientSecret || data.useNativeForm) {
+              openCheckoutModal(plan, data);
            } else {
              throw new Error(data.error || 'Erro no checkout');
            }
         } catch(e) {
-          alert('Erro ao processar checkout: ' + e.message);
-          btn.textContent = 'Tentar Novamente';
-          btn.disabled = false;
+          showToast('Erro ao processar checkout: ' + e.message, 'error');
+        } finally {
+          if (btn) {
+            btn.textContent = 'Tentar Novamente';
+            btn.disabled = false;
+          }
         }
+      }
+    }
+
+    /* --- Transparent Checkout Logic --- */
+    let checkoutState = { planId: null, transactionId: null, gateway: null, stripe: null, elements: null, cardElement: null, mp: null, cardForm: null, pagarmeToken: null };
+    let pagarmeCustomerData = null;
+
+    function closeCheckoutModal() {
+      document.getElementById('tc-checkout-overlay').classList.remove('active');
+      if (checkoutState.cardElement) { checkoutState.cardElement.destroy(); checkoutState.cardElement = null; }
+      if (checkoutState.cardForm) { checkoutState.cardForm.unmount(); checkoutState.cardForm = null; }
+      document.getElementById('tc-card-element').innerHTML = '';
+      document.getElementById('tc-card-errors').textContent = '';
+      pagarmeCustomerData = null;
+      checkoutState = { planId: null, transactionId: null, gateway: null, stripe: null, elements: null, cardElement: null, mp: null, cardForm: null, pagarmeToken: null };
+      document.getElementById('form-step-1').classList.remove('active');
+      document.getElementById('tc-payment-form').classList.add('active'); // Default para outros
+      document.getElementById('form-step-1').reset();
+    }
+
+    async function openCheckoutModal(plan, intentData) {
+      checkoutState.planId = plan.id;
+      checkoutState.transactionId = intentData.transactionId;
+      checkoutState.gateway = intentData.gateway;
+      
+      document.getElementById('tc-checkout-plan-name').textContent = 'Plano ' + (plan.name_pt || 'Assinatura');
+      document.getElementById('tc-checkout-plan-price').textContent = 'R$ ' + plan.price + '/mês';
+      document.getElementById('tc-checkout-overlay').classList.add('active');
+      document.getElementById('tc-checkout-loading').style.display = 'flex';
+      
+      const submitBtn = document.getElementById('tc-submit-btn');
+      submitBtn.disabled = true;
+      submitBtn.style.display = 'flex'; // Restaura visibilidade caso outro gateway tenha ocultado
+      submitBtn.textContent = 'Confirmar Pagamento';
+
+      try {
+        if (intentData.gateway === 'stripe') {
+          await loadStripeCheckout(intentData.publicKey, intentData.clientSecret);
+        } else if (intentData.gateway === 'mercadopago') {
+          await loadMercadoPagoCheckout(intentData.publicKey);
+        } else if (intentData.gateway === 'pagarme') {
+          await loadPagarmeCheckout(intentData.publicKey);
+        } else if (intentData.gateway === 'asaas') {
+          await loadAsaasCheckout();
+        }
+      } catch (err) {
+        document.getElementById('tc-card-errors').textContent = 'Erro ao carregar formulário: ' + err.message;
+      }
+    }
+
+    function loadScript(src) {
+      return new Promise((resolve, reject) => {
+        if (document.querySelector(`script[src="${src}"]`)) return resolve();
+        const script = document.createElement('script');
+        script.src = src; script.onload = resolve; script.onerror = reject;
+        document.head.appendChild(script);
+      });
+    }
+
+    async function loadStripeCheckout(publicKey, clientSecret) {
+      await loadScript('https://js.stripe.com/v3/');
+      document.getElementById('tc-checkout-loading').style.display = 'none';
+      
+      const stripe = Stripe(publicKey);
+      checkoutState.stripe = stripe;
+      checkoutState.clientSecret = clientSecret; // Armazenado para uso no confirmCardSetup
+      const elements = stripe.elements();
+      checkoutState.elements = elements;
+      
+      const cardContainer = document.getElementById('tc-card-element');
+      cardContainer.innerHTML = `
+        <div class="stripe-field-group">
+          <label>Número do Cartão</label>
+          <div id="stripe-cardNumber" class="StripeElement"></div>
+        </div>
+        <div class="stripe-field-row">
+          <div class="stripe-field-group">
+            <label>Validade</label>
+            <div id="stripe-cardExpiry" class="StripeElement"></div>
+          </div>
+          <div class="stripe-field-group">
+            <label>CVC</label>
+            <div id="stripe-cardCvc" class="StripeElement"></div>
+          </div>
+        </div>
+      `;
+
+      const style = {
+        base: { fontSize: '16px', color: '#1e293b', fontFamily: 'Inter, sans-serif', '::placeholder': { color: '#94a3b8' } },
+        invalid: { color: '#ef4444' }
+      };
+
+      const cardNumber = elements.create('cardNumber', { style, showIcon: true, disableLink: true });
+      const cardExpiry = elements.create('cardExpiry', { style });
+      const cardCvc = elements.create('cardCvc', { style });
+
+      cardNumber.mount('#stripe-cardNumber');
+      cardExpiry.mount('#stripe-cardExpiry');
+      cardCvc.mount('#stripe-cardCvc');
+
+      checkoutState.cardElement = cardNumber; // confirmCardSetup uses the cardNumber element
+
+      // Habilita o botão somente após os elementos estarem prontos
+      cardNumber.on('ready', () => {
+        document.getElementById('tc-submit-btn').disabled = false;
+      });
+    }
+
+    async function loadMercadoPagoCheckout(publicKey) {
+      await loadScript('https://sdk.mercadopago.com/js/v2');
+      const mp = new MercadoPago(publicKey, { locale: 'pt-BR' });
+      checkoutState.mp = mp;
+      
+      const builder = mp.bricks();
+      const cardPaymentBrickController = await builder.create("cardPayment", "tc-card-element", {
+        initialization: { amount: 1 }, // just for tokenization UI
+        customization: { 
+          visual: { 
+            style: { 
+              theme: 'default',
+              customVariables: {
+                formPadding: '0px',
+                baseColor: '#10b981',
+                textPrimaryColor: '#1e293b',
+                textSecondaryColor: '#64748b'
+              }
+            } 
+          } 
+        },
+        callbacks: {
+          onReady: () => {
+            document.getElementById('tc-checkout-loading').style.display = 'none';
+            document.getElementById('tc-submit-btn').disabled = false;
+            // MP Brick has its own submit button, so we hide ours
+            document.getElementById('tc-submit-btn').style.display = 'none';
+          },
+          onSubmit: async (formData) => {
+            // Passa token, issuerId e installments do MP Brick para o backend
+            processPayment(formData.token, null, formData.issuerId, formData.installments);
+          },
+
+          onError: (error) => {
+            document.getElementById('tc-card-errors').textContent = 'Erro no formulário.';
+          }
+        }
+      });
+      checkoutState.cardForm = cardPaymentBrickController;
+    }
+
+    async function loadPagarmeCheckout(publicKey) {
+      checkoutState.pagarmeKey = publicKey;
+      document.getElementById('tc-checkout-loading').style.display = 'none';
+      document.getElementById('tc-payment-form').classList.remove('active');
+      document.getElementById('form-step-1').classList.add('active'); // Exibe Passo 1
+      document.getElementById('tc-submit-btn').style.display = 'none';
+      
+      const cardContainer = document.getElementById('tc-card-element');
+      cardContainer.innerHTML = `
+        <div class="stripe-field-group">
+          <label>Nome Impresso no Cartão</label>
+          <input type="text" id="pg-card-holder" class="pagarme-input" required placeholder="NOME COMO NO CARTÃO">
+        </div>
+        <div class="stripe-field-group">
+          <label>Número do Cartão</label>
+          <input type="text" id="pg-card-number" class="pagarme-input" required placeholder="0000 0000 0000 0000" maxlength="19">
+        </div>
+        <div class="stripe-field-row">
+          <div class="stripe-field-group">
+            <label>Validade (MM/AA)</label>
+            <input type="text" id="pg-card-expiry" class="pagarme-input" required placeholder="MM/AA" maxlength="5">
+          </div>
+          <div class="stripe-field-group">
+            <label>CVC</label>
+            <input type="text" id="pg-card-cvc" class="pagarme-input" required placeholder="123" maxlength="4">
+          </div>
+        </div>
+      `;
+    }
+
+    // NOTA: Este listener é registrado dentro do DOMContentLoaded mais abaixo.
+    // NÃO registrar aqui pois o elemento form-step-1 ainda não existe no DOM neste ponto.
+
+    // ASAAS: formulário nativo 2 passos.
+    // Diferente do Pagar.me, o ASAAS não tem endpoint de tokenização no frontend.
+    // Os dados do cartão vão diretamente ao nosso backend, que os repassa à API do ASAAS.
+    async function loadAsaasCheckout() {
+      checkoutState.gateway = 'asaas';
+      document.getElementById('tc-checkout-loading').style.display = 'none';
+      document.getElementById('tc-payment-form').classList.remove('active');
+      document.getElementById('form-step-1').classList.add('active');
+      document.getElementById('tc-submit-btn').style.display = 'none';
+
+      // Step 2: campos do cartão (injetados dinamicamente quando o Step 1 for concluído)
+      const cardContainer = document.getElementById('tc-card-element');
+      cardContainer.innerHTML = `
+        <div class="stripe-field-group">
+          <label>Nome Impresso no Cartão</label>
+          <input type="text" id="asaas-card-holder" class="pagarme-input" required placeholder="NOME COMO NO CARTÃO">
+        </div>
+        <div class="stripe-field-group">
+          <label>Número do Cartão</label>
+          <input type="text" id="asaas-card-number" class="pagarme-input" required placeholder="0000 0000 0000 0000" maxlength="19"
+            oninput="this.value=this.value.replace(/\\D/g,'').replace(/(\\d{4})(?=\\d)/g,'$1 ').substring(0,19)">
+        </div>
+        <div class="stripe-field-row">
+          <div class="stripe-field-group">
+            <label>Validade (MM/AAAA)</label>
+            <input type="text" id="asaas-card-expiry" class="pagarme-input" required placeholder="MM/AAAA" maxlength="7">
+          </div>
+          <div class="stripe-field-group">
+            <label>CVV</label>
+            <input type="text" id="asaas-card-cvv" class="pagarme-input" required placeholder="123" maxlength="4">
+          </div>
+        </div>
+      `;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // ── Pagar.me: Passo 1 → Passo 2 ──────────────────────────────────
+      const step1Form = document.getElementById('form-step-1');
+      if (step1Form) {
+        step1Form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          pagarmeCustomerData = {
+            name: document.getElementById('pg-name').value,
+            document: document.getElementById('pg-doc').value.replace(/\D/g, ''),
+            phone: document.getElementById('pg-phone').value.replace(/\D/g, ''),
+            zip: document.getElementById('pg-zip').value.replace(/\D/g, ''),
+            street: document.getElementById('pg-street').value,
+            number: document.getElementById('pg-number').value
+          };
+          document.getElementById('form-step-1').classList.remove('active');
+          document.getElementById('tc-payment-form').classList.add('active');
+          document.getElementById('tc-submit-btn').style.display = 'flex';
+          document.getElementById('tc-submit-btn').disabled = false;
+        });
+      }
+
+      // ── Passo 2: Cartão de Crédito (Stripe / Pagar.me) ────────────────
+      const paymentForm = document.getElementById('tc-payment-form');
+      if (paymentForm) {
+        paymentForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          
+          if (checkoutState.gateway === 'pagarme') {
+            const btn = document.getElementById('tc-submit-btn');
+            btn.disabled = true;
+            btn.textContent = 'Processando...';
+            
+            const cardNum = document.getElementById('pg-card-number').value.replace(/\s/g, '');
+            const [expMonth, expYear] = document.getElementById('pg-card-expiry').value.split('/');
+            const cvc = document.getElementById('pg-card-cvc').value;
+            const holder = document.getElementById('pg-card-holder').value;
+            
+            try {
+              const res = await fetch('https://api.pagar.me/core/v5/tokens?appId=' + checkoutState.pagarmeKey, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  type: 'card',
+                  card: {
+                    number: cardNum,
+                    holder_name: holder,
+                    exp_month: parseInt(expMonth, 10),
+                    // Aceita tanto MM/AA (2 dígitos) quanto MM/AAAA (4 dígitos)
+                    exp_year: expYear.length === 2 ? parseInt('20' + expYear, 10) : parseInt(expYear, 10),
+                    cvv: cvc
+                  }
+                })
+              });
+              const data = await res.json();
+              if (!res.ok || !data.id) throw new Error(data.message || 'Erro ao gerar token Pagar.me');
+              
+              checkoutState.pagarmeToken = data.id;
+              processPayment(data.id, null);
+            } catch (error) {
+              document.getElementById('tc-card-errors').textContent = error.message;
+              btn.disabled = false;
+              btn.textContent = 'Confirmar Pagamento';
+            }
+            return;
+          }
+
+          // ── ASAAS: dados do cartão enviados diretamente ao backend (sem tokenização frontend)
+          if (checkoutState.gateway === 'asaas') {
+            const btn = document.getElementById('tc-submit-btn');
+            btn.disabled = true;
+            btn.textContent = 'Processando...';
+
+            const [expMonth, expYear] = (document.getElementById('asaas-card-expiry').value || '/').split('/');
+
+            // Captura o IP real do browser (necessário pelo ASAAS)
+            let remoteIp = '0.0.0.0';
+            try {
+              const ipRes = await fetch('https://api.ipify.org?format=json');
+              const ipData = await ipRes.json();
+              remoteIp = ipData.ip;
+            } catch (_) { /* usa fallback; o backend também extrai x-forwarded-for */ }
+
+            // Mescla dados pessoais (Step 1) com dados do cartão (Step 2)
+            const asaasPayer = {
+              ...pagarmeCustomerData,
+              email:          currentUser.email,
+              cardHolderName: document.getElementById('asaas-card-holder').value,
+              cardNumber:     document.getElementById('asaas-card-number').value.replace(/\s/g, ''),
+              cardExpMonth:   expMonth?.trim(),
+              cardExpYear:    expYear?.trim(),
+              cardCvv:        document.getElementById('asaas-card-cvv').value,
+              remoteIp
+            };
+
+            try {
+              const session = await getSession();
+              const res = await fetch(API_BASE + '/api/checkout/subscription/process', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+                body: JSON.stringify({
+                  transactionId: checkoutState.transactionId,
+                  token: null,
+                  paymentMethodId: null,
+                  payer: asaasPayer
+                })
+              });
+              const data = await res.json();
+              if (!res.ok) throw new Error(data.error || 'Erro no pagamento');
+              closeCheckoutModal();
+              showToast('Pagamento aprovado! Assinatura ativada.', 'success', 5000);
+              setTimeout(() => window.location.href = 'painel.html?status=success', 2000);
+            } catch (error) {
+              document.getElementById('tc-card-errors').textContent = error.message;
+              btn.disabled = false;
+              btn.textContent = 'Confirmar Pagamento';
+            }
+            return;
+          }
+          
+          if (checkoutState.gateway !== 'stripe') return; // MP handles its own submit
+          
+          const btn = document.getElementById('tc-submit-btn');
+          btn.disabled = true;
+          btn.textContent = 'Processando...';
+          
+          // CORREÇÃO CRÍTICA: Usar confirmCardSetup (não createPaymentMethod).
+          // Isso confirma o SetupIntent no Stripe e vincula o cartão ao Customer
+          // para que cobranças recorrentes futuras funcionem corretamente.
+          const { setupIntent, error } = await checkoutState.stripe.confirmCardSetup(
+            checkoutState.clientSecret,
+            {
+              payment_method: {
+                card: checkoutState.cardElement,
+                billing_details: { email: currentUser.email }
+              }
+            }
+          );
+          
+          if (error) {
+            document.getElementById('tc-card-errors').textContent = error.message;
+            btn.disabled = false;
+            btn.textContent = 'Confirmar Pagamento';
+            return;
+          }
+          
+          // setupIntent.payment_method contém o ID do PM já vinculado ao SetupIntent
+          processPayment(null, setupIntent.payment_method);
+        });
+      }
+    });
+
+    async function processPayment(token, paymentMethodId, issuerId, installments) {
+      try {
+        const session = await getSession();
+        const res = await fetch(API_BASE + '/api/checkout/subscription/process', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+          body: JSON.stringify({
+            transactionId: checkoutState.transactionId,
+            token: token,
+            paymentMethodId: paymentMethodId,
+            issuerId: issuerId || null,
+            installments: installments || 1,
+            payer: { email: currentUser.email, ...pagarmeCustomerData }
+          })
+        });
+        const data = await res.json();
+        
+        if (!res.ok) throw new Error(data.error || 'Erro no pagamento');
+        
+        closeCheckoutModal();
+        showToast('Pagamento aprovado! Assinatura ativada.', 'success', 5000);
+        setTimeout(() => window.location.href = 'painel.html?status=success', 2000);
+      } catch (err) {
+        document.getElementById('tc-card-errors').textContent = err.message;
+        const btn = document.getElementById('tc-submit-btn');
+        btn.disabled = false;
+        btn.textContent = 'Tentar Novamente';
       }
     }
 
@@ -666,5 +1178,71 @@
       loadPlanStatus();
     });
   </script>
+  <!-- Checkout Transparent Overlay -->
+  <div id="tc-checkout-overlay">
+    <div id="tc-checkout-modal">
+      <div class="checkout-header">
+        <h3><span id="tc-gateway-icon">💳</span> Pagamento Seguro</h3>
+        <button class="close-checkout-btn" onclick="closeCheckoutModal()">&times;</button>
+      </div>
+      <div class="checkout-body">
+        <div class="checkout-summary">
+          <div class="plan-name" id="tc-checkout-plan-name">Plano Pro</div>
+          <div class="plan-price" id="tc-checkout-plan-price">R$ 79/mês</div>
+        </div>
+        
+        <div id="payment-form-container">
+          <div class="gateway-loading" id="tc-checkout-loading">
+            <div class="spinner"></div>
+          </div>
+          
+          <!-- Passo 1: Dados Pessoais (Pagar.me) -->
+          <form id="form-step-1" class="step-container">
+            <p style="margin-bottom:1rem; font-size:0.9rem; color:#475569">Precisamos de alguns dados extras para emitir sua fatura.</p>
+            <div class="stripe-field-group">
+              <label>Nome Completo</label>
+              <input type="text" id="pg-name" class="pagarme-input" required>
+            </div>
+            <div class="stripe-field-row">
+              <div class="stripe-field-group">
+                <label>CPF/CNPJ</label>
+                <input type="text" id="pg-doc" class="pagarme-input" required>
+              </div>
+              <div class="stripe-field-group">
+                <label>Celular</label>
+                <input type="text" id="pg-phone" class="pagarme-input" required placeholder="(11) 90000-0000">
+              </div>
+            </div>
+            <div class="stripe-field-row">
+              <div class="stripe-field-group">
+                <label>CEP</label>
+                <input type="text" id="pg-zip" class="pagarme-input" required>
+              </div>
+              <div class="stripe-field-group">
+                <label>Número</label>
+                <input type="text" id="pg-number" class="pagarme-input" required>
+              </div>
+            </div>
+            <div class="stripe-field-group">
+              <label>Endereço</label>
+              <input type="text" id="pg-street" class="pagarme-input" required>
+            </div>
+            <button type="submit" class="checkout-submit-btn">Continuar para Pagamento</button>
+          </form>
+
+          <!-- Passo 2: Cartão de Crédito -->
+          <form id="tc-payment-form" class="step-container active">
+            <div id="tc-card-element">
+              <!-- Elementos do Stripe/MercadoPago Brick renderizados aqui -->
+            </div>
+            <div id="tc-card-errors" role="alert" style="color:var(--error); font-size: 0.85rem; margin-top: 8px;"></div>
+            <button type="submit" class="checkout-submit-btn" id="tc-submit-btn">
+              Confirmar Pagamento
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
 </body>
 </html>

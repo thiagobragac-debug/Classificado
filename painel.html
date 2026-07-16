@@ -2,8 +2,11 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
+  <!-- Security headers (defence-in-depth, complements server-side headers) -->
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Meu Painel â€” Tauze Class</title>
+  <title>Meu Painel — Tauze Class</title>
   <meta name="description" content="Gerencie seus anuncios, mensagens, favoritos e perfil no painel Tauze Class.">
   <link rel="stylesheet" href="css/style.css">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2316A34A'/%3E%3Ctext y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'%3ET%3C/text%3E%3C/svg%3E">
@@ -36,72 +39,78 @@
           <span class="logo-tagline">Classificados Agro</span>
         </div>
       </a>
-      <div class="header-search" role="search">
-        <span class="search-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        </span>
-        <input type="search" id="header-search-input" placeholder="Buscar animais, mÃ¡quinas, insumos..." aria-label="Buscar anÃºncios">
-      </div>
+
       <nav class="header-nav" role="navigation" aria-label="Menu principal">
-        <a href="index.html">InÃ­cio</a>
-        <a href="pesquisa.html">AnÃºncios</a>
-        <a href="index.html#categorias">Categorias</a>
-        <div id="header-avatar" style="width:40px;height:40px;border-radius:50%;background:var(--clr-primary);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;cursor:pointer;font-size:.9rem">?</div>
+        <a href="index.html">Início</a>
+        <a href="listagem.html">Anúncios</a>
+        <a href="eventos.html">Eventos</a>
+        <a href="leiloes.html" style="display:flex;align-items:center;gap:6px;color:#ef4444;font-weight:700;text-decoration:none;font-size:.95rem"><span style="width:8px;height:8px;background:#ef4444;border-radius:50%;display:inline-block;flex-shrink:0;animation:pulse-red 2s infinite"></span>Leil&otilde;es Ao Vivo</a>
+        <div class="auth-wrapper">
+          <div id="header-avatar" style="width:40px;height:40px;border-radius:50%;background:var(--clr-primary);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;cursor:pointer;font-size:.9rem">?</div>
+        </div>
       </nav>
       <div class="lang-toggle" role="group" aria-label="Selecionar idioma">
-        <button data-lang="pt" class="active" aria-label="PortuguÃªs">PT</button>
-        <button data-lang="es" aria-label="EspaÃ±ol">ES</button>
+        <button data-lang="pt" class="active" aria-label="Português">PT</button>
+        <button data-lang="es" aria-label="Español">ES</button>
       </div>
       <a href="anunciar.html" class="btn-anunciar-header">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        <span>Anunciar GrÃ¡tis</span>
+        <span>Anunciar Grátis</span>
       </a>
       <button class="hamburger" aria-label="Abrir menu" aria-expanded="false"><span></span><span></span><span></span></button>
     </div>
   </header>
 
   <!-- PAINEL LAYOUT -->
-  <div class="painel-wrap" style="display:grid;grid-template-columns:280px 1fr;gap:1.75rem;padding-top:calc(var(--header-h,70px) + 2rem);padding-bottom:4rem;max-width:1280px;margin:0 auto;padding-left:1.5rem;padding-right:1.5rem;align-items:start">
+  <div class="painel-wrap" style="flex: 1; display:grid;grid-template-columns:280px 1fr;gap:1.75rem;padding-top:calc(var(--header-h,70px) + 2rem);padding-bottom:4rem;max-width:var(--container-max);width:100%;margin:0 auto;padding-left:var(--container-px);padding-right:var(--container-px);align-items:start">
 
     <!-- SIDEBAR -->
     <aside style="background:#fff;border-radius:1.25rem;box-shadow:0 2px 16px rgba(0,0,0,.06);overflow:hidden;position:sticky;top:calc(var(--header-h,70px) + 1.5rem)">
       <div style="background:linear-gradient(135deg,#16a34a,#059669);padding:2rem 1.5rem 2.5rem;text-align:center;position:relative">
         <div style="position:absolute;bottom:-1px;left:0;right:0;height:24px;background:#fff;border-radius:1.25rem 1.25rem 0 0"></div>
-        <div id="sidebar-avatar" style="width:72px;height:72px;border-radius:50%;background:rgba(255,255,255,.2);border:3px solid rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center;font-size:1.6rem;font-weight:800;color:#fff;margin:0 auto 1rem">â€¦</div>
-        <div id="sidebar-name" style="font-size:1.05rem;font-weight:700;color:#fff;margin-bottom:.25rem">Carregandoâ€¦</div>
+        <div id="sidebar-avatar" style="width:72px;height:72px;border-radius:50%;background:rgba(255,255,255,.2);border:3px solid rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center;font-size:1.6rem;font-weight:800;color:#fff;margin:0 auto 1rem">…</div>
+        <div id="sidebar-name" style="font-size:1.05rem;font-weight:700;color:#fff;margin-bottom:.25rem">Carregando…</div>
         <div id="sidebar-email" style="font-size:.78rem;color:rgba(255,255,255,.75);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px;margin:0 auto"></div>
-        <div id="sidebar-plan-badge" style="display:inline-flex;align-items:center;margin-top:.75rem;padding:.25rem .85rem;border-radius:2rem;font-size:.75rem;font-weight:700;background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.25)">GrÃ¡tis</div>
+        <div id="sidebar-plan-badge" style="display:inline-flex;align-items:center;margin-top:.75rem;padding:.25rem .85rem;border-radius:2rem;font-size:.75rem;font-weight:700;background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.25)">Grátis</div>
       </div>
       <div style="padding:.85rem 1.5rem .5rem">
         <div style="display:flex;justify-content:space-between;font-size:.75rem;color:#64748b;margin-bottom:.4rem">
-          <span>AnÃºncios usados</span><span id="ads-count-label">0 / 3</span>
+          <span data-i18n="pnl_ads_used">Anúncios usados</span><span id="ads-count-label">0 / 3</span>
         </div>
         <div style="height:6px;background:#e2e8f0;border-radius:99px;overflow:hidden">
           <div id="ads-progress-fill" style="height:100%;border-radius:99px;background:linear-gradient(90deg,#16a34a,#22c55e);transition:width .6s ease;width:0%"></div>
         </div>
-      </div>
-      <nav style="padding:.75rem 1rem 1.5rem">
-        <button id="tab-ads" onclick="switchTab('ads')" style="display:flex;align-items:center;gap:.7rem;padding:.75rem 1rem;border-radius:.75rem;font-size:.9rem;font-weight:600;color:#16a34a;cursor:pointer;border:none;background:#ecfdf5;width:100%;text-align:left;margin-bottom:.25rem">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-          Meus AnÃºncios
+      <nav style="padding:.75rem .5rem 1.5rem">
+        <style>
+          .sidebar-btn { transition: all 0.2s !important; border: none; width: 100%; text-align: left; background: transparent; color: #64748b; margin-bottom: .25rem; display: flex; align-items: center; justify-content: flex-start; gap: .7rem; padding: .75rem 1rem; border-radius: .75rem; font-size: .9rem; font-weight: 600; cursor: pointer; }
+          .sidebar-btn:not(.active):hover { background: #f8fafc; color: #1e293b; transform: translateX(4px); }
+          .sidebar-btn.active { background: #ecfdf5 !important; color: #16a34a !important; }
+        </style>
+        <button id="tab-ads" class="sidebar-btn active" onclick="switchTab('ads')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          <span data-i18n="pnl_my_ads">Meus Anúncios</span>
         </button>
-        <button id="tab-messages" onclick="switchTab('messages')" style="display:flex;align-items:center;gap:.7rem;padding:.75rem 1rem;border-radius:.75rem;font-size:.9rem;font-weight:600;color:#64748b;cursor:pointer;border:none;background:transparent;width:100%;text-align:left;margin-bottom:.25rem;transition:background .15s,color .15s">
+        <button id="tab-messages" class="sidebar-btn" onclick="switchTab('messages')">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-          Mensagens
+          <span data-i18n="pnl_messages">Mensagens</span>
           <span id="msg-badge" style="display:none;margin-left:auto;background:#ef4444;color:#fff;padding:.1rem .45rem;border-radius:99px;font-size:.7rem;font-weight:700">0</span>
         </button>
-        <button id="tab-favorites" onclick="switchTab('favorites')" style="display:flex;align-items:center;gap:.7rem;padding:.75rem 1rem;border-radius:.75rem;font-size:.9rem;font-weight:600;color:#64748b;cursor:pointer;border:none;background:transparent;width:100%;text-align:left;margin-bottom:.25rem;transition:background .15s,color .15s">
+        <button id="tab-favorites" class="sidebar-btn" onclick="switchTab('favorites')">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-          Favoritos
+          <span data-i18n="pnl_favorites">Favoritos</span>
         </button>
-        <button id="tab-profile" onclick="switchTab('profile')" style="display:flex;align-items:center;gap:.7rem;padding:.75rem 1rem;border-radius:.75rem;font-size:.9rem;font-weight:600;color:#64748b;cursor:pointer;border:none;background:transparent;width:100%;text-align:left;margin-bottom:.25rem;transition:background .15s,color .15s">
+        <button id="tab-profile" class="sidebar-btn" onclick="switchTab('profile')">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          Meu Perfil
+          <span data-i18n="pnl_profile">Meu Perfil</span>
+        </button>
+        <button id="tab-billing" class="sidebar-btn" onclick="switchTab('billing')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2" ry="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
+          <span data-i18n="pnl_billing">Assinatura e Faturas</span>
         </button>
         <div style="height:1px;background:#f1f5f9;margin:.5rem 0"></div>
         <button onclick="handleLogout()" style="display:flex;align-items:center;gap:.7rem;padding:.75rem 1rem;border-radius:.75rem;font-size:.9rem;font-weight:600;color:#dc2626;cursor:pointer;border:none;background:transparent;width:100%;text-align:left;transition:background .15s">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-          Sair
+          <span data-i18n="pnl_logout">Sair</span>
         </button>
       </nav>
     </aside>
@@ -113,13 +122,18 @@
       <div id="panel-ads" class="p-panel">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem">
           <div>
-            <h1 style="font-size:1.75rem;font-weight:800;color:var(--clr-text)">Meus AnÃºncios</h1>
-            <p id="ads-count-subtitle" style="color:#64748b;font-size:.85rem;margin-top:.2rem">Carregandoâ€¦</p>
+            <h1 style="font-size:1.75rem;font-weight:800;color:var(--clr-text)" data-i18n="pnl_my_ads">Meus Anúncios</h1>
+            <p id="ads-count-subtitle" style="color:#64748b;font-size:.85rem;margin-top:.2rem">Carregando…</p>
           </div>
-          <a href="anunciar.html" style="display:inline-flex;align-items:center;gap:.5rem;padding:.7rem 1.4rem;border-radius:.75rem;background:#16a34a;color:#fff;font-weight:700;font-size:.9rem;text-decoration:none">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Novo AnÃºncio
-          </a>
+          <div style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap">
+            <select id="my-ads-filter" onchange="renderAds()" style="padding:.65rem 1rem;border-radius:.75rem;border:1px solid #e2e8f0;background:#fff;color:var(--clr-text);font-size:.9rem;font-weight:600;outline:none;cursor:pointer">
+              <option value="all" data-i18n="pnl_all_status">Todos os Status</option>
+              <option value="active" data-i18n="pnl_active">Ativos</option>
+              <option value="pending" data-i18n="pnl_pending">Pendentes</option>
+              <option value="paused" data-i18n="pnl_paused">Pausados</option>
+              <option value="expired" data-i18n="pnl_expired">Expirados</option>
+            </select>
+          </div>
         </div>
         <div id="ads-container" style="background:#fff;border-radius:1rem;box-shadow:0 2px 16px rgba(0,0,0,.06);overflow:hidden">
           <div style="display:grid;grid-template-columns:110px 1fr;gap:1rem;align-items:center;padding:1rem 1.25rem">
@@ -135,29 +149,46 @@
 
       <!-- TAB 2: MESSAGES -->
       <div id="panel-messages" class="p-panel" style="display:none">
-        <div style="margin-bottom:1.5rem">
-          <h1 style="font-size:1.75rem;font-weight:800;color:var(--clr-text)">Mensagens</h1>
-          <p style="color:#64748b;font-size:.85rem;margin-top:.2rem">Conversas sobre seus anÃºncios</p>
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem">
+          <div>
+            <h1 style="font-size:1.75rem;font-weight:800;color:var(--clr-text)" data-i18n="pnl_messages">Mensagens</h1>
+            <p style="color:#64748b;font-size:.85rem;margin-top:.2rem" data-i18n="pnl_messages_sub">Conversas sobre seus anúncios</p>
+          </div>
+          <div style="position:relative;width:100%;max-width:320px">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:1.2rem;top:50%;transform:translateY(-50%)"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="msg-search" data-i18n-placeholder="pnl_search_convs" placeholder="Buscar conversas..." oninput="renderMessageList()" style="width:100%;box-sizing:border-box;padding:.75rem 1rem .75rem 2.8rem;border-radius:2rem;border:1px solid #e2e8f0;background:#fff;font-size:.9rem;outline:none;transition:all .2s;color:#0f172a" onfocus="this.style.borderColor='#16a34a';this.style.boxShadow='0 0 0 4px #16a34a1a'" onblur="this.style.borderColor='#e2e8f0';this.style.boxShadow='none'">
+          </div>
         </div>
         <div style="background:#fff;border-radius:1rem;box-shadow:0 2px 16px rgba(0,0,0,.06);overflow:hidden">
+          <style>
+            .msg-item-row { transition: background 0.2s; cursor: pointer; display: grid; grid-template-columns: 48px 1fr auto auto; gap: 1rem; align-items: center; padding: 1rem 1.25rem; border-bottom: 1px solid #f1f5f9; }
+            .msg-item-row:hover { background: #f8fafc; }
+            .msg-del-btn { transition: transform 0.2s; background: #fee2e2 !important; color: #ef4444 !important; opacity: 1 !important; }
+            .msg-del-btn:hover { transform: scale(1.15); background: #fca5a5 !important; color: #b91c1c !important; }
+          </style>
           <div id="messages-list-view">
             <div id="msgs-spinner" style="display:flex;align-items:center;justify-content:center;padding:3rem">
               <div style="width:28px;height:28px;border-radius:50%;border:3px solid #e2e8f0;border-top-color:#16a34a;animation:spin .7s linear infinite"></div>
             </div>
           </div>
           <div id="thread-view" style="display:none;flex-direction:column;height:520px">
-            <div style="display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;border-bottom:1px solid #f1f5f9">
-              <button onclick="closeThread()" style="background:none;border:none;cursor:pointer;color:#64748b;padding:.3rem;border-radius:.4rem">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-              </button>
-              <div>
-                <div id="thread-title" style="font-weight:700;font-size:.95rem;color:var(--clr-text)">Conversa</div>
-                <div id="thread-subtitle" style="font-size:.75rem;color:#64748b"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;border-bottom:1px solid #f1f5f9">
+              <div style="display:flex;align-items:center;gap:.75rem">
+                <button onclick="closeThread()" style="background:none;border:none;cursor:pointer;color:#64748b;padding:.3rem;border-radius:.4rem">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                </button>
+                <div>
+                  <div id="thread-title" style="font-weight:700;font-size:.95rem;color:var(--clr-text)">Conversa</div>
+                  <div id="thread-subtitle" style="font-size:.75rem;color:#64748b"></div>
+                </div>
               </div>
+              <button onclick="deleteConversation(_activeConvKey, event)" class="msg-del-btn" style="background:#f1f5f9;border:none;color:#94a3b8;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:1" aria-label="Apagar conversa">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              </button>
             </div>
-            <div id="thread-messages" style="flex:1;overflow-y:auto;padding:1rem 1.25rem;display:flex;flex-direction:column;gap:.75rem;scroll-behavior:smooth"></div>
-            <div style="display:flex;gap:.5rem;align-items:center;padding:.75rem 1.25rem;border-top:1px solid #f1f5f9">
-              <textarea id="thread-input" placeholder="Digite sua mensagemâ€¦" rows="1"
+            <div id="thread-messages" style="flex:1;overflow-y:auto;padding:1.5rem 1.25rem;display:flex;flex-direction:column;gap:1rem;scroll-behavior:smooth;background:#f8fafc"></div>
+            <div style="display:flex;gap:.5rem;align-items:center;padding:.75rem 1.25rem;border-top:1px solid #f1f5f9;background:#fff">
+              <textarea id="thread-input" placeholder="Digite sua mensagem…" rows="1"
                 style="flex:1;border:1px solid #e2e8f0;border-radius:.65rem;padding:.6rem 1rem;font-size:.88rem;resize:none;outline:none;font-family:inherit;line-height:1.4"
                 onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendThreadMessage();}"></textarea>
               <button onclick="sendThreadMessage()" aria-label="Enviar"
@@ -171,9 +202,15 @@
 
       <!-- TAB 3: FAVORITES -->
       <div id="panel-favorites" class="p-panel" style="display:none">
-        <div style="margin-bottom:1.5rem">
-          <h1 style="font-size:1.75rem;font-weight:800;color:var(--clr-text)">Favoritos</h1>
-          <p style="color:#64748b;font-size:.85rem;margin-top:.2rem">AnÃºncios que vocÃª salvou</p>
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem">
+          <div>
+            <h1 style="font-size:1.75rem;font-weight:800;color:var(--clr-text)" data-i18n="pnl_favorites">Favoritos</h1>
+            <p style="color:#64748b;font-size:.85rem;margin-top:.2rem" data-i18n="pnl_favorites_sub">Anúncios que você salvou</p>
+          </div>
+          <div style="position:relative;width:100%;max-width:320px">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:1.2rem;top:50%;transform:translateY(-50%)"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="fav-search" data-i18n-placeholder="pnl_search_favs" placeholder="Buscar favoritos..." oninput="renderFavorites()" style="width:100%;box-sizing:border-box;padding:.75rem 1rem .75rem 2.8rem;border-radius:2rem;border:1px solid #e2e8f0;background:#fff;font-size:.9rem;outline:none;transition:all .2s;color:#0f172a" onfocus="this.style.borderColor='#16a34a';this.style.boxShadow='0 0 0 4px #16a34a1a'" onblur="this.style.borderColor='#e2e8f0';this.style.boxShadow='none'">
+          </div>
         </div>
         <div id="favorites-container" style="background:#fff;border-radius:1rem;box-shadow:0 2px 16px rgba(0,0,0,.06);overflow:hidden">
           <div id="favs-spinner" style="display:flex;align-items:center;justify-content:center;padding:3rem">
@@ -185,88 +222,259 @@
       <!-- TAB 4: PROFILE -->
       <div id="panel-profile" class="p-panel" style="display:none">
         <div style="margin-bottom:1.5rem">
-          <h1 style="font-size:1.75rem;font-weight:800;color:var(--clr-text)">Meu Perfil</h1>
-          <p style="color:#64748b;font-size:.85rem;margin-top:.2rem">InformaÃ§Ãµes da sua conta</p>
+          <h1 style="font-size:1.75rem;font-weight:800;color:var(--clr-text)" data-i18n="pnl_profile">Meu Perfil</h1>
+          <p style="color:#64748b;font-size:.85rem;margin-top:.2rem" data-i18n="pnl_personal_data">Informações da sua conta</p>
         </div>
-        <div id="plan-card" style="background:linear-gradient(135deg,#16a34a,#059669);color:#fff;border-radius:1rem;padding:1.5rem;margin-bottom:1.5rem;position:relative;overflow:hidden">
-          <div style="position:absolute;top:-40px;right:-40px;width:160px;height:160px;border-radius:50%;background:rgba(255,255,255,.07)"></div>
-          <div id="plan-card-name" style="font-size:1.3rem;font-weight:800;margin-bottom:.5rem">Plano GrÃ¡tis</div>
-          <div id="plan-card-desc" style="font-size:.85rem;opacity:.85;margin-bottom:1.25rem">AtÃ© 3 anÃºncios ativos</div>
-          <div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-bottom:1.25rem">
-            <div style="font-size:.8rem"><span id="pcl-ads" style="font-size:1.2rem;font-weight:800;display:block">3</span>anÃºncios</div>
-            <div style="font-size:.8rem"><span id="pcl-featured" style="font-size:1.2rem;font-weight:800;display:block">0</span>destaques</div>
-          </div>
-          <a href="planos.html" style="display:inline-flex;align-items:center;gap:.4rem;padding:.6rem 1.4rem;border-radius:.65rem;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);color:#fff;font-weight:700;font-size:.85rem;text-decoration:none">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 11 12 6 7 11"/><polyline points="17 18 12 13 7 18"/></svg>
-            Fazer Upgrade
-          </a>
-        </div>
-        <div style="background:#fff;border-radius:1rem;box-shadow:0 2px 16px rgba(0,0,0,.06);padding:1.5rem;margin-bottom:1.5rem">
-          <p style="font-size:.75rem;font-weight:700;letter-spacing:.06em;color:#94a3b8;text-transform:uppercase;margin-bottom:1rem">Dados Pessoais</p>
-          <form id="profile-form" onsubmit="handleProfileSave(event)">
-            <div class="profile-two-col" style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem">
+
+        <style>
+          .profile-grid-layout { display: flex; flex-direction: column; gap: 1.5rem; align-items: stretch; }
+          @media(min-width: 900px) { .profile-grid-layout { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); align-items: stretch; } }
+        </style>
+        <div class="profile-grid-layout">
+        <div style="background:#fff;border-radius:1rem;box-shadow:0 2px 16px rgba(0,0,0,.06);padding:1.5rem;flex:1;display:flex;flex-direction:column">
+          <p style="font-size:.75rem;font-weight:700;letter-spacing:.06em;color:#94a3b8;text-transform:uppercase;margin-bottom:1rem" data-i18n="pnl_personal_data">Dados Pessoais</p>
+          <form id="profile-form" onsubmit="handleProfileSave(event)" style="display:flex;flex-direction:column;flex:1">
+            <div class="profile-two-col" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:1.25rem">
               <div style="display:flex;flex-direction:column;gap:.4rem">
-                <label style="font-size:.8rem;font-weight:600;color:#64748b" for="pf-name">Nome completo</label>
+                <label style="font-size:.85rem;font-weight:700;color:#475569" for="pf-name" data-i18n="pnl_full_name">Nome completo</label>
                 <input id="pf-name" type="text" placeholder="Seu nome" required
-                  style="padding:.65rem .9rem;border-radius:.65rem;border:1px solid #e2e8f0;font-size:.9rem;font-family:inherit;outline:none"
-                  onfocus="this.style.borderColor='#16a34a'" onblur="this.style.borderColor='#e2e8f0'">
+                  style="width:100%;box-sizing:border-box;padding:.8rem 1rem;border-radius:.75rem;border:1px solid #e2e8f0;background:#f8fafc;font-size:.95rem;font-family:inherit;outline:none;transition:all .2s;color:#0f172a"
+                  onfocus="this.style.borderColor='#16a34a';this.style.background='#fff';this.style.boxShadow='0 0 0 4px #16a34a1a'" onblur="this.style.borderColor='#e2e8f0';this.style.background='#f8fafc';this.style.boxShadow='none'">
               </div>
               <div style="display:flex;flex-direction:column;gap:.4rem">
-                <label style="font-size:.8rem;font-weight:600;color:#64748b" for="pf-phone">WhatsApp / Telefone</label>
-                <input id="pf-phone" type="tel" placeholder="+55 (99) 9 9999-9999"
-                  style="padding:.65rem .9rem;border-radius:.65rem;border:1px solid #e2e8f0;font-size:.9rem;font-family:inherit;outline:none"
-                  onfocus="this.style.borderColor='#16a34a'" onblur="this.style.borderColor='#e2e8f0'">
+                <label style="font-size:.85rem;font-weight:700;color:#475569" for="pf-display-name">Nome de Exibição / Fazenda</label>
+                <input id="pf-display-name" type="text" placeholder="Ex: Fazenda São João" required
+                  style="width:100%;box-sizing:border-box;padding:.8rem 1rem;border-radius:.75rem;border:1px solid #e2e8f0;background:#f8fafc;font-size:.95rem;font-family:inherit;outline:none;transition:all .2s;color:#0f172a"
+                  onfocus="this.style.borderColor='#16a34a';this.style.background='#fff';this.style.boxShadow='0 0 0 4px #16a34a1a'" onblur="this.style.borderColor='#e2e8f0';this.style.background='#f8fafc';this.style.boxShadow='none'">
               </div>
               <div style="display:flex;flex-direction:column;gap:.4rem">
-                <label style="font-size:.8rem;font-weight:600;color:#64748b" for="pf-country">PaÃ­s</label>
-                <select id="pf-country" style="padding:.65rem .9rem;border-radius:.65rem;border:1px solid #e2e8f0;font-size:.9rem;font-family:inherit;outline:none;background:#fff;cursor:pointer">
-                  <option value="BR">ðŸ‡§ðŸ‡· Brasil</option>
-                  <option value="AR">ðŸ‡¦ðŸ‡· Argentina</option>
-                  <option value="PY">ðŸ‡µðŸ‡¾ Paraguai</option>
-                  <option value="UY">ðŸ‡ºðŸ‡¾ Uruguai</option>
-                  <option value="BO">ðŸ‡§ðŸ‡´ BolÃ­via</option>
+                <label id="pf-doc-label" style="font-size:.85rem;font-weight:700;color:#475569" for="pf-doc">CPF / CNPJ</label>
+                <input id="pf-doc" type="text" placeholder="000.000.000-00 ou 00.000.000/0001-00" oninput="handleDocInput(event)" maxlength="20" required
+                  style="width:100%;box-sizing:border-box;padding:.8rem 1rem;border-radius:.75rem;border:1px solid #e2e8f0;background:#f8fafc;font-size:.95rem;font-family:inherit;outline:none;transition:all .2s;color:#0f172a"
+                  onfocus="this.style.borderColor='#16a34a';this.style.background='#fff';this.style.boxShadow='0 0 0 4px #16a34a1a'" onblur="this.style.borderColor='#e2e8f0';this.style.background='#f8fafc';this.style.boxShadow='none'">
+                <span id="pf-doc-error" style="color:#ef4444;font-size:.75rem;font-weight:600;display:none;margin-top:-.15rem">Documento inválido!</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:.4rem">
+                <label style="font-size:.85rem;font-weight:700;color:#475569" for="pf-phone">WhatsApp / Telefone</label>
+                <input id="pf-phone" type="tel" placeholder="+55 (99) 9 9999-9999" oninput="handlePhoneInput(event)" required
+                  style="width:100%;box-sizing:border-box;padding:.8rem 1rem;border-radius:.75rem;border:1px solid #e2e8f0;background:#f8fafc;font-size:.95rem;font-family:inherit;outline:none;transition:all .2s;color:#0f172a"
+                  onfocus="this.style.borderColor='#16a34a';this.style.background='#fff';this.style.boxShadow='0 0 0 4px #16a34a1a';handlePhoneInput(event)" onblur="this.style.borderColor='#e2e8f0';this.style.background='#f8fafc';this.style.boxShadow='none'">
+              </div>
+              <div style="display:flex;flex-direction:column;gap:.4rem">
+                <label style="font-size:.85rem;font-weight:700;color:#475569" for="pf-zip">CEP</label>
+                <input id="pf-zip" type="text" placeholder="00000-000" oninput="handleCepInput(event)" onblur="handleCepBlur(event)" required
+                  style="width:100%;box-sizing:border-box;padding:.8rem 1rem;border-radius:.75rem;border:1px solid #e2e8f0;background:#f8fafc;font-size:.95rem;font-family:inherit;outline:none;transition:all .2s;color:#0f172a"
+                  onfocus="this.style.borderColor='#16a34a';this.style.background='#fff';this.style.boxShadow='0 0 0 4px #16a34a1a'">
+              </div>
+              <div style="display:flex;flex-direction:column;gap:.4rem">
+                <label style="font-size:.85rem;font-weight:700;color:#475569" for="pf-street">Endereço (Rua/Av)</label>
+                <input id="pf-street" type="text" placeholder="Ex: Av. Brasil"
+                  style="width:100%;box-sizing:border-box;padding:.8rem 1rem;border-radius:.75rem;border:1px solid #e2e8f0;background:#f8fafc;font-size:.95rem;font-family:inherit;outline:none;transition:all .2s;color:#0f172a"
+                  onfocus="this.style.borderColor='#16a34a';this.style.background='#fff';this.style.boxShadow='0 0 0 4px #16a34a1a'" onblur="this.style.borderColor='#e2e8f0';this.style.background='#f8fafc';this.style.boxShadow='none'">
+              </div>
+              <div style="display:flex;flex-direction:column;gap:.4rem">
+                <label style="font-size:.85rem;font-weight:700;color:#475569" for="pf-number">Número</label>
+                <input id="pf-number" type="text" placeholder="Ex: 1000"
+                  style="width:100%;box-sizing:border-box;padding:.8rem 1rem;border-radius:.75rem;border:1px solid #e2e8f0;background:#f8fafc;font-size:.95rem;font-family:inherit;outline:none;transition:all .2s;color:#0f172a"
+                  onfocus="this.style.borderColor='#16a34a';this.style.background='#fff';this.style.boxShadow='0 0 0 4px #16a34a1a'" onblur="this.style.borderColor='#e2e8f0';this.style.background='#f8fafc';this.style.boxShadow='none'">
+              </div>
+              <div style="display:flex;flex-direction:column;gap:.4rem">
+                <label style="font-size:.85rem;font-weight:700;color:#475569" for="pf-complement">Complemento</label>
+                <input id="pf-complement" type="text" placeholder="Apto, Sala, Bloco..."
+                  style="width:100%;box-sizing:border-box;padding:.8rem 1rem;border-radius:.75rem;border:1px solid #e2e8f0;background:#f8fafc;font-size:.95rem;font-family:inherit;outline:none;transition:all .2s;color:#0f172a"
+                  onfocus="this.style.borderColor='#16a34a';this.style.background='#fff';this.style.boxShadow='0 0 0 4px #16a34a1a'" onblur="this.style.borderColor='#e2e8f0';this.style.background='#f8fafc';this.style.boxShadow='none'">
+              </div>
+              <div style="display:flex;flex-direction:column;gap:.4rem">
+                <label style="font-size:.85rem;font-weight:700;color:#475569" for="pf-neighborhood">Bairro</label>
+                <input id="pf-neighborhood" type="text" placeholder="Seu bairro"
+                  style="width:100%;box-sizing:border-box;padding:.8rem 1rem;border-radius:.75rem;border:1px solid #e2e8f0;background:#f8fafc;font-size:.95rem;font-family:inherit;outline:none;transition:all .2s;color:#0f172a"
+                  onfocus="this.style.borderColor='#16a34a';this.style.background='#fff';this.style.boxShadow='0 0 0 4px #16a34a1a'" onblur="this.style.borderColor='#e2e8f0';this.style.background='#f8fafc';this.style.boxShadow='none'">
+              </div>
+              <div style="display:flex;flex-direction:column;gap:.4rem">
+                <label style="font-size:.85rem;font-weight:700;color:#475569" for="pf-city">Cidade</label>
+                <input id="pf-city" type="text" placeholder="Sua cidade"
+                  style="width:100%;box-sizing:border-box;padding:.8rem 1rem;border-radius:.75rem;border:1px solid #e2e8f0;background:#f8fafc;font-size:.95rem;font-family:inherit;outline:none;transition:all .2s;color:#0f172a"
+                  onfocus="this.style.borderColor='#16a34a';this.style.background='#fff';this.style.boxShadow='0 0 0 4px #16a34a1a'" onblur="this.style.borderColor='#e2e8f0';this.style.background='#f8fafc';this.style.boxShadow='none'">
+              </div>
+              <div style="display:flex;flex-direction:column;gap:.4rem">
+                <label style="font-size:.85rem;font-weight:700;color:#475569" for="pf-state">Estado (UF)</label>
+                <input id="pf-state" type="text" placeholder="Ex: SP, MT..."
+                  style="width:100%;box-sizing:border-box;padding:.8rem 1rem;border-radius:.75rem;border:1px solid #e2e8f0;background:#f8fafc;font-size:.95rem;font-family:inherit;outline:none;transition:all .2s;color:#0f172a"
+                  onfocus="this.style.borderColor='#16a34a';this.style.background='#fff';this.style.boxShadow='0 0 0 4px #16a34a1a'" onblur="this.style.borderColor='#e2e8f0';this.style.background='#f8fafc';this.style.boxShadow='none'">
+              </div>
+              <div style="display:flex;flex-direction:column;gap:.4rem">
+                <label style="font-size:.85rem;font-weight:700;color:#475569" for="pf-country">País</label>
+                <select id="pf-country" onchange="handleCountryChange()" style="width:100%;box-sizing:border-box;padding:.8rem 1rem;border-radius:.75rem;border:1px solid #e2e8f0;background:#f8fafc;font-size:.95rem;font-family:inherit;outline:none;transition:all .2s;color:#0f172a;cursor:pointer" onfocus="this.style.borderColor='#16a34a';this.style.background='#fff';this.style.boxShadow='0 0 0 4px #16a34a1a'" onblur="this.style.borderColor='#e2e8f0';this.style.background='#f8fafc';this.style.boxShadow='none'">
+                  <option value="BR">🇧🇷 Brasil</option>
+                  <option value="AR">🇦🇷 Argentina</option>
+                  <option value="PY">🇵🇾 Paraguai</option>
+                  <option value="UY">🇺🇾 Uruguai</option>
+                  <option value="BO">🇧🇴 Bolívia</option>
                 </select>
               </div>
-              <div style="display:flex;flex-direction:column;gap:.4rem">
-                <label style="font-size:.8rem;font-weight:600;color:#64748b" for="pf-state">Estado / ProvÃ­ncia</label>
-                <input id="pf-state" type="text" placeholder="Ex: Mato Grosso"
-                  style="padding:.65rem .9rem;border-radius:.65rem;border:1px solid #e2e8f0;font-size:.9rem;font-family:inherit;outline:none"
-                  onfocus="this.style.borderColor='#16a34a'" onblur="this.style.borderColor='#e2e8f0'">
-              </div>
-              <div style="display:flex;flex-direction:column;gap:.4rem">
-                <label style="font-size:.8rem;font-weight:600;color:#64748b" for="pf-city">Cidade</label>
-                <input id="pf-city" type="text" placeholder="Sua cidade"
-                  style="padding:.65rem .9rem;border-radius:.65rem;border:1px solid #e2e8f0;font-size:.9rem;font-family:inherit;outline:none"
-                  onfocus="this.style.borderColor='#16a34a'" onblur="this.style.borderColor='#e2e8f0'">
-              </div>
               <div style="display:flex;flex-direction:column;gap:.4rem;grid-column:1/-1">
-                <label style="font-size:.8rem;font-weight:600;color:#64748b" for="pf-bio">Bio / ApresentaÃ§Ã£o</label>
-                <textarea id="pf-bio" rows="3" placeholder="Conte sobre vocÃª ou sua propriedadeâ€¦"
-                  style="padding:.65rem .9rem;border-radius:.65rem;border:1px solid #e2e8f0;font-size:.9rem;font-family:inherit;outline:none;resize:vertical"
-                  onfocus="this.style.borderColor='#16a34a'" onblur="this.style.borderColor='#e2e8f0'"></textarea>
+                <label style="font-size:.85rem;font-weight:700;color:#475569" for="pf-bio">Bio / Apresentação</label>
+                <textarea id="pf-bio" rows="3" placeholder="Conte sobre você ou sua propriedade…"
+                  style="width:100%;box-sizing:border-box;padding:.8rem 1rem;border-radius:.75rem;border:1px solid #e2e8f0;background:#f8fafc;font-size:.95rem;font-family:inherit;outline:none;transition:all .2s;color:#0f172a;resize:vertical"
+                  onfocus="this.style.borderColor='#16a34a';this.style.background='#fff';this.style.boxShadow='0 0 0 4px #16a34a1a'" onblur="this.style.borderColor='#e2e8f0';this.style.background='#f8fafc';this.style.boxShadow='none'"></textarea>
               </div>
             </div>
-            <div style="display:flex;gap:1rem;align-items:center;margin-top:1.5rem;flex-wrap:wrap">
+            <div style="display:flex;gap:1rem;align-items:center;margin-top:auto;padding-top:2rem;flex-wrap:wrap;justify-content:flex-end">
               <button type="submit" id="btn-save-profile"
-                style="display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.75rem 2rem;border-radius:.75rem;background:#16a34a;color:#fff;font-weight:700;font-size:.95rem;border:none;cursor:pointer">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                Salvar AlteraÃ§Ãµes
-              </button>
-              <button type="button" onclick="handleLogout()"
-                style="display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.7rem 1.5rem;border-radius:.75rem;background:#fff;border:1px solid #fecaca;color:#dc2626;font-weight:700;font-size:.9rem;cursor:pointer">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-                Sair da Conta
+                style="display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.8rem 2.5rem;border-radius:2rem;background:linear-gradient(to right, #16a34a, #15803d);color:#fff;font-weight:700;font-size:.95rem;border:none;cursor:pointer;box-shadow:0 4px 12px rgba(22, 163, 74, 0.3);transition:all .2s"
+                onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 16px rgba(22, 163, 74, 0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 4px 12px rgba(22, 163, 74, 0.3)'" onmousedown="this.style.transform='scale(0.97)'" onmouseup="this.style.transform='translateY(-2px)'">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                Salvar Alterações
               </button>
             </div>
           </form>
         </div>
-      </div>
+        <div style="background:#fff;border-radius:1rem;box-shadow:0 2px 16px rgba(0,0,0,.06);padding:2rem">
+          <p style="font-size:.75rem;font-weight:700;letter-spacing:.06em;color:#94a3b8;text-transform:uppercase;margin-bottom:1rem">Verifica&ccedil;&atilde;o KYC</p><p style="color:var(--clr-text-muted);margin-bottom:1.5rem;font-size:0.9rem">Complete as verifica&ccedil;&otilde;es abaixo para ganhar o selo de Vendedor Ouro e aumentar suas vendas.</p>
+          
+          <div style="display:flex;gap:1.5rem;flex-direction:column">
+            <!-- EMAIL -->
+            <div class="kyc-card" style="display:flex;align-items:flex-start;gap:1rem;padding:1.5rem;border:1px solid #e2e8f0;border-radius:.85rem;background:#fff;transition:all .2s;box-shadow:0 2px 8px rgba(0,0,0,.02)" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.06)';this.style.borderColor='#cbd5e1'" onmouseout="this.style.transform='none';this.style.boxShadow='0 2px 8px rgba(0,0,0,.02)';this.style.borderColor='#e2e8f0'">
+              <div style="background:#ecfdf5;padding:.75rem;border-radius:50%" id="icon-verify-email">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+              </div>
+              <div style="flex:1">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.25rem">
+                  <h3 style="font-weight:700;margin:0">E-mail</h3>
+                  <div id="kyc-email-badge"></div>
+                </div>
+                <p style="color:#64748b;font-size:.9rem;margin-bottom:1rem">Verifique seu endere&ccedil;o de e-mail para receber notifica&ccedil;&otilde;es e contatos.</p>
+                <div id="kyc-email-action"></div>
+              </div>
+            </div>
 
-    </div>
+            <!-- WHATSAPP -->
+            <div class="kyc-card" style="display:flex;align-items:flex-start;gap:1rem;padding:1.5rem;border:1px solid #e2e8f0;border-radius:.85rem;background:#fff;transition:all .2s;box-shadow:0 2px 8px rgba(0,0,0,.02)" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.06)';this.style.borderColor='#cbd5e1'" onmouseout="this.style.transform='none';this.style.boxShadow='0 2px 8px rgba(0,0,0,.02)';this.style.borderColor='#e2e8f0'">
+              <div style="background:#ecfdf5;padding:.75rem;border-radius:50%" id="icon-verify-phone">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+              </div>
+              <div style="flex:1">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.25rem">
+                  <h3 style="font-weight:700;margin:0">WhatsApp</h3>
+                  <div id="kyc-phone-badge"></div>
+                </div>
+                <p style="color:#64748b;font-size:.9rem;margin-bottom:1rem">Confirme seu WhatsApp para que os compradores confiem em voc&ecirc;.</p>
+                <div id="kyc-phone-action"></div>
+              </div>
+            </div>
+
+            <!-- IDENTIDADE -->
+            <div id="kyc-doc-card" class="kyc-card" style="display:flex;align-items:flex-start;gap:1rem;padding:1.5rem;border:1px solid #e2e8f0;border-radius:.85rem;background:#fff;transition:all .2s;box-shadow:0 2px 8px rgba(0,0,0,.02)" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.06)';this.style.borderColor='#cbd5e1'" onmouseout="this.style.transform='none';this.style.boxShadow='0 2px 8px rgba(0,0,0,.02)';this.style.borderColor='#e2e8f0'">
+              <div style="background:#ecfdf5;padding:.75rem;border-radius:50%" id="icon-verify-doc">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+              </div>
+              <div style="flex:1">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.25rem">
+                  <h3 style="font-weight:700;margin:0">Identidade (Selo Ouro)</h3>
+                  <div id="kyc-doc-badge"></div>
+                </div>
+                <p style="color:#64748b;font-size:.9rem;margin-bottom:1rem">Envie seu RG/CNH e uma selfie para ganhar o selo de vendedor verificado.</p>
+                <div id="kyc-doc-action"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+        </div><!-- /profile-grid-layout -->
+      </div>
+            <!-- TAB 6: BILLING -->
+      <div id="panel-billing" class="p-panel" style="display:none">
+        <div style="margin-bottom:2rem;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:1rem">
+          <div>
+            <h1 style="font-size:2rem;font-weight:800;color:var(--clr-text);letter-spacing:-0.03em">Assinatura e Faturas</h1>
+            <p style="color:#64748b;font-size:.95rem;margin-top:.3rem">Gerencie seu plano atual e acompanhe seu histórico financeiro.</p>
+          </div>
+          
+        </div>
+
+        <div id="plan-card" style="background:linear-gradient(135deg,#16a34a,#059669);color:#fff;border-radius:1rem;padding:1.5rem 2rem;margin-bottom:1.5rem;position:relative;overflow:hidden;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:2rem">
+          <div style="position:absolute;top:-40px;right:-40px;width:160px;height:160px;border-radius:50%;background:rgba(255,255,255,.07);pointer-events:none"></div>
+
+          <div style="z-index:1;position:relative;flex:1 1 200px">
+            <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.3rem">
+              <div id="plan-card-name" style="font-size:1.5rem;font-weight:800;letter-spacing:-0.02em">Plano Gr&aacute;tis</div>
+              <span style="font-size:.65rem;font-weight:800;background:rgba(255,255,255,.2);padding:.2rem .5rem;border-radius:4px;letter-spacing:.05em">ATUAL</span>
+            </div>
+            <div id="plan-card-desc" style="font-size:.85rem;opacity:.85">At&eacute; 3 an&uacute;ncios ativos</div>
+          </div>
+
+          <div style="z-index:1;position:relative;display:flex;gap:2rem;align-items:center;flex-wrap:wrap;justify-content:flex-end;flex:2 1 400px">
+            <div style="display:flex;gap:1.5rem">
+              <div style="width:160px">
+                <div style="display:flex;justify-content:space-between;font-size:.75rem;font-weight:700;margin-bottom:.4rem;gap:.5rem">
+                  <span>An&uacute;ncios</span><span id="pcl-ads-text" style="white-space:nowrap">0 / 3</span>
+                </div>
+                <div style="height:6px;background:rgba(255,255,255,.2);border-radius:99px;overflow:hidden">
+                  <div id="pcl-ads-bar" style="height:100%;background:#fff;border-radius:99px;width:0%;transition:width .5s"></div>
+                </div>
+              </div>
+              <div style="width:160px">
+                <div style="display:flex;justify-content:space-between;font-size:.75rem;font-weight:700;margin-bottom:.4rem;gap:.5rem">
+                  <span>Destaques</span><span id="pcl-feat-text" style="white-space:nowrap">0 / 0</span>
+                </div>
+                <div style="height:6px;background:rgba(255,255,255,.2);border-radius:99px;overflow:hidden">
+                  <div id="pcl-feat-bar" style="height:100%;background:#fff;border-radius:99px;width:0%;transition:width .5s"></div>
+                </div>
+              </div>
+            </div>
+
+            <a href="planos.html" style="display:inline-flex;align-items:center;gap:.5rem;padding:.7rem 1.4rem;border-radius:.75rem;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-weight:800;font-size:.9rem;text-decoration:none;box-shadow:0 4px 15px rgba(245,158,11,.4)">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+              Fazer Upgrade
+            </a>
+          </div>
+        </div>
+        
+        <div style="background:#fff;border-radius:1.25rem;box-shadow:0 4px 20px rgba(0,0,0,.04);padding:2rem;border:1px solid #f1f5f9">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem">
+            <h3 style="font-weight:800;font-size:1.2rem;color:#1e293b;display:flex;align-items:center;gap:.6rem;margin:0">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:#64748b"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+              Histórico de Faturas
+            </h3>
+            <select id="billing-filter" onchange="resetBillingPage(); renderBilling();" style="padding:.5rem 1rem;border-radius:.5rem;border:1px solid #e2e8f0;background:#f8fafc;font-size:.9rem;font-weight:600;color:#475569;outline:none;cursor:pointer">
+              <option value="all">Todas as Faturas</option>
+              <option value="approved">Aprovadas</option>
+              <option value="pending">Pendentes</option>
+            </select>
+          </div>
+          <div id="billing-transactions-list" style="display:flex;flex-direction:column;gap:1rem">
+            <div style="text-align:center;padding:3rem 1rem;color:#94a3b8">
+              <div style="font-size:.95rem;font-weight:500">Carregando faturas...</div>
+            </div>
+          </div>
+          <div id="billing-pagination" style="display:none;align-items:center;justify-content:center;gap:1rem;margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid #f1f5f9">
+             <button id="billing-prev" onclick="changeBillingPage(-1)" style="padding:.5rem 1rem;border-radius:.5rem;border:1px solid #e2e8f0;background:#fff;color:#475569;font-weight:600;font-size:.85rem;cursor:pointer;transition:all .2s">Anterior</button>
+             <span id="billing-page-info" style="font-size:.85rem;font-weight:700;color:#64748b">1 / 1</span>
+             <button id="billing-next" onclick="changeBillingPage(1)" style="padding:.5rem 1rem;border-radius:.5rem;border:1px solid #e2e8f0;background:#fff;color:#475569;font-weight:600;font-size:.85rem;cursor:pointer;transition:all .2s">Próxima</button>
+          </div>
+        </div>
+      </div><!-- /panel-billing -->
+
+      <!-- TAB 5: VERIFICATION -->
+      
+
+    </div><!-- /content -->
   </div><!-- /painel-wrap -->
 
+          <footer class="site-footer simplified-footer" style="background: #020617; color: rgba(255,255,255,0.6); padding: 1.25rem 0; margin-top: auto;" role="contentinfo">
+    <div class="container" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+      <div style="font-weight: 600; color: white; font-size: 0.9rem;">Tauze Class <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.6; margin-left: 0.5rem;" data-i18n="footer_copy">© 2026. Todos os direitos reservados.</span></div>
+      <div style="display:flex; gap: 1.5rem; font-size: var(--fs-sm);">
+        <a href="index.html" style="transition: color 0.2s; color: rgba(255,255,255,0.6);" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,0.6)'">Início</a>
+        <a href="#" style="transition: color 0.2s; color: rgba(255,255,255,0.6);" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,0.6)'">Suporte</a>
+        <a href="institucional.html#termos" style="transition: color 0.2s; color: rgba(255,255,255,0.6);" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,0.6)'">Termos de Uso</a>
+      </div>
+    </div>
+  </footer>
+
   <!-- TOAST -->
-  <div id="toast" role="alert" aria-live="polite"
+  
+      <div id="toast" role="alert" aria-live="polite"
     style="position:fixed;bottom:2rem;right:2rem;z-index:9999;padding:.85rem 1.25rem;border-radius:.85rem;background:#1e293b;color:#fff;font-size:.88rem;font-weight:600;box-shadow:0 8px 32px rgba(0,0,0,.2);display:flex;align-items:center;gap:.6rem;transform:translateY(120%);opacity:0;transition:all .3s cubic-bezier(.4,0,.2,1);max-width:340px;pointer-events:none"></div>
 
   <script src="js/supabase.js"></script>
@@ -275,33 +483,45 @@
   <script src="js/main.js"></script>
   <script>
   /* ================================================================
-     PAINEL â€” IntegraÃ§Ã£o real com Supabase
+     PAINEL ─ Integração real com Supabase
      ================================================================ */
   const PLAN_META = {
-    free:    {label:'GrÃ¡tis',  ads:3,   featured:0,  desc:'AtÃ© 3 anÃºncios ativos',            cardBg:'linear-gradient(135deg,#16a34a,#059669)'},
-    pro:     {label:'Pro',     ads:15,  featured:2,  desc:'AtÃ© 15 anÃºncios, 2 destaques',     cardBg:'linear-gradient(135deg,#1d4ed8,#2563eb)'},
-    premium: {label:'Premium', ads:999, featured:10, desc:'AnÃºncios ilimitados, 10 destaques',cardBg:'linear-gradient(135deg,#d97706,#b45309)'},
+    free:    {label:'Grátis',  ads:3,   featured:0,  desc:'Até 3 anúncios ativos',            cardBg:'linear-gradient(135deg,#16a34a,#059669)'},
+    pro:     {label:'Pro',     ads:15,  featured:2,  desc:'Até 15 anúncios, 2 destaques',     cardBg:'linear-gradient(135deg,#16a34a,#059669)'},
+    premium: {label:'Premium', ads:999, featured:10, desc:'Anúncios ilimitados, 10 destaques',cardBg:'linear-gradient(135deg,#16a34a,#059669)'},
   };
 
   let _currentUser=null,_myAds=[],_messages=[],_favs=[];
   let _conversations={},_activeConvKey=null,_unreadCount=0;
   let _loadedTabs=new Set(),_toastTimer;
+  let _myBilling=[], _billingPage=1; const BILLING_PAGE_SIZE=5;
 
-  /* â”€â”€ INIT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ── INIT ─────────────────────────────────────── */
   (async function init(){
     let session;
     try{session=await getSession();}catch(e){session=null;}
     if(!session){window.location.href='/login.html';return;}
     try{_currentUser=await getCurrentUser();}catch(e){showToast('Erro ao carregar dados.','error');return;}
     populateSidebar(_currentUser);
-    loadTab('ads');
+    
+    // Read the active tab from the URL hash, defaulting to 'ads'
+    const hashTab = window.location.hash.replace('#', '');
+    const TABS = ['ads','messages','favorites','profile','verification','billing'];
+    const initialTab = TABS.includes(hashTab) ? hashTab : 'ads';
+    switchTab(initialTab);
+    
     subscribeRealtime(_currentUser.id);
+    
+    try {
+      _messages = await getMyMessages();
+      groupConversations();
+    } catch(e) {}
   })();
 
-  /* â”€â”€ SIDEBAR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ── SIDEBAR ─────────────────────────────────────── */
   function populateSidebar(user){
     const p=user.profile||{};
-    const name=p.name||user.email?.split('@')[0]||'UsuÃ¡rio';
+    const name=p.display_name||p.name||user.email?.split('@')[0]||'Usuário';
     const plan=p.plan||'free';
     const meta=PLAN_META[plan]||PLAN_META.free;
     const ini=name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
@@ -312,10 +532,24 @@
     if(plan!=='free'){badge.style.background=meta.cardBg;badge.style.color='#fff';}
     document.getElementById('plan-card').style.background=meta.cardBg;
     sTxt('plan-card-name','Plano '+meta.label); sTxt('plan-card-desc',meta.desc);
-    sTxt('pcl-ads',meta.ads===999?'âˆž':meta.ads); sTxt('pcl-featured',meta.featured);
-    sVal('pf-name',p.name||''); sVal('pf-phone',p.phone_whatsapp||'');
+    // Update plan card progress bars
+    const adsLimit = meta.ads===999 ? 'Ilimitado' : meta.ads;
+    const featLimit = meta.featured===999 ? 'Ilimitado' : meta.featured;
+    sTxt('pcl-ads-text','0 / '+adsLimit);
+    sTxt('pcl-feat-text','0 / '+featLimit);
+    // Progress bars start at 0; updateAdsProgress will update ads bar
+    const adsBar=document.getElementById('pcl-ads-bar');
+    if(adsBar) adsBar.style.width=meta.ads===999?'5%':'0%';
+    const featBar=document.getElementById('pcl-feat-bar');
+    if(featBar) featBar.style.width='0%';
+    sVal('pf-name',p.name||''); sVal('pf-display-name',p.display_name||''); sVal('pf-phone',p.phone_whatsapp||'');
+    sVal('pf-doc',p.document_number||''); sVal('pf-zip',p.zip_code||''); sVal('pf-street',p.street||'');
+    sVal('pf-number',p.number||''); sVal('pf-complement',p.complement||''); sVal('pf-neighborhood',p.neighborhood||'');
     sVal('pf-country',p.country||'BR'); sVal('pf-state',p.state||'');
     sVal('pf-city',p.city||''); sVal('pf-bio',p.bio||'');
+    updateDocField(false);
+    const phoneInput = document.getElementById('pf-phone');
+    if (phoneInput && phoneInput.value) handlePhoneInput({ target: phoneInput });
   }
 
   function updateAdsProgress(count){
@@ -325,20 +559,232 @@
     const fill=document.getElementById('ads-progress-fill');
     fill.style.width=pct+'%';
     fill.style.background=pct>=100?'linear-gradient(90deg,#dc2626,#ef4444)':pct>=80?'linear-gradient(90deg,#d97706,#f59e0b)':'linear-gradient(90deg,#16a34a,#22c55e)';
-    sTxt('ads-count-label',count+' / '+(limit===999?'âˆž':limit));
+    sTxt('ads-count-label',count+' / '+(limit===999?'Ilimitado':limit));
   }
 
-  /* â”€â”€ TAB SWITCHING â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-  const TABS=['ads','messages','favorites','profile'];
+  /* ── DOC CONFIG (Mercosul) ─────────────────────────────────────── */
+  const DOC_CONFIG = {
+    BR: { label:'CPF / CNPJ',   pfType:'cpf',  pjType:'cnpj', pfDigits:11, pjDigits:14, pfPlaceholder:'000.000.000-00', pjPlaceholder:'00.000.000/0001-00' },
+    AR: { label:'DNI / CUIT',   pfType:'dni',  pjType:'cuit', pfDigits:8,  pjDigits:11, pfPlaceholder:'00.000.000',       pjPlaceholder:'00-00000000-0' },
+    PY: { label:'CI / RUC',     pfType:'ci',   pjType:'ruc',  pfDigits:8,  pjDigits:9,  pfPlaceholder:'0.000.000',        pjPlaceholder:'00000000-0' },
+    UY: { label:'CI / RUT',     pfType:'ci',   pjType:'rut',  pfDigits:8,  pjDigits:12, pfPlaceholder:'0.000.000-0',      pjPlaceholder:'000000000000' },
+    BO: { label:'CI / NIT',     pfType:'ci',   pjType:'nit',  pfDigits:9,  pjDigits:12, pfPlaceholder:'000000000',        pjPlaceholder:'000000000000' },
+  };
+
+  function getDocConfig() {
+    const country = (document.getElementById('pf-country')?.value || 'BR');
+    return DOC_CONFIG[country] || DOC_CONFIG.BR;
+  }
+
+  function updateDocField(clearValue = true) {
+    const cfg   = getDocConfig();
+    const label = document.getElementById('pf-doc-label');
+    const input = document.getElementById('pf-doc');
+    const err   = document.getElementById('pf-doc-error');
+    if (label) label.textContent = cfg.label;
+    if (input) {
+      if (clearValue) input.value = '';
+      input.placeholder = cfg.pfPlaceholder + ' ou ' + cfg.pjPlaceholder;
+      input.maxLength = 20;
+    }
+    if (err) err.style.display = 'none';
+
+    // Adapt address labels
+    const country = (document.getElementById('pf-country')?.value || 'BR');
+    const zipLabel = document.querySelector('label[for="pf-zip"]');
+    const streetLabel = document.querySelector('label[for="pf-street"]');
+    const stateLabel = document.querySelector('label[for="pf-state"]');
+    const stateInput = document.getElementById('pf-state');
+    
+    if (zipLabel) zipLabel.textContent = (country === 'BR') ? 'CEP' : 'Código Postal';
+    if (streetLabel) streetLabel.textContent = (country === 'BR') ? 'Endereço (Rua/Av)' : 'Endereço';
+    if (stateLabel) stateLabel.textContent = (country === 'BR') ? 'Estado (UF)' : 'Província / Departamento';
+    if (stateInput) stateInput.placeholder = (country === 'BR') ? 'Ex: SP, MT...' : 'Ex: Buenos Aires';
+  }
+
+  function handleCountryChange() { 
+    updateDocField(); 
+    const phoneInput = document.getElementById('pf-phone');
+    if (phoneInput && phoneInput.value) {
+      handlePhoneInput({ target: phoneInput });
+    }
+  }
+
+  // React to language change in other tabs/pages (storage event)
+  window.addEventListener('storage', function(e) {
+    if (e.key === 'tc_lang') updateDocField();
+  });
+
+  /* ── CUSTOM MASKS & VIACEP ─────────────────────────────────────── */
+  function handleDocInput(e) {
+    const cfg = getDocConfig();
+    let v = e.target.value.replace(/\D/g, "");
+
+    if (cfg.pfType === 'cpf') {
+      // Brasil: CPF (11) / CNPJ (14)
+      if (v.length <= 11) {
+        v = v.replace(/(\d{3})(\d)/, "$1.$2");
+        v = v.replace(/(\d{3})(\d)/, "$1.$2");
+        v = v.replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+      } else {
+        v = v.slice(0, 14);
+        v = v.replace(/^(\d{2})(\d)/, "$1.$2");
+        v = v.replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3");
+        v = v.replace(/\.(\d{3})(\d)/, ".$1/$2");
+        v = v.replace(/(\d{4})(\d)/, "$1-$2");
+      }
+    } else if (cfg.pfType === 'dni') {
+      // Argentina: DNI (8) / CUIT (11 → XX-XXXXXXXX-X)
+      if (v.length <= 8) {
+        v = v.replace(/(\d{2})(\d{3})(\d{1,3})/, "$1.$2.$3");
+      } else {
+        v = v.slice(0, 11);
+        v = v.replace(/^(\d{2})(\d{8})(\d{1})$/, "$1-$2-$3");
+      }
+    } else {
+      // Paraguai, Uruguai, Bolívia: bare numbers only
+      v = v.slice(0, cfg.pjDigits);
+    }
+
+    e.target.value = v;
+    validateDocument(v.replace(/\D/g, ''));
+  }
+
+  function validateDocument(digits) {
+    const el  = document.getElementById('pf-doc-error');
+    const cfg = getDocConfig();
+    if (!digits) { el.style.display = 'none'; return; }
+
+    // Brasil: Algoritmo oficial da Receita Federal
+    if (cfg.pfType === 'cpf') {
+      let isValid = false;
+      if (digits.length <= 11) {
+        if (digits.length === 11 && !/^(\d)\1{10}$/.test(digits)) {
+          let s=0,r;
+          for(let i=1;i<=9;i++)s+=parseInt(digits.substring(i-1,i))*(11-i);
+          r=(s*10)%11;if(r===10||r===11)r=0;
+          if(r===parseInt(digits.substring(9,10))){
+            s=0;for(let i=1;i<=10;i++)s+=parseInt(digits.substring(i-1,i))*(12-i);
+            r=(s*10)%11;if(r===10||r===11)r=0;
+            if(r===parseInt(digits.substring(10,11))) isValid=true;
+          }
+        }
+      } else {
+        if (digits.length === 14 && !/^(\d)\1{13}$/.test(digits)) {
+          let size=digits.length-2,nums=digits.substring(0,size),digs=digits.substring(size);
+          let s=0,pos=size-7;
+          for(let i=size;i>=1;i--){s+=nums.charAt(size-i)*pos--;if(pos<2)pos=9;}
+          let res=s%11<2?0:11-s%11;
+          if(res===parseInt(digs.charAt(0))){
+            size=size+1;nums=digits.substring(0,size);s=0;pos=size-7;
+            for(let i=size;i>=1;i--){s+=nums.charAt(size-i)*pos--;if(pos<2)pos=9;}
+            res=s%11<2?0:11-s%11;
+            if(res===parseInt(digs.charAt(1))) isValid=true;
+          }
+        }
+      }
+      el.style.display = isValid ? 'none' : 'block';
+      return;
+    }
+
+    // Outros países: validar comprimento mínimo e somente números
+    const minLen = Math.min(cfg.pfDigits, cfg.pjDigits) - 2;
+    const isValid = /^\d+$/.test(digits) && digits.length >= minLen;
+    el.style.display = isValid ? 'none' : 'block';
+  }
+
+  function handlePhoneInput(e) {
+    let raw = e.target.value;
+    const country = document.getElementById('pf-country')?.value || 'BR';
+    const codes = { 'BR': '55', 'AR': '54', 'PY': '595', 'UY': '598', 'BO': '591' };
+    const code = codes[country] || '55';
+    
+    let v = raw.replace(/\D/g, "");
+    
+    if (!v) {
+      e.target.value = '';
+      return;
+    }
+    
+    // Auto prefix if they delete it but still have some digits
+    if (!v.startsWith(code)) {
+      v = code + v;
+    }
+    
+    let local = v.substring(code.length);
+    let formatted = '+' + code + ' ';
+    
+    if (country === 'BR') {
+      if (local.length > 11) local = local.slice(0,11);
+      if (local.length > 2) {
+        formatted += '(' + local.substring(0,2) + ') ';
+        if (local.length > 7) {
+          formatted += local.substring(2,7) + '-' + local.substring(7);
+        } else {
+          formatted += local.substring(2);
+        }
+      } else if (local.length > 0) {
+        formatted += '(' + local;
+      }
+    } else {
+      if (local.length > 12) local = local.slice(0,12);
+      formatted += local;
+    }
+    
+    e.target.value = formatted;
+  }
+
+  function handleCepInput(e) {
+    const country = document.getElementById('pf-country')?.value || 'BR';
+    if (country !== 'BR') return;
+    let v = e.target.value.replace(/\D/g, "");
+    if(v.length > 8) v = v.slice(0,8);
+    if(v.length > 5) v = v.replace(/^(\d{5})(\d)/, "$1-$2");
+    e.target.value = v;
+  }
+  async function handleCepBlur(e) {
+    const country = document.getElementById('pf-country')?.value || 'BR';
+    if (country !== 'BR') {
+      e.target.style.borderColor='#e2e8f0';e.target.style.background='#f8fafc';e.target.style.boxShadow='none';
+      return;
+    }
+    const cep = e.target.value.replace(/\D/g, "");
+    if (cep.length === 8) {
+      try {
+        const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+        const data = await res.json();
+        if(!data.erro) {
+          const sStreet = document.getElementById('pf-street');
+          if(!sStreet.value) sStreet.value = data.logradouro || '';
+          const sBairro = document.getElementById('pf-neighborhood');
+          if(!sBairro.value) sBairro.value = data.bairro || '';
+          const sCity = document.getElementById('pf-city');
+          if(!sCity.value) sCity.value = data.localidade || '';
+          const sState = document.getElementById('pf-state');
+          if(!sState.value) sState.value = data.uf || '';
+          document.getElementById('pf-number').focus();
+        }
+      } catch(err) {}
+    }
+    e.target.style.borderColor='#e2e8f0';e.target.style.background='#f8fafc';e.target.style.boxShadow='none';
+  }
+
+  /* ── TAB SWITCHING ─────────────────────────────────────── */
+  const TABS=['ads','messages','favorites','profile','verification','billing'];
   function switchTab(tab){
     TABS.forEach(t=>{
       const p=document.getElementById('panel-'+t),b=document.getElementById('tab-'+t);
       if(p)p.style.display='none';
-      if(b){b.style.background='transparent';b.style.color='#64748b';}
+      if(b)b.classList.remove('active');
     });
     const ap=document.getElementById('panel-'+tab),ab=document.getElementById('tab-'+tab);
     if(ap)ap.style.display='block';
-    if(ab){ab.style.background='#ecfdf5';ab.style.color='#16a34a';}
+    if(ab)ab.classList.add('active');
+    
+    // Update the URL without adding to history stack
+    window.history.replaceState(null, '', '#' + tab);
+    
+    if(tab==='profile')loadVerification();
     loadTab(tab);
   }
 
@@ -347,43 +793,97 @@
     if(tab==='ads')loadAds();
     if(tab==='messages')loadMessages();
     if(tab==='favorites')loadFavorites();
+    if(tab==='verification')loadVerification();
+    if(tab==='billing')loadBilling();
   }
 
-  /* â”€â”€ TAB 1: ADS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ── TAB 1 ─────────────────────────────────────── */
   async function loadAds(){
-    try{_myAds=await getMyAds();}catch(e){_myAds=[];showToast('Erro ao carregar anÃºncios.','error');}
+    try{_myAds=await getMyAds();}catch(e){_myAds=[];showToast('Erro ao carregar anúncios.','error');}
     renderAds();
   }
 
   function renderAds(){
     const c=document.getElementById('ads-container');
+    const filterSelect=document.getElementById('my-ads-filter');
+    const statusFilter=filterSelect?filterSelect.value:'all';
+    
+    let filteredAds=_myAds;
+    if(statusFilter!=='all') {
+      filteredAds=_myAds.filter(a=>a.status===statusFilter);
+    }
+
     const activeAds=_myAds.filter(a=>a.status==='active'||a.status==='pending');
     updateAdsProgress(activeAds.length);
-    sTxt('ads-count-subtitle',_myAds.length===0?'VocÃª ainda nÃ£o tem anÃºncios':_myAds.length+' anÃºncio'+(_myAds.length>1?'s':''));
-    if(!_myAds.length){c.innerHTML=emptyHtml('<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>','Nenhum anÃºncio ainda','Comece publicando seu primeiro anÃºncio gratuitamente!','<a href="anunciar.html" style="display:inline-flex;align-items:center;gap:.5rem;padding:.7rem 1.4rem;border-radius:.75rem;background:#16a34a;color:#fff;font-weight:700;font-size:.9rem;text-decoration:none">Publicar primeiro anÃºncio</a>');return;}
-    c.innerHTML=_myAds.map(renderAdCard).join('');
+    sTxt('ads-count-subtitle',filteredAds.length===0?'Nenhum anúncio encontrado':filteredAds.length+' anúncio'+(filteredAds.length>1?'s':''));
+    if(!filteredAds.length){
+       c.innerHTML=emptyHtml('<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>','Nenhum anúncio','Você não possui anúncios'+(statusFilter!=='all'?' com este status.':'.'),'<a href="anunciar.html" style="display:inline-flex;align-items:center;gap:.5rem;padding:.7rem 1.4rem;border-radius:.75rem;background:#16a34a;color:#fff;font-weight:700;font-size:.9rem;text-decoration:none">Publicar anúncio</a>');
+       return;
+    }
+
+    // -- Analytics Chart --
+    let analyticsHtml = '';
+    const totalViews = _myAds.reduce((acc, a) => acc + (a.views_count||0), 0);
+    
+    if (_myAds.length > 0 && statusFilter === 'all') {
+      const topAds = [..._myAds].sort((a,b) => (b.views_count||0) - (a.views_count||0)).slice(0, 5);
+      const maxViews = Math.max(...topAds.map(a => a.views_count||0), 1);
+      
+      const bars = topAds.map(a => {
+        const pct = Math.max(((a.views_count||0) / maxViews) * 100, 2);
+        const t = a.title_pt || a.title_es || 'Anúncio';
+        return `<div style="display:flex;align-items:center;gap:16px;margin-bottom:12px;">
+          <div style="flex-shrink:0;width:140px;font-size:0.8rem;color:#475569;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500;" title="${esc(t)}">${esc(t)}</div>
+          <div style="flex:1;height:10px;background:#f1f5f9;border-radius:99px;overflow:hidden;position:relative;">
+            <div style="position:absolute;left:0;top:0;height:100%;width:${pct}%;background:linear-gradient(90deg, #16a34a, #22c55e);border-radius:99px;"></div>
+          </div>
+          <div style="flex-shrink:0;width:40px;font-size:0.8rem;font-weight:700;color:#1e293b;text-align:right;">${a.views_count||0}</div>
+        </div>`;
+      }).join('');
+
+      analyticsHtml = `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:1rem;padding:1.5rem;margin-bottom:2.5rem;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+        <h3 style="font-size:1.15rem;font-weight:800;color:var(--clr-heading);margin-bottom:0.5rem;display:flex;align-items:center;gap:8px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+          Desempenho dos Anúncios
+        </h3>
+        <p style="font-size:0.9rem;color:#64748b;margin-bottom:1.5rem;">Seus anúncios tiveram um total de <strong>${totalViews} visualizações</strong>. Veja os mais populares:</p>
+        ${bars}
+      </div>`;
+    }
+
+    c.innerHTML = analyticsHtml + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:2rem;padding:0 0 1.5rem 0">' + filteredAds.map(renderAdCard).join('') + '</div>';
   }
 
   function renderAdCard(ad){
-    const img=(ad.images&&ad.images.length)?`<img src="${esc(ad.images[0])}" alt="" style="width:110px;height:82px;border-radius:.6rem;object-fit:cover;flex-shrink:0" loading="lazy">`:`<div style="width:110px;height:82px;border-radius:.6rem;background:linear-gradient(135deg,#f1f5f9,#e2e8f0);display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:.7rem;flex-shrink:0">Sem foto</div>`;
     const ST={active:{l:'Ativo',bg:'#dcfce7',c:'#166534'},pending:{l:'Pendente',bg:'#fef3c7',c:'#b45309'},paused:{l:'Pausado',bg:'#f1f5f9',c:'#475569'},expired:{l:'Expirado',bg:'#fee2e2',c:'#991b1b'}};
     const st=ST[ad.status]||ST.paused;
-    const price=ad.price?'R$ '+Number(ad.price).toLocaleString('pt-BR'):'â€”';
+    const price = (ad.price != null && ad.price !== '') ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: ad.currency || 'BRL' }).format(Number(ad.price)) : '—';
     const isPaused=ad.status==='paused';
-    return `<div class="ad-card" id="ac-${ad.id}" style="display:grid;grid-template-columns:110px 1fr auto;gap:1rem;align-items:center;padding:1rem 1.25rem;border-bottom:1px solid #f1f5f9">
-      ${img}
-      <div style="min-width:0">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.5rem;margin-bottom:.3rem">
-          <span style="font-size:1rem;font-weight:700;color:var(--clr-text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(ad.title_pt||ad.title_es||'Sem tÃ­tulo')}</span>
-          <span style="background:${st.bg};color:${st.c};padding:.2rem .75rem;border-radius:99px;font-size:.75rem;font-weight:700;white-space:nowrap;flex-shrink:0">${st.l}</span>
-        </div>
-        <div style="font-size:1.05rem;font-weight:800;color:var(--clr-primary);margin-bottom:.3rem">${price}</div>
-        <div style="font-size:.78rem;color:#64748b">${ad.views_count||0} visualizaÃ§Ãµes Â· ${fDate(ad.created_at)}</div>
+    const title = esc(ad.title_pt||ad.title_es||'Sem título');
+    
+    const imgContent=(ad.images&&ad.images.length)?`<img src="${esc(ad.images[0])}" alt="" style="width:100%;height:160px;object-fit:cover;display:block;transition:transform .3s ease" loading="lazy" class="ad-img">`:`<img src="https://placehold.co/400x300?text=Sem+Foto" alt="Sem Foto" style="width:100%;height:160px;object-fit:cover;display:block;" loading="lazy">`;
+    
+    const img = `<a href="anuncio.html?id=${ad.id}" style="display:block;overflow:hidden;position:relative">
+      ${imgContent}
+    </a>`;
+
+    const statusBadge = `<div style="position:absolute;top:.75rem;left:.75rem;background:${st.bg};color:${st.c};padding:.3rem .8rem;border-radius:99px;font-size:.75rem;font-weight:700;z-index:2;box-shadow:0 2px 4px rgba(0,0,0,0.1)">${st.l}</div>`;
+
+    return `<div id="ac-${ad.id}" style="position:relative;border-radius:1rem;border:1px solid #e2e8f0;overflow:hidden;background:#fff;transition:all .2s;display:flex;flex-direction:column;box-shadow:0 1px 3px rgba(0,0,0,0.05)" onmouseover="this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)';this.style.transform='translateY(-3px)';const i=this.querySelector('.ad-img');if(i)i.style.transform='scale(1.05)'" onmouseout="this.style.boxShadow='0 1px 3px rgba(0,0,0,0.05)';this.style.transform='';const i=this.querySelector('.ad-img');if(i)i.style.transform='scale(1)'">
+      <div style="position:relative;overflow:hidden">
+        ${img}
+        ${statusBadge}
       </div>
-      <div style="display:flex;flex-direction:column;gap:.5rem;flex-shrink:0">
-        <button onclick="location.href='anunciar.html?id=${ad.id}'" style="${bsm()}">âœï¸ Editar</button>
-        <button onclick="toggleAdStatus('${ad.id}','${ad.status}')" style="${bsm(isPaused?'#bbf7d0':'#fde68a',isPaused?'#166534':'#92400e')}">${isPaused?'â–¶ Ativar':'â¸ Pausar'}</button>
-        <button onclick="handleDeleteAd('${ad.id}')" style="${bsm('#fecaca','#991b1b')}">ðŸ—‘ Excluir</button>
+      <div style="padding:1rem;display:flex;flex-direction:column;flex:1">
+        <div style="font-size:.95rem;font-weight:700;color:var(--clr-text);margin-bottom:.4rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4">${title}</div>
+        <div style="font-size:1.05rem;font-weight:800;color:#16a34a;margin-bottom:.5rem">${price}</div>
+        <div style="font-size:.78rem;color:#64748b;margin-bottom:1rem;margin-top:auto">${ad.views_count||0} visualizações · ${fDate(ad.created_at)}</div>
+        
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:auto">
+          <button onclick="location.href='anunciar.html?id=${ad.id}'" style="${bsm('#e2e8f0','var(--clr-text)')};grid-column:1 / -1;display:flex;justify-content:center;align-items:center;gap:.3rem"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Editar</button>
+          <button onclick="toggleAdStatus('${ad.id}','${ad.status}')" style="${bsm(isPaused?'#bbf7d0':'#fde68a',isPaused?'#166534':'#92400e')};display:flex;justify-content:center;align-items:center;gap:.3rem;padding:.4rem 0">${isPaused?'&#9654; Ativar':'&#9646;&#9646; Pausar'}</button>
+          <button onclick="handleDeleteAd('${ad.id}')" style="${bsm('#fecaca','#991b1b')};display:flex;justify-content:center;align-items:center;gap:.3rem;padding:.4rem 0">&#128465; Excluir</button>
+        </div>
       </div>
     </div>`;
   }
@@ -392,18 +892,18 @@
 
   async function toggleAdStatus(id,cur){
     const ns=cur==='paused'?'active':'paused';
-    try{await updateAd(id,{status:ns});const a=_myAds.find(x=>x.id===id);if(a)a.status=ns;renderAds();showToast(ns==='active'?'AnÃºncio ativado!':'AnÃºncio pausado.','success');}
+    try{await updateAd(id,{status:ns});const a=_myAds.find(x=>x.id===id);if(a)a.status=ns;renderAds();showToast(ns==='active'?'Anúncio ativado!':'Anúncio pausado.','success');}
     catch(e){showToast('Erro ao atualizar.','error');}
   }
 
   async function handleDeleteAd(id){
     const ad=_myAds.find(a=>a.id===id);
-    if(!confirm(`Excluir "${ad?.title_pt||'este anÃºncio'}"? AÃ§Ã£o irreversÃ­vel.`))return;
-    try{await deleteAd(id);_myAds=_myAds.filter(a=>a.id!==id);renderAds();showToast('AnÃºncio excluÃ­do.','success');}
+    if(!confirm(`Excluir "${ad?.title_pt||'este anúncio'}"? Ação irreversível.`))return;
+    try{await deleteAd(id);_myAds=_myAds.filter(a=>a.id!==id);renderAds();showToast('Anúncio excluído.','success');}
     catch(e){showToast('Erro ao excluir.','error');}
   }
 
-  /* â”€â”€ TAB 2: MESSAGES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ── TAB 2 ─────────────────────────────────────── */
   async function loadMessages(){
     try{_messages=await getMyMessages();}catch(e){_messages=[];}
     groupConversations(); renderMessageList();
@@ -416,21 +916,60 @@
       const otherId=msg.sender_id===uid?msg.receiver_id:msg.sender_id;
       const other=msg.sender_id===uid?msg.receiver:msg.sender;
       const key=msg.ad_id+'__'+otherId;
-      if(!_conversations[key])_conversations[key]={key,adId:msg.ad_id,otherId,otherName:other?.name||'UsuÃ¡rio',adTitle:msg.ads?.title_pt||'AnÃºncio',messages:[]};
+      if(!_conversations[key])_conversations[key]={key,adId:msg.ad_id,otherId,otherName:other?.name||'Usuário',adTitle:msg.ads?.title_pt||'Anúncio',messages:[]};
       _conversations[key].messages.push(msg);
     });
-    Object.values(_conversations).forEach(c=>c.messages.sort((a,b)=>new Date(a.created_at)-new Date(b.created_at)));
+    _unreadCount = 0;
+    Object.values(_conversations).forEach(c=>{
+      c.messages.sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+      if(c.messages.length > 0 && c.messages[c.messages.length - 1].sender_id !== uid){
+        _unreadCount++;
+      }
+    });
+    updateUnreadBadgeUI();
+  }
+
+  function updateUnreadBadgeUI() {
+    const b=document.getElementById('msg-badge');
+    if(b){
+      b.style.display='';
+      b.textContent=_unreadCount;
+      if(_unreadCount>0){
+        b.style.background='#ef4444';
+      }else{
+        b.style.background='#64748b';
+      }
+    }
   }
 
   function renderMessageList(){
     const lv=document.getElementById('messages-list-view');
     const sp=document.getElementById('msgs-spinner');if(sp)sp.remove();
-    const convs=Object.values(_conversations);
-    if(!convs.length){lv.innerHTML=emptyHtml('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>','Nenhuma mensagem','Quando alguÃ©m entrar em contato, as conversas aparecerÃ£o aqui.');return;}
+    
+    const filterInput = document.getElementById('msg-search');
+    const q = filterInput ? filterInput.value.toLowerCase().trim() : '';
+    
+    const allConvs=Object.values(_conversations);
+    if(!allConvs.length){lv.innerHTML=emptyHtml('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>','Nenhuma mensagem','Quando alguém entrar em contato, as conversas aparecerão aqui.');return;}
+    
+    let convs = allConvs;
+    if(q) {
+      convs = allConvs.filter(c => {
+        const title = (c.adTitle||'').toLowerCase();
+        const name = (c.otherName||'').toLowerCase();
+        return title.includes(q) || name.includes(q);
+      });
+    }
+
+    if(!convs.length){
+      lv.innerHTML='<div style="padding:4rem 1rem;text-align:center;color:#64748b;font-size:1rem;font-weight:600">Nenhuma conversa encontrada para "'+esc(q)+'"</div>';
+      return;
+    }
+
     lv.innerHTML=convs.map(conv=>{
       const last=conv.messages[conv.messages.length-1];
       const ini=(conv.otherName[0]||'?').toUpperCase();
-      return `<div class="msg-item" onclick="openThread('${conv.key}')" style="display:grid;grid-template-columns:48px 1fr auto;gap:1rem;align-items:center;padding:1rem 1.25rem;border-bottom:1px solid #f1f5f9;cursor:pointer">
+      return `<div class="msg-item-row" onclick="openThread('${conv.key}')">
         <div style="width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,#16a34a,#22c55e);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1rem;color:#fff;flex-shrink:0">${ini}</div>
         <div style="min-width:0">
           <div style="font-weight:700;font-size:.9rem;color:var(--clr-text);margin-bottom:.2rem">${esc(conv.otherName)}</div>
@@ -438,8 +977,28 @@
           <div style="font-size:.8rem;color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(last?.content||'')}</div>
         </div>
         <div style="font-size:.72rem;color:#94a3b8;white-space:nowrap">${last?fDate(last.created_at):''}</div>
+        <button onclick="deleteConversation('${conv.key}', event)" class="msg-del-btn" style="background:#f1f5f9;border:none;color:#94a3b8;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer" aria-label="Apagar conversa">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        </button>
       </div>`;
     }).join('');
+  }
+
+  async function deleteConversation(key, event) {
+    if(event) event.stopPropagation();
+    if(!confirm('Tem certeza que deseja apagar esta conversa?')) return;
+    
+    // Simula remoção removendo do array local
+    _messages = _messages.filter(msg => {
+      const otherId=msg.sender_id===_currentUser?.id?msg.receiver_id:msg.sender_id;
+      const k = msg.ad_id+'__'+otherId;
+      return k !== key;
+    });
+    
+    groupConversations();
+    renderMessageList();
+    closeThread();
+    showToast('Conversa apagada com sucesso.', 'success');
   }
 
   function openThread(key){
@@ -450,8 +1009,8 @@
     document.getElementById('thread-messages').innerHTML=conv.messages.map(m=>{
       const mine=m.sender_id===uid;
       return `<div style="display:flex;flex-direction:column;align-items:${mine?'flex-end':'flex-start'}">
-        <div style="max-width:70%;padding:.65rem 1rem;border-radius:1rem;font-size:.88rem;line-height:1.4;background:${mine?'#16a34a':'#f1f5f9'};color:${mine?'#fff':'var(--clr-text)'};${mine?'border-bottom-right-radius:.25rem':'border-bottom-left-radius:.25rem'}">${esc(m.content)}</div>
-        <div style="font-size:.68rem;color:#94a3b8;margin-top:.25rem">${fTime(m.created_at)}</div>
+        <div style="max-width:75%;padding:.75rem 1.15rem;border-radius:1.25rem;font-size:.92rem;line-height:1.45;box-shadow:0 2px 8px rgba(0,0,0,.04);background:${mine?'linear-gradient(135deg,#16a34a,#059669)':'#fff'};border:${mine?'none':'1px solid #e2e8f0'};color:${mine?'#fff':'var(--clr-text)'};${mine?'border-bottom-right-radius:.25rem':'border-bottom-left-radius:.25rem'}">${esc(m.content)}</div>
+        <div style="font-size:.7rem;color:#94a3b8;margin-top:.35rem;padding:0 .5rem">${fTime(m.created_at)}</div>
       </div>`;
     }).join('');
     document.getElementById('messages-list-view').style.display='none';
@@ -475,7 +1034,7 @@
     catch(e){showToast('Erro ao enviar.','error');}
   }
 
-  /* â”€â”€ TAB 3: FAVORITES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ── TAB 3 ─────────────────────────────────────── */
   async function loadFavorites(){
     try{_favs=await getMyFavorites();}catch(e){_favs=[];}
     renderFavorites();
@@ -484,55 +1043,582 @@
   function renderFavorites(){
     const c=document.getElementById('favorites-container');
     const sp=document.getElementById('favs-spinner');if(sp)sp.remove();
-    const favs=(_favs||[]).filter(Boolean);
-    if(!favs.length){c.innerHTML=emptyHtml('<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>','Nenhum favorito','Salve anÃºncios que vocÃª tem interesse para vÃª-los aqui.');return;}
-    c.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1rem;padding:1.25rem">'+favs.map(ad=>{
-      const img=(ad.images&&ad.images.length)?`<a href="anuncio.html?id=${ad.id}"><img src="${esc(ad.images[0])}" alt="" style="width:100%;height:140px;object-fit:cover;display:block" loading="lazy"></a>`:`<div style="width:100%;height:140px;background:linear-gradient(135deg,#f1f5f9,#e2e8f0);display:flex;align-items:center;justify-content:center"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>`;
-      const price=ad.price?'R$ '+Number(ad.price).toLocaleString('pt-BR'):'â€”';
-      return `<div id="fav-${ad.id}" style="border-radius:1rem;border:1px solid #f1f5f9;overflow:hidden;background:#fff" onmouseover="this.style.boxShadow='0 6px 24px rgba(0,0,0,.1)';this.style.transform='translateY(-2px)'" onmouseout="this.style.boxShadow='';this.style.transform=''">
-        ${img}
-        <div style="padding:.85rem">
-          <div style="font-size:.9rem;font-weight:700;color:var(--clr-text);margin-bottom:.3rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(ad.title_pt||ad.title_es||'Sem tÃ­tulo')}</div>
-          <div style="font-size:1rem;font-weight:800;color:var(--clr-primary);margin-bottom:.75rem">${price}</div>
-          <button onclick="handleRemoveFav('${ad.id}')" style="width:100%;padding:.45rem;border:1px solid #fecaca;border-radius:.5rem;background:transparent;color:#dc2626;font-size:.8rem;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:.35rem">ðŸ—‘ Remover</button>
+    const filterInput = document.getElementById('fav-search');
+    const q = filterInput ? filterInput.value.toLowerCase().trim() : '';
+    
+    let allFavs = (_favs||[]).filter(Boolean);
+    if(!allFavs.length){
+      c.innerHTML=emptyHtml('<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>','Nenhum favorito','Salve anúncios que você tem interesse para vê-los aqui.');
+      return;
+    }
+
+    let favs = allFavs;
+    if(q) {
+      favs = allFavs.filter(ad => {
+        const t = (ad.title_pt||ad.title_es||'').toLowerCase();
+        return t.includes(q);
+      });
+    }
+    
+    if(!favs.length){
+      c.innerHTML='<div style="padding:4rem 1rem;text-align:center;color:#64748b;font-size:1rem;font-weight:600">Nenhum favorito encontrado para "'+esc(q)+'"</div>';
+      return;
+    }
+
+    c.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:1.5rem;padding:1.5rem">'+favs.map(ad=>{
+      const title = esc(ad.title_pt||ad.title_es||'Sem título');
+      const imgContent=(ad.images&&ad.images.length)?`<img src="${esc(ad.images[0])}" alt="" style="width:100%;height:160px;object-fit:cover;display:block;transition:transform .3s ease" loading="lazy" class="fav-img">`:`<img src="https://placehold.co/400x300?text=Sem+Foto" alt="Sem Foto" style="width:100%;height:160px;object-fit:cover;display:block;" loading="lazy">`;
+      
+      const img = `<a href="anuncio.html?id=${ad.id}" style="display:block;overflow:hidden;position:relative">
+        ${imgContent}
+      </a>`;
+
+      const removeBtn = `<button onclick="handleRemoveFav('${ad.id}')" style="position:absolute;top:.75rem;right:.75rem;width:34px;height:34px;border-radius:50%;background:#fff;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15);transition:transform .2s;z-index:2" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'" aria-label="Remover dos favoritos">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="#ef4444" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+      </button>`;
+
+      const price = (ad.price != null && ad.price !== '') ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: ad.currency || 'BRL' }).format(Number(ad.price)) : '—';
+      return `<div id="fav-${ad.id}" style="position:relative;border-radius:1rem;border:1px solid #e2e8f0;overflow:hidden;background:#fff;transition:all .2s;display:flex;flex-direction:column" onmouseover="this.style.boxShadow='0 8px 24px rgba(0,0,0,.08)';this.style.transform='translateY(-3px)';const i=this.querySelector('.fav-img');if(i)i.style.transform='scale(1.05)'" onmouseout="this.style.boxShadow='';this.style.transform='';const i=this.querySelector('.fav-img');if(i)i.style.transform='scale(1)'">
+        <div style="position:relative;overflow:hidden">
+          ${img}
+          ${removeBtn}
+        </div>
+        <div style="padding:1rem;display:flex;flex-direction:column;flex:1">
+          <div style="font-size:.95rem;font-weight:700;color:var(--clr-text);margin-bottom:.4rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4">${title}</div>
+          <div style="font-size:1.05rem;font-weight:800;color:#16a34a;margin-top:auto">${price}</div>
         </div>
       </div>`;
     }).join('')+'</div>';
   }
 
   async function handleRemoveFav(id){
-    try{await toggleFavorite(id);_favs=_favs.filter(a=>a&&a.id!==id);renderFavorites();showToast('Removido dos favoritos.','success');}
+    try{await toggleFavorite(null, id);_favs=_favs.filter(a=>a&&a.id!==id);renderFavorites();showToast('Removido dos favoritos.','success');}
     catch(e){showToast('Erro ao remover.','error');}
   }
 
-  /* â”€â”€ TAB 4: PROFILE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ── TAB 4 ─────────────────────────────────────── */
   async function handleProfileSave(e){
     e.preventDefault();
+    const err = document.getElementById('pf-doc-error');
+    if (err && err.style.display === 'block') {
+      showToast('Por favor, corrija o documento inválido antes de salvar.', 'error');
+      return;
+    }
     const btn=document.getElementById('btn-save-profile');
-    btn.disabled=true;btn.textContent='Salvandoâ€¦';
-    const updates={name:gVal('pf-name'),phone_whatsapp:gVal('pf-phone'),country:gVal('pf-country'),state:gVal('pf-state'),city:gVal('pf-city'),bio:gVal('pf-bio')};
+    btn.disabled=true;btn.textContent='Salvando…';
+    
+    const docVal = gVal('pf-doc');
+    const digits  = docVal.replace(/\D/g, '');
+    const cfg      = getDocConfig();
+    let accountType, documentType;
+    if (cfg.pfType === 'cpf') {
+      accountType  = digits.length > 11 ? 'pj' : 'pf';
+      documentType = digits.length > 11 ? 'cnpj' : 'cpf';
+    } else {
+      accountType  = digits.length > cfg.pfDigits ? 'pj' : 'pf';
+      documentType = digits.length > cfg.pfDigits ? cfg.pjType : cfg.pfType;
+    }
+
+    const updates={
+      name:gVal('pf-name'),
+      display_name:gVal('pf-display-name'),
+      phone_whatsapp:gVal('pf-phone'),
+      document_number: docVal,
+      document_type: documentType,
+      account_type: accountType,
+      zip_code: gVal('pf-zip'),
+      street: gVal('pf-street'),
+      number: gVal('pf-number'),
+      complement: gVal('pf-complement'),
+      neighborhood: gVal('pf-neighborhood'),
+      country:gVal('pf-country'),
+      state:gVal('pf-state'),
+      city:gVal('pf-city'),
+      bio:gVal('pf-bio')
+    };
     try{const upd=await updateProfile(_currentUser.id,updates);_currentUser.profile={..._currentUser.profile,...upd};populateSidebar(_currentUser);showToast('Perfil atualizado!','success');}
     catch(e){showToast('Erro: '+(e.message||e),'error');}
-    finally{btn.disabled=false;btn.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/></svg> Salvar AlteraÃ§Ãµes';}
+    finally{btn.disabled=false;btn.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/></svg> Salvar Alterações';}
   }
 
-  /* â”€â”€ LOGOUT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ── BILLING ─────────────────────────────────────── */
+  window.downloadInvoice = function(txId, planName, amount, date) {
+    const showToastMsg = typeof showToast === 'function' ? showToast : alert;
+    showToastMsg('Gerando PDF do recibo, aguarde...', 'info');
+
+    const logoUrl = localStorage.getItem('tc_logo_url');
+    const logoHTML = logoUrl 
+      ? `<img src="${logoUrl}" style="max-width:56px; max-height:56px; border-radius:12px; object-fit:contain; background:#fff; padding:4px;" alt="Logo" crossorigin="anonymous">`
+      : `<div style="background: #16a34a; padding: 12px; border-radius: 12px;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 22h20L12 2z"></path></svg></div>`;
+
+    const invoiceHTML = `
+      <div style="font-family: 'Inter', Arial, sans-serif; color: #1e293b; background: #fff; width: 794px; position: relative; overflow: hidden; padding-bottom: 40px; box-sizing: border-box;">
+        
+        <!-- Premium Header Band -->
+        <div style="background: #0f172a; color: #fff; padding: 50px 40px; display: flex; justify-content: space-between; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 16px;">
+            ${logoHTML}
+            <div>
+              <h1 style="margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -1px;">Tauze Class</h1>
+              <p style="margin: 4px 0 0; font-size: 14px; font-weight: 500; color: #94a3b8; text-transform: uppercase; letter-spacing: 2px;">Classificados Agro</p>
+            </div>
+          </div>
+          <div style="text-align: right;">
+            <h2 style="margin: 0; font-size: 32px; font-weight: 800; color: #fff; letter-spacing: -1px;">FATURA</h2>
+            <p style="margin: 6px 0 0; font-size: 16px; font-weight: 600; color: #cbd5e1;">#${txId}</p>
+          </div>
+        </div>
+
+        <!-- Watermark -->
+        <div style="position: absolute; top: 55%; left: 50%; transform: translate(-50%, -50%) rotate(-15deg); font-size: 180px; font-weight: 900; color: rgba(22, 163, 74, 0.04); white-space: nowrap; pointer-events: none; z-index: 0;">TAUZE</div>
+
+        <div style="padding: 40px; position: relative; z-index: 1;">
+          
+          <div style="display: flex; justify-content: space-between; margin-bottom: 50px;">
+            <!-- Billing Info -->
+            <div style="width: 48%;">
+              <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 12px;">Faturado para:</div>
+              <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 20px; border-radius: 12px; border-left: 4px solid #16a34a;">
+                <p style="margin: 0 0 12px; font-size: 18px; font-weight: 800; color: #0f172a;">${_currentUser?.profile?.name || _currentUser?.email || 'Cliente'}</p>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                  ${_currentUser?.profile?.phone ? `<p style="margin: 0; font-size: 14px; color: #475569; display: flex; align-items: center; gap: 6px;"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg> ${_currentUser.profile.phone}</p>` : ''}
+                  <p style="margin: 0; font-size: 14px; color: #475569; display: flex; align-items: center; gap: 6px;"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg> ${_currentUser?.email || ''}</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Payment Details -->
+            <div style="width: 48%; display: flex; flex-direction: column; align-items: flex-end;">
+              <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 12px;">Detalhes do Pagamento</div>
+              <table style="width: 100%; max-width: 280px; text-align: right; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 10px 0; font-size: 14px; color: #64748b; border-bottom: 1px solid #f1f5f9;">Data de Emissão:</td>
+                  <td style="padding: 10px 0; font-size: 14px; font-weight: 700; color: #0f172a; border-bottom: 1px solid #f1f5f9;">${date}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 10px 0; font-size: 14px; color: #64748b; border-bottom: 1px solid #f1f5f9;">Status:</td>
+                  <td style="padding: 10px 0; font-size: 14px; font-weight: 800; color: #16a34a; border-bottom: 1px solid #f1f5f9;">PAGO</td>
+                </tr>
+                <tr>
+                  <td style="padding: 10px 0; font-size: 14px; color: #64748b;">Método:</td>
+                  <td style="padding: 10px 0; font-size: 14px; font-weight: 700; color: #0f172a;">Cartão de Crédito</td>
+                </tr>
+              </table>
+            </div>
+          </div>
+
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 50px;">
+            <thead>
+              <tr style="background: #1e293b; color: #fff;">
+                <th style="padding: 16px 20px; text-align: left; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; border-radius: 8px 0 0 8px;">Descrição do Serviço</th>
+                <th style="padding: 16px 20px; text-align: right; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; border-radius: 0 8px 8px 0;">Valor Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="padding: 24px 20px; font-size: 16px; font-weight: 600; color: #0f172a; border-bottom: 2px solid #f1f5f9;">
+                  ${planName}
+                  <div style="font-size: 13px; font-weight: 500; color: #64748b; margin-top: 6px;">Assinatura do plano de serviços Tauze Class</div>
+                </td>
+                <td style="padding: 24px 20px; text-align: right; font-size: 18px; font-weight: 800; color: #0f172a; border-bottom: 2px solid #f1f5f9;">${amount}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 50px;">
+            <!-- QR Code Mock -->
+            <div style="display: flex; align-items: center; gap: 16px;">
+              <div style="background: #fff; padding: 4px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=TauzeInvoice_${txId}" alt="QR Code" style="width: 76px; height: 76px; display: block;" crossorigin="anonymous" />
+              </div>
+              <div>
+                <div style="font-size: 12px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 1px;">Autenticidade</div>
+                <div style="font-size: 12px; font-weight: 500; color: #64748b; margin-top: 4px; max-width: 160px;">Escaneie o código QR para verificar o comprovante digital.</div>
+              </div>
+            </div>
+
+            <!-- Total Block -->
+            <div style="width: 320px; background: #16a34a; padding: 2px; border-radius: 12px;">
+              <div style="background: #fff; border-radius: 10px; padding: 24px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                  <span style="font-size: 15px; font-weight: 600; color: #475569;">Subtotal:</span>
+                  <span style="font-size: 15px; font-weight: 600; color: #0f172a;">${amount}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                  <span style="font-size: 15px; font-weight: 600; color: #475569;">Descontos:</span>
+                  <span style="font-size: 15px; font-weight: 600; color: #0f172a;">R$ 0,00</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 2px dashed #e2e8f0; padding-top: 20px;">
+                  <span style="font-size: 16px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 1px;">Total Pago</span>
+                  <span style="font-size: 26px; font-weight: 900; color: #16a34a;">${amount}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div style="text-align: center; border-top: 1px solid #e2e8f0; padding-top: 32px; display: flex; justify-content: space-between; align-items: center;">
+            <div style="text-align: left;">
+              <div style="font-size: 14px; font-weight: 800; color: #0f172a;">Tauze Class Classificados Agro</div>
+              <div style="font-size: 12px; font-weight: 500; color: #64748b; margin-top: 4px;">CNPJ: 00.000.000/0001-00</div>
+            </div>
+            <div style="text-align: right;">
+              <p style="margin: 0; font-size: 14px; color: #16a34a; font-weight: 800;">Documento Válido como Recibo</p>
+              <p style="margin: 4px 0 0; font-size: 12px; font-weight: 500; color: #64748b;">suporte@tauzeclass.com.br</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    function generatePDF() {
+      // Create a better filename: Fatura_NomeDoCliente_Mes_Ano.pdf
+      let clientName = (_currentUser?.profile?.name || 'Cliente').split(' ')[0].replace(/[^a-zA-Z0-9]/g, '');
+      let mesAno = '';
+      if (date && date.includes('/')) {
+        const parts = date.split('/');
+        if (parts.length >= 2) {
+          const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+          const mesIdx = parseInt(parts[1], 10) - 1;
+          if (mesIdx >= 0 && mesIdx <= 11) {
+             mesAno = `_${meses[mesIdx]}_${parts[2] || new Date().getFullYear()}`;
+          }
+        }
+      }
+      const safeTxId = txId.replace(/[^a-zA-Z0-9]/g, '').substring(0, 6);
+      const docName = `Fatura_${clientName}${mesAno}_${safeTxId}.pdf`;
+
+      const opt = {
+        margin:       0,
+        filename:     docName,
+        image:        { type: 'jpeg', quality: 1 },
+        html2canvas:  { scale: 2, useCORS: true, logging: false },
+        jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+      };
+      html2pdf().set(opt).from(invoiceHTML).save();
+    }
+
+    if (!window.html2pdf) {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+      script.onload = generatePDF;
+      document.head.appendChild(script);
+    } else {
+      generatePDF();
+    }
+  };
+
+  async function loadBilling(){
+    const plan=_currentUser?.profile?.plan||'free';
+    const subStatus=_currentUser?.profile?.subscription_status||'inactive';
+    const meta=PLAN_META[plan]||PLAN_META.free;
+    
+    
+
+    const tList = document.getElementById('billing-transactions-list');
+    try {
+      // Try query without join first (more compatible)
+      let txs = null, queryError = null;
+      const res1 = await getSupabase()
+        .from('transactions')
+        .select('*')
+        .eq('user_id', _currentUser.id)
+        .order('created_at', { ascending: false });
+      queryError = res1.error;
+      txs = res1.data;
+
+      if (queryError) {
+        tList.innerHTML = '<div style="text-align:center;padding:3rem 1rem">'
+          + '<div style="font-size:2.5rem;margin-bottom:.75rem">&#128196;</div>'
+          + '<div style="font-weight:700;color:#1e293b;margin-bottom:.35rem">Nenhuma fatura ainda</div>'
+          + '<div style="color:#64748b;font-size:.875rem">Suas cobran&ccedil;as aparecer&atilde;o aqui assim que voc&ecirc; adquirir um plano pago.</div>'
+          + '</div>';
+        return;
+      }
+      
+      _myBilling = txs || [];
+      _billingPage = 1;
+      renderBilling();
+
+    } catch(err) {
+      tList.innerHTML = '<div style="text-align:center;padding:3rem 1rem">'
+        + '<div style="font-size:2.5rem;margin-bottom:.75rem">&#128196;</div>'
+        + '<div style="font-weight:700;color:#1e293b;margin-bottom:.35rem">Nenhuma fatura ainda</div>'
+        + '<div style="color:#64748b;font-size:.875rem">Suas cobran&ccedil;as aparecer&atilde;o aqui assim que voc&ecirc; adquirir um plano pago.</div>'
+        + '</div>';
+    }
+  }
+
+  function resetBillingPage() {
+    _billingPage = 1;
+  }
+
+  function changeBillingPage(dir) {
+    _billingPage += dir;
+    renderBilling();
+  }
+
+  function renderBilling() {
+    const tList = document.getElementById('billing-transactions-list');
+    const filterSelect = document.getElementById('billing-filter');
+    const statusFilter = filterSelect ? filterSelect.value : 'all';
+    
+    let filteredTxs = _myBilling;
+    if (statusFilter === 'approved') {
+      filteredTxs = _myBilling.filter(tx => (tx.status==='approved'||tx.status==='active'||tx.status==='authorized'||tx.status==='succeeded'));
+    } else if (statusFilter === 'pending') {
+      filteredTxs = _myBilling.filter(tx => tx.status==='pending');
+    }
+
+    const totalTxs = filteredTxs.length;
+    const totalPages = Math.ceil(totalTxs / BILLING_PAGE_SIZE) || 1;
+    if (_billingPage < 1) _billingPage = 1;
+    if (_billingPage > totalPages) _billingPage = totalPages;
+
+    const startIdx = (_billingPage - 1) * BILLING_PAGE_SIZE;
+    const paginatedTxs = filteredTxs.slice(startIdx, startIdx + BILLING_PAGE_SIZE);
+
+    if (totalTxs === 0) {
+      tList.innerHTML = '<div style="text-align:center;padding:3rem 1rem">'
+        + '<div style="font-size:2.5rem;margin-bottom:.75rem">&#128196;</div>'
+        + '<div style="font-weight:700;color:#1e293b;margin-bottom:.35rem">Nenhuma fatura encontrada</div>'
+        + '<div style="color:#64748b;font-size:.875rem">Tente alterar o filtro ou veja novamente mais tarde.</div>'
+        + '</div>';
+      const pag = document.getElementById('billing-pagination');
+      if(pag) pag.style.display = 'none';
+      return;
+    }
+
+    tList.innerHTML = '';
+    paginatedTxs.forEach(tx => {
+      const d = new Date(tx.created_at).toLocaleDateString('pt-BR');
+      const isApproved = (tx.status==='approved'||tx.status==='active'||tx.status==='authorized'||tx.status==='succeeded');
+      const sColor = isApproved ? '#16a34a' : (tx.status==='pending' ? '#d97706' : '#dc2626');
+      const sText  = isApproved ? 'Aprovado'  : (tx.status==='pending' ? 'Pendente'  : 'Falhou');
+      const planName = tx.plan_type==='subscription' ? 'Assinatura' : (tx.description || 'Pagamento');
+      const amount = tx.amount ? 'R$ ' + parseFloat(tx.amount).toFixed(2).replace('.',',') : '—';
+      const txId = tx.id ? tx.id.toString().split('-')[0] : '—';
+      
+      let payAction = '';
+      if (tx.status === 'pending') {
+        const link = tx.checkout_url || ('planos.html?checkout=' + (tx.plan_id || ''));
+        payAction = `<a href="${link}" style="margin-top:.4rem;display:inline-block;padding:.3rem .75rem;background:#1e293b;color:#fff;font-size:.72rem;font-weight:700;border-radius:.4rem;text-decoration:none">Pagar agora</a>`;
+      }
+
+      tList.innerHTML += `
+<div class="invoice-row" style="display:grid;grid-template-columns:auto 1fr auto auto auto;gap:1.5rem;align-items:center;padding:1.25rem 1.5rem;border:1px solid #e2e8f0;border-radius:.85rem;background:#fff;transition:all .2s;box-shadow:0 2px 8px rgba(0,0,0,.02);margin-bottom:.75rem;cursor:default" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.06)';this.style.borderColor='#cbd5e1'" onmouseout="this.style.transform='none';this.style.boxShadow='0 2px 8px rgba(0,0,0,.02)';this.style.borderColor='#e2e8f0'">
+  <div style="width:44px;height:44px;border-radius:12px;background:#f8fafc;color:#64748b;display:flex;align-items:center;justify-content:center;border:1px solid #e2e8f0">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+  </div>
+  <div>
+    <div style="font-weight:800;color:#1e293b;font-size:1rem;margin-bottom:.15rem">${planName}</div>
+    <div style="font-size:.8rem;color:#64748b;font-weight:500">${d} &bull; Fatura #${txId}</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:.5rem;padding:.4rem .8rem;background:#f8fafc;border-radius:2rem;border:1px solid #e2e8f0;font-size:.75rem;color:#475569;font-weight:600">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+    Cartão
+  </div>
+  <div style="text-align:right">
+    <div style="font-weight:800;color:#1e293b;font-size:1.05rem;margin-bottom:.2rem">${amount}</div>
+    <div style="font-size:.7rem;font-weight:800;color:${sColor};padding:.2rem .6rem;background:${sColor}18;border-radius:.3rem;display:inline-block;text-transform:uppercase;letter-spacing:.5px">${sText}</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:.5rem">
+    ${payAction ? payAction : `
+    <button onclick="downloadInvoice('${txId}', '${planName}', '${amount}', '${d}')" style="width:40px;height:40px;border-radius:50%;background:#f1f5f9;border:none;color:#64748b;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s" onmouseover="this.style.background='#e2e8f0';this.style.color='#0f172a'" onmouseout="this.style.background='#f1f5f9';this.style.color='#64748b'" title="Baixar Fatura">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+    </button>
+    `}
+  </div>
+</div>`;
+    });
+
+    const pagContainer = document.getElementById('billing-pagination');
+    if (pagContainer) {
+      if (totalPages > 1) {
+        pagContainer.style.display = 'flex';
+        document.getElementById('billing-page-info').textContent = `${_billingPage} / ${totalPages}`;
+        document.getElementById('billing-prev').disabled = (_billingPage === 1);
+        document.getElementById('billing-next').disabled = (_billingPage === totalPages);
+        document.getElementById('billing-prev').style.opacity = (_billingPage === 1) ? '0.4' : '1';
+        document.getElementById('billing-prev').style.cursor = (_billingPage === 1) ? 'not-allowed' : 'pointer';
+        document.getElementById('billing-next').style.opacity = (_billingPage === totalPages) ? '0.4' : '1';
+        document.getElementById('billing-next').style.cursor = (_billingPage === totalPages) ? 'not-allowed' : 'pointer';
+      } else {
+        pagContainer.style.display = 'none';
+      }
+    }
+  }
+
+  async function loadVerification(){
+    const u = _currentUser;
+    const p = u?.profile || {};
+
+    // ── EMAIL ───────────────────────────────────────
+    const emailOk = !!(p.email_verified || (p.email && p.email.indexOf('@')>0 && p.kyc_status));
+    const emailBadge  = document.getElementById('kyc-email-badge');
+    const emailAction = document.getElementById('kyc-email-action');
+    const iconEmail = document.getElementById('icon-verify-email');
+    if(emailBadge && emailAction){
+      if(emailOk){
+        if(iconEmail) iconEmail.style.background='#dcfce7';
+        emailBadge.innerHTML = '<span style="white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:.3rem;font-weight:700;font-size:.75rem;padding:.2rem .5rem;border-radius:1rem;background:#dcfce7;color:#16a34a"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Verificado</span>';
+        emailAction.innerHTML = '';
+      } else {
+        if(iconEmail) iconEmail.style.background='#fef9c3';
+        emailBadge.innerHTML = '<span style="white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:.3rem;font-weight:700;font-size:.75rem;padding:.2rem .5rem;border-radius:1rem;background:#fef9c3;color:#d97706"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Pendente</span>';
+        emailAction.innerHTML = '<button type="button" onclick="handleResendEmail()" style="display:flex;align-items:center;justify-content:center;width:100%;padding:.65rem;border-radius:.5rem;border:1px solid #cbd5e1;background:#fff;color:#0f172a;font-size:.85rem;font-weight:600;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.04);transition:all .2s" onmouseover="this.style.background=\'#f8fafc\';this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 4px 12px rgba(0,0,0,.08)\'" onmouseout="this.style.background=\'#fff\';this.style.transform=\'none\';this.style.boxShadow=\'0 2px 6px rgba(0,0,0,.04)\'">Reenviar e-mail</button>';
+      }
+    }
+
+    // ── WHATSAPP ────────────────────────────────────
+    const phoneOk = !!(p.whatsapp_verified && p.phone_whatsapp);
+    const phoneBadge  = document.getElementById('kyc-phone-badge');
+    const phoneAction = document.getElementById('kyc-phone-action');
+    const iconPhone = document.getElementById('icon-verify-phone');
+    if(phoneBadge && phoneAction){
+      if(phoneOk){
+        if(iconPhone) iconPhone.style.background='#dcfce7';
+        phoneBadge.innerHTML = '<span style="white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:.3rem;font-weight:700;font-size:.75rem;padding:.2rem .5rem;border-radius:1rem;background:#dcfce7;color:#16a34a"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> ' + esc(p.phone_whatsapp) + '</span>';
+        phoneAction.innerHTML = '';
+      } else {
+        if(iconPhone) iconPhone.style.background='#fef9c3';
+        const waPhone = '5500000000000';
+        const userEmail = (u.email || p.email || 'desconhecido');
+        const waMsg = encodeURIComponent('Olá, quero verificar meu WhatsApp no Tauze Class. Meu e-mail é: ' + userEmail);
+        phoneBadge.innerHTML = '<span style="white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:.3rem;font-weight:700;font-size:.75rem;padding:.2rem .5rem;border-radius:1rem;background:#fef9c3;color:#d97706"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Pendente</span>';
+        phoneAction.innerHTML = '<a href="https://wa.me/' + waPhone + '?text=' + waMsg + '" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;width:100%;padding:.65rem;border-radius:.5rem;background:linear-gradient(to right, #16a34a, #15803d);color:#fff;font-size:.85rem;font-weight:700;text-decoration:none;gap:.5rem;box-shadow:0 4px 12px rgba(22,163,74,.3);transition:all .2s" onmouseover="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 6px 16px rgba(22,163,74,.4)\'" onmouseout="this.style.transform=\'none\';this.style.boxShadow=\'0 4px 12px rgba(22,163,74,.3)\'"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.125.553 4.122 1.523 5.855L.057 23.268a.5.5 0 0 0 .618.635l5.579-1.461A11.942 11.942 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.75c-1.924 0-3.72-.523-5.256-1.43l-.377-.224-3.914 1.025 1.044-3.81-.246-.393A9.716 9.716 0 0 1 2.25 12C2.25 6.615 6.615 2.25 12 2.25S21.75 6.615 21.75 12 17.385 21.75 12 21.75z"/></svg> Verificar WhatsApp</a>';
+      }
+    }
+
+    // ── IDENTIDADE / DOCUMENTO ───────────────────────
+    const kycStatus = (p.kyc_status && p.kyc_status.trim() !== '') ? p.kyc_status : 'not_sent';
+    const KYC_META = {
+      'not_sent': { text: 'Não Enviado', color: '#dc2626', bg: '#fef2f2', icon: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' },
+      'pending': { text: 'Em Análise', color: '#d97706', bg: '#fef9c3', icon: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' },
+      'approved': { text: 'Aprovado', color: '#16a34a', bg: '#dcfce7', icon: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' },
+      'rejected': { text: 'Recusado (Reenvie)', color: '#dc2626', bg: '#fef2f2', icon: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' }
+    };
+    
+    // Fallback if the status in DB is something weird
+    const k = KYC_META[kycStatus] || KYC_META['not_sent'];
+
+    const docBadge  = document.getElementById('kyc-doc-badge');
+    const docAction = document.getElementById('kyc-doc-action');
+    const iconDoc = document.getElementById('icon-verify-doc');
+    const kycCard = document.getElementById('kyc-doc-card');
+    
+    if (p.plan === 'free' || !p.plan) {
+      if (kycCard) kycCard.style.display = 'none';
+    } else {
+      if (kycCard) kycCard.style.display = 'flex';
+      if(docBadge && docAction){
+        docBadge.innerHTML = '<span style="white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:.3rem;font-weight:700;font-size:.75rem;padding:.2rem .5rem;border-radius:1rem;background:'+k.bg+';color:'+k.color+'">' + k.icon + ' ' + k.text + '</span>';
+        
+        // Show form if status is not sent, rejected, or unrecognized
+        const shouldShowForm = !['pending', 'approved'].includes(kycStatus);
+        docAction.innerHTML = shouldShowForm ? kycUploadForm() : '';
+        
+        if(iconDoc) { iconDoc.style.background = k.bg; }
+      }
+    }
+  }
+
+  function kycUploadForm(){
+    return `
+      <div style="margin-top:1.25rem;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:.75rem;width:100%;box-sizing:border-box">
+        <label style="display:flex;align-items:center;gap:.5rem;padding:.75rem;border:1.5px dashed #cbd5e1;border-radius:.75rem;cursor:pointer;background:#f8fafc;box-sizing:border-box;min-width:0;transition:all 0.2s cubic-bezier(0.4, 0, 0.2, 1)" onmouseover="this.style.borderColor='#10b981';this.style.background='#ecfdf5';this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 12px -3px rgba(16, 185, 129, 0.1)';this.querySelector('.icon-wrap').style.color='#10b981'" onmouseout="this.style.borderColor='#cbd5e1';this.style.background='#f8fafc';this.style.transform='none';this.style.boxShadow='none';this.querySelector('.icon-wrap').style.color='#94a3b8'" for="kyc-doc-file">
+          <div class="icon-wrap" style="background:#fff;padding:.4rem;border-radius:.5rem;box-shadow:0 2px 4px rgba(0, 0, 0, 0.04);flex-shrink:0;color:#94a3b8;transition:color 0.2s;display:flex;align-items:center;justify-content:center">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          </div>
+          <div style="display:flex;flex-direction:column;text-align:left;overflow:hidden;min-width:0;flex:1">
+            <span style="font-size:.75rem;font-weight:700;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2">Documento</span>
+            <span style="font-size:.65rem;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2;margin-top:.15rem">RG/CNH</span>
+            <span id="kyc-doc-preview" style="font-size:.65rem;color:#10b981;font-weight:800;margin-top:.15rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>
+          </div>
+          <input type="file" id="kyc-doc-file" accept="image/*" style="display:none" onchange="kycPreview(this,'kyc-doc-preview')">
+        </label>
+        
+        <label style="display:flex;align-items:center;gap:.5rem;padding:.75rem;border:1.5px dashed #cbd5e1;border-radius:.75rem;cursor:pointer;background:#f8fafc;box-sizing:border-box;min-width:0;transition:all 0.2s cubic-bezier(0.4, 0, 0.2, 1)" onmouseover="this.style.borderColor='#10b981';this.style.background='#ecfdf5';this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 12px -3px rgba(16, 185, 129, 0.1)';this.querySelector('.icon-wrap').style.color='#10b981'" onmouseout="this.style.borderColor='#cbd5e1';this.style.background='#f8fafc';this.style.transform='none';this.style.boxShadow='none';this.querySelector('.icon-wrap').style.color='#94a3b8'" for="kyc-selfie-file">
+          <div class="icon-wrap" style="background:#fff;padding:.4rem;border-radius:.5rem;box-shadow:0 2px 4px rgba(0, 0, 0, 0.04);flex-shrink:0;color:#94a3b8;transition:color 0.2s;display:flex;align-items:center;justify-content:center">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          </div>
+          <div style="display:flex;flex-direction:column;text-align:left;overflow:hidden;min-width:0;flex:1">
+            <span style="font-size:.75rem;font-weight:700;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2">Selfie</span>
+            <span style="font-size:.65rem;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2;margin-top:.15rem">Rosto visível</span>
+            <span id="kyc-selfie-preview" style="font-size:.65rem;color:#10b981;font-weight:800;margin-top:.15rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>
+          </div>
+          <input type="file" id="kyc-selfie-file" accept="image/*" style="display:none" onchange="kycPreview(this,'kyc-selfie-preview')">
+        </label>
+      </div>
+      <div style="margin-top:1.25rem">
+        <button type="button" onclick="handleKycSubmit()" style="width:100%;box-sizing:border-box;padding:.85rem 1.5rem;border-radius:.65rem;background:#0f172a;color:#fff;font-weight:700;font-size:.85rem;border:none;cursor:pointer;box-shadow:0 4px 12px rgba(15,23,42,.15);transition:all .2s;display:flex;align-items:center;justify-content:center;gap:.4rem" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 16px rgba(15,23,42,.25)';this.style.background='#1e293b'" onmouseout="this.style.transform='none';this.style.boxShadow='0 4px 12px rgba(15,23,42,.15)';this.style.background='#0f172a'">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+          Enviar para Análise
+        </button>
+      </div>
+    `;
+  }
+
+  function kycPreview(input, previewId){
+    const el = document.getElementById(previewId);
+    if(el && input.files && input.files[0]) el.textContent = input.files[0].name;
+  }
+
+  async function handleResendEmail(){
+    try{
+      await getSupabase().auth.resend({ type:'signup', email: _currentUser.email });
+      showToast('E-mail de confirma\u00e7\u00e3o reenviado!','success');
+    }catch(e){ showToast('Erro ao reenviar e-mail.','error'); }
+  }
+
+  async function handleKycSubmit(){
+    const docFile    = document.getElementById('kyc-doc-file')?.files?.[0];
+    const selfieFile = document.getElementById('kyc-selfie-file')?.files?.[0];
+    if(!docFile || !selfieFile){ showToast('Selecione os dois arquivos antes de enviar.','error'); return; }
+    showToast('Enviando documentos...','success');
+    try{
+      const uid = _currentUser.id;
+      const up = async (file, path) => {
+        const { error } = await getSupabase().storage.from('kyc-docs').upload(path, file, { upsert: true });
+        if(error) throw error;
+        return path; // Retorna apenas o caminho interno
+      };
+      const docPath = await up(docFile, uid + '/doc.jpg');
+      const selfiePath = await up(selfieFile, uid + '/selfie.jpg');
+      await updateProfile(uid, { kyc_status: 'pending', kyc_doc_url: docPath, kyc_selfie_url: selfiePath });
+      if(_currentUser.profile) _currentUser.profile.kyc_status = 'pending';
+      _loadedTabs.delete('verification');
+      switchTab('verification');
+      showToast('Documentos enviados! An\u00e1lise em at\u00e9 48h.','success');
+    }catch(e){ showToast('Erro ao enviar documentos. Tente novamente.','error'); }
+  }
+
+  /*  LOGOUT  */
   async function handleLogout(){try{await logout();}catch(e){window.location.href='/login.html';}}
 
-  /* â”€â”€ REAL-TIME â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ── REAL-TIME ─────────────────────────────────────── */
   function subscribeRealtime(uid){
     try{subscribeToMessages(uid,payload=>{
       const msg=payload.new;if(!msg)return;
       const key=msg.ad_id+'__'+msg.sender_id;
-      if(_conversations[key]){_conversations[key].messages.push(msg);if(_loadedTabs.has('messages')){renderMessageList();if(_activeConvKey===key)openThread(key);}}
-      else{getMyMessages().then(m=>{_messages=m;groupConversations();if(_loadedTabs.has('messages'))renderMessageList();});}
-      _unreadCount++;
-      const b=document.getElementById('msg-badge');b.style.display='';b.textContent=_unreadCount;
+      if(_conversations[key]){
+        _conversations[key].messages.push(msg);
+        _unreadCount = 0;
+        Object.values(_conversations).forEach(c=>{
+          if(c.messages.length > 0 && c.messages[c.messages.length - 1].sender_id !== uid) _unreadCount++;
+        });
+        updateUnreadBadgeUI();
+        if(_loadedTabs.has('messages')){renderMessageList();if(_activeConvKey===key)openThread(key);}
+      }
+      else{
+        getMyMessages().then(m=>{_messages=m;groupConversations();if(_loadedTabs.has('messages'))renderMessageList();});
+      }
+
       showToast('Nova mensagem recebida!','success');
     });}catch(e){}
   }
 
-  /* â”€â”€ UTILS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ── UTILS ─────────────────────────────────────── */
   function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
   function sTxt(id,v){const el=document.getElementById(id);if(el)el.textContent=v;}
   function sVal(id,v){const el=document.getElementById(id);if(el)el.value=v;}
@@ -544,4 +1630,4 @@
   </script>
 </body>
 </html>
-
+

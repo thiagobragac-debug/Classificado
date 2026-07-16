@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <!-- Security headers (defence-in-depth, complements server-side headers) -->
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>Gerenciar API Keys — Admin Tauze Class</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .key-table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    .key-table th, .key-table td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+    .key-table th { background: #f9fafb; font-weight: 600; color: #374151; }
+    .badge { padding: 4px 8px; border-radius: 99px; font-size: 0.75rem; font-weight: 600; }
+    .badge.active { background: #dcfce7; color: #166534; }
+    .badge.inactive { background: #fee2e2; color: #991b1b; }
+    .api-key-blur { filter: blur(4px); transition: filter 0.2s; cursor: pointer; }
+    .api-key-blur:hover { filter: blur(0); }
+    .btn-create { background: #16a34a; color: white; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; }
+  </style>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%2316A34A'/><text y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'>T</text></svg>">
+</head>
+<body>
+  <div class="admin-layout">
+    <aside class="sidebar">
+      <h2>Admin Tauze</h2>
+      <nav>
+        <a href="index.html">Dashboard</a>
+        <a href="anuncios.html">Anúncios</a>
+        <a href="usuarios.html">Usuários</a>
+        <a href="api-keys.html" class="active">API Keys</a>
+      </nav>
+    </aside>
+    <main class="content">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h1>Chaves de API REST</h1>
+        <button class="btn-create" onclick="alert('Use o CLI generateApiKey.js no backend para gerar chaves de produção.')">Gerar Nova Chave</button>
+      </div>
+
+      <div class="card" style="margin-top: 2rem;">
+        <table class="key-table">
+          <thead>
+            <tr>
+              <th>Parceiro</th>
+              <th>E-mail</th>
+              <th>Chave (hover)</th>
+              <th>Permissões</th>
+              <th>Status</th>
+              <th>Criado em</th>
+            </tr>
+          </thead>
+          <tbody id="keys-tbody">
+            <tr><td colspan="6" style="text-align:center;">Carregando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <script src="../js/supabase.js"></script>
+  <script src="js/admin.js"></script>
+  <script>
+const escapeHTML = str => str ? String(str).replace(/[&<>'"]/g, tag => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+}[tag])) : '';
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      const sb = getSupabase();
+      
+      const { data, error } = await sb.from('api_keys').select('*').order('created_at', { ascending: false });
+      
+      const tbody = document.getElementById('keys-tbody');
+      if (error) {
+        tbody.innerHTML = `<tr><td colspan="6" style="color:red;">Erro ao carregar chaves.</td></tr>`;
+        return;
+      }
+      
+      if (!data || data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">Nenhuma chave gerada ainda.</td></tr>`;
+        return;
+      }
+      
+      tbody.innerHTML = data.map(k => `
+        <tr>
+          <td style="font-weight:600;">${k.partner_name}</td>
+          <td>${k.email}</td>
+          <td><code class="api-key-blur">${k.api_key}</code></td>
+          <td>${k.permissions.join(', ')}</td>
+          <td><span class="badge ${k.is_active ? 'active' : 'inactive'}">${k.is_active ? 'Ativa' : 'Inativa'}</span></td>
+          <td>${new Date(k.created_at).toLocaleDateString()}</td>
+        </tr>
+      `).join('');
+    });
+  </script>
+</body>
+</html>

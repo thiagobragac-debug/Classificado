@@ -1,4 +1,44 @@
+# Node
 node_modules/
 bkp/
-.env
 .DS_Store
+
+# Ambiente e secrets
+*.env
+.env*
+!.env.example
+docker-compose.override.yml
+
+# Documentação com credenciais
+DOCUMENTO_COMPLETO.md
+
+# Arquivos de desenvolvimento
+*.patch
+*.bak
+*.orig
+diff_*.patch
+diff_*.txt
+main_diff.*
+
+# Scripts de diagnóstico
+diagnostico.html
+diag*.js
+diagnose*.js
+deep_check.js
+check_error*.js
+health_check.js
+temp_*.js
+fix_*.js
+test_*.js
+
+# Backups de HTML
+original_*.html
+*_backup.html
+*_before_*.html
+*_fixed.html
+*_git.html
+*_nuclear*.html
+
+# Logs
+*.log
+last_error.txt

@@ -2,6 +2,9 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
+  <!-- Security headers (defence-in-depth, complements server-side headers) -->
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gestão de Assinaturas — Admin Tauze Class</title>
   <link rel="stylesheet" href="/admin/css/admin.css">
@@ -124,7 +127,11 @@
 <div class="adm-layout">
   <aside class="adm-sidebar" id="adm-sidebar"></aside>
   <div class="adm-main">
-<div id="global-error-banner" style="display:none; background:red; color:white; padding:15px; font-weight:bold; z-index:9999; position:relative;"></div><script>window.addEventListener('error', function(e) { const b = document.getElementById('global-error-banner'); if(b) { b.style.display = 'block'; b.innerHTML += e.message + '<br>'; } }); window.addEventListener('unhandledrejection', function(e) { const b = document.getElementById('global-error-banner'); if(b) { b.style.display = 'block'; b.innerHTML += e.reason + '<br>'; } });</script>
+<div id="global-error-banner" style="display:none; background:red; color:white; padding:15px; font-weight:bold; z-index:9999; position:relative;"></div><script>
+const escapeHTML = str => str ? String(str).replace(/[&<>'"]/g, tag => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+}[tag])) : '';
+window.addEventListener('error', function(e) { const b = document.getElementById('global-error-banner'); if(b) { b.style.display = 'block'; const msg = document.createElement('div'); msg.textContent = e.message || 'Erro desconhecido'; b.appendChild(msg); } }); window.addEventListener('unhandledrejection', function(e) { const b = document.getElementById('global-error-banner'); if(b) { b.style.display = 'block'; const msg = document.createElement('div'); msg.textContent = typeof e.reason === 'string' ? e.reason : (e.reason?.message || 'Erro desconhecido'); b.appendChild(msg); } });</script>
 
     <header class="adm-topbar">
       <div class="adm-breadcrumb">
@@ -289,6 +296,7 @@
             <option value="mercadopago">Mercado Pago</option>
             <option value="stripe">Stripe</option>
             <option value="pagarme">Pagar.me</option>
+            <option value="asaas">🔵 ASAAS</option>
             <option value="manual">Manual / Cortesia</option>
           </select>
         </div>
@@ -328,6 +336,7 @@ const GATEWAY_ICONS = {
   mercadopago: '🟡',
   stripe:      '🟣',
   pagarme:     '🟢',
+  asaas:       '🔵',
   manual:      '✋',
 };
 
@@ -461,7 +470,7 @@ function renderTable() {
     const price = rawPrice > 0 ? 'R$ ' + rawPrice.toLocaleString('pt-BR') : '—';
     const clr = avatarColor(s.userId);
     const gwIcon = GATEWAY_ICONS[s.gateway] || '💳';
-    const gwName = { mercadopago: 'Mercado Pago', stripe: 'Stripe', pagarme: 'Pagar.me', manual: 'Manual' }[s.gateway] || s.gateway;
+    const gwName = { mercadopago: 'Mercado Pago', stripe: 'Stripe', pagarme: 'Pagar.me', asaas: 'ASAAS', manual: 'Manual' }[s.gateway] || s.gateway;
 
     return `
       <tr>
@@ -576,7 +585,7 @@ document.getElementById('subForm').addEventListener('submit', async function(e) 
     const sessionRaw = sessionStorage.getItem('tc_admin_session');
     const session = sessionRaw ? JSON.parse(sessionRaw) : null;
     const token = session ? session.token : ADM_SB_ANON;
-    const headers = { 'apikey': ADM_SB_ANON, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
+    const headers = { 'apikey': ADM_SB_ANON, 'Authorization': `Bearer ${getAdminToken()}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
     
     const payload = {
       plan, 
@@ -619,7 +628,7 @@ async function cancelSub(id) {
     if (String(id).length > 10) {
       fetch(`${ADM_SB_URL}/rest/v1/subscriptions?id=eq.${id}`, {
         method: 'PATCH',
-        headers: { 'apikey': ADM_SB_ANON, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        headers: { 'apikey': ADM_SB_ANON, 'Authorization': `Bearer ${getAdminToken()}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'canceled', next_billing_at: null })
       });
     }
@@ -640,7 +649,7 @@ function openDetail(id) {
   const user = ADMIN_USERS.find(u => u.id === s.userId) || {};
   const clr  = avatarColor(user.id || 0);
   const price = PLAN_PRICES[s.plan] > 0 ? 'R$ ' + PLAN_PRICES[s.plan].toLocaleString('pt-BR') + '/mês' : 'Grátis';
-  const gwName = { mercadopago: 'Mercado Pago', stripe: 'Stripe', pagarme: 'Pagar.me', manual: 'Manual / Cortesia' }[s.gateway] || s.gateway;
+  const gwName = { mercadopago: 'Mercado Pago', stripe: 'Stripe', pagarme: 'Pagar.me', asaas: 'ASAAS', manual: 'Manual / Cortesia' }[s.gateway] || s.gateway;
 
   document.getElementById('detailModalContent').innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
@@ -651,10 +660,10 @@ function openDetail(id) {
     </div>
 
     <div style="display:flex;align-items:center;gap:14px;padding:16px;background:var(--adm-surface-2);border-radius:10px;margin-bottom:20px">
-      <div class="sub-avatar" style="background:${clr};width:48px;height:48px;font-size:1.1rem">${avatarInitials(user.name || 'U')}</div>
+      <div class="sub-avatar" style="background:${clr};width:48px;height:48px;font-size:1.1rem">${escapeHTML(avatarInitials(user.name || 'U'))}</div>
       <div>
-        <div style="font-weight:700;font-size:1rem;color:var(--adm-text)">${user.name}</div>
-        <div style="font-size:.8rem;color:var(--adm-text-muted)">${user.email} · ${user.country}</div>
+        <div style="font-weight:700;font-size:1rem;color:var(--adm-text)">${escapeHTML(user.name)}</div>
+        <div style="font-size:.8rem;color:var(--adm-text-muted)">${escapeHTML(user.email)} · ${escapeHTML(user.country)}</div>
         <div style="margin-top:4px">${planBadge(s.plan)} ${statusBadge(s.status)}</div>
       </div>
     </div>
@@ -676,7 +685,7 @@ function openDetail(id) {
     ${s.notes ? `
       <div style="padding:12px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:8px;margin-bottom:20px">
         <div style="font-size:.75rem;font-weight:700;color:#FCD34D;margin-bottom:4px">📋 Nota Interna</div>
-        <div style="font-size:.85rem;color:var(--adm-text)">${s.notes}</div>
+        <div style="font-size:.85rem;color:var(--adm-text)">${escapeHTML(s.notes)}</div>
       </div>
     ` : ''}
 
@@ -701,7 +710,7 @@ document.addEventListener('DOMContentLoaded', () => {
 async function fetchAndRenderSubscriptions() {
   // Usa ADM_SB_URL e ADM_SB_ANON definidos em /admin/js/admin.js
   const SB_URL = ADM_SB_URL;
-  const headers = { 'apikey': ADM_SB_ANON, 'Authorization': `Bearer ${ADM_SB_ANON}` };
+  const headers = { 'apikey': ADM_SB_ANON, 'Authorization': `Bearer ${getAdminToken()}` };
   try {
     const res = await fetch(
       `${SB_URL}/rest/v1/subscriptions?select=id,plan,status,gateway,price,next_billing_at,created_at,profiles(name,country)&order=created_at.desc&limit=50`,
@@ -779,15 +788,15 @@ function patchRenderTableForSupabase() {
       const price = rawPrice > 0 ? 'R$ ' + rawPrice.toLocaleString('pt-BR') : '—';
       const clr   = avatarColor(s.userId);
       const gwIcon = GATEWAY_ICONS[s.gateway] || '💳';
-      const gwName = { mercadopago: 'Mercado Pago', stripe: 'Stripe', pagarme: 'Pagar.me', manual: 'Manual' }[s.gateway] || s.gateway;
+      const gwName = { mercadopago: 'Mercado Pago', stripe: 'Stripe', pagarme: 'Pagar.me', asaas: 'ASAAS', manual: 'Manual' }[s.gateway] || s.gateway;
       return `
         <tr>
           <td>
             <div style="display:flex;align-items:center;gap:10px">
-              <div class="sub-avatar" style="background:${clr}">${avatarInitials(name)}</div>
+              <div class="sub-avatar" style="background:${clr}">${escapeHTML(avatarInitials(name))}</div>
               <div>
-                <div style="font-weight:600;color:var(--adm-text);font-size:.9rem">${name}</div>
-                <div style="font-size:.76rem;color:var(--adm-text-muted)">${country}</div>
+                <div style="font-weight:600;color:var(--adm-text);font-size:.9rem">${escapeHTML(name)}</div>
+                <div style="font-size:.76rem;color:var(--adm-text-muted)">${escapeHTML(country)}</div>
               </div>
             </div>
           </td>

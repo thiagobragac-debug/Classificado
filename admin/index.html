@@ -15,11 +15,11 @@
     <script>
       window.addEventListener('error', function(e) {
         const b = document.getElementById('global-error-banner');
-        if(b) { b.style.display = 'block'; b.innerHTML += e.message + '<br>'; }
+        if(b) { b.style.display = 'block'; const msg = document.createElement('div'); msg.textContent = e.message || 'Erro desconhecido'; b.appendChild(msg); }
       });
       window.addEventListener('unhandledrejection', function(e) {
         const b = document.getElementById('global-error-banner');
-        if(b) { b.style.display = 'block'; b.innerHTML += e.reason + '<br>'; }
+        if(b) { b.style.display = 'block'; const msg = document.createElement('div'); msg.textContent = typeof e.reason === 'string' ? e.reason : (e.reason?.message || 'Erro desconhecido'); b.appendChild(msg); }
       });
     </script>
 

@@ -2,6 +2,9 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
+  <!-- Security headers (defence-in-depth, complements server-side headers) -->
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Configurações — Admin</title>
   <link rel="stylesheet" href="/admin/css/admin.css">
@@ -75,7 +78,11 @@
     <aside class="adm-sidebar" id="adm-sidebar"></aside>
 
     <div class="adm-main">
-<div id="global-error-banner" style="display:none; background:red; color:white; padding:15px; font-weight:bold; z-index:9999; position:relative;"></div><script>window.addEventListener('error', function(e) { const b = document.getElementById('global-error-banner'); if(b) { b.style.display = 'block'; b.innerHTML += e.message + '<br>'; } }); window.addEventListener('unhandledrejection', function(e) { const b = document.getElementById('global-error-banner'); if(b) { b.style.display = 'block'; b.innerHTML += e.reason + '<br>'; } });</script>
+<div id="global-error-banner" style="display:none; background:red; color:white; padding:15px; font-weight:bold; z-index:9999; position:relative;"></div><script>
+const escapeHTML = str => str ? String(str).replace(/[&<>'"]/g, tag => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+}[tag])) : '';
+window.addEventListener('error', function(e) { const b = document.getElementById('global-error-banner'); if(b) { b.style.display = 'block'; const msg = document.createElement('div'); msg.textContent = e.message || 'Erro desconhecido'; b.appendChild(msg); } }); window.addEventListener('unhandledrejection', function(e) { const b = document.getElementById('global-error-banner'); if(b) { b.style.display = 'block'; const msg = document.createElement('div'); msg.textContent = typeof e.reason === 'string' ? e.reason : (e.reason?.message || 'Erro desconhecido'); b.appendChild(msg); } });</script>
       <header class="adm-topbar">
         <div class="adm-breadcrumb">
           <a href="/admin/index.html" style="color:var(--adm-text-muted);text-decoration:none">Admin</a>
@@ -136,13 +143,14 @@
                     <label class="set-label">Upload da Logo</label>
                     <p class="set-desc">Arraste uma imagem ou clique para inserir a URL. Formatos suportados: PNG, SVG, JPG (Max 2MB).</p>
                     
-                    <div class="set-dropzone" id="logoDropzone" onclick="promptLogoUrl()">
+                    <div class="set-dropzone" id="logoDropzone" onclick="promptLogoUrl()" 
+                         ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                       <div id="dropzoneText">
                         <span style="color: var(--adm-text)">Arraste e solte</span> ou <span style="color: #16A34A">clique para colar a URL</span>
                       </div>
-                      <input type="hidden" id="logoUrl" onchange="markDirty()">
                     </div>
+                    <input type="hidden" id="logoUrl" onchange="markDirty()">
                   </div>
                 </div>
 
@@ -356,6 +364,21 @@
                   </div>
                 </div>
 
+                <!-- GATEWAY PADRÃO -->
+                <div class="set-group">
+                  <div class="set-group-title">Gateway Principal Ativo</div>
+                  <div class="set-field">
+                    <label class="set-label">Definir gateway padrão para transações</label>
+                    <p class="set-desc">Escolha qual sistema processará os pagamentos de todos os usuários da plataforma.</p>
+                    <select id="payment_gateway" class="set-input" onchange="markDirty()" style="max-width:300px">
+                      <option value="mercadopago">🟡 Mercado Pago</option>
+                      <option value="stripe">🟣 Stripe</option>
+                      <option value="pagarme">🟢 Pagar.me</option>
+                      <option value="asaas">🔵 ASAAS</option>
+                    </select>
+                  </div>
+                </div>
+
                 <!-- MERCADO PAGO -->
                 <div class="set-group">
                   <div class="set-group-title">
@@ -383,6 +406,13 @@
                     <p class="set-desc">Configure esta URL no painel do Mercado Pago em: <strong>Seu negócio → Notificações IPN</strong>.</p>
                     <input type="url" id="mp_webhook" class="set-input" placeholder="https://seusite.com/api/webhooks/mercadopago" oninput="markDirty()">
                   </div>
+                  <div class="set-field">
+                    <label class="set-label">Webhook Secret (HMAC / Assinatura)</label>
+                    <p class="set-desc">Secret para verificar a autenticidade das notificações IPN. Encontre em: <strong>Seu negócio → Webhooks → Assinatura secreta</strong>.</p>
+                    <div style="display:flex;gap:8px;max-width:500px">
+                      <input type="password" id="mp_webhook_secret" class="set-input" style="max-width:unset;flex:1" placeholder="Seu webhook secret do MP" oninput="markDirty(); updateGwStatus('mp')">
+                      <button type="button" class="adm-btn" style="padding:0 12px;flex-shrink:0" onclick="toggleVisibility('mp_webhook_secret', this)">👁</button>
+                    </div>
                 </div>
 
                 <!-- STRIPE -->
@@ -437,6 +467,51 @@
                       <button type="button" class="adm-btn" style="padding:0 12px;flex-shrink:0" onclick="toggleVisibility('pagarme_secret_key', this)">👁</button>
                     </div>
                   </div>
+                  <div class="set-field">
+                    <label class="set-label">Webhook Secret</label>
+                    <p class="set-desc">Gerado no painel Pagar.me em: <strong>Configurações → Webhooks</strong>. Valida a autenticidade dos eventos recebidos (HMAC-SHA256).</p>
+                    <div style="display:flex;gap:8px;max-width:500px">
+                      <input type="password" id="pagarme_webhook_secret" class="set-input" style="max-width:unset;flex:1" placeholder="wh_xxxxxxxxxxxxxxxxxxxxxxxx" oninput="markDirty()">
+                      <button type="button" class="adm-btn" style="padding:0 12px;flex-shrink:0" onclick="toggleVisibility('pagarme_webhook_secret', this)">👁</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- ASAAS -->
+                <div class="set-group">
+                  <div class="set-group-title">
+                    <span>🔵 ASAAS</span>
+                    <span id="asaas-status" style="font-size:.75rem;font-weight:600;padding:3px 10px;border-radius:99px;background:rgba(107,114,128,.1);color:#9CA3AF">Não configurado</span>
+                  </div>
+                  <div class="set-field">
+                    <label class="set-label">API Key (Back-end)</label>
+                    <p class="set-desc">Gerada no painel ASAAS em: <strong>Minha Conta → Integrações → Gerar nova chave</strong>. Nunca exponha no front-end.</p>
+                    <div style="display:flex;gap:8px;max-width:500px">
+                      <input type="password" id="asaas_api_key" class="set-input" style="max-width:unset;flex:1" placeholder="$aact_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" oninput="markDirty(); updateGwStatus('asaas')">
+                      <button type="button" class="adm-btn" style="padding:0 12px;flex-shrink:0" onclick="toggleVisibility('asaas_api_key', this)">👁</button>
+                    </div>
+                  </div>
+                  <div class="set-field">
+                    <label class="set-label">Webhook Token</label>
+                    <p class="set-desc">Token configurado em: <strong>ASAAS Dashboard → Integrações → Webhook → Token de acesso</strong>. Valida a autenticidade dos eventos recebidos.</p>
+                    <div style="display:flex;gap:8px;max-width:500px">
+                      <input type="password" id="asaas_webhook_token" class="set-input" style="max-width:unset;flex:1" placeholder="token_configurado_no_painel_asaas" oninput="markDirty(); updateGwStatus('asaas')">
+                      <button type="button" class="adm-btn" style="padding:0 12px;flex-shrink:0" onclick="toggleVisibility('asaas_webhook_token', this)">👁</button>
+                    </div>
+                  </div>
+                  <div class="set-field">
+                    <label class="set-label">Ambiente</label>
+                    <p class="set-desc">Use Sandbox para testes. Produção usa a conta real do ASAAS.</p>
+                    <select id="asaas_sandbox" class="set-input" onchange="markDirty()" style="max-width:250px">
+                      <option value="false">🚀 Produção (api.asaas.com)</option>
+                      <option value="true">🧪 Sandbox (api-sandbox.asaas.com)</option>
+                    </select>
+                  </div>
+                  <div class="set-field">
+                    <label class="set-label">URL do Webhook</label>
+                    <p class="set-desc">Configure esta URL em: <strong>ASAAS Dashboard → Integrações → Webhook → URL de notificação</strong>.</p>
+                    <input type="url" id="asaas_webhook_url" class="set-input" style="max-width:500px" placeholder="https://seusite.com/api/webhook/payment" oninput="markDirty()">
+                  </div>
                 </div>
 
                 <!-- PREÇOS DOS PLANOS -->
@@ -476,6 +551,7 @@
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/admin/js/admin.js?v=20240708_8"></script>
   <script>
     // ─── GATEWAY HELPERS ──────────────────────────
@@ -490,6 +566,7 @@
         mp:      ['mp_public_key','mp_access_token','mp-status'],
         stripe:  ['stripe_pub_key','stripe_secret_key','stripe-status'],
         pagarme: ['pagarme_pub_key','pagarme_secret_key','pagarme-status'],
+        asaas:   ['asaas_api_key','asaas_webhook_token','asaas-status'],
       };
       const [f1, f2, statusId] = map[gw];
       const v1 = document.getElementById(f1)?.value.trim();
@@ -543,6 +620,47 @@
     }
 
     // Logo Logic
+    function handleDragOver(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      document.getElementById('logoDropzone').style.borderColor = '#16A34A';
+      document.getElementById('logoDropzone').style.background = '#f0fdf4';
+    }
+    
+    function handleDragLeave(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      document.getElementById('logoDropzone').style.borderColor = 'var(--clr-border)';
+      document.getElementById('logoDropzone').style.background = 'transparent';
+    }
+    
+    function handleDrop(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      document.getElementById('logoDropzone').style.borderColor = 'var(--clr-border)';
+      document.getElementById('logoDropzone').style.background = 'transparent';
+      
+      const file = e.dataTransfer.files[0];
+      if (!file) return;
+      if (!file.type.startsWith('image/')) {
+        alert('Por favor, selecione um arquivo de imagem.');
+        return;
+      }
+      if (file.size > 2 * 1024 * 1024) {
+        alert('A imagem é muito grande. O tamanho máximo é 2MB.');
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        const base64 = evt.target.result;
+        document.getElementById('logoUrl').value = base64;
+        updateDropzonePreview(base64);
+        markDirty();
+      };
+      reader.readAsDataURL(file);
+    }
+
     function promptLogoUrl() {
       const url = prompt("Insira a URL da imagem da sua marca (ou deixe em branco para remover):", document.getElementById('logoUrl').value);
       if (url !== null) {
@@ -581,11 +699,28 @@
     // Init & Load
     async function loadConfig() {
       try {
+        // Chaves que NUNCA devem ser armazenadas no localStorage (secrets de servidor)
+        const SECRET_KEYS = new Set([
+          'mp_access_token', 'mp_webhook', 'mp_webhook_secret',
+          'stripe_secret_key', 'stripe_webhook_secret',
+          'pagarme_secret_key', 'pagarme_webhook_secret',
+          'asaas_api_key', 'asaas_webhook_token'
+        ]);
+
         const sb = getSupabase ? getSupabase() : null;
         if (sb) {
           const { data, error } = await sb.from('platform_settings').select('*');
           if (!error && data) {
-            data.forEach(s => localStorage.setItem(s.key, s.value));
+            data.forEach(s => {
+              if (SECRET_KEYS.has(s.key)) {
+                // Chaves secretas: carregar direto no campo DOM, NUNCA no localStorage
+                const el = document.getElementById(s.key);
+                if (el) el.value = s.value;
+              } else {
+                // Chaves públicas: cachear no localStorage normalmente
+                localStorage.setItem(s.key, s.value);
+              }
+            });
           }
         }
         const savedLogo  = localStorage.getItem('tc_logo_url')      || '';
@@ -620,18 +755,19 @@
         if (savedPlans    !== null && document.getElementById('featPlans'))       document.getElementById('featPlans').checked       = savedPlans    === '1';
         if (savedSocial   !== null && document.getElementById('featSocialLogin')) document.getElementById('featSocialLogin').checked = savedSocial   === '1';
 
-        // Load Gateways (optional chaining — elements may not exist)
-        const gwFields = ['mp_public_key','mp_access_token','mp_webhook','stripe_pub_key','stripe_secret_key','stripe_webhook_secret','pagarme_pub_key','pagarme_secret_key'];
-        gwFields.forEach(f => {
-          const v  = localStorage.getItem('tc_gw_' + f);
+        // Load Gateways — campos PÚBLICOS: carregar do localStorage
+        const PUBLIC_GW_FIELDS = ['mp_public_key', 'stripe_pub_key', 'pagarme_pub_key', 'payment_gateway', 'asaas_sandbox', 'asaas_webhook_url'];
+        PUBLIC_GW_FIELDS.forEach(f => {
+          const v  = localStorage.getItem(f);
           const el = document.getElementById(f);
-          if (v && el) el.value = v;
+          if (el && v) el.value = v;
         });
+
         const pricePro  = localStorage.getItem('tc_price_pro');
         const pricePrem = localStorage.getItem('tc_price_premium');
         if (pricePro  && document.getElementById('price_pro'))     document.getElementById('price_pro').value     = pricePro;
         if (pricePrem && document.getElementById('price_premium')) document.getElementById('price_premium').value = pricePrem;
-        ['mp','stripe','pagarme'].forEach(gw => updateGwStatus(gw));
+        ['mp','stripe','pagarme','asaas'].forEach(gw => updateGwStatus(gw));
 
         // Load Counters / Saldo Inicial
         ['cnt_ads','cnt_users','cnt_paises','cnt_cidades','cnt_bovinos','cnt_maquinas','cnt_auctions'].forEach(f => {
@@ -676,7 +812,7 @@
           auctions:db?.total_auctions|| 0,
         };
 
-        console.log('[Admin Contadores] RPC get_platform_stats:', realCounters);
+        // Não logar dados sensíveis no console em produção
 
         const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val.toLocaleString('pt-BR'); };
         setEl('real-ads',     realCounters.ads);
@@ -695,14 +831,14 @@
     }
 
     function updateCountersPreview() {
-      const fmt   = document.getElementById('cnt_format').value;
-      const plus  = document.getElementById('cnt_plus').checked ? '+' : '';
+      const fmt   = document.getElementById('cnt_format')?.value || 'k';
+      const plus  = document.getElementById('cnt_plus')?.checked ? '+' : '';
 
       const offsets = {
-        ads:     parseInt(document.getElementById('cnt_ads').value)     || 0,
-        users:   parseInt(document.getElementById('cnt_users').value)   || 0,
-        paises:  parseInt(document.getElementById('cnt_paises').value)  || 0,
-        cidades: parseInt(document.getElementById('cnt_cidades').value) || 0,
+        ads:     parseInt(document.getElementById('cnt_ads')?.value)     || 0,
+        users:   parseInt(document.getElementById('cnt_users')?.value)   || 0,
+        paises:  parseInt(document.getElementById('cnt_paises')?.value)  || 0,
+        cidades: parseInt(document.getElementById('cnt_cidades')?.value) || 0,
       };
 
       function formatNum(n) {
@@ -740,7 +876,7 @@
         if (logoUrl) pushSetting('tc_logo_url', logoUrl);
         if (heroTitle) pushSetting('tc_hero_title', heroTitle);
         if (heroSub) pushSetting('tc_hero_sub', heroSub);
-        if (selectedColor && selectedColor !== '#16A34A') pushSetting('tc_primary_color', selectedColor);
+        if (selectedColor) pushSetting('tc_primary_color', selectedColor);
 
         // Toggles
         const featAuctions = document.getElementById('featAuctions')?.checked ?? true;
@@ -750,11 +886,20 @@
         pushSetting('tc_feat_plans', featPlans ? '1' : '0');
         pushSetting('tc_feat_social_login', featSocial ? '1' : '0');
 
-        // Gateways
-        const gwFields = ['mp_public_key','mp_access_token','mp_webhook','stripe_pub_key','stripe_secret_key','stripe_webhook_secret','pagarme_pub_key','pagarme_secret_key'];
-        gwFields.forEach(f => {
+        // Gateways — separar campos públicos dos secretos
+        // Campos PÚBLICOS: salvos no Supabase E no localStorage (usados pelo frontend)
+        const PUBLIC_GW  = ['mp_public_key', 'stripe_pub_key', 'pagarme_pub_key', 'payment_gateway', 'asaas_sandbox', 'asaas_webhook_url'];
+        // Campos SECRETOS: salvos APENAS no Supabase (nunca no localStorage)
+        const SECRET_GW  = ['mp_access_token', 'mp_webhook', 'mp_webhook_secret', 'stripe_secret_key',
+                            'stripe_webhook_secret', 'pagarme_secret_key', 'pagarme_webhook_secret',
+                            'asaas_api_key', 'asaas_webhook_token'];
+        // Todos os campos do gateway (para salvar no Supabase)
+        const ALL_GW_FIELDS = [...PUBLIC_GW, ...SECRET_GW];
+        const secretGwSet = new Set(SECRET_GW);
+
+        ALL_GW_FIELDS.forEach(f => {
           const v = document.getElementById(f)?.value?.trim();
-          if (v) pushSetting('tc_gw_' + f, v);
+          if (v) pushSetting(f, v);
         });
 
         // Plan prices
@@ -782,8 +927,10 @@
           if (error) throw error;
         }
 
-        // Save to LocalStorage as cache
-        settingsToSave.forEach(s => localStorage.setItem(s.key, s.value));
+        // Cache no localStorage — EXCLUIR chaves secretas de gateway
+        settingsToSave
+          .filter(s => !secretGwSet || !secretGwSet.has(s.key))
+          .forEach(s => localStorage.setItem(s.key, s.value));
 
         isDirty = false;
         document.getElementById('saveBar').classList.remove('visible');

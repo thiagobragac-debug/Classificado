@@ -2,11 +2,14 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
+  <!-- Security headers (defence-in-depth, complements server-side headers) -->
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Entrar — Tauze Class</title>
   <meta name="description" content="Acesse sua conta no Tauze Class para gerenciar seus anúncios e mensagens.">
   <meta name="robots" content="noindex, nofollow">
-  <link rel="stylesheet" href="css/style.css?v=1783509347880">
+  <link rel="stylesheet" href="css/style.css?v=1784160758676">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2316A34A'/%3E%3Ctext y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'%3ET%3C/text%3E%3C/svg%3E">
   <!-- PWA -->
   <link rel="manifest" href="/manifest.json">
@@ -43,6 +46,12 @@
 </head>
 <body style="background: white">
   
+  <!-- Lang Toggle -->
+  <div class="lang-toggle" role="group" aria-label="Selecionar idioma" style="position:fixed;top:1.2rem;right:1.2rem;z-index:999;">
+    <button data-lang="pt" class="active" aria-label="Português">PT</button>
+    <button data-lang="es" aria-label="Español">ES</button>
+  </div>
+
   <main class="login-split v2">
     <!-- Left Banner -->
     <div class="login-banner">
@@ -50,17 +59,17 @@
         <div class="logo-mark" style="background: var(--clr-primary); color: white; border-color: white;">TC</div>
         <div class="logo-text">
           <span class="logo-name" style="font-size: 1.4rem;">Tauze Class</span>
-          <span class="logo-tagline" style="color: rgba(255,255,255,0.7);">CLASSIFICADOS AGRO</span>
+          <span class="logo-tagline" style="color: rgba(255,255,255,0.7);" data-i18n="logo_tagline">CLASSIFICADOS AGRO</span>
         </div>
       </a>
 
       <h2>O agronegócio do <br><span data-i18n="login_mercosul" style="color: #F59E0B;">Mercosul</span><br> em um só lugar.</h2>
-      <p>Anuncie gratuitamente para milhares de compradores no Brasil, Argentina, Paraguai e Uruguai.</p>
+      <p data-i18n="login_banner_p">Anuncie gratuitamente para milhares de compradores no Brasil, Argentina, Paraguai e Uruguai.</p>
 
       <div class="login-badges">
-        <span class="badge"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> Gratuito para anunciar</span>
-        <span class="badge"><span style="font-size:14px">🌎</span> Mercosul completo</span>
-        <span class="badge"><span style="font-size:14px">🐄</span> 62.000+ anúncios</span>
+        <span class="badge" data-i18n="login_badge_free"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> Gratuito para anunciar</span>
+        <span class="badge" data-i18n="login_badge_mercosul_full"><span style="font-size:14px">🌎</span> Mercosul completo</span>
+        <span class="badge" data-i18n="login_badge_ads"><span style="font-size:14px">🐄</span> 62.000+ anúncios</span>
       </div>
     </div>
 
@@ -69,19 +78,19 @@
       <div style="max-width: 400px; width: 100%; margin: 0 auto;">
 
         <div class="auth-toggle">
-          <button class="toggle-btn active" onclick="toggleSection('login', event)" id="btn-toggle-login">Entrar</button>
-          <button class="toggle-btn" onclick="toggleSection('register', event)" id="btn-toggle-register">Criar Conta</button>
+          <button class="toggle-btn active" onclick="toggleSection('login', event)" id="btn-toggle-login" data-i18n="login_btn_enter">Entrar</button>
+          <button class="toggle-btn" onclick="toggleSection('register', event)" id="btn-toggle-register" data-i18n="login_btn_register">Criar Conta</button>
         </div>
 
         <div class="social-login">
           <button class="btn-social" onclick="handleGoogle()">
             <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-            Continuar com Google
+            <span data-i18n="login_google">Continuar com Google</span>
           </button>
         </div>
 
         <div class="divider">
-          <span>ou continue com e-mail</span>
+          <span data-i18n="login_divider">ou continue com e-mail</span>
         </div>
 
         <!-- LOGIN FORM -->
@@ -90,14 +99,14 @@
 
             <form id="form-login">
             <div class="form-group" style="margin-bottom: 1rem">
-                <label class="form-label">E-mail</label>
+                <label class="form-label" data-i18n="login_label_email">E-mail</label>
                 <div class="input-with-icon">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
                   <input type="email" id="login-email" class="form-input" placeholder="seu@email.com" required oninput="validateInput(this)">
                 </div>
             </div>
             <div class="form-group" style="margin-bottom: 0.5rem">
-                <label class="form-label">Senha</label>
+                <label class="form-label" data-i18n="login_label_password">Senha</label>
                 <div class="input-with-icon">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
                   <input type="password" id="login-password" class="form-input" placeholder="••••••••" required oninput="validateInput(this)">
@@ -105,10 +114,10 @@
                 </div>
             </div>
             <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 2rem; font-size: 0.9rem">
-                <a href="#" onclick="handleForgot(event)" style="color: var(--clr-accent); font-weight: 600; text-decoration: none">Esqueceu a senha?</a>
+                <a href="#" onclick="handleForgot(event)" style="color: var(--clr-accent); font-weight: 600; text-decoration: none" data-i18n="login_forgot">Esqueceu a senha?</a>
             </div>
 
-            <button type="submit" id="btn-login" class="btn btn--accent btn--lg" style="width: 100%; justify-content: center; margin-bottom: 1.5rem">Entrar na Conta</button>
+            <button type="submit" id="btn-login" class="btn btn--accent btn--lg" style="width: 100%; justify-content: center; margin-bottom: 1.5rem" data-i18n="login_btn_submit">Entrar na Conta</button>
             </form>
         </div>
 
@@ -118,21 +127,54 @@
 
             <form id="form-register">
             <div class="form-group" style="margin-bottom: 1rem">
-                <label class="form-label">Nome Completo</label>
+                <label class="form-label" data-i18n="register_label_name">Nome Completo</label>
                 <div class="input-with-icon">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                  <input type="text" id="register-name" class="form-input" placeholder="João da Silva" required oninput="validateInput(this)">
+                  <input type="text" id="register-name" class="form-input" placeholder="João da Silva" required oninput="validateInput(this)" data-i18n-placeholder="register_ph_name">
                 </div>
             </div>
+
             <div class="form-group" style="margin-bottom: 1rem">
-                <label class="form-label">E-mail</label>
+                <label class="form-label">Nome de Exibição / Fazenda</label>
+                <div class="input-with-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                  <input type="text" id="register-display-name" class="form-input" placeholder="Ex: Fazenda São João" required oninput="validateInput(this)">
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 1rem">
+                <label class="form-label">CPF / CNPJ</label>
+                <div class="input-with-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                  <input type="text" id="register-doc" class="form-input" placeholder="000.000.000-00 ou 00.000.000/0001-00" required oninput="validateInput(this)" maxlength="20">
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 1rem">
+                <label class="form-label">WhatsApp / Telefone</label>
+                <div class="input-with-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                  <input type="tel" id="register-phone" class="form-input" placeholder="+55 (99) 9 9999-9999" required oninput="validateInput(this)">
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 1rem">
+                <label class="form-label">CEP</label>
+                <div class="input-with-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                  <input type="text" id="register-cep" class="form-input" placeholder="00000-000" required oninput="validateInput(this)">
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 1rem">
+                <label class="form-label" data-i18n="login_label_email">E-mail</label>
                 <div class="input-with-icon">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
                   <input type="email" id="register-email" class="form-input" placeholder="seu@email.com" required oninput="validateInput(this)">
                 </div>
             </div>
             <div class="form-group" style="margin-bottom: 2rem">
-                <label class="form-label">Senha</label>
+                <label class="form-label" data-i18n="login_label_password">Senha</label>
                 <div class="input-with-icon">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
                   <input type="password" id="register-password" class="form-input" placeholder="••••••••" required minlength="8" oninput="validateInput(this)">
@@ -140,14 +182,14 @@
                 </div>
             </div>
 
-            <button type="submit" id="btn-register" class="btn btn--primary btn--lg" style="width: 100%; justify-content: center; margin-bottom: 1.5rem">Criar Conta</button>
+            <button type="submit" id="btn-register" class="btn btn--primary btn--lg" style="width: 100%; justify-content: center; margin-bottom: 1.5rem" data-i18n="register_btn_submit">Criar Conta</button>
             </form>
         </div>
       </div>
     </div>
   </main>
 
-  <script src="js/supabase.js?v=1783509347784"></script>
+  <script src="js/supabase.js?v=1784070010052"></script>
   <script src="js/data.js?v=1783509347784"></script>
   <script>
     function toggleSection(section, e) {
@@ -217,7 +259,18 @@
       try {
         await loginWithEmail(email, pass);
         const params = new URLSearchParams(window.location.search);
-        window.location.href = params.get('redirect') || 'painel.html';
+        const redirectParam = params.get('redirect') || '';
+        // T8: Validação robusta usando URL API — aceita apenas paths da mesma origem
+        let safeRedirect = 'painel.html';
+        try {
+          if (redirectParam) {
+            const resolved = new URL(redirectParam, window.location.origin);
+            if (resolved.origin === window.location.origin) {
+              safeRedirect = resolved.pathname + resolved.search;
+            }
+          }
+        } catch { /* URL inválida — usar padrão */ }
+        window.location.href = safeRedirect;
       } catch (err) {
         showAlert('login-alert', err.message || 'Erro ao fazer login.', 'error');
         btn.disabled = false;
@@ -228,6 +281,10 @@
     document.getElementById('form-register').addEventListener('submit', async (e) => {
       e.preventDefault();
       const name = document.getElementById('register-name').value.trim();
+      const displayName = document.getElementById('register-display-name').value.trim();
+      const doc = document.getElementById('register-doc').value.trim();
+      const phone = document.getElementById('register-phone').value.trim();
+      const cep = document.getElementById('register-cep').value.trim();
       const email = document.getElementById('register-email').value.trim();
       const pass = document.getElementById('register-password').value;
       const btn = document.getElementById('btn-register');
@@ -237,8 +294,20 @@
       btn.textContent = 'Criando conta...';
 
       try {
-        await signupWithEmail(email, pass, name);
-        showAlert('register-alert', 'Conta criada! Você já pode fazer login.', 'success');
+        const authData = await signupWithEmail(email, pass, name);
+        
+        // Se a API retornou o user, forçamos a atualização do perfil para gravar os dados novos 
+        if (authData && authData.user) {
+           const sb = getSupabase();
+           await sb.from('profiles').update({
+             display_name: displayName,
+             document_number: doc,
+             phone_whatsapp: phone,
+             zip_code: cep
+           }).eq('id', authData.user.id);
+        }
+
+        showAlert('register-alert', 'Conta criada com sucesso! Você já pode fazer login.', 'success');
         document.getElementById('form-register').reset();
       } catch (err) {
         const msg = err.message?.includes('already registered') ? 'Este e-mail já está cadastrado.' : err.message;
@@ -270,6 +339,6 @@
       toggleSection('register');
     }
   </script>
-  <script src="js/main.js?v=1783509347784"></script>
+  <script src="js/main.js?v=1784163733347"></script>
 </body>
 </html>

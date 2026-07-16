@@ -13,6 +13,21 @@
     es: ['nelore', 'angus', 'tractor', 'estancia', 'soja', 'maíz', 'novillo', 'vaquillona', 'caballo', 'porcino'],
   };
 
+  // ── Locations for Autocomplete ─────────────────────────────
+  const LOCATIONS = [
+    { name: 'Brasil', flag: '🇧🇷', id: 'BR' },
+    { name: 'Paraguai', flag: '🇵🇾', id: 'PY' },
+    { name: 'Argentina', flag: '🇦🇷', id: 'AR' },
+    { name: 'Uruguai', flag: '🇺🇾', id: 'UY' },
+    { name: 'Mato Grosso', flag: '📍', id: 'MT' },
+    { name: 'Goiás', flag: '📍', id: 'GO' },
+    { name: 'Mato Grosso do Sul', flag: '📍', id: 'MS' },
+    { name: 'São Paulo', flag: '📍', id: 'SP' },
+    { name: 'Minas Gerais', flag: '📍', id: 'MG' },
+    { name: 'Paraná', flag: '📍', id: 'PR' },
+    { name: 'Rio Grande do Sul', flag: '📍', id: 'RS' }
+  ];
+
   // ── Icons per category (emoji fallback) ──────────────────
   const CAT_EMOJI = {
     bovinos: '🐄', equinos: '🐎', suinos: '🐷', ovinos: '🐑',
@@ -51,6 +66,12 @@
     });
   }
 
+  function matchLocations(query) {
+    if (!query) return [];
+    const q = query.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return LOCATIONS.filter(l => l.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(q));
+  }
+
   function matchPopular(query, lang) {
     if (!query) return [];
     const q = query.toLowerCase();
@@ -70,15 +91,26 @@
     const lang    = getLang();
     const recents = getRecentSearches();
     const cats    = matchCategories(query, lang);
+    const locs    = matchLocations(query);
     const popular = matchPopular(query, lang).slice(0, 4);
     const hasQ    = query && query.length >= 1;
 
     let html = '';
 
+    // ── Localidades matching ──────────────────────────────
+    if (hasQ && locs.length) {
+      html += `<div class="sac-group-label">Localização</div>`;
+      html += locs.slice(0, 3).map(l => `
+        <div class="sac-item sac-loc" data-term="${l.name}">
+          <span class="sac-emoji">${l.flag}</span>
+          <span class="sac-text">${highlightMatch(l.name, query)}</span>
+        </div>`).join('');
+    }
+
     // ── Categorias matching ──────────────────────────────
     if (hasQ && cats.length) {
       html += `<div class="sac-group-label">Categorias</div>`;
-      html += cats.slice(0, 4).map(c => `
+      html += cats.slice(0, 3).map(c => `
         <div class="sac-item sac-cat" data-cat="${c.id}" data-term="">
           <span class="sac-emoji">${CAT_EMOJI[c.id] || '📦'}</span>
           <span class="sac-text">${lang === 'es' ? c.name_es : c.name_pt}</span>

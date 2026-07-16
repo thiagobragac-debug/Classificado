@@ -31,6 +31,7 @@
       if (ini) document.documentElement.style.setProperty('--tc-user-ini', '"' + ini + '"');
     }
   </script>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%2316A34A'/><text y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'>T</text></svg>">
 </head>
 <body>
 <h1>🔍 Tauze Class — Diagnóstico</h1>
@@ -39,8 +40,19 @@
 <button onclick="clearCache()">🗑 Limpar Cache (sessionStorage)</button>
 
 <script>
-const SUPABASE_URL  = 'https://rfzuzuobwuanmbrcthqe.supabase.co';
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmenV6dW9id3Vhbm1icmN0aHFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwNzg1OTMsImV4cCI6MjA5ODY1NDU5M30.m-Mop7RgpVo730lwjcra1egF8p9APv6AGnW1YnFvOgY';
+// ATENÇÃO: Este arquivo está no .gitignore — NÃO commitar.
+// As credenciais devem ser lidas de js/supabase.js (ou equivalente).
+// Como este arquivo é standalone (não carrega js/supabase.js), configure
+// as variáveis abaixo manualmente no ambiente local.
+// Jamais commitar valores reais de SUPABASE_URL ou SUPABASE_ANON_KEY aqui.
+const SUPABASE_URL  = window._SUPABASE_URL  || '';   // defina via meta ou env local
+const SUPABASE_ANON = window._SUPABASE_ANON || '';   // defina via meta ou env local
+
+if (!SUPABASE_URL || !SUPABASE_ANON) {
+  document.body.innerHTML = '<pre style="color:#ef4444;padding:20px">❌ SUPABASE_URL e SUPABASE_ANON não configurados.\n\nEste arquivo está no .gitignore.\nDefina window._SUPABASE_URL e window._SUPABASE_ANON em um <script> local\n(não commitado) antes de rodar o diagnóstico.</pre>';
+  throw new Error('Credenciais Supabase não configuradas.');
+}
+
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
 const out = document.getElementById('output');

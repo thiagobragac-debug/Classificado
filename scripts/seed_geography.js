@@ -1,10 +1,13 @@
+require('dotenv').config({ path: require('path').join(__dirname, '../api/.env') });
 const { createClient } = require('@supabase/supabase-js');
 const { Country, State, City } = require('country-state-city');
 
-const SUPABASE_URL = 'https://rfzuzuobwuanmbrcthqe.supabase.co';
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmenV6dW9id3Vhbm1icmN0aHFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwNzg1OTMsImV4cCI6MjA5ODY1NDU5M30.m-Mop7RgpVo730lwjcra1egF8p9APv6AGnW1YnFvOgY';
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+  console.error('❌  SUPABASE_URL e SUPABASE_ANON_KEY devem estar definidos em api/.env');
+  process.exit(1);
+}
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 
 // ISO codes for South American countries
 const saCountries = ['AR', 'BO', 'BR', 'CL', 'CO', 'EC', 'GY', 'PY', 'PE', 'SR', 'UY', 'VE'];

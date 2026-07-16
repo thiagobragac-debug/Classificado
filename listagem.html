@@ -2,6 +2,9 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
+  <!-- Security headers (defence-in-depth, complements server-side headers) -->
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Anúncios — Tauze Class</title>
   <meta name="description" content="Explore milhares de anúncios no Tauze Class. Filtre por categoria, localização, preço e encontre as melhores oportunidades no agronegócio do Mercosul.">
@@ -21,7 +24,7 @@
   <meta name="twitter:title" content="Anúncios — Tauze Class">
   <meta name="twitter:description" content="Explore milhares de anúncios no Tauze Class.">
   <meta name="twitter:image" content="https://tauzeclass.com.br/assets/og-home.jpg">
-  <link rel="stylesheet" href="css/style.css?v=1783509347880">
+  <link rel="stylesheet" href="css/style.css?v=1784160758676">
   <link rel="stylesheet" href="css/listagem.css?v=4">
 
   <script>
@@ -42,6 +45,7 @@
       if (ini) document.documentElement.style.setProperty('--tc-user-ini', '"' + ini + '"');
     }
   </script>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%2316A34A'/><text y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'>T</text></svg>">
 </head>
 <body>
 
@@ -52,7 +56,7 @@
       <div class="logo-mark">TC</div>
       <div class="logo-text">
         <span class="logo-name">Tauze Class</span>
-        <span class="logo-tagline">Classificados Agro</span>
+        <span class="logo-tagline" data-i18n="logo_tagline">Classificados Agro</span>
       </div>
     </a>
 
@@ -96,16 +100,16 @@
             <span aria-hidden="true">›</span>
             <span id="bc-category" data-i18n="nav_ads">Todos os Anúncios</span>
           </nav>
-          <h1 class="list-hero-title" id="list-page-title">Todos os Anúncios</h1>
+          <h1 class="list-hero-title" id="list-page-title" data-i18n="list_all_ads">Todos os Anúncios</h1>
           <p class="list-hero-count" id="results-count"></p>
         </div>
         <div class="list-sort-row" role="group" aria-label="Ordenação">
-          <label for="sort-select" class="sort-label">Ordenar:</label>
+          <label for="sort-select" class="sort-label" data-i18n="list_sort_label">Ordenar:</label>
           <select id="sort-select" class="sort-select" aria-label="Ordenar por">
-            <option value="recent">Mais Recentes</option>
-            <option value="price_asc">Menor Preço</option>
-            <option value="price_desc">Maior Preço</option>
-            <option value="featured">Destaques Primeiro</option>
+            <option value="recent" data-i18n="list_sort_recent">Mais Recentes</option>
+            <option value="price_asc" data-i18n="list_sort_price_asc">Menor Preço</option>
+            <option value="price_desc" data-i18n="list_sort_price_desc">Maior Preço</option>
+            <option value="featured" data-i18n="list_sort_featured">Destaques Primeiro</option>
           </select>
           <div class="view-toggle" role="group" aria-label="Modo de visualização">
             <button id="view-grid" class="view-btn active" onclick="setView('grid')" aria-label="Visualização em grade" aria-pressed="true">
@@ -127,11 +131,11 @@
     <aside class="filter-sidebar" aria-label="Filtros">
 
       <div class="filter-header">
-        <h2 class="filter-title">
+        <h2 class="filter-title" data-i18n="filter_title">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
           Filtros
         </h2>
-        <button class="filter-clear" onclick="clearFilters()" id="clear-filters-btn" style="display:none">Limpar</button>
+        <button class="filter-clear" onclick="clearFilters()" id="clear-filters-btn" style="display:none" data-i18n="filter_clear">Limpar</button>
       </div>
 
       <!-- Busca Livre -->
@@ -163,7 +167,7 @@
       <!-- Mesma fonte de dados (search_ads RPC), sem queries paralelas ao banco -->
       <div class="filter-group" id="fg-location">
         <button class="filter-group-title" onclick="toggleFilterGroup(this)" aria-expanded="false">
-          Localização
+          <span data-i18n="filter_location">Localização</span>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
         <div class="filter-options">
@@ -193,15 +197,15 @@
       <!-- Faixa de Preço -->
       <div class="filter-group">
         <button class="filter-group-title" onclick="toggleFilterGroup(this)" aria-expanded="false">
-          Faixa de Preço
+          <span data-i18n="filter_price_range">Faixa de Preço</span>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
         <div class="filter-options">
           <div class="price-input-group">
             <span class="price-currency">R$</span>
-            <input type="number" class="price-input-clean" id="price-min" placeholder="Mínimo" aria-label="Preço mínimo">
+            <input type="number" class="price-input-clean" id="price-min" placeholder="Mínimo" aria-label="Preço mínimo" data-i18n-placeholder="filter_min">
             <div class="price-divider"></div>
-            <input type="number" class="price-input-clean" id="price-max" placeholder="Máximo" aria-label="Preço máximo">
+            <input type="number" class="price-input-clean" id="price-max" placeholder="Máximo" aria-label="Preço máximo" data-i18n-placeholder="filter_max">
           </div>
           <div class="price-shortcuts" role="group" aria-label="Atalhos de preço">
             <button class="price-shortcut" onclick="setPrice(0,5000)">Até 5k</button>
@@ -215,21 +219,21 @@
       <!-- Tipo de Oferta -->
       <div class="filter-group">
         <button class="filter-group-title" onclick="toggleFilterGroup(this)" aria-expanded="false">
-          Tipo de Oferta
+          <span data-i18n="filter_offer_type">Tipo de Oferta</span>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
         <div class="filter-options">
-          <label class="filter-option" style="display: flex; align-items: center; gap: 8px;">
+          <label class="filter-option" style="display: flex; align-items: center; gap: 8px;" data-i18n="filter_featured_only">
             <input type="checkbox" value="featured" id="chk-featured">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="var(--clr-accent-pale)" stroke="var(--clr-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
             Apenas Destaques
           </label>
-          <label class="filter-option" style="display: flex; align-items: center; gap: 8px;">
+          <label class="filter-option" style="display: flex; align-items: center; gap: 8px;" data-i18n="filter_negotiable">
             <input type="checkbox" value="negotiable" id="chk-negotiable">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--clr-primary-mid)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
             Negociável
           </label>
-          <label class="filter-option" style="display: flex; align-items: center; gap: 8px;">
+          <label class="filter-option" style="display: flex; align-items: center; gap: 8px;" data-i18n="filter_verified_seller">
             <input type="checkbox" value="verified" id="chk-verified">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--clr-info)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
             Vendedor Verificado
@@ -237,7 +241,7 @@
         </div>
       </div>
 
-      <button class="btn btn--primary" onclick="applyFilters()" style="width:100%;margin-top:var(--sp-4)" id="apply-filters-btn">
+      <button class="btn btn--primary" onclick="applyFilters()" style="width:100%;margin-top:var(--sp-4)" id="apply-filters-btn" data-i18n="filter_apply">
         Aplicar Filtros
       </button>
 
@@ -260,14 +264,16 @@
   </div><!-- /.list-layout -->
 </main>
 
-<footer class="site-footer">
-  <div class="container">
-    <div class="footer-bottom" style="border-top:none;padding-block:var(--sp-6)">
-      <span data-i18n="footer_copy">© 2026 Tauze Class. Todos os direitos reservados.</span>
-      <a href="index.html" data-i18n="nav_home">← Voltar ao Início</a>
+        <footer class="site-footer simplified-footer" style="background: #020617; color: rgba(255,255,255,0.6); padding: 1.25rem 0; margin-top: auto;" role="contentinfo">
+    <div class="container" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+      <div style="font-weight: 600; color: white; font-size: 0.9rem;">Tauze Class <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.6; margin-left: 0.5rem;" data-i18n="footer_copy">© 2026. Todos os direitos reservados.</span></div>
+      <div style="display:flex; gap: 1.5rem; font-size: var(--fs-sm);">
+        <a href="index.html" style="transition: color 0.2s; color: rgba(255,255,255,0.6);" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,0.6)'">Início</a>
+        <a href="#" style="transition: color 0.2s; color: rgba(255,255,255,0.6);" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,0.6)'">Suporte</a>
+        <a href="institucional.html#termos">Termos de Uso</a>
+      </div>
     </div>
-  </div>
-</footer>
+  </footer>
 
 <!-- Mobile Filter Sheet -->
 <div class="filter-sheet-overlay" id="filter-overlay" onclick="closeFilterSheet()" aria-hidden="true"></div>
@@ -287,10 +293,10 @@
 </button>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="/js/supabase.js?v=1783509347784"></script>
+<script src="/js/supabase.js?v=1784070010052"></script>
 <script src="js/data.js?v=1783509347784"></script>
 <script src="js/ui_constants.js"></script>
-<script src="js/main.js?v=1783509347784"></script>
+<script src="js/main.js?v=1784163733347"></script>
 <script src="js/filters.js"></script>
 <script>
   document.addEventListener('DOMContentLoaded', async () => {

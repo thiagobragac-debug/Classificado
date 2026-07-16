@@ -2,9 +2,12 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
+  <!-- Security headers (defence-in-depth, complements server-side headers) -->
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Painel Admin - KYC | Tauze Class</title>
-  <link rel="stylesheet" href="css/style.css?v=1783509347880">
+  <link rel="stylesheet" href="css/style.css?v=1784160758676">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -38,6 +41,7 @@
       if (ini) document.documentElement.style.setProperty('--tc-user-ini', '"' + ini + '"');
     }
   </script>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%2316A34A'/><text y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'>T</text></svg>">
 </head>
 <body>
   <div class="header">
@@ -84,7 +88,7 @@
 
   <div id="toast"></div>
 
-  <script src="js/supabase.js?v=1783509347784"></script>
+  <script src="js/supabase.js?v=1784070010052"></script>
   <script>
     let _toastTimer;
     function showToast(msg,type=''){
@@ -108,9 +112,16 @@
           return;
         }
 
+        const escapeHTML = s => s ? String(s).replace(/[&<>'"]/g, t => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[t])) : '';
+        const sanitizeUrl = u => {
+           if (!u) return '#';
+           try { const p = new URL(u); if (!['http:', 'https:'].includes(p.protocol)) return '#'; return escapeHTML(u); } 
+           catch { return u.startsWith('javascript') ? '#' : escapeHTML(u); }
+        };
+
         tbody.innerHTML = data.map(req => {
-          const name = req.profiles?.full_name || 'Usuário Sem Nome';
-          const email = req.profiles?.email || 'Sem E-mail';
+          const name = escapeHTML(req.profiles?.full_name || 'Usuário Sem Nome');
+          const email = escapeHTML(req.profiles?.email || 'Sem E-mail');
           const date = new Date(req.submitted_at).toLocaleDateString('pt-BR');
           
           return `
@@ -122,9 +133,9 @@
               <td>${date}</td>
               <td>${req.doc_type === 'pessoa_fisica' ? 'Pessoa Física' : 'Pessoa Jurídica'}</td>
               <td>
-                <a href="${req.doc_front_url}" target="_blank" class="link" style="display:block;">Frente Doc</a>
-                ${req.doc_back_url ? `<a href="${req.doc_back_url}" target="_blank" class="link" style="display:block;">Verso Doc</a>` : ''}
-                <a href="${req.selfie_url}" target="_blank" class="link" style="display:block;">Selfie</a>
+                <a href="${sanitizeUrl(req.doc_front_url)}" target="_blank" class="link" style="display:block;">Frente Doc</a>
+                ${req.doc_back_url ? `<a href="${sanitizeUrl(req.doc_back_url)}" target="_blank" class="link" style="display:block;">Verso Doc</a>` : ''}
+                <a href="${sanitizeUrl(req.selfie_url)}" target="_blank" class="link" style="display:block;">Selfie</a>
               </td>
               <td>
                 <button class="btn btn-approve" onclick="handleApprove('${req.id}')" style="margin-right:0.5rem; margin-bottom:0.5rem;">Aprovar</button>
@@ -175,7 +186,9 @@
         loadKYC();
 
       } catch (err) {
-        document.getElementById('loading-content').innerHTML = '<h2 style="color: #dc2626;">Erro</h2><p>' + err.message + '</p>';
+        const lc = document.getElementById('loading-content');
+        lc.innerHTML = '<h2 style="color: #dc2626;">Erro</h2><p></p>';
+        lc.querySelector('p').textContent = err.message || 'Erro desconhecido';
       }
     })();
   </script>

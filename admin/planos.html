@@ -2,6 +2,9 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
+  <!-- Security headers (defence-in-depth, complements server-side headers) -->
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Planos e Assinaturas — Admin Tauze Class</title>
   <link rel="stylesheet" href="/admin/css/admin.css">
@@ -16,7 +19,11 @@
 <div class="adm-layout">
   <aside class="adm-sidebar" id="adm-sidebar"></aside>
   <div class="adm-main">
-<div id="global-error-banner" style="display:none; background:red; color:white; padding:15px; font-weight:bold; z-index:9999; position:relative;"></div><script>window.addEventListener('error', function(e) { const b = document.getElementById('global-error-banner'); if(b) { b.style.display = 'block'; b.innerHTML += e.message + '<br>'; } }); window.addEventListener('unhandledrejection', function(e) { const b = document.getElementById('global-error-banner'); if(b) { b.style.display = 'block'; b.innerHTML += e.reason + '<br>'; } });</script>
+<div id="global-error-banner" style="display:none; background:red; color:white; padding:15px; font-weight:bold; z-index:9999; position:relative;"></div><script>
+const escapeHTML = str => str ? String(str).replace(/[&<>'"]/g, tag => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+}[tag])) : '';
+window.addEventListener('error', function(e) { const b = document.getElementById('global-error-banner'); if(b) { b.style.display = 'block'; const msg = document.createElement('div'); msg.textContent = e.message || 'Erro desconhecido'; b.appendChild(msg); } }); window.addEventListener('unhandledrejection', function(e) { const b = document.getElementById('global-error-banner'); if(b) { b.style.display = 'block'; const msg = document.createElement('div'); msg.textContent = typeof e.reason === 'string' ? e.reason : (e.reason?.message || 'Erro desconhecido'); b.appendChild(msg); } });</script>
 
     <header class="adm-topbar">
       <div class="adm-breadcrumb">
@@ -140,7 +147,7 @@
   });
 
   async function fetchPlans() {
-    const headers = { 'apikey': ADM_SB_ANON, 'Authorization': `Bearer ${ADM_SB_ANON}` };
+    const headers = { 'apikey': ADM_SB_ANON, 'Authorization': `Bearer ${getAdminToken()}` };
     try {
       const res = await fetch(`${ADM_SB_URL}/rest/v1/plans?order=sort_order.asc`, { headers });
       if (!res.ok) throw new Error('Falha ao carregar planos');
@@ -204,7 +211,7 @@
     const div = document.createElement('div');
     div.className = 'feature-item';
     div.innerHTML = `
-      <input type="text" class="adm-input feat-input" placeholder="Ex: Suporte 24/7" value="${val}">
+      <input type="text" class="adm-input feat-input" placeholder="Ex: Suporte 24/7" value="${escapeHTML(val)}">
       <button class="adm-btn-icon adm-btn-icon--red" onclick="this.parentElement.remove()">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
@@ -283,7 +290,7 @@
 
     const headers = {
       'apikey': ADM_SB_ANON,
-      'Authorization': `Bearer ${token}`,
+      'Authorization': `Bearer ${getAdminToken()}`,
       'Content-Type': 'application/json',
       'Prefer': 'return=representation'
     };
@@ -322,7 +329,7 @@
     const sessionRaw = sessionStorage.getItem('tc_admin_session');
     const session = sessionRaw ? JSON.parse(sessionRaw) : null;
     const token = session ? session.token : ADM_SB_ANON;
-    const headers = { 'apikey': ADM_SB_ANON, 'Authorization': `Bearer ${token}` };
+    const headers = { 'apikey': ADM_SB_ANON, 'Authorization': `Bearer ${getAdminToken()}` };
     try {
       const res = await fetch(`${ADM_SB_URL}/rest/v1/plans?id=eq.${id}`, { method: 'DELETE', headers });
       if (!res.ok) throw new Error('Erro ao deletar');

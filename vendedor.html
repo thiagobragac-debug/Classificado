@@ -2,10 +2,13 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
+  <!-- Security headers (defence-in-depth, complements server-side headers) -->
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Perfil do Vendedor — Tauze Class</title>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=1783509347880">
+  <link rel="stylesheet" href="css/style.css?v=1784160758676">
   <link rel="stylesheet" href="css/listagem.css?v=999">
   <style>
     /* Replaced profile hero with page-header pattern */
@@ -76,6 +79,7 @@
       if (ini) document.documentElement.style.setProperty('--tc-user-ini', '"' + ini + '"');
     }
   </script>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%2316A34A'/><text y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'>T</text></svg>">
 </head>
 <body>
 
@@ -85,7 +89,7 @@
       <div class="logo-mark">TC</div>
       <div class="logo-text">
         <span class="logo-name">Tauze Class</span>
-        <span class="logo-tagline">Classificados Agro</span>
+        <span class="logo-tagline" data-i18n="logo_tagline">Classificados Agro</span>
       </div>
     </a>
 
@@ -127,23 +131,23 @@
   
   <!-- Profile Card -->
   <div id="profile-container" style="display:none; background: var(--clr-surface); border-radius: 1rem; box-shadow: var(--shadow-sm); padding: 1.5rem; margin-bottom: 2rem;">
-    <div class="seller-profile-info" style="display:flex; flex-direction:column; align-items:center; text-align:center; gap: 1rem;">
+    <div class="seller-profile-info" style="display:flex; flex-direction:row; align-items:center; text-align:left; gap: 1.5rem; flex-wrap:wrap;">
       <div class="seller-avatar-large" id="seller-avatar" style="background: var(--clr-primary, #15803D); box-shadow: var(--shadow-md);">U</div>
       <div class="seller-details" style="flex:1;">
         <h1 id="seller-name" style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap; margin:0; font-size:1.5rem; color:var(--clr-text);">
           Carregando...
-          <span id="seller-verification" style="display:none;" class="seller-badge">
+          <span id="seller-verification" style="display:none;" class="seller-badge" data-i18n="vendor_verified">
             <svg class="verified-icon" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
             Identidade Verificada
           </span>
-          <span id="seller-unverified" style="display:none;" class="seller-badge" style="background:#f1f5f9; color:#64748b;">
+          <span id="seller-unverified" style="display:none;" class="seller-badge" style="background:#f1f5f9; color:#64748b;" data-i18n="vendor_unverified">
             Conta Não Verificada
           </span>
         </h1>
-        <div class="seller-meta" id="seller-date" style="font-size:0.9rem; color:var(--clr-text-light); margin-top:0.25rem;">Membro</div>
+        <div class="seller-meta" id="seller-date" data-i18n="vendor_member" style="font-size:0.9rem; color:var(--clr-text-light); margin-top:0.25rem;">Membro</div>
       </div>
       <div class="seller-actions" style="margin-left:auto;">
-        <button class="btn-secondary" style="display:inline-flex;align-items:center;gap:.4rem;padding:.5rem 1rem;border-radius:.5rem;background:#fff;border:1px solid #e2e8f0;color:#475569;font-weight:600;font-size:.85rem;cursor:pointer;transition:all .2s" onclick="navigator.clipboard.writeText(window.location.href); const orig = this.innerHTML; this.innerHTML = '<svg width=\'16\' height=\'16\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><polyline points=\'20 6 9 17 4 12\'></polyline></svg> Link Copiado!'; this.style.color = '#16a34a'; this.style.borderColor = '#16a34a'; setTimeout(() => { this.innerHTML = orig; this.style.color = ''; this.style.borderColor = ''; }, 2000);">
+        <button class="btn-secondary" data-i18n="vendor_share" style="display:inline-flex;align-items:center;gap:.4rem;padding:.5rem 1rem;border-radius:.5rem;background:#fff;border:1px solid #e2e8f0;color:#475569;font-weight:600;font-size:.85rem;cursor:pointer;transition:all .2s" onclick="navigator.clipboard.writeText(window.location.href); const orig = this.innerHTML; this.innerHTML = '<svg width=\'16\' height=\'16\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><polyline points=\'20 6 9 17 4 12\'></polyline></svg> Link Copiado!'; this.style.color = '#16a34a'; this.style.borderColor = '#16a34a'; setTimeout(() => { this.innerHTML = orig; this.style.color = ''; this.style.borderColor = ''; }, 2000);">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
           Compartilhar Perfil
         </button>
@@ -152,25 +156,36 @@
   </div>
 
   <div class="container">
-    <div id="loading-state" style="text-align:center; padding: 4rem;">Carregando perfil...</div>
-    <div id="error-state" style="text-align:center; padding: 4rem; color:red; display:none;">Vendedor não encontrado.</div>
+    <div id="loading-state" data-i18n="vendor_loading" style="text-align:center; padding: 4rem;">Carregando perfil...</div>
+    <div id="error-state" data-i18n="vendor_not_found" style="text-align:center; padding: 4rem; color:red; display:none;">Vendedor não encontrado.</div>
 
-    <h2 style="margin-bottom: 1.5rem; display:none;" id="ads-title">Anúncios deste vendedor</h2>
+    <h2 style="margin-bottom: 1.5rem; display:none;" id="ads-title" data-i18n="vendor_ads_title">Anúncios deste vendedor</h2>
     
     <!-- Ad Grid -->
     <div class="ads-grid" id="seller-ads-grid">
       <!-- Ads populated via JS -->
     </div>
     
-    <div id="empty-state" style="text-align:center; padding: 4rem; color:var(--clr-text-light); display:none;">Este vendedor não possui anúncios ativos no momento.</div>
+    <div id="empty-state" data-i18n="vendor_no_ads" style="text-align:center; padding: 4rem; color:var(--clr-text-light); display:none;">Este vendedor não possui anúncios ativos no momento.</div>
 
   </div>
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/supabase.js?v=1783509347784"></script>
+<script src="js/supabase.js?v=1784070010052"></script>
 <script src="js/ui_constants.js"></script>
 <script>
+  // T5: Função escapeHTML local para evitar XSS com dados do banco
+  function escapeHTML(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
   document.addEventListener('DOMContentLoaded', async () => {
     const params = new URLSearchParams(window.location.search);
     const sellerId = params.get('id');
@@ -199,7 +214,7 @@
       document.getElementById('profile-container').style.display = 'block';
       document.getElementById('ads-title').style.display = 'block';
 
-      const fullName = profile.name || profile.full_name || 'Vendedor';
+      const fullName = profile.display_name || profile.name || profile.full_name || 'Vendedor';
       document.getElementById('seller-name').childNodes[0].textContent = fullName + ' ';
       document.getElementById('breadcrumb-seller-name').textContent = fullName;
       document.title = fullName + ' — Perfil do Vendedor';
@@ -246,16 +261,16 @@
            const loc = locParts.length ? locParts.join(', ') : '';
            
            adsHTML += `
-            <article class="ad-card" onclick="location.href='anuncio.html?id=${ad.id}'" style="cursor:pointer;">
+            <article class="ad-card" onclick="location.href='anuncio.html?id=${escapeHTML(ad.id)}'" style="cursor:pointer;">
               <div class="ad-card__image">
-                <img src="${imageUrl}" alt="${ad.title_pt}" loading="lazy">
+                <img src="${escapeHTML(imageUrl)}" alt="${escapeHTML(ad.title_pt)}" loading="lazy">
               </div>
               <div class="ad-card__body">
-                <h3 class="ad-card__title">${ad.title_pt}</h3>
-                <div class="ad-card__price">${displayPrice}</div>
+                <h3 class="ad-card__title">${escapeHTML(ad.title_pt)}</h3>
+                <div class="ad-card__price">${escapeHTML(displayPrice)}</div>
                 <div class="ad-card__meta">
                   <div class="ad-card__location">
-                    <span>${loc}</span>
+                    <span>${escapeHTML(loc)}</span>
                   </div>
                 </div>
               </div>
@@ -274,5 +289,18 @@
     }
   });
 </script>
+<script src="js/data.js?v=1783509347784"></script>
+        <footer class="site-footer simplified-footer" style="background: #020617; color: rgba(255,255,255,0.6); padding: 1.25rem 0; margin-top: auto;" role="contentinfo">
+    <div class="container" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+      <div style="font-weight: 600; color: white; font-size: 0.9rem;">Tauze Class <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.6; margin-left: 0.5rem;" data-i18n="footer_copy">© 2026. Todos os direitos reservados.</span></div>
+      <div style="display:flex; gap: 1.5rem; font-size: var(--fs-sm);">
+        <a href="index.html" style="transition: color 0.2s; color: rgba(255,255,255,0.6);" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,0.6)'">Início</a>
+        <a href="#" style="transition: color 0.2s; color: rgba(255,255,255,0.6);" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,0.6)'">Suporte</a>
+        <a href="institucional.html#termos">Termos de Uso</a>
+      </div>
+    </div>
+  </footer>
+
+<script src="js/main.js?v=1784163733347"></script>
 </body>
 </html>

@@ -2,6 +2,9 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
+  <!-- Security headers (defence-in-depth, complements server-side headers) -->
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin — Tauze Class</title>
   <link rel="stylesheet" href="/admin/css/admin.css">
@@ -43,7 +46,7 @@
       <label>E-mail</label>
       <div style="position:relative">
         <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--adm-text-light)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-        <input type="email" id="login-email" class="adm-input" style="padding-left:34px" value="admin@tauzeclass.com" required placeholder="admin@tauzeclass.com">
+        <input type="email" id="login-email" class="adm-input" style="padding-left:34px" required placeholder="seu@email.com">
       </div>
     </div>
     <div class="adm-field">
@@ -72,6 +75,10 @@
 
 <script src="/admin/js/admin.js?v=20240708_8"></script>
 <script>
+const escapeHTML = str => str ? String(str).replace(/[&<>'"]/g, tag => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+}[tag])) : '';
+
   // Redirect if already logged in
   if (sessionStorage.getItem('tc_admin_session')) location.href = 'index.html';
 

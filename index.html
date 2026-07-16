@@ -2,6 +2,9 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
+  <!-- Security headers (defence-in-depth, complements server-side headers) -->
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Tauze Class — Classificados do Agronegócio Mercosul</title>
   <meta name="description" content="Tauze Class — O maior portal de classificados do agronegocio do Mercosul. Compre e venda animais, insumos, maquinas e imoveis rurais no Brasil, Argentina, Paraguai e Uruguai.">
@@ -21,7 +24,7 @@
   <meta name="twitter:title" content="Tauze Class — Classificados do Agronegocio">
   <meta name="twitter:description" content="Compre e venda no maior classificado agro do Mercosul.">
   <meta name="twitter:image" content="https://tauzeclass.com.br/assets/og-home.jpg">
-  <link rel="stylesheet" href="css/style.css?v=1783509347880">
+  <link rel="stylesheet" href="css/style.css?v=1784160758676">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%2316A34A'/><text y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'>T</text></svg>">
   <!-- PWA -->
   <link rel="manifest" href="/manifest.json">
@@ -327,7 +330,51 @@
           </a>
         </div>
       </div>
-      <div id="countries-grid" class="country-cards" role="list" aria-label="Países cobertos"></div>
+      <div id="countries-grid" class="country-cards" role="list" aria-label="Países cobertos">
+        <style>
+          .country-card {
+            background: #ffffff;
+            padding: var(--sp-4) var(--sp-5);
+            border-radius: 16px;
+            border: 1px solid rgba(0,0,0,0.04);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: default;
+          }
+          .country-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(34, 197, 94, 0.12);
+            border-color: rgba(34, 197, 94, 0.3);
+          }
+          .country-flag {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            object-fit: cover;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+            border: 2px solid #fff;
+          }
+        </style>
+        <div class="country-card">
+          <img src="https://flagcdn.com/br.svg" alt="Brasil" class="country-flag">
+          <div><div style="font-weight:700;color:var(--clr-heading);font-size:1.05rem;">Brasil</div><div style="font-size:0.85rem;color:var(--clr-text-muted);margin-top:2px;">Cobertura Nacional</div></div>
+        </div>
+        <div class="country-card">
+          <img src="https://flagcdn.com/ar.svg" alt="Argentina" class="country-flag">
+          <div><div style="font-weight:700;color:var(--clr-heading);font-size:1.05rem;">Argentina</div><div style="font-size:0.85rem;color:var(--clr-text-muted);margin-top:2px;">Cobertura Nacional</div></div>
+        </div>
+        <div class="country-card">
+          <img src="https://flagcdn.com/py.svg" alt="Paraguai" class="country-flag">
+          <div><div style="font-weight:700;color:var(--clr-heading);font-size:1.05rem;">Paraguai</div><div style="font-size:0.85rem;color:var(--clr-text-muted);margin-top:2px;">Cobertura Nacional</div></div>
+        </div>
+        <div class="country-card">
+          <img src="https://flagcdn.com/uy.svg" alt="Uruguai" class="country-flag">
+          <div><div style="font-weight:700;color:var(--clr-heading);font-size:1.05rem;">Uruguai</div><div style="font-size:0.85rem;color:var(--clr-text-muted);margin-top:2px;">Cobertura Nacional</div></div>
+        </div>
+      </div>
     </div>
   </div>
 </section>
@@ -423,10 +470,10 @@
 <!-- Scripts com defer: baixados em paralelo, executados na ordem correta
      após o HTML ser parseado — máxima performance de carregamento -->
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script defer src="js/supabase.js?v=1783509347784"></script>
+<script defer src="js/supabase.js?v=1784070010052"></script>
 <script defer src="js/data.js?v=1783509347784"></script>
 <script defer src="js/ui_constants.js"></script>
-<script defer src="js/main.js?v=1783509347784"></script>
+<script defer src="js/main.js?v=1784163733347"></script>
 <script defer src="js/home.js"></script>
 <script defer src="js/search_autocomplete.js"></script>
 
@@ -478,10 +525,12 @@
   "publisher": {
     "@type": "Organization",
     "name": "Tauze Class",
-    "url": "https://tauzeclass.com.br"
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://tauzeclass.com.br/assets/logo.png"
+    }
   }
 }
 </script>
-
 </body>
 </html>

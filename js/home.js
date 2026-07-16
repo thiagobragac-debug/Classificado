@@ -144,16 +144,20 @@ async function initHomeStats() {
     Object.entries(allStats).forEach(([id, {val, suffix}]) => {
       const el = document.getElementById(id);
       if (!el) return;
+      const finalSuffix = stats.plus === false ? suffix.replace('+', '') : suffix;
       el.setAttribute('data-target', String(val));
-      el.setAttribute('data-suffix', suffix);
-      el.textContent = '0' + suffix;
+      el.setAttribute('data-suffix', finalSuffix);
+      el.setAttribute('data-format', stats.format || 'k');
+      el.textContent = '0' + finalSuffix;
       if (typeof animateCount === 'function') {
-        animateCount(el, val);
+        animateCount(el, val, 1800, stats.format || 'k');
       } else {
         const n = val;
-        el.textContent = n >= 1000000 ? (n/1e6).toFixed(1) + 'M' + suffix
-                       : n >= 1000    ? (n/1000).toFixed(n%1000===0?0:1).replace('.0','') + 'k' + suffix
-                       : n + suffix;
+        let numStr = n.toString();
+        if (stats.format === 'k' && n >= 1000) numStr = (n/1000).toFixed(n%1000===0?0:1).replace('.0','') + 'k';
+        else if (stats.format === 'mil' && n >= 1000) numStr = (n/1000).toFixed(n%1000===0?0:1).replace('.0','') + 'mil';
+        else if (n >= 1000000) numStr = (n/1e6).toFixed(1) + 'M';
+        el.textContent = numStr + finalSuffix;
       }
     });
 
@@ -226,6 +230,40 @@ async function renderFeaturedAdsHome() {
 // Usa search_ads RPC com cursor para Load More — evita OFFSET lento
 let _recentCursor = null;
 let _recentHasMore = false;
+
+async function renderCountriesHome() {
+  const grid = document.getElementById('countries-grid');
+  if (!grid) return;
+  
+  try {
+    const { data, error } = await sb.rpc('get_country_counts');
+    if (error) throw error;
+    
+    const flags = {
+      'Brasil': '🇧🇷',
+      'Argentina': '🇦🇷',
+      'Paraguai': '🇵🇾',
+      'Uruguai': '🇺🇾',
+      'Bolivia': '🇧🇴',
+      'Chile': '🇨🇱',
+      'Colombia': '🇨🇴'
+    };
+    
+    if (data && data.length > 0) {
+      grid.innerHTML = data.map(c => `
+        <div class="country-card fade-in-up">
+          <div class="country-flag">${flags[c.country_name] || '🌎'}</div>
+          <div class="country-name">${c.country_name}</div>
+          <div class="country-ads">${c.total.toLocaleString('pt-BR')} ${t('country_ads_label') || 'anúncios'}</div>
+        </div>
+      `).join('');
+    } else {
+      grid.innerHTML = '<p style="text-align:center;width:100%;color:var(--text-light)">Nenhum anúncio por país no momento.</p>';
+    }
+  } catch(e) {
+    console.error('Erro em renderCountriesHome:', e);
+  }
+}
 
 async function renderRecentAdsHome() {
   const grid  = document.getElementById('recent-ads');
@@ -303,6 +341,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderCategoriesHome(),
     renderFeaturedAdsHome(),
     renderRecentAdsHome(),
+    renderCountriesHome(),
   ]).then(() => {
     console.log('[home] ✅ Tudo carregado!');
   }).catch(e => {

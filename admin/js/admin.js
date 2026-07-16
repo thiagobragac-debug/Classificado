@@ -127,6 +127,14 @@ const CHART_DATA = [
 ];
 const CHART_MAX = Math.max(...CHART_DATA.map(d => d.val));
 
+// ─── CSS COLOR SANITIZER (admin) ──────────────
+function sanitizeCssColor(value) {
+  if (typeof value !== 'string') return null;
+  if (/^#[0-9a-fA-F]{3,8}$/.test(value)) return value;
+  if (/^rgba?\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}(\s*,\s*[\d.]+)?\s*\)$/.test(value)) return value;
+  return null;
+}
+
 // ─── TOAST SYSTEM ─────────────────────────────
 function showToast(msg, type = 'success') {
   const icons = {
@@ -139,7 +147,13 @@ function showToast(msg, type = 'success') {
   if (!container) { container = document.createElement('div'); container.className = 'adm-toast-container'; document.body.appendChild(container); }
   const toast = document.createElement('div');
   toast.className = `adm-toast adm-toast--${type}`;
-  toast.innerHTML = `${icons[type]}<span>${msg}</span>`;
+  // T3: Evitar XSS — icons são SVGs constantes (seguros), msg é dado externo
+  const iconEl = document.createElement('span');
+  iconEl.innerHTML = icons[type] || '';
+  const msgEl = document.createElement('span');
+  msgEl.textContent = msg;
+  toast.appendChild(iconEl);
+  toast.appendChild(msgEl);
   container.appendChild(toast);
   setTimeout(() => { toast.style.opacity='0'; toast.style.transform='translateY(10px)'; toast.style.transition='all .3s'; setTimeout(()=>toast.remove(),300); }, 3000);
 }
@@ -152,7 +166,7 @@ async function fetchCount(table, query = '') {
       method: 'HEAD',
       headers: {
         'apikey': ADM_SB_ANON,
-        'Authorization': `Bearer ${ADM_SB_ANON}`,
+        'Authorization': `Bearer ${getAdminToken()}`,
         'Prefer': 'count=exact'
       }
     });
@@ -174,6 +188,7 @@ function closeModal(id) { document.getElementById(id).classList.remove('open'); 
 // ─── CUSTOM CONFIRM ───────────────────────────
 window.admConfirm = function(msg) {
   return new Promise((resolve) => {
+    // T7: ${msg} substituído por CONFIRM_MSG_PLACEHOLDER para evitar XSS
     const html = `
     <div id="adm-confirm-modal" class="adm-overlay open" style="z-index:99999;">
       <div class="adm-modal" style="max-width:400px; text-align:center; padding:30px 20px; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
@@ -181,7 +196,7 @@ window.admConfirm = function(msg) {
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         </div>
         <h3 style="margin-bottom:10px; font-size:1.2rem; color:var(--adm-text);">Confirmação</h3>
-        <p style="color:var(--adm-text-muted); margin-bottom:25px; line-height:1.5">${msg}</p>
+        <p style="color:var(--adm-text-muted); margin-bottom:25px; line-height:1.5">CONFIRM_MSG_PLACEHOLDER</p>
         <div style="display:flex; justify-content:center; gap:10px;">
           <button id="btn-confirm-cancel" class="adm-btn adm-btn--outline" style="min-width:100px; justify-content:center;">Cancelar</button>
           <button id="btn-confirm-ok" class="adm-btn adm-btn--primary" style="min-width:100px; justify-content:center;">OK</button>
@@ -190,6 +205,8 @@ window.admConfirm = function(msg) {
     </div>`;
     const div = document.createElement('div');
     div.innerHTML = html;
+    // Inserir msg de forma segura via textContent (evita XSS)
+    div.querySelector('p').textContent = msg;
     document.body.appendChild(div);
     
     document.getElementById('btn-confirm-cancel').onclick = () => { div.remove(); resolve(false); };
@@ -277,7 +294,12 @@ function renderSidebar(activePage) {
     el.innerHTML = sidebarHTML;
   } catch(e) {
     console.error('Error rendering sidebar:', e);
-    el.innerHTML = `<div style="padding:20px;color:red;font-size:12px;">Erro menu: ${e.message}</div>`;
+    // T4: e.message via textContent para evitar XSS
+    el.textContent = '';
+    const errDiv = document.createElement('div');
+    errDiv.style.cssText = 'padding:20px;color:red;font-size:12px;';
+    errDiv.textContent = 'Erro menu: ' + e.message;
+    el.appendChild(errDiv);
   }
 }
 
@@ -357,29 +379,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ─── DYNAMIC CONFIGURATIONS ────────────────
 function applyAdminDynamicSettings() {
-  const logoUrl = localStorage.getItem('tc_logo_url');
-  const primaryColor = localStorage.getItem('tc_primary_color');
+  const rawLogoUrl = localStorage.getItem('tc_logo_url');
+  const rawColor = localStorage.getItem('tc_primary_color');
+
+  // Sanitize logo URL — evita javascript: protocol injection
+  const logoUrl = (function(url) {
+    if (!url) return null;
+    try {
+      const parsed = new URL(url);
+      if (!['http:', 'https:', 'data:'].includes(parsed.protocol)) return null;
+      return url;
+    } catch {
+      return url.startsWith('javascript') ? null : url;
+    }
+  })(rawLogoUrl);
 
   // Apply Logo
   if (logoUrl) {
+    const favicon = document.querySelector('link[rel="icon"]');
+    if (favicon) favicon.href = logoUrl;
+
     document.querySelectorAll('.adm-logo-mark').forEach(el => {
       el.textContent = '';
       el.style.backgroundImage = `url('${logoUrl}')`;
-      el.style.backgroundSize = 'cover';
+      el.style.backgroundSize = 'contain';
+      el.style.backgroundRepeat = 'no-repeat';
       el.style.backgroundPosition = 'center';
       el.style.backgroundColor = 'transparent';
     });
   }
 
-  // Apply Primary Color
+  // T2: Apply Primary Color com sanitização estrita
+  const primaryColor = sanitizeCssColor(rawColor);
   if (primaryColor) {
     const style = document.createElement('style');
-    style.textContent = `
-      :root {
-        --clr-primary: ${primaryColor} !important;
-        --clr-primary-mid: ${primaryColor} !important;
-      }
-    `;
+    style.textContent = `:root { --clr-primary: ${primaryColor} !important; --clr-primary-mid: ${primaryColor} !important; }`;
     document.head.appendChild(style);
   }
 }

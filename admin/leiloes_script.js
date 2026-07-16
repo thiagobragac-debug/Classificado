@@ -131,7 +131,7 @@ window.addEventListener('error', function(e) { const b = document.getElementById
 
     try {
       const session = JSON.parse(sessionStorage.getItem('tc_admin_session') || '{}');
-      const headers = { 'apikey': ADM_SB_ANON, 'Authorization': `Bearer ${session.token || ADM_SB_ANON}`, 'Content-Type': 'application/json' };
+      const headers = { 'apikey': ADM_SB_ANON, 'Authorization': `Bearer ${getAdminToken()}`, 'Content-Type': 'application/json' };
       
       let res;
       if (id) {
@@ -154,7 +154,7 @@ window.addEventListener('error', function(e) { const b = document.getElementById
     if(!(await admConfirm('Tem certeza que deseja excluir este evento? Todos os lotes associados também serão removidos.'))) return;
     try {
       const session = JSON.parse(sessionStorage.getItem('tc_admin_session') || '{}');
-      const headers = { 'apikey': ADM_SB_ANON, 'Authorization': `Bearer ${session.token || ADM_SB_ANON}` };
+      const headers = { 'apikey': ADM_SB_ANON, 'Authorization': `Bearer ${getAdminToken()}` };
       await fetch(`${ADM_SB_URL}/rest/v1/auction_events?id=eq.${id}`, { method: 'DELETE', headers });
       showToast('Leilão removido', 'info');
       fetchAndRenderAuctions();
@@ -229,7 +229,7 @@ window.addEventListener('error', function(e) { const b = document.getElementById
 
     try {
       const session = JSON.parse(sessionStorage.getItem('tc_admin_session') || '{}');
-      const headers = { 'apikey': ADM_SB_ANON, 'Authorization': `Bearer ${session.token || ADM_SB_ANON}`, 'Content-Type': 'application/json' };
+      const headers = { 'apikey': ADM_SB_ANON, 'Authorization': `Bearer ${getAdminToken()}`, 'Content-Type': 'application/json' };
       const res = await fetch(`${ADM_SB_URL}/rest/v1/auction_lots`, { method: 'POST', headers, body: JSON.stringify(lot) });
       if (!res.ok) throw new Error('Erro');
       showToast('Lote adicionado', 'success');
@@ -252,7 +252,7 @@ window.addEventListener('error', function(e) { const b = document.getElementById
     if(!(await admConfirm('Deseja excluir este lote?'))) return;
     try {
       const session = JSON.parse(sessionStorage.getItem('tc_admin_session') || '{}');
-      const headers = { 'apikey': ADM_SB_ANON, 'Authorization': `Bearer ${session.token || ADM_SB_ANON}` };
+      const headers = { 'apikey': ADM_SB_ANON, 'Authorization': `Bearer ${getAdminToken()}` };
       await fetch(`${ADM_SB_URL}/rest/v1/auction_lots?id=eq.${id}`, { method: 'DELETE', headers });
       fetchAndRenderAuctions();
     } catch(e) {
@@ -261,7 +261,7 @@ window.addEventListener('error', function(e) { const b = document.getElementById
   }
 
   async function fetchAndRenderAuctions() {
-    const headers = { 'apikey': ADM_SB_ANON, 'Authorization': `Bearer ${ADM_SB_ANON}` };
+    const headers = { 'apikey': ADM_SB_ANON, 'Authorization': `Bearer ${getAdminToken()}` };
     try {
       const resAuctions = await fetch(`${ADM_SB_URL}/rest/v1/auction_events?order=date.asc`, { headers });
       if (resAuctions.ok) {

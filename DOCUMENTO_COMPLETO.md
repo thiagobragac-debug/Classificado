@@ -15,10 +15,10 @@
 ### Banco de Dados
 - **Plataforma:** Supabase (PostgreSQL)
 - **Projeto:** `classificado-tauze-class`
-- **ID do projeto:** `rfzuzuobwuanmbrcthqe`
+- **ID do projeto:** `[REDACTED]`
 - **Região:** `sa-east-1` (São Paulo)
-- **URL:** `https://rfzuzuobwuanmbrcthqe.supabase.co`
-- **Dashboard:** https://supabase.com/dashboard/project/rfzuzuobwuanmbrcthqe
+- **URL:** `[REDACTED]`
+- **Dashboard:** [REDACTED]
 
 ---
 
@@ -52,7 +52,7 @@
 | `admin/banners.html` | Banners de publicidade |
 | `admin/assinaturas.html` | Gestão de assinaturas e MRR |
 | `admin/configuracoes.html` | Configurações gerais + credenciais dos gateways |
-| **Login admin:** | email `admin@tauzeclass.com` / senha `admin123` |
+| **Login admin:** | email `[REDACTED]` / senha `[REDACTED]` |
 
 ---
 
@@ -89,15 +89,15 @@
 
 ### `create-checkout`
 - **Método:** `POST` (requer JWT no header `Authorization: Bearer <token>`)
-- **URL:** `https://rfzuzuobwuanmbrcthqe.supabase.co/functions/v1/create-checkout`
+- **URL:** `[REDACTED]`
 - **Body:** `{ "plan": "pro", "gateway": "stripe" }`
 - **Retorna:** `{ "url": "https://checkout.stripe.com/..." }`
 - **O que faz:** Cria sessão de checkout no Stripe ou preferência no Mercado Pago e redireciona o usuário para o pagamento
 
 ### `webhook-payment`
 - **Método:** `POST` (público — sem JWT, para que os gateways possam chamar)
-- **URL Stripe:** `https://rfzuzuobwuanmbrcthqe.supabase.co/functions/v1/webhook-payment`
-- **URL MP:** `https://rfzuzuobwuanmbrcthqe.supabase.co/functions/v1/webhook-payment?source=mercadopago`
+- **URL Stripe:** `[REDACTED]`
+- **URL MP:** `[REDACTED]`
 - **O que faz:** Recebe eventos dos gateways e atualiza `subscriptions` + `profiles.plan` no banco
 
 ---
@@ -158,7 +158,7 @@
 2. Clique em **+ Add destination → Webhook endpoint**
 3. **Endpoint URL:**
    ```
-   https://rfzuzuobwuanmbrcthqe.supabase.co/functions/v1/webhook-payment
+   [REDACTED]
    ```
 4. **Eventos a selecionar** (marque os 4):
    - `checkout.session.completed`
@@ -185,7 +185,7 @@
 1. No painel, vá em **Webhooks → Configurar notificações**
 2. **URL de produção:**
    ```
-   https://rfzuzuobwuanmbrcthqe.supabase.co/functions/v1/webhook-payment?source=mercadopago
+   [REDACTED]
    ```
 3. Eventos: marque ✅ **Pagamentos**
 4. Clique em **Guardar**
@@ -194,7 +194,7 @@
 
 ### PARTE C — Adicionar Secrets no Supabase
 
-> Acesse: https://supabase.com/dashboard/project/rfzuzuobwuanmbrcthqe/functions
+> Acesse: [REDACTED]
 
 #### Função `create-checkout` → aba Secrets
 
@@ -300,7 +300,7 @@ git push origin main
 ## 10. ✅ Checklist de Go-Live
 
 ### Banco e autenticação
-- [x] Projeto Supabase criado (`rfzuzuobwuanmbrcthqe`)
+- [x] Projeto Supabase criado (`[REDACTED]`)
 - [x] 10 tabelas criadas com RLS
 - [x] Trigger de auto-criação de perfil
 - [x] Storage bucket `ad-images`
