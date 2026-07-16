@@ -270,14 +270,7 @@ async function toggleFavorite(event, adId) {
     event.stopPropagation();
   }
 
-  // Verificar login antes de fazer qualquer coisa
-  if (typeof getSession === 'function') {
-    const sess = await getSession();
-    if (!sess) {
-      window.location.href = 'login.html';
-      return false;
-    }
-  }
+  // Removida verificação de login: permite favoritar deslogado (apenas localmente)
 
   const isFav = window.tcFavorites.has(adId);
 

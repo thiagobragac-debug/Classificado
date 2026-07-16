@@ -360,7 +360,7 @@ async function uploadAdImage(rawFile, adId) {
 
 async function _rpcToggleFav(adId) {
   const session = await getSession();
-  if (!session) { window.location.href = '/login.html'; return; }
+  if (!session) { return false; } // Não redireciona, permite salvar localmente
 
   const { data: existingRecords, error } = await getSupabase()
     .from('favorites').select('id').eq('user_id', session.user.id).eq('ad_id', adId);
@@ -377,6 +377,46 @@ async function _rpcToggleFav(adId) {
   } else {
     await getSupabase().from('favorites').insert({ user_id: session.user.id, ad_id: adId });
     return true; // adicionado
+  }
+}
+
+
+async function syncFavoritesLocal() {
+  const session = await getSession();
+  if (!session) return;
+  
+  try {
+    // Pegar favoritos locais
+    const localStr = localStorage.getItem('tc_favorites');
+    const localFavs = localStr ? JSON.parse(localStr) : [];
+    
+    // Pegar favoritos do banco
+    const { data: dbRecords, error } = await getSupabase()
+      .from('favorites').select('ad_id').eq('user_id', session.user.id);
+      
+    if (error) throw error;
+    
+    const dbFavs = dbRecords.map(r => r.ad_id);
+    
+    // Favoritos que estao no local mas não no banco
+    const toInsert = localFavs.filter(id => !dbFavs.includes(id));
+    if (toInsert.length > 0) {
+      const inserts = toInsert.map(adId => ({ user_id: session.user.id, ad_id: adId }));
+      await getSupabase().from('favorites').insert(inserts);
+    }
+    
+    // Mesclar e atualizar o local storage
+    const allFavs = new Set([...localFavs, ...dbFavs]);
+    window.tcFavorites = allFavs;
+    localStorage.setItem('tc_favorites', JSON.stringify(Array.from(allFavs)));
+    
+    // Atualizar visuais na pagina
+    if (typeof updateFavoriteIcons === 'function') {
+      window.tcFavorites.forEach(id => updateFavoriteIcons(id, true));
+    }
+    
+  } catch (err) {
+    console.error('Erro ao sincronizar favoritos locais:', err);
   }
 }
 
