@@ -225,10 +225,10 @@ async function getAds({ category, country, state, city, search, preco_min, preco
   }
   if (city)      q = q.eq('city', city);
   if (search) {
-    // Busca bilíngue: título PT e ES com ilike — para Full-Text Search com índice GIN,
-    // execute o SQL do script 09_fts_index.sql no Supabase e troque para:
-    // q = q.textSearch('fts', search, { config: 'portuguese' });
-    q = q.or(`title_pt.ilike.%${search}%,title_es.ilike.%${search}%`);
+    // Full-Text Search com índice GIN (script 09_fts_index.sql aplicado ✅)
+    // textSearch usa to_tsquery() — até 100x mais rápido que ilike em tabelas grandes.
+    // A coluna 'fts' é gerada automaticamente pelo banco (GENERATED ALWAYS AS STORED).
+    q = q.textSearch('fts', search, { config: 'portuguese', type: 'plain' });
   }
   if (preco_min) q = q.gte('price', preco_min);
   if (preco_max) q = q.lte('price', preco_max);
