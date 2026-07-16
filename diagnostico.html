@@ -1,9 +1,9 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TC â€” DiagnÃ³stico</title>
+  <title>TC — Diagnóstico</title>
   <meta name="robots" content="noindex, nofollow">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -34,23 +34,23 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%2316A34A'/><text y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'>T</text></svg>">
 </head>
 <body>
-<h1>ðŸ” Tauze Class â€” DiagnÃ³stico</h1>
+<h1>─ Tauze Class — Diagnóstico</h1>
 <div id="output"></div>
-<button onclick="runAll()">â–¶ Rodar Todos os Testes</button>
-<button onclick="clearCache()">ðŸ—‘ Limpar Cache (sessionStorage)</button>
+<button onclick="runAll()">▶ Rodar Todos os Testes</button>
+<button onclick="clearCache()">🗑 Limpar Cache (sessionStorage)</button>
 
 <script>
-// ATENÃ‡ÃƒO: Este arquivo estÃ¡ no .gitignore â€” NÃƒO commitar.
+// ATENÇÃO: Este arquivo está no .gitignore — NÃO commitar.
 // As credenciais devem ser lidas de js/supabase.js (ou equivalente).
-// Como este arquivo Ã© standalone (nÃ£o carrega js/supabase.js), configure
-// as variÃ¡veis abaixo manualmente no ambiente local.
+// Como este arquivo é standalone (não carrega js/supabase.js), configure
+// as variáveis abaixo manualmente no ambiente local.
 // Jamais commitar valores reais de SUPABASE_URL ou SUPABASE_ANON_KEY aqui.
 const SUPABASE_URL  = window._SUPABASE_URL  || '';   // defina via meta ou env local
 const SUPABASE_ANON = window._SUPABASE_ANON || '';   // defina via meta ou env local
 
 if (!SUPABASE_URL || !SUPABASE_ANON) {
-  document.body.innerHTML = '<pre style="color:#ef4444;padding:20px">âŒ SUPABASE_URL e SUPABASE_ANON nÃ£o configurados.\n\nEste arquivo estÃ¡ no .gitignore.\nDefina window._SUPABASE_URL e window._SUPABASE_ANON em um <script> local\n(nÃ£o commitado) antes de rodar o diagnÃ³stico.</pre>';
-  throw new Error('Credenciais Supabase nÃ£o configuradas.');
+  document.body.innerHTML = '<pre style="color:#ef4444;padding:20px">── SUPABASE_URL e SUPABASE_ANON não configurados.\n\nEste arquivo está no .gitignore.\nDefina window._SUPABASE_URL e window._SUPABASE_ANON em um <script> local\n(não commitado) antes de rodar o diagnóstico.</pre>';
+  throw new Error('Credenciais Supabase não configuradas.');
 }
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
@@ -66,7 +66,7 @@ function section(title) {
 }
 
 function row(label, ok, val) {
-  log(`<div class="row"><span class="label">${label}</span><span class="${ok ? 'ok' : 'err'}">${ok ? 'âœ…' : 'âŒ'} ${val}</span></div>`);
+  log(`<div class="row"><span class="label">${label}</span><span class="${ok ? 'ok' : 'err'}">${ok ? '✅' : '──'} ${val}</span></div>`);
 }
 
 function endSection() {
@@ -85,18 +85,18 @@ function clearCache() {
 async function runAll() {
   out.innerHTML = '';
 
-  // â”€â”€ 1. Supabase conectado â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  section('1. ConexÃ£o Supabase');
+  // ── 1. Supabase conectado ────────────────────
+  section('1. Conexão Supabase');
   try {
     const { data, error } = await sb.from('ads').select('id').limit(1);
     row('Supabase Client', !error, error ? error.message : 'OK');
-    row('Ads table acessÃ­vel', !error && data, `${(data||[]).length} row(s)`);
+    row('Ads table acessível', !error && data, `${(data||[]).length} row(s)`);
   } catch(e) {
     row('Supabase Client', false, e.message);
   }
   endSection();
 
-  // â”€â”€ 2. RPCs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── 2. RPCs ────────────────────────────────
   section('2. RPCs no Banco');
 
   try {
@@ -119,7 +119,7 @@ async function runAll() {
       p_city: null, p_state: null, p_country: 'Brasil', p_limit: 4
     });
     const ok = !error && data;
-    row('get_localized_featured_ads()', ok, ok ? `${data.length} anÃºncios` : (error?.message || 'erro'));
+    row('get_localized_featured_ads()', ok, ok ? `${data.length} anúncios` : (error?.message || 'erro'));
     if (ok && data.length > 0) {
       log(`<pre>${JSON.stringify(data[0], null, 2)}</pre>`);
     }
@@ -130,38 +130,38 @@ async function runAll() {
       p_city: null, p_state: null, p_country: 'Brasil', p_limit: 8
     });
     const ok = !error && data;
-    row('get_localized_recent_ads()', ok, ok ? `${data.length} anÃºncios` : (error?.message || 'erro'));
+    row('get_localized_recent_ads()', ok, ok ? `${data.length} anúncios` : (error?.message || 'erro'));
   } catch(e) { row('get_localized_recent_ads()', false, e.message); }
 
   endSection();
 
-  // â”€â”€ 3. GeolocalizaÃ§Ã£o â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  section('3. GeolocalizaÃ§Ã£o do UsuÃ¡rio');
+  // ── 3. Geolocalização ─────────────────────
+  section('3. Geolocalização do Usuário');
   try {
     // Chave correta: user_loc_v3 em localStorage (TTL 24h)
     const cached = localStorage.getItem('user_loc_v3');
     if (cached) {
       const { ts, loc } = JSON.parse(cached);
       const ageMin = Math.round((Date.now() - ts) / 60000);
-      row('Cache localStorage (user_loc_v3)', true, `${JSON.stringify(loc)} â€” ${ageMin}min atrÃ¡s`);
+      row('Cache localStorage (user_loc_v3)', true, `${JSON.stringify(loc)} — ${ageMin}min atrás`);
     } else {
-      row('Cache localStorage', false, 'nÃ£o encontrado â€” testando ip-api.com...');
+      row('Cache localStorage', false, 'não encontrado — testando ip-api.com...');
       const r = await fetch('https://ip-api.com/json/?fields=city,regionName,country,countryCode,status');
       const d = await r.json();
       const ok = d.status === 'success';
       row('ip-api.com (fallback de geo)', ok, ok ? `${d.city}, ${d.regionName}, ${d.country}` : 'falhou');
     }
-  } catch(e) { row('GeolocalizaÃ§Ã£o', false, e.message); }
+  } catch(e) { row('Geolocalização', false, e.message); }
   endSection();
 
-  // â”€â”€ 4. Dados Reais â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  section('4. AnÃºncios no Banco');
+  // ── 4. Dados Reais ─────────────────────────
+  section('4. Anúncios no Banco');
   try {
     const { count } = await sb.from('ads').select('*', { count: 'exact', head: true }).eq('status', 'active');
-    row('Total anÃºncios ativos', count > 0, count);
+    row('Total anúncios ativos', count > 0, count);
 
     const { count: featured } = await sb.from('ads').select('*', { count: 'exact', head: true }).eq('status', 'active').eq('featured', true);
-    row('AnÃºncios em destaque', featured >= 0, featured);
+    row('Anúncios em destaque', featured >= 0, featured);
 
     // Usa RPC get_category_counts em vez de buscar todas as linhas sem LIMIT
     const { data: catCounts, error: catErr } = await sb.rpc('get_category_counts');
@@ -172,15 +172,15 @@ async function runAll() {
   } catch(e) { row('Contagem', false, e.message); }
   endSection();
 
-  // â”€â”€ 5. JS Files carregados â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  section('5. VerificaÃ§Ãµes JS (abrir em index.html para resultado completo)');
-  row('Este Ã© o diagnÃ³stico standalone', true, 'As funÃ§Ãµes abaixo sÃ³ existem na index.html');
+  // ── 5. JS Files carregados ────────────────
+  section('5. Verificações JS (abrir em index.html para resultado completo)');
+  row('Este é o diagnóstico standalone', true, 'As funções abaixo só existem na index.html');
   endSection();
 
-  log('<span class="ok" style="font-size:18px">âœ… DiagnÃ³stico concluÃ­do! Veja os resultados acima.</span>');
+  log('<span class="ok" style="font-size:18px">✅ Diagnóstico concluído! Veja os resultados acima.</span>');
 }
 
-// Roda automÃ¡tico
+// Roda automático
 runAll();
 </script>
 </body>

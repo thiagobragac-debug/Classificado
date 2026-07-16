@@ -5,14 +5,14 @@ const SUPABASE_URL  = process.env.SUPABASE_URL;
 const SUPABASE_ANON = process.env.SUPABASE_ANON_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_ANON) {
-  console.error('❌  SUPABASE_URL e SUPABASE_ANON_KEY devem estar definidos em api/.env');
+  console.error('?  SUPABASE_URL e SUPABASE_ANON_KEY devem estar definidos em api/.env');
   process.exit(1);
 }
 
-// ATENÇÃO: Defina SEED_DEFAULT_PASSWORD em api/.env — nunca hardcode senhas.
+// ATEN��O: Defina SEED_DEFAULT_PASSWORD em api/.env � nunca hardcode senhas.
 const SEED_DEFAULT_PASSWORD = process.env.SEED_DEFAULT_PASSWORD || '';
 if (!SEED_DEFAULT_PASSWORD) {
-  console.warn('⚠️  SEED_DEFAULT_PASSWORD não definido em api/.env — abortando para evitar uso de senha vazia.');
+  console.warn('??  SEED_DEFAULT_PASSWORD n�o definido em api/.env � abortando para evitar uso de senha vazia.');
   process.exit(1);
 }
 
@@ -20,29 +20,29 @@ const MOCK_DATA = [
   // Bovinos
   { cat: 'cat-bovinos', pt: 'Lote 100 Bezerros Nelore', es: 'Lote 100 Terneros Nelore', price: 150000, img: 'https://images.unsplash.com/photo-1545468800-85cc9bc6ecf7' },
   { cat: 'cat-bovinos', pt: 'Touro Angus Reprodutor PO', es: 'Toro Angus Reproductor PO', price: 35000, img: 'https://images.unsplash.com/photo-1596733430284-f743727546a6' },
-  { cat: 'cat-bovinos', pt: 'Matrizes Brahman Prenhes', es: 'Matrices Brahman Preñadas', price: 120000, img: 'https://images.unsplash.com/photo-1516244760086-5381d643ee1e' },
+  { cat: 'cat-bovinos', pt: 'Matrizes Brahman Prenhes', es: 'Matrices Brahman Pre�adas', price: 120000, img: 'https://images.unsplash.com/photo-1516244760086-5381d643ee1e' },
   // Equinos
   { cat: 'cat-equinos', pt: 'Cavalo Quarto de Milha Puro', es: 'Caballo Cuarto de Milla', price: 80000, img: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a' },
-  { cat: 'cat-equinos', pt: 'Égua Crioula Domada', es: 'Yegua Criolla Domada', price: 45000, img: 'https://images.unsplash.com/photo-1534067258384-5a3d463b2046' },
-  // Máquinas
+  { cat: 'cat-equinos', pt: '�gua Crioula Domada', es: 'Yegua Criolla Domada', price: 45000, img: 'https://images.unsplash.com/photo-1534067258384-5a3d463b2046' },
+  // M�quinas
   { cat: 'cat-maquinas', pt: 'Trator John Deere 7J 2021', es: 'Tractor John Deere 7J 2021', price: 850000, img: 'https://images.unsplash.com/photo-1605634676648-52b22079f53e' },
   { cat: 'cat-maquinas', pt: 'Colheitadeira Case Axial', es: 'Cosechadora Case Axial', price: 1250000, img: 'https://images.unsplash.com/photo-1589714850777-6ef70d24c08e' },
-  // Imóveis
-  { cat: 'cat-imoveis', pt: 'Fazenda 500 Hectares Pronta', es: 'Estancia 500 Hectáreas', price: 5000000, img: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef' },
+  // Im�veis
+  { cat: 'cat-imoveis', pt: 'Fazenda 500 Hectares Pronta', es: 'Estancia 500 Hect�reas', price: 5000000, img: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef' },
 ];
 
 const COUNTRIES = [
-  { c: 'Brasil', st: 'MT', ci: 'Cuiabá' },
+  { c: 'Brasil', st: 'MT', ci: 'Cuiab�' },
   { c: 'Brasil', st: 'MG', ci: 'Uberaba' },
   { c: 'Argentina', st: 'Buenos Aires', ci: 'Pergamino' },
-  { c: 'Paraguai', st: 'Boquerón', ci: 'Filadelfia' },
+  { c: 'Paraguai', st: 'Boquer�n', ci: 'Filadelfia' },
   { c: 'Uruguai', st: 'Soriano', ci: 'Mercedes' }
 ];
 
 async function seed() {
-  console.log("🚀 Iniciando geração de anúncios reais (Seed com RLS Auth)...");
+  console.log("?? Iniciando gera��o de an�ncios reais (Seed com RLS Auth)...");
   
-  // 1. Criar um usuário de teste para inserir os dados e passar no RLS
+  // 1. Criar um usu�rio de teste para inserir os dados e passar no RLS
   const email = `test.seed.${Date.now()}@tauze.com`;
   const password = SEED_DEFAULT_PASSWORD;
   
@@ -57,14 +57,14 @@ async function seed() {
   
   const authData = await authRes.json();
   if (authData.error || !authData.user) {
-    console.error("Falha ao criar usuário de teste:", authData.error || authData);
+    console.error("Falha ao criar usu�rio de teste:", authData.error || authData);
     return;
   }
   
   const USER_ID = authData.user.id;
   const ACCESS_TOKEN = authData.session.access_token;
   
-  console.log(`✅ Usuário criado: ${USER_ID}`);
+  console.log(`? Usu�rio criado: ${USER_ID}`);
   
   const headers = {
     'apikey': SUPABASE_ANON,
@@ -85,7 +85,7 @@ async function seed() {
       category_id: template.cat,
       title_pt: template.pt + (i > MOCK_DATA.length ? ` - Lote ${i}` : ''),
       title_es: template.es + (i > MOCK_DATA.length ? ` - Lote ${i}` : ''),
-      description: 'Anúncio premium verificado e inspecionado pela equipe técnica.',
+      description: 'An�ncio premium verificado e inspecionado pela equipe t�cnica.',
       price: template.price * (0.8 + (Math.random() * 0.4)),
       currency: geo.c === 'Brasil' ? 'BRL' : geo.c === 'Argentina' ? 'ARS' : 'USD',
       price_unit_pt: 'unidade',
@@ -112,13 +112,13 @@ async function seed() {
 
     if (!res.ok) {
       const err = await res.text();
-      console.error("Erro ao inserir anúncios:", err);
+      console.error("Erro ao inserir an�ncios:", err);
     } else {
-      console.log(`✅ Sucesso! Inseridos ${adsToInsert.length} anúncios no banco.`);
-      console.log(`Desses, cerca de ${adsToInsert.filter(a => a.featured).length} são Monetizados (Destaques).`);
+      console.log(`? Sucesso! Inseridos ${adsToInsert.length} an�ncios no banco.`);
+      console.log(`Desses, cerca de ${adsToInsert.filter(a => a.featured).length} s�o Monetizados (Destaques).`);
     }
   } catch (e) {
-    console.error("Erro fatal na requisição:", e);
+    console.error("Erro fatal na requisi��o:", e);
   }
 }
 

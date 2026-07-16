@@ -119,6 +119,9 @@ body {
   flex-direction: column;
   min-height: 100vh;
 }
+main {
+  flex: 1;
+}
 body > main, body > .painel-wrap, body > .container, body > .login-split {
   flex: 1;
 }

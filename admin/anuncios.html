@@ -6,7 +6,7 @@
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Anúncios — Admin Tauze Class</title>
+  <title>An�ncios � Admin Tauze Class</title>
   <link rel="stylesheet" href="/admin/css/admin.css">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2316A34A'/%3E%3Ctext y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'%3ET%3C/text%3E%3C/svg%3E">
 </head>
@@ -23,11 +23,11 @@ window.addEventListener('error', function(e) { const b = document.getElementById
     <header class="adm-topbar">
       <div class="adm-breadcrumb">
         <a href="/admin/index.html">Dashboard</a>
-        <span>›</span>
-        <strong>Anúncios</strong>
+        <span>�</span>
+        <strong>An�ncios</strong>
       </div>
       <div class="adm-topbar-right">
-        <button class="adm-topbar-btn" title="Notificações" onclick="showToast('Sem novas notificações', 'info')">
+        <button class="adm-topbar-btn" title="Notifica��es" onclick="showToast('Sem novas notifica��es', 'info')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
           <span class="adm-notif-dot"></span>
         </button>
@@ -37,17 +37,17 @@ window.addEventListener('error', function(e) { const b = document.getElementById
     <main class="adm-content">
       <div class="adm-page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px">
         <div>
-          <h1 class="adm-page-title">Gerenciar Anúncios</h1>
-          <p class="adm-page-sub">Aprove, destaque ou remova anúncios do portal.</p>
+          <h1 class="adm-page-title">Gerenciar An�ncios</h1>
+          <p class="adm-page-sub">Aprove, destaque ou remova an�ncios do portal.</p>
         </div>
         <div style="display:flex;gap:8px">
-          <button class="adm-btn adm-btn--outline" onclick="showToast('Exportação em andamento...','info')">
+          <button class="adm-btn adm-btn--outline" onclick="showToast('Exporta��o em andamento...','info')">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Exportar CSV
           </button>
           <button class="adm-btn adm-btn--primary" onclick="openNewAdModal()">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Novo Anúncio
+            Novo An�ncio
           </button>
         </div>
       </div>
@@ -78,7 +78,7 @@ window.addEventListener('error', function(e) { const b = document.getElementById
         <div class="adm-filter-bar">
           <div class="adm-search-wrap">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            <input type="search" id="ads-search" class="adm-search-input" placeholder="Buscar por título ou vendedor..."
+            <input type="search" id="ads-search" class="adm-search-input" placeholder="Buscar por t�tulo ou vendedor..."
                    oninput="filterTable('ads-search','ads-table')">
           </div>
           <select class="adm-select" onchange="filterByStatus(this.value)">
@@ -92,7 +92,7 @@ window.addEventListener('error', function(e) { const b = document.getElementById
             <option value="">Todas as categorias</option>
           </select>
           <select class="adm-select" onchange="filterByCountry(this.value)">
-            <option value="">Todos os países</option>
+            <option value="">Todos os pa�ses</option>
             <option>Brasil</option><option>Argentina</option><option>Uruguai</option><option>Paraguai</option>
           </select>
         </div>
@@ -103,13 +103,13 @@ window.addEventListener('error', function(e) { const b = document.getElementById
             <thead>
               <tr>
                 <th style="width:40px"><input type="checkbox" style="accent-color:var(--adm-accent)" onclick="toggleAll(this)"></th>
-                <th>Anúncio</th>
+                <th>An�ncio</th>
                 <th>Vendedor</th>
-                <th>Preço</th>
-                <th>País</th>
+                <th>Pre�o</th>
+                <th>Pa�s</th>
                 <th>Status</th>
                 <th>Data</th>
-                <th style="text-align:center">Ações</th>
+                <th style="text-align:center">A��es</th>
               </tr>
             </thead>
             <tbody id="ads-tbody"></tbody>
@@ -118,15 +118,15 @@ window.addEventListener('error', function(e) { const b = document.getElementById
 
         <!-- Pagination -->
         <div class="adm-pagination">
-          <span class="adm-pag-info">Mostrando 1–12 de <strong>62.847</strong> anúncios</span>
+          <span class="adm-pag-info">Mostrando 1�12 de <strong>62.847</strong> an�ncios</span>
           <div class="adm-pag-btns">
-            <button class="adm-pag-btn">‹</button>
+            <button class="adm-pag-btn">�</button>
             <button class="adm-pag-btn active">1</button>
-            <button class="adm-pag-btn" onclick="showToast('Navegação em breve','info')">2</button>
-            <button class="adm-pag-btn" onclick="showToast('Navegação em breve','info')">3</button>
-            <span style="color:var(--adm-text-light);line-height:32px;padding:0 4px">…</span>
-            <button class="adm-pag-btn" onclick="showToast('Navegação em breve','info')">5240</button>
-            <button class="adm-pag-btn" onclick="showToast('Navegação em breve','info')">›</button>
+            <button class="adm-pag-btn" onclick="showToast('Navega��o em breve','info')">2</button>
+            <button class="adm-pag-btn" onclick="showToast('Navega��o em breve','info')">3</button>
+            <span style="color:var(--adm-text-light);line-height:32px;padding:0 4px">�</span>
+            <button class="adm-pag-btn" onclick="showToast('Navega��o em breve','info')">5240</button>
+            <button class="adm-pag-btn" onclick="showToast('Navega��o em breve','info')">�</button>
           </div>
         </div>
       </div>
@@ -135,26 +135,26 @@ window.addEventListener('error', function(e) { const b = document.getElementById
   </div>
 </div>
 
-<!-- ══════════════════════════════════════════════════════════
-     MODAL: Novo Anúncio (Admin) — Formulário completo
-     ══════════════════════════════════════════════════════════ -->
+<!-- ??????????????????????????????????????????????????????????
+     MODAL: Novo An�ncio (Admin) � Formul�rio completo
+     ?????????????????????????????????????????????????????????? -->
 <div id="newAdModal" class="adm-overlay" onclick="if(event.target===this)closeModal('newAdModal')">
   <div class="adm-modal" style="max-width:680px;max-height:92vh;overflow-y:auto;padding:28px">
 
     <!-- Header -->
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:22px;border-bottom:1px solid var(--adm-border);padding-bottom:16px">
       <div>
-        <h3 class="adm-modal-title" style="margin:0;font-size:1.15rem">📋 Novo Anúncio</h3>
-        <p style="font-size:.78rem;color:var(--adm-text-muted);margin:4px 0 0">Preencha todos os campos obrigatórios *</p>
+        <h3 class="adm-modal-title" style="margin:0;font-size:1.15rem">?? Novo An�ncio</h3>
+        <p style="font-size:.78rem;color:var(--adm-text-muted);margin:4px 0 0">Preencha todos os campos obrigat�rios *</p>
       </div>
-      <button onclick="closeModal('newAdModal')" style="background:var(--adm-surface-2);border:none;color:var(--adm-text-muted);border-radius:50%;width:34px;height:34px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.1rem;transition:background .2s" onmouseover="this.style.background='var(--adm-surface-3)'" onmouseout="this.style.background='var(--adm-surface-2)'">✕</button>
+      <button onclick="closeModal('newAdModal')" style="background:var(--adm-surface-2);border:none;color:var(--adm-text-muted);border-radius:50%;width:34px;height:34px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.1rem;transition:background .2s" onmouseover="this.style.background='var(--adm-surface-3)'" onmouseout="this.style.background='var(--adm-surface-2)'">?</button>
     </div>
 
     <form id="newAdForm" onsubmit="saveNewAd(event)">
 
-      <!-- ── FOTOS ─────────────────────────────── -->
+      <!-- ?? FOTOS ??????????????????????????????? -->
       <div style="margin-bottom:22px">
-        <label class="adm-form-label" style="display:block;margin-bottom:8px">📷 Fotos <span style="color:var(--adm-text-muted);font-weight:400">(máx. 5 — a 1ª será a capa)</span></label>
+        <label class="adm-form-label" style="display:block;margin-bottom:8px">?? Fotos <span style="color:var(--adm-text-muted);font-weight:400">(m�x. 5 � a 1� ser� a capa)</span></label>
         <div id="imgPreviewRow" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px">
           <label for="imgUploadInput" id="imgAddBtn" style="width:90px;height:75px;border:2px dashed var(--adm-border);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;color:var(--adm-text-muted);font-size:.72rem;gap:4px;background:var(--adm-surface-2);transition:all .2s" onmouseover="this.style.borderColor='var(--adm-accent)'" onmouseout="this.style.borderColor='var(--adm-border)'">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -164,85 +164,85 @@ window.addEventListener('error', function(e) { const b = document.getElementById
         <input type="file" id="imgUploadInput" accept="image/*" multiple style="display:none" onchange="handleImgUpload(this)">
       </div>
 
-      <!-- ── TÍTULO ─────────────────────────────── -->
+      <!-- ?? T�TULO ??????????????????????????????? -->
       <div style="margin-bottom:14px">
-        <label class="adm-form-label" style="display:block;margin-bottom:6px">Título em Português *</label>
-        <input type="text" id="newAdTitle" class="adm-input" placeholder="Ex: Fazenda 200ha — Soja/Milho, Mato Grosso" required style="height:42px">
+        <label class="adm-form-label" style="display:block;margin-bottom:6px">T�tulo em Portugu�s *</label>
+        <input type="text" id="newAdTitle" class="adm-input" placeholder="Ex: Fazenda 200ha � Soja/Milho, Mato Grosso" required style="height:42px">
       </div>
       <div style="margin-bottom:14px">
-        <label class="adm-form-label" style="display:block;margin-bottom:6px">Título em Espanhol</label>
-        <input type="text" id="newAdTitleEs" class="adm-input" placeholder="Versão em espanhol (opcional)" style="height:42px">
-      </div>
-
-      <!-- ── DESCRIÇÃO ─────────────────────────── -->
-      <div style="margin-bottom:14px">
-        <label class="adm-form-label" style="display:block;margin-bottom:6px">Descrição *</label>
-        <textarea id="newAdDesc" class="adm-input" placeholder="Descreva o produto, características e informações relevantes..." required style="height:100px;resize:vertical;padding:10px 12px;line-height:1.55"></textarea>
+        <label class="adm-form-label" style="display:block;margin-bottom:6px">T�tulo em Espanhol</label>
+        <input type="text" id="newAdTitleEs" class="adm-input" placeholder="Vers�o em espanhol (opcional)" style="height:42px">
       </div>
 
-      <!-- ── CATEGORIA / MOEDA ───────────────────── -->
+      <!-- ?? DESCRI��O ??????????????????????????? -->
+      <div style="margin-bottom:14px">
+        <label class="adm-form-label" style="display:block;margin-bottom:6px">Descri��o *</label>
+        <textarea id="newAdDesc" class="adm-input" placeholder="Descreva o produto, caracter�sticas e informa��es relevantes..." required style="height:100px;resize:vertical;padding:10px 12px;line-height:1.55"></textarea>
+      </div>
+
+      <!-- ?? CATEGORIA / MOEDA ????????????????????? -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
         <div>
           <label class="adm-form-label" style="display:block;margin-bottom:6px">Categoria *</label>
           <select id="newAdCategory" class="adm-select" required style="height:42px">
             <option value="">Selecionar...</option>
-            <option value="bovinos">🐄 Bovinos</option>
-            <option value="equinos">🐎 Equinos</option>
-            <option value="suinos">🐖 Suínos</option>
-            <option value="ovinos">🐑 Ovinos / Caprinos</option>
-            <option value="aves">🐔 Aves</option>
-            <option value="insumos">🌿 Insumos Agrícolas</option>
-            <option value="maquinas">🚜 Máquinas e Equipamentos</option>
-            <option value="imoveis">🏡 Imóveis Rurais</option>
-            <option value="genetica">🧬 Genética e Reprodução</option>
-            <option value="aquicult">🐟 Aquicultura</option>
-            <option value="servicos">🔧 Serviços Rurais</option>
-            <option value="outros">📦 Outros</option>
+            <option value="bovinos">?? Bovinos</option>
+            <option value="equinos">?? Equinos</option>
+            <option value="suinos">?? Su�nos</option>
+            <option value="ovinos">?? Ovinos / Caprinos</option>
+            <option value="aves">?? Aves</option>
+            <option value="insumos">?? Insumos Agr�colas</option>
+            <option value="maquinas">?? M�quinas e Equipamentos</option>
+            <option value="imoveis">?? Im�veis Rurais</option>
+            <option value="genetica">?? Gen�tica e Reprodu��o</option>
+            <option value="aquicult">?? Aquicultura</option>
+            <option value="servicos">?? Servi�os Rurais</option>
+            <option value="outros">?? Outros</option>
           </select>
         </div>
         <div>
           <label class="adm-form-label" style="display:block;margin-bottom:6px">Moeda</label>
           <select id="newAdCurrency" class="adm-select" style="height:42px">
-            <option value="BRL">🇧🇷 BRL — Real</option>
-            <option value="USD">🇺🇸 USD — Dólar</option>
-            <option value="ARS">🇦🇷 ARS — Peso Arg.</option>
-            <option value="PYG">🇵🇾 PYG — Guarani</option>
-            <option value="UYU">🇺🇾 UYU — Peso Uru.</option>
+            <option value="BRL">???? BRL � Real</option>
+            <option value="USD">???? USD � D�lar</option>
+            <option value="ARS">???? ARS � Peso Arg.</option>
+            <option value="PYG">???? PYG � Guarani</option>
+            <option value="UYU">???? UYU � Peso Uru.</option>
           </select>
         </div>
       </div>
 
-      <!-- ── PREÇO / UNIDADE ───────────────────────── -->
+      <!-- ?? PRE�O / UNIDADE ????????????????????????? -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
         <div>
-          <label class="adm-form-label" style="display:block;margin-bottom:6px">Preço *</label>
+          <label class="adm-form-label" style="display:block;margin-bottom:6px">Pre�o *</label>
           <input type="number" id="newAdPrice" class="adm-input" placeholder="0.00" min="0" step="0.01" required style="height:42px">
         </div>
         <div>
-          <label class="adm-form-label" style="display:block;margin-bottom:6px">Unidade de Preço</label>
-          <input type="text" id="newAdPriceUnit" class="adm-input" placeholder="por cabeça, por saca, por ha..." style="height:42px">
+          <label class="adm-form-label" style="display:block;margin-bottom:6px">Unidade de Pre�o</label>
+          <input type="text" id="newAdPriceUnit" class="adm-input" placeholder="por cabe�a, por saca, por ha..." style="height:42px">
         </div>
       </div>
       <div style="margin-bottom:18px">
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.85rem;color:var(--adm-text)">
           <input type="checkbox" id="newAdNegotiable" style="accent-color:var(--adm-accent);width:16px;height:16px">
-          Preço negociável
+          Pre�o negoci�vel
         </label>
       </div>
 
-      <!-- ── LOCALIZAÇÃO ────────────────────────── -->
+      <!-- ?? LOCALIZA��O ?????????????????????????? -->
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px">
         <div>
-          <label class="adm-form-label" style="display:block;margin-bottom:6px">País *</label>
+          <label class="adm-form-label" style="display:block;margin-bottom:6px">Pa�s *</label>
           <select id="newAdCountry" class="adm-select" required style="height:42px">
             <option value="">Selecionar...</option>
-            <option value="Brasil">🇧🇷 Brasil</option>
-            <option value="Argentina">🇦🇷 Argentina</option>
-            <option value="Paraguai">🇵🇾 Paraguai</option>
-            <option value="Uruguai">🇺🇾 Uruguai</option>
-            <option value="Bolivia">🇧🇴 Bolívia</option>
-            <option value="Chile">🇨🇱 Chile</option>
-            <option value="Colombia">🇨🇴 Colômbia</option>
+            <option value="Brasil">???? Brasil</option>
+            <option value="Argentina">???? Argentina</option>
+            <option value="Paraguai">???? Paraguai</option>
+            <option value="Uruguai">???? Uruguai</option>
+            <option value="Bolivia">???? Bol�via</option>
+            <option value="Chile">???? Chile</option>
+            <option value="Colombia">???? Col�mbia</option>
           </select>
         </div>
         <div>
@@ -251,11 +251,11 @@ window.addEventListener('error', function(e) { const b = document.getElementById
         </div>
         <div>
           <label class="adm-form-label" style="display:block;margin-bottom:6px">Cidade</label>
-          <input type="text" id="newAdCity" class="adm-input" placeholder="Ex: Cuiabá" style="height:42px">
+          <input type="text" id="newAdCity" class="adm-input" placeholder="Ex: Cuiab�" style="height:42px">
         </div>
       </div>
 
-      <!-- ── VENDEDOR / STATUS ──────────── -->
+      <!-- ?? VENDEDOR / STATUS ???????????? -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
         <div>
           <label class="adm-form-label" style="display:block;margin-bottom:6px">Vendedor (nome) *</label>
@@ -264,36 +264,36 @@ window.addEventListener('error', function(e) { const b = document.getElementById
         <div>
           <label class="adm-form-label" style="display:block;margin-bottom:6px">Status</label>
           <select id="newAdStatus" class="adm-select" style="height:42px">
-            <option value="active">✅ Ativo</option>
-            <option value="pending">⏳ Pendente</option>
-            <option value="paused">⏸️ Pausado</option>
-            <option value="rejected">❌ Rejeitado</option>
+            <option value="active">? Ativo</option>
+            <option value="pending">? Pendente</option>
+            <option value="paused">?? Pausado</option>
+            <option value="rejected">? Rejeitado</option>
           </select>
         </div>
       </div>
 
-      <!-- ── PLANO / DESTAQUE ────────────────────── -->
+      <!-- ?? PLANO / DESTAQUE ?????????????????????? -->
       <div style="background:var(--adm-surface-2);border:1px solid var(--adm-border);border-radius:12px;padding:16px;margin-bottom:22px;display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap">
         <div style="flex:1;min-width:180px">
           <label class="adm-form-label" style="display:block;margin-bottom:6px">Plano</label>
           <select id="newAdPlan" class="adm-select" style="height:42px">
             <option value="normal">Normal (Gratuito)</option>
-            <option value="premium">⭐ Premium — Destaque</option>
-            <option value="top">🏆 Top — Topo absoluto</option>
+            <option value="premium">? Premium � Destaque</option>
+            <option value="top">?? Top � Topo absoluto</option>
           </select>
         </div>
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.85rem;color:var(--adm-text);white-space:nowrap;padding-top:20px">
           <input type="checkbox" id="newAdFeatured" style="accent-color:#F59E0B;width:16px;height:16px">
-          ⭐ Marcar como Destaque
+          ? Marcar como Destaque
         </label>
       </div>
 
-      <!-- ── BOTÕES ─────────────────────────────── -->
+      <!-- ?? BOT�ES ??????????????????????????????? -->
       <div style="display:flex;gap:10px;justify-content:flex-end;border-top:1px solid var(--adm-border);padding-top:18px">
         <button type="button" class="adm-btn adm-btn--outline" onclick="closeModal('newAdModal')">Cancelar</button>
         <button type="submit" class="adm-btn adm-btn--primary" id="btnCriarAnuncio">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-          Publicar Anúncio
+          Publicar An�ncio
         </button>
       </div>
 
@@ -344,18 +344,18 @@ async function fetchAndRenderAds() {
     const data = await res.json();
     if (!Array.isArray(data) || data.length === 0) throw new Error('no data');
     const mapped = data.map(ad => ({
-      id: ad.id, title: ad.title_pt || '(sem título)', category: ad.category_id || '',
+      id: ad.id, title: ad.title_pt || '(sem t�tulo)', category: ad.category_id || '',
       seller: ad.profiles?.name || '(desconhecido)',
-      price: (ad.currency || '') + ' ' + (ad.price != null ? Number(ad.price).toLocaleString('pt-BR') : '—'),
+      price: (ad.currency || '') + ' ' + (ad.price != null ? Number(ad.price).toLocaleString('pt-BR') : '�'),
       status: ad.status || 'active', featured: !!ad.featured, country: ad.country || '',
       image: Array.isArray(ad.images) && ad.images.length ? ad.images[0] : 'https://placehold.co/400x300?text=Sem+Foto',
-      date: ad.created_at ? new Date(ad.created_at).toLocaleDateString('pt-BR') : '—', reports: 0,
+      date: ad.created_at ? new Date(ad.created_at).toLocaleDateString('pt-BR') : '�', reports: 0,
     }));
     renderAdsTable(mapped);
-    showToast(`${mapped.length} anúncios carregados`, 'success');
+    showToast(`${mapped.length} an�ncios carregados`, 'success');
   } catch (err) {
     console.warn('[anuncios] Supabase fetch failed:', err);
-    document.getElementById('ads-tbody').innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--adm-text-muted)">Falha ao carregar anúncios. Verifique sua conexão com o banco de dados.</td></tr>';
+    document.getElementById('ads-tbody').innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--adm-text-muted)">Falha ao carregar an�ncios. Verifique sua conex�o com o banco de dados.</td></tr>';
   }
 }
 
@@ -367,7 +367,7 @@ function renderAdsTable(ads) {
       <td><input type="checkbox" style="accent-color:var(--adm-accent)"></td>
       <td><div style="display:flex;align-items:center;gap:10px">
         <img src="${escapeHTML(ad.image)}" alt="" style="width:44px;height:36px;border-radius:6px;object-fit:cover;background:var(--adm-surface-2)" onerror="this.style.background='var(--adm-surface-3)'">
-        <div><div style="font-weight:600;color:var(--adm-text);font-size:.85rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ad.featured?'<span style="color:var(--adm-amber);margin-right:4px">★</span>':''}${title}</div>
+        <div><div style="font-weight:600;color:var(--adm-text);font-size:.85rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ad.featured?'<span style="color:var(--adm-amber);margin-right:4px">?</span>':''}${title}</div>
         <div style="font-size:.72rem;color:var(--adm-text-light);margin-top:2px">${category}</div></div></div></td>
       <td>${seller}</td>
       <td style="font-weight:700;color:var(--adm-text);font-size:.875rem">${escapeHTML(ad.price)}</td>
@@ -404,7 +404,7 @@ function handleImgUpload(input) {
       const div = document.createElement('div');
       div.className = 'img-prev';
       div.style.cssText = 'position:relative;width:90px;height:75px';
-      div.innerHTML = `<img src="${e.target.result}" style="width:90px;height:75px;object-fit:cover;border-radius:10px;border:1px solid var(--adm-border)">${i===0?'<span style="position:absolute;bottom:4px;left:4px;background:rgba(22,163,74,.85);color:#fff;font-size:.6rem;padding:2px 5px;border-radius:4px;font-weight:600">CAPA</span>':''}<button type="button" onclick="this.parentElement.remove()" style="position:absolute;top:-6px;right:-6px;background:#ef4444;border:none;color:#fff;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:.75rem;display:flex;align-items:center;justify-content:center">✕</button>`;
+      div.innerHTML = `<img src="${e.target.result}" style="width:90px;height:75px;object-fit:cover;border-radius:10px;border:1px solid var(--adm-border)">${i===0?'<span style="position:absolute;bottom:4px;left:4px;background:rgba(22,163,74,.85);color:#fff;font-size:.6rem;padding:2px 5px;border-radius:4px;font-weight:600">CAPA</span>':''}<button type="button" onclick="this.parentElement.remove()" style="position:absolute;top:-6px;right:-6px;background:#ef4444;border:none;color:#fff;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:.75rem;display:flex;align-items:center;justify-content:center">?</button>`;
       row.insertBefore(div, document.getElementById('imgAddBtn'));
     };
     reader.readAsDataURL(file);
@@ -414,7 +414,7 @@ function handleImgUpload(input) {
 async function saveNewAd(e) {
   e.preventDefault();
   const btn = document.getElementById('btnCriarAnuncio');
-  btn.disabled = true; btn.textContent = '⏳ Publicando...';
+  btn.disabled = true; btn.textContent = '? Publicando...';
   const session = JSON.parse(sessionStorage.getItem('tc_admin_session') || '{}');
   const payload = {
     title_pt: document.getElementById('newAdTitle').value.trim(),
@@ -439,7 +439,7 @@ async function saveNewAd(e) {
       body: JSON.stringify(payload)
     });
     if (res.ok) {
-      showToast(`✅ Anúncio "${escapeHTML(payload.title_pt)}" publicado!`, 'success');
+      showToast(`? An�ncio "${escapeHTML(payload.title_pt)}" publicado!`, 'success');
       closeModal('newAdModal');
       setTimeout(() => fetchAndRenderAds(), 800);
     } else {
@@ -447,15 +447,15 @@ async function saveNewAd(e) {
       showToast(`Erro: ${err.message || res.status}`, 'error');
     }
   } catch(err) {
-    showToast('Erro de conexão.', 'error');
+    showToast('Erro de conex�o.', 'error');
   } finally {
     btn.disabled = false;
-    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Publicar Anúncio';
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Publicar An�ncio';
   }
 }
 
 async function approveAd(id) {
-  if (!(await admConfirm('Deseja realmente aprovar este anúncio?'))) return;
+  if (!(await admConfirm('Deseja realmente aprovar este an�ncio?'))) return;
   const session = JSON.parse(sessionStorage.getItem('tc_admin_session') || '{}');
   try {
     const res = await fetch(`${SB_URL}/rest/v1/ads?id=eq.${id}`, {
@@ -464,13 +464,13 @@ async function approveAd(id) {
       body: JSON.stringify({ status: 'active' })
     });
     if (res.ok) {
-      showToast('Anúncio aprovado com sucesso!', 'success');
+      showToast('An�ncio aprovado com sucesso!', 'success');
       fetchAndRenderAds();
     } else {
-      showToast('Erro ao aprovar anúncio.', 'error');
+      showToast('Erro ao aprovar an�ncio.', 'error');
     }
   } catch (err) {
-    showToast('Erro de conexão.', 'error');
+    showToast('Erro de conex�o.', 'error');
   }
 }
 
@@ -489,19 +489,19 @@ async function featureAd(id) {
         body: JSON.stringify({ featured: newStatus })
       });
       if (res.ok) {
-        showToast(newStatus ? 'Anúncio destacado!' : 'Destaque removido.', 'success');
+        showToast(newStatus ? 'An�ncio destacado!' : 'Destaque removido.', 'success');
         fetchAndRenderAds();
       } else {
-        showToast('Erro ao destacar anúncio.', 'error');
+        showToast('Erro ao destacar an�ncio.', 'error');
       }
     }
   } catch (err) {
-    showToast('Erro de conexão.', 'error');
+    showToast('Erro de conex�o.', 'error');
   }
 }
 
 async function deleteAd(id) {
-  if (!(await admConfirm('Tem certeza que deseja excluir permanentemente este anúncio?'))) return;
+  if (!(await admConfirm('Tem certeza que deseja excluir permanentemente este an�ncio?'))) return;
   const session = JSON.parse(sessionStorage.getItem('tc_admin_session') || '{}');
   try {
     const res = await fetch(`${SB_URL}/rest/v1/ads?id=eq.${id}`, {
@@ -509,13 +509,13 @@ async function deleteAd(id) {
       headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${getAdminToken()}` }
     });
     if (res.ok) {
-      showToast('Anúncio excluído com sucesso!', 'success');
+      showToast('An�ncio exclu�do com sucesso!', 'success');
       fetchAndRenderAds();
     } else {
-      showToast('Erro ao excluir anúncio.', 'error');
+      showToast('Erro ao excluir an�ncio.', 'error');
     }
   } catch (err) {
-    showToast('Erro de conexão.', 'error');
+    showToast('Erro de conex�o.', 'error');
   }
 }
 
@@ -529,12 +529,12 @@ async function editAd(id) {
       const data = await res.json();
       const ad = data[0];
       
-      // Abre o modal de edição (reaproveitando o de novo anúncio)
+      // Abre o modal de edi��o (reaproveitando o de novo an�ncio)
       document.getElementById('newAdModal').classList.add('open');
       document.getElementById('newAdForm').reset();
       
-      // Muda o título do modal
-      document.querySelector('#newAdModal .adm-modal-title').textContent = '📝 Editar Anúncio';
+      // Muda o t�tulo do modal
+      document.querySelector('#newAdModal .adm-modal-title').textContent = '?? Editar An�ncio';
       
       // Popula os campos
       document.getElementById('newAdTitle').value = ad.title_pt || '';
@@ -563,15 +563,15 @@ async function editAd(id) {
         planInput.value = ad.featured ? 'premium' : 'normal';
       }
       
-      // Ocultar campo de upload de imagens (simplificado para edição por enquanto)
-      document.getElementById('imgPreviewRow').innerHTML = '<div style="font-size:0.8rem;color:var(--adm-text-muted);">Edição de imagens via painel não implementada.</div>';
+      // Ocultar campo de upload de imagens (simplificado para edi��o por enquanto)
+      document.getElementById('imgPreviewRow').innerHTML = '<div style="font-size:0.8rem;color:var(--adm-text-muted);">Edi��o de imagens via painel n�o implementada.</div>';
       
       // Altera o comportamento de submit
       const form = document.getElementById('newAdForm');
       form.onsubmit = async (e) => {
         e.preventDefault();
         const btn = document.getElementById('btnCriarAnuncio');
-        btn.disabled = true; btn.textContent = '⏳ Salvando...';
+        btn.disabled = true; btn.textContent = '? Salvando...';
         
         const payload = {
           title_pt: document.getElementById('newAdTitle').value.trim(),
@@ -597,30 +597,30 @@ async function editAd(id) {
           });
           
           if (updateRes.ok) {
-            showToast('Anúncio atualizado com sucesso!', 'success');
+            showToast('An�ncio atualizado com sucesso!', 'success');
             closeModal('newAdModal');
             setTimeout(() => fetchAndRenderAds(), 800);
             
             // Restaura o modal
             setTimeout(() => {
-              document.querySelector('#newAdModal .adm-modal-title').textContent = '📋 Novo Anúncio';
+              document.querySelector('#newAdModal .adm-modal-title').textContent = '?? Novo An�ncio';
               form.onsubmit = saveNewAd;
             }, 1000);
           } else {
-            showToast('Erro ao atualizar anúncio.', 'error');
+            showToast('Erro ao atualizar an�ncio.', 'error');
           }
         } catch(err) {
-          showToast('Erro de conexão.', 'error');
+          showToast('Erro de conex�o.', 'error');
         } finally {
           btn.disabled = false;
-          btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Publicar Anúncio';
+          btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Publicar An�ncio';
         }
       };
     } else {
-      showToast('Erro ao buscar dados do anúncio.', 'error');
+      showToast('Erro ao buscar dados do an�ncio.', 'error');
     }
   } catch (err) {
-    showToast('Erro de conexão.', 'error');
+    showToast('Erro de conex�o.', 'error');
   }
 }
 </script>

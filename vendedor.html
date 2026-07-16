@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -6,7 +6,7 @@
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Perfil do Vendedor â€” Tauze Class</title>
+  <title>Perfil do Vendedor — Tauze Class</title>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css?v=1784160758676">
   <link rel="stylesheet" href="css/listagem.css?v=999">
@@ -85,7 +85,7 @@
 
 <header class="site-header" role="banner">
   <div class="container header-inner">
-    <a href="index.html" class="logo" aria-label="Tauze Class â€” InÃ­cio">
+    <a href="index.html" class="logo" aria-label="Tauze Class — Início">
       <div class="logo-mark">TC</div>
       <div class="logo-text">
         <span class="logo-name">Tauze Class</span>
@@ -94,22 +94,22 @@
     </a>
 
     <nav class="header-nav" role="navigation" aria-label="Menu principal">
-        <a href="index.html" data-i18n="nav_home" >InÃ­cio</a>
-        <a href="listagem.html" data-i18n="nav_ads" >AnÃºncios</a>
+        <a href="index.html" data-i18n="nav_home" >Início</a>
+        <a href="listagem.html" data-i18n="nav_ads" >Anúncios</a>
         <a href="eventos.html" data-i18n="nav_events" >Eventos</a>
-        <a href="leiloes.html" class="nav-live "><span class="live-indicator"></span><span data-i18n="nav_auctions">LeilÃµes Ao Vivo</span></a>
+        <a href="leiloes.html" class="nav-live "><span class="live-indicator"></span><span data-i18n="nav_auctions">Leilões Ao Vivo</span></a>
         <a href="planos.html" data-i18n="nav_plans" >Planos</a>
         <div class="auth-wrapper"><a href="login.html" data-i18n="nav_login">Entrar</a></div>
       </nav>
 
     <div class="lang-toggle" role="group" aria-label="Selecionar idioma">
-      <button data-lang="pt" class="active" aria-label="PortuguÃªs">PT</button>
-      <button data-lang="es" aria-label="EspaÃ±ol">ES</button>
+      <button data-lang="pt" class="active" aria-label="Português">PT</button>
+      <button data-lang="es" aria-label="Español">ES</button>
     </div>
 
     <a href="anunciar.html" class="btn-anunciar-header" id="btn-post-header">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      <span data-i18n="btn_post">Anunciar GrÃ¡tis</span>
+      <span data-i18n="btn_post">Anunciar Grátis</span>
     </a>
 
     <button class="hamburger" aria-label="Abrir menu" aria-expanded="false" aria-controls="mobile-menu">
@@ -122,7 +122,7 @@
   <div style="position:absolute; inset:0; opacity:0.05; background-image: radial-gradient(#fff 1px, transparent 1px); background-size: 20px 20px; border-radius: 0 0 2rem 2rem;"></div>
   <div class="container" style="position: relative; z-index: 2;">
     <div class="breadcrumb" style="justify-content: flex-start; margin-bottom: 0; font-size: 0.95rem;">
-      <a href="index.html">Home</a> <span>â€º</span> <a href="listagem.html">Vendedores</a> <span>â€º</span> <strong id="breadcrumb-seller-name">Perfil</strong>
+      <a href="index.html">Home</a> <span>›</span> <a href="listagem.html">Vendedores</a> <span>›</span> <strong id="breadcrumb-seller-name">Perfil</strong>
     </div>
   </div>
 </div>
@@ -141,7 +141,7 @@
             Identidade Verificada
           </span>
           <span id="seller-unverified" style="display:none;" class="seller-badge" style="background:#f1f5f9; color:#64748b;" data-i18n="vendor_unverified">
-            Conta NÃ£o Verificada
+            Conta Não Verificada
           </span>
         </h1>
         <div class="seller-meta" id="seller-date" data-i18n="vendor_member" style="font-size:0.9rem; color:var(--clr-text-light); margin-top:0.25rem;">Membro</div>
@@ -157,16 +157,16 @@
 
   <div class="container">
     <div id="loading-state" data-i18n="vendor_loading" style="text-align:center; padding: 4rem;">Carregando perfil...</div>
-    <div id="error-state" data-i18n="vendor_not_found" style="text-align:center; padding: 4rem; color:red; display:none;">Vendedor nÃ£o encontrado.</div>
+    <div id="error-state" data-i18n="vendor_not_found" style="text-align:center; padding: 4rem; color:red; display:none;">Vendedor não encontrado.</div>
 
-    <h2 style="margin-bottom: 1.5rem; display:none;" id="ads-title" data-i18n="vendor_ads_title">AnÃºncios deste vendedor</h2>
+    <h2 style="margin-bottom: 1.5rem; display:none;" id="ads-title" data-i18n="vendor_ads_title">Anúncios deste vendedor</h2>
     
     <!-- Ad Grid -->
     <div class="ads-grid" id="seller-ads-grid">
       <!-- Ads populated via JS -->
     </div>
     
-    <div id="empty-state" data-i18n="vendor_no_ads" style="text-align:center; padding: 4rem; color:var(--clr-text-light); display:none;">Este vendedor nÃ£o possui anÃºncios ativos no momento.</div>
+    <div id="empty-state" data-i18n="vendor_no_ads" style="text-align:center; padding: 4rem; color:var(--clr-text-light); display:none;">Este vendedor não possui anúncios ativos no momento.</div>
 
   </div>
 </main>
@@ -175,7 +175,7 @@
 <script src="js/supabase.js?v=639197771809908242"></script>
 <script src="js/ui_constants.js"></script>
 <script>
-  // T5: FunÃ§Ã£o escapeHTML local para evitar XSS com dados do banco
+  // T5: Função escapeHTML local para evitar XSS com dados do banco
   function escapeHTML(str) {
     if (!str) return '';
     return String(str)
@@ -217,7 +217,7 @@
       const fullName = profile.display_name || profile.name || profile.full_name || 'Vendedor';
       document.getElementById('seller-name').childNodes[0].textContent = fullName + ' ';
       document.getElementById('breadcrumb-seller-name').textContent = fullName;
-      document.title = fullName + ' â€” Perfil do Vendedor';
+      document.title = fullName + ' — Perfil do Vendedor';
       document.getElementById('seller-avatar').textContent = fullName.charAt(0).toUpperCase();
 
       if (profile.created_at) {
@@ -292,9 +292,9 @@
 <script src="js/data.js?v=1783509347784"></script>
         <footer class="site-footer simplified-footer" style="background: #020617; color: rgba(255,255,255,0.6); padding: 1.25rem 0; margin-top: auto;" role="contentinfo">
     <div class="container" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
-      <div style="font-weight: 600; color: white; font-size: 0.9rem;">Tauze Class <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.6; margin-left: 0.5rem;" data-i18n="footer_copy">Â© 2026. Todos os direitos reservados.</span></div>
+      <div style="font-weight: 600; color: white; font-size: 0.9rem;">Tauze Class <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.6; margin-left: 0.5rem;" data-i18n="footer_copy">© 2026. Todos os direitos reservados.</span></div>
       <div style="display:flex; gap: 1.5rem; font-size: var(--fs-sm);">
-        <a href="index.html" style="transition: color 0.2s; color: rgba(255,255,255,0.6);" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,0.6)'">InÃ­cio</a>
+        <a href="index.html" style="transition: color 0.2s; color: rgba(255,255,255,0.6);" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,0.6)'">Início</a>
         <a href="#" style="transition: color 0.2s; color: rgba(255,255,255,0.6);" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,0.6)'">Suporte</a>
         <a href="institucional.html#termos">Termos de Uso</a>
       </div>

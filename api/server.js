@@ -6,7 +6,7 @@ const { createClient } = require('@supabase/supabase-js');
 const { createClient: createRedisClient } = require('redis');
 const { Meilisearch } = require('meilisearch');
 
-// ── Security & API v1 Imports ──────────────────────────────────────────────
+// ?? Security & API v1 Imports ??????????????????????????????????????????????
 const securityHeaders    = require('./middleware/securityHeaders');
 const createApiKeyAuth   = require('./middleware/apiKeyAuth');
 const createRateLimiter  = require('./middleware/rateLimiter');
@@ -20,10 +20,10 @@ const createLocalizacoesRouter = require('./routes/v1/localizacoes');
 
 const app = express();
 
-// ── Security headers (must be first) ──────────────────────────────────────
+// ?? Security headers (must be first) ??????????????????????????????????????
 app.use(securityHeaders());
 
-// ── CORS whitelist ─────────────────────────────────────────────────────────
+// ?? CORS whitelist ?????????????????????????????????????????????????????????
 // SECURITY FIX (TASK 3): Localhost origins are only allowed in development.
 const isDev = process.env.NODE_ENV !== 'production';
 const allowedOrigins = [
@@ -47,34 +47,34 @@ app.use(cors({
   }
 }));
 
-// ── Body parsers ───────────────────────────────────────────────────────────
+// ?? Body parsers ???????????????????????????????????????????????????????????
 // Raw body must be captured BEFORE express.json() for webhook signature verification.
 app.use('/api/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
 
-// ── Supabase ───────────────────────────────────────────────────────────────
+// ?? Supabase ???????????????????????????????????????????????????????????????
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
-  console.error('❌ SUPABASE_URL and SUPABASE_ANON_KEY must be set in .env');
+  console.error('? SUPABASE_URL and SUPABASE_ANON_KEY must be set in .env');
   process.exit(1);
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// ── Redis ──────────────────────────────────────────────────────────────────
+// ?? Redis ??????????????????????????????????????????????????????????????????
 if (!process.env.REDIS_URL) {
-  console.error('[FATAL] REDIS_URL não definido. Configure a variável de ambiente.');
+  console.error('[FATAL] REDIS_URL n�o definido. Configure a vari�vel de ambiente.');
   process.exit(1);
 }
 const redisClient = createRedisClient({ url: process.env.REDIS_URL });
 redisClient.on('error', (err) => console.error('Redis Client Error', err));
 
-// ── Meilisearch ────────────────────────────────────────────────────────────
+// ?? Meilisearch ????????????????????????????????????????????????????????????
 // SECURITY: No hardcoded fallback. The Meili Master Key MUST be set via env.
 if (!process.env.MEILI_MASTER_KEY) {
-  console.error('❌ MEILI_MASTER_KEY must be set in .env');
+  console.error('? MEILI_MASTER_KEY must be set in .env');
   process.exit(1);
 }
 
@@ -83,7 +83,7 @@ const meiliClient = new Meilisearch({
   apiKey: process.env.MEILI_MASTER_KEY,
 });
 
-// ── Redis cache middleware ─────────────────────────────────────────────────
+// ?? Redis cache middleware ?????????????????????????????????????????????????
 const cacheMiddleware = (keyPrefix, expiration = 3600) => async (req, res, next) => {
   if (!redisClient.isReady) {
     return next();
@@ -105,17 +105,17 @@ const cacheMiddleware = (keyPrefix, expiration = 3600) => async (req, res, next)
   }
 };
 
-// ── Start Redis ────────────────────────────────────────────────────────────
+// ?? Start Redis ????????????????????????????????????????????????????????????
 (async () => {
   try {
     await redisClient.connect();
-    console.log('✅ Connected to Redis');
+    console.log('? Connected to Redis');
   } catch (e) {
-    console.error('❌ Failed to connect to Redis:', e.message);
+    console.error('? Failed to connect to Redis:', e.message);
   }
 })();
 
-// ── Validation helpers ─────────────────────────────────────────────────────
+// ?? Validation helpers ?????????????????????????????????????????????????????
 /** Validates that a value is a finite number within an optional range. */
 function parseNumericParam(value, min = 0, max = Number.MAX_SAFE_INTEGER) {
   const n = Number(value);
@@ -130,20 +130,20 @@ function parseSafeId(value) {
   return value;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ?????????????????????????????????????????????????????????????????????????????
 // ROUTES
-// ─────────────────────────────────────────────────────────────────────────────
+// ?????????????????????????????????????????????????????????????????????????????
 
 // 1. Geography (with Redis cache)
 app.get('/api/countries', cacheMiddleware('geo'), async (req, res) => {
   const { data, error } = await supabase.from('paises').select('*').order('nome');
-  if (error) return res.status(500).json({ error: 'Erro interno ao buscar países' });
+  if (error) return res.status(500).json({ error: 'Erro interno ao buscar pa�ses' });
   res.json(data);
 });
 
 app.get('/api/states/:countryId', cacheMiddleware('geo'), async (req, res) => {
   const countryId = parseNumericParam(req.params.countryId, 1);
-  if (!countryId) return res.status(400).json({ error: 'countryId inválido' });
+  if (!countryId) return res.status(400).json({ error: 'countryId inv�lido' });
   const { data, error } = await supabase.from('estados').select('*').eq('pais_id', countryId).order('nome');
   if (error) return res.status(500).json({ error: 'Erro interno ao buscar estados' });
   res.json(data);
@@ -151,7 +151,7 @@ app.get('/api/states/:countryId', cacheMiddleware('geo'), async (req, res) => {
 
 app.get('/api/cities/:stateId', cacheMiddleware('geo'), async (req, res) => {
   const stateId = parseNumericParam(req.params.stateId, 1);
-  if (!stateId) return res.status(400).json({ error: 'stateId inválido' });
+  if (!stateId) return res.status(400).json({ error: 'stateId inv�lido' });
   const { data, error } = await supabase.from('cidades').select('*').eq('estado_id', stateId).order('nome');
   if (error) return res.status(500).json({ error: 'Erro interno ao buscar cidades' });
   res.json(data);
@@ -179,16 +179,16 @@ app.get('/api/search', async (req, res) => {
   const preco_max = req.query.preco_max != null ? parseNumericParam(req.query.preco_max, 0) : null;
 
   if (req.query.category && !category) {
-    return res.status(400).json({ error: 'Parâmetro category inválido' });
+    return res.status(400).json({ error: 'Par�metro category inv�lido' });
   }
   if (req.query.country && !country) {
-    return res.status(400).json({ error: 'Parâmetro country inválido' });
+    return res.status(400).json({ error: 'Par�metro country inv�lido' });
   }
   if (req.query.preco_min != null && preco_min === null) {
-    return res.status(400).json({ error: 'Parâmetro preco_min inválido' });
+    return res.status(400).json({ error: 'Par�metro preco_min inv�lido' });
   }
   if (req.query.preco_max != null && preco_max === null) {
-    return res.status(400).json({ error: 'Parâmetro preco_max inválido' });
+    return res.status(400).json({ error: 'Par�metro preco_max inv�lido' });
   }
 
   const limitVal = Math.min(Math.max(parseNumericParam(limit, 1, 100) || 20, 1), 100);
@@ -233,11 +233,11 @@ app.get('/api/auctions', cacheMiddleware('auctions', 60), async (req, res) => {
     .select('*, ads(*, categories(name_pt))')
     .eq('status', status)
     .order('start_date', { ascending: true });
-  if (error) return res.status(500).json({ error: 'Erro ao buscar leilões' });
+  if (error) return res.status(500).json({ error: 'Erro ao buscar leil�es' });
   res.json(data);
 });
 
-// ── Payment service ────────────────────────────────────────────────────────
+// ?? Payment service ????????????????????????????????????????????????????????
 const paymentService = require('./services/paymentService');
 
 /** Shared helper: create Supabase client authenticated with the request's Bearer token. */
@@ -252,7 +252,7 @@ function getAuthenticatedClient(req) {
   return null; // No token provided
 }
 
-// 6. Checkout — one-time highlight payment
+// 6. Checkout � one-time highlight payment
 // SECURITY FIX (TASK 1): userId is always extracted from JWT, never from request body.
 // SECURITY FIX (TASK 3): Rate limit applied.
 const checkoutLimiter = (req, res, next) => {
@@ -269,8 +269,8 @@ const checkoutLimiter = (req, res, next) => {
 const { z } = require('zod');
 
 const checkoutSchema = z.object({
-  adId: z.string().uuid({ message: 'adId deve ser um UUID válido' }),
-  planType: z.enum(['ouro', 'diamante'], { message: 'Plano inválido' }),
+  adId: z.string().uuid({ message: 'adId deve ser um UUID v�lido' }),
+  planType: z.enum(['ouro', 'diamante'], { message: 'Plano inv�lido' }),
 });
 
 app.post('/api/checkout', checkoutLimiter, async (req, res) => {
@@ -284,12 +284,12 @@ app.post('/api/checkout', checkoutLimiter, async (req, res) => {
   const amount = prices[planType];
 
   const supabaseAuth = getAuthenticatedClient(req);
-  if (!supabaseAuth) return res.status(401).json({ error: 'Token de autenticação necessário' });
+  if (!supabaseAuth) return res.status(401).json({ error: 'Token de autentica��o necess�rio' });
 
   try {
     const { data: { user }, error: authErr } = await supabaseAuth.auth.getUser();
-    if (authErr || !user) return res.status(401).json({ error: 'Token inválido' });
-    const userId = user.id; // Always from JWT — never from body!
+    if (authErr || !user) return res.status(401).json({ error: 'Token inv�lido' });
+    const userId = user.id; // Always from JWT � never from body!
 
     const { data: tx, error: txErr } = await supabaseAuth
       .from('transactions')
@@ -321,11 +321,11 @@ app.post('/api/checkout', checkoutLimiter, async (req, res) => {
   }
 });
 
-// 6.1. Checkout — subscription intent
+// 6.1. Checkout � subscription intent
 // SECURITY FIX (TASK 1): userId is always extracted from JWT, never from request body.
 const subscriptionIntentSchema = z.object({
-  planId: z.string().min(1, { message: 'planId é obrigatório' }),
-  userEmail: z.string().email({ message: 'Email inválido' }).optional(),
+  planId: z.string().min(1, { message: 'planId � obrigat�rio' }),
+  userEmail: z.string().email({ message: 'Email inv�lido' }).optional(),
 });
 
 app.post('/api/checkout/subscription/intent', checkoutLimiter, async (req, res) => {
@@ -336,15 +336,15 @@ app.post('/api/checkout/subscription/intent', checkoutLimiter, async (req, res) 
   const { planId, userEmail } = parsed.data;
 
   const supabaseAuth = getAuthenticatedClient(req);
-  if (!supabaseAuth) return res.status(401).json({ error: 'Token de autenticação necessário' });
+  if (!supabaseAuth) return res.status(401).json({ error: 'Token de autentica��o necess�rio' });
 
   try {
     const { data: { user }, error: authErr } = await supabaseAuth.auth.getUser();
-    if (authErr || !user) return res.status(401).json({ error: 'Token inválido' });
-    const userId = user.id; // Always from JWT — never from body!
+    if (authErr || !user) return res.status(401).json({ error: 'Token inv�lido' });
+    const userId = user.id; // Always from JWT � never from body!
 
     const { data: plan } = await supabase.from('plans').select('*').eq('id', planId).single();
-    if (!plan) throw new Error('Plano não encontrado');
+    if (!plan) throw new Error('Plano n�o encontrado');
     if (plan.price <= 0) return res.json({ free: true });
 
     const { data: settingsArr } = await supabase.from('platform_settings').select('*');
@@ -369,43 +369,43 @@ app.post('/api/checkout/subscription/intent', checkoutLimiter, async (req, res) 
     res.json({ gateway, ...result, transactionId: tx.id });
   } catch (err) {
     console.error('[subscription/intent] Error:', err.message);
-    res.status(500).json({ error: 'Erro ao criar intenção de pagamento' });
+    res.status(500).json({ error: 'Erro ao criar inten��o de pagamento' });
   }
 });
 
-// 6.1.b. Checkout — process subscription
+// 6.1.b. Checkout � process subscription
 // SECURITY FIX (TASK 1): Verify that the transaction belongs to the authenticated user.
 app.post('/api/checkout/subscription/process', checkoutLimiter, async (req, res) => {
   const { transactionId, token, paymentMethodId, issuerId, installments, payer } = req.body;
 
   const supabaseAuth = getAuthenticatedClient(req);
-  if (!supabaseAuth) return res.status(401).json({ error: 'Token de autenticação necessário' });
+  if (!supabaseAuth) return res.status(401).json({ error: 'Token de autentica��o necess�rio' });
 
   try {
     const { data: { user }, error: authErr } = await supabaseAuth.auth.getUser();
-    if (authErr || !user) return res.status(401).json({ error: 'Token inválido' });
+    if (authErr || !user) return res.status(401).json({ error: 'Token inv�lido' });
 
     const { data: settingsArr } = await supabase.from('platform_settings').select('*');
     const settings = Object.fromEntries((settingsArr || []).map(s => [s.key, s.value]));
     const gateway  = process.env.PAYMENT_GATEWAY || settings.payment_gateway || 'mercadopago';
 
     const { data: tx } = await supabaseAuth.from('transactions').select('*').eq('id', transactionId).single();
-    if (!tx) throw new Error('Transação não encontrada');
+    if (!tx) throw new Error('Transa��o n�o encontrada');
 
     // SECURITY FIX: Ensure the transaction belongs to the authenticated user.
     if (tx.user_id !== user.id) {
-      return res.status(403).json({ error: 'Acesso negado: transação não pertence ao usuário autenticado' });
+      return res.status(403).json({ error: 'Acesso negado: transa��o n�o pertence ao usu�rio autenticado' });
     }
     
-    // Idempotência: impede cobrança dupla se a requisição for repetida após já ter sucesso
+    // Idempot�ncia: impede cobran�a dupla se a requisi��o for repetida ap�s j� ter sucesso
     if (tx.status !== 'pending') {
-      return res.status(409).json({ error: 'Transação já foi processada' });
+      return res.status(409).json({ error: 'Transa��o j� foi processada' });
     }
 
     const { data: plan } = await supabase.from('plans').select('*').eq('id', tx.notes).single();
-    if (!plan) throw new Error('Plano original não encontrado');
+    if (!plan) throw new Error('Plano original n�o encontrado');
 
-    // Captura o IP real do usuário (necessário para ASAAS — obrigatório no payload de cartão)
+    // Captura o IP real do usu�rio (necess�rio para ASAAS � obrigat�rio no payload de cart�o)
     const clientIp = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip;
     if (payer && !payer.remoteIp) payer.remoteIp = clientIp;
 
@@ -425,7 +425,7 @@ app.post('/api/checkout/subscription/process', checkoutLimiter, async (req, res)
     // NOTE: Plan activation is handled by the webhook (activate_subscription RPC).
     // Only as immediate fallback when gateway confirms synchronously.
     if (isApproved) {
-      // Derivar o slug do plano com base no plan.id ou name (mais robusto que só name)
+      // Derivar o slug do plano com base no plan.id ou name (mais robusto que s� name)
       const nameL = (plan.name || plan.id || '').toLowerCase();
       const planStr = nameL.includes('premium') ? 'premium'
                     : nameL.includes('pro')     ? 'pro'
@@ -442,30 +442,30 @@ app.post('/api/checkout/subscription/process', checkoutLimiter, async (req, res)
   }
 });
 
-// 6.2. Checkout — transparent intent (multi-gateway)
+// 6.2. Checkout � transparent intent (multi-gateway)
 app.post('/api/checkout/intent', checkoutLimiter, async (req, res) => {
   const { planId, userEmail } = req.body;
 
   const supabaseAuth = getAuthenticatedClient(req);
-  if (!supabaseAuth) return res.status(401).json({ error: 'Token de autenticação necessário' });
+  if (!supabaseAuth) return res.status(401).json({ error: 'Token de autentica��o necess�rio' });
 
   const { data: { user }, error: authErr } = await supabaseAuth.auth.getUser();
-  if (authErr || !user) return res.status(401).json({ error: 'Token inválido' });
+  if (authErr || !user) return res.status(401).json({ error: 'Token inv�lido' });
   const userId = user.id;
 
   if (!planId) return res.status(400).json({ error: 'Dados incompletos' });
 
   try {
     const { data: plan } = await supabase.from('plans').select('*').eq('id', planId).single();
-    if (!plan) throw new Error('Plano não encontrado');
+    if (!plan) throw new Error('Plano n�o encontrado');
     if (plan.price <= 0) return res.json({ free: true });
 
     const { data: settingsArr } = await supabase.from('platform_settings').select('*');
     const settings = Object.fromEntries((settingsArr || []).map(s => [s.key, s.value]));
     const gateway  = process.env.PAYMENT_GATEWAY || settings.payment_gateway || 'mercadopago';
 
-    // CORREÇÃO: Criar registro real na tabela transactions antes de chamar o gateway.
-    // Sem isso, tx.id seria undefined e o webhook não conseguiria identificar o pagamento.
+    // CORRE��O: Criar registro real na tabela transactions antes de chamar o gateway.
+    // Sem isso, tx.id seria undefined e o webhook n�o conseguiria identificar o pagamento.
     const { data: tx, error: txErr } = await supabaseAuth
       .from('transactions')
       .insert({ user_id: userId, plan_type: 'subscription', amount: plan.price, status: 'pending', notes: planId })
@@ -475,23 +475,23 @@ app.post('/api/checkout/intent', checkoutLimiter, async (req, res) => {
 
     const intentData = await paymentService.createTransparentIntent({
       gateway, settings, planName: plan.name_pt || plan.name || plan.id, amount: plan.price,
-      userEmail: userEmail || user.email, // CORREÇÃO: passa email para o MP não receber undefined
+      userEmail: userEmail || user.email, // CORRE��O: passa email para o MP n�o receber undefined
       externalReference: tx.id,
     });
 
     res.json({ gateway, ...intentData, txId: tx.id, planId: plan.id });
   } catch (err) {
     console.error('[checkout/intent] Error:', err.message);
-    res.status(500).json({ error: 'Erro ao criar intenção de pagamento' });
+    res.status(500).json({ error: 'Erro ao criar inten��o de pagamento' });
   }
 });
 
-// 6.3. Checkout — process transparent payment
+// 6.3. Checkout � process transparent payment
 app.post('/api/checkout/process', checkoutLimiter, async (req, res) => {
   const { planId, token, paymentMethodId, issuerId, installments, payer } = req.body;
 
   const supabaseAuth = getAuthenticatedClient(req);
-  if (!supabaseAuth) return res.status(401).json({ error: 'Token de autenticação necessário' });
+  if (!supabaseAuth) return res.status(401).json({ error: 'Token de autentica��o necess�rio' });
 
   try {
     const { data: settingsArr } = await supabase.from('platform_settings').select('*');
@@ -499,12 +499,12 @@ app.post('/api/checkout/process', checkoutLimiter, async (req, res) => {
     const gateway  = process.env.PAYMENT_GATEWAY || settings.payment_gateway || 'mercadopago';
 
     const { data: { user }, error: userErr } = await supabaseAuth.auth.getUser();
-    if (userErr || !user) throw new Error('Usuário não autenticado');
+    if (userErr || !user) throw new Error('Usu�rio n�o autenticado');
 
     const { data: plan } = await supabaseAuth.from('plans').select('*').eq('id', planId).single();
-    if (!plan) throw new Error('Plano inválido');
+    if (!plan) throw new Error('Plano inv�lido');
 
-    // CORREÇÃO: Inserir transação no banco ANTES de chamar o gateway.
+    // CORRE��O: Inserir transa��o no banco ANTES de chamar o gateway.
     // Sem isso, tx.id = undefined e o external_reference enviado ao gateway seria undefined,
     // impossibilitando o webhook de identificar e ativar o pagamento.
     const { data: tx, error: txErr } = await supabaseAuth
@@ -537,12 +537,12 @@ app.post('/api/checkout/process', checkoutLimiter, async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 7. Webhook — payment notification
+// ?????????????????????????????????????????????????????????????????????????????
+// 7. Webhook � payment notification
 // Suporta Stripe, Mercado Pago, Pagar.me e ASAAS via verifyAnyGateway().
-// O gateway é detectado automaticamente pelos headers da requisição.
+// O gateway � detectado automaticamente pelos headers da requisi��o.
 // Raw body capturado por express.raw() montado em /api/webhook.
-// ─────────────────────────────────────────────────────────────────────────────
+// ?????????????????????????????????????????????????????????????????????????????
 app.post('/api/webhook/payment', async (req, res) => {
   const rawBody = req.body; // Buffer, capturado por express.raw()
 
@@ -550,27 +550,27 @@ app.post('/api/webhook/payment', async (req, res) => {
   try {
     payload = JSON.parse(rawBody.toString('utf8'));
   } catch {
-    return res.status(400).json({ error: 'Payload inválido' });
+    return res.status(400).json({ error: 'Payload inv�lido' });
   }
 
-  // ── Carrega settings do Supabase (para usar chaves salvas no admin) ────
+  // ?? Carrega settings do Supabase (para usar chaves salvas no admin) ????
   let settings = {};
   try {
     const { data: settingsArr } = await supabase.from('platform_settings').select('*');
     settings = Object.fromEntries((settingsArr || []).map(s => [s.key, s.value]));
   } catch (_) { /* usa apenas env vars como fallback */ }
 
-  // ── Detecta gateway e verifica assinatura HMAC ────────────────────────
+  // ?? Detecta gateway e verifica assinatura HMAC ????????????????????????
   const { valid, gateway, reason } = verifyAnyGateway(rawBody, req.headers, payload, settings);
 
   if (!valid) {
-    console.error(`[webhook/${gateway || 'unknown'}] Verificação de assinatura falhou: ${reason}`);
-    return res.status(401).json({ error: 'Assinatura inválida ou ausente' });
+    console.error(`[webhook/${gateway || 'unknown'}] Verifica��o de assinatura falhou: ${reason}`);
+    return res.status(401).json({ error: 'Assinatura inv�lida ou ausente' });
   }
 
   console.log(`[webhook/${gateway}] Assinatura verificada com sucesso.`);
 
-  // ── Processa notificação de pagamento — roteamento por gateway ────────
+  // ?? Processa notifica��o de pagamento � roteamento por gateway ????????
   let txId, paymentId;
 
   if (gateway === 'asaas') {
@@ -585,9 +585,9 @@ app.post('/api/webhook/payment', async (req, res) => {
     const { type, data } = payload;
     const typeStr = String(type || '');
 
-    // ── Mercado Pago PreApproval (assinaturas) ─────────────────────────
+    // ?? Mercado Pago PreApproval (assinaturas) ?????????????????????????
     // MP envia: { type: 'subscription_preapproval', data: { id: 'PREAPPROVAL_ID' } }
-    // O payload NÃO contém external_reference — é preciso fazer GET na API.
+    // O payload N�O cont�m external_reference � � preciso fazer GET na API.
     if (typeStr === 'subscription_preapproval' && data?.id) {
       try {
         const mpToken = settings.mp_access_token || process.env.MP_ACCESS_TOKEN;
@@ -609,9 +609,9 @@ app.post('/api/webhook/payment', async (req, res) => {
       }
     }
 
-    // ── Stripe / MP Pagamentos avulsos / Pagar.me ──────────────────────
+    // ?? Stripe / MP Pagamentos avulsos / Pagar.me ??????????????????????
     // Stripe:   type = 'payment_intent.succeeded', 'invoice.payment_succeeded', 'customer.subscription.updated'
-    // MP:       type = 'payment' (pagamento avulso, não PreApproval)
+    // MP:       type = 'payment' (pagamento avulso, n�o PreApproval)
     // Pagar.me: type = 'charge.paid', 'charge.underpaid', etc.
     if (!txId) {
       const dataObject = data?.object || data;
@@ -625,9 +625,9 @@ app.post('/api/webhook/payment', async (req, res) => {
         paymentId = String(resourceId);
         
         // Para Stripe invoice.paid, o metadata da subscription fica em subscription_details ou precisamos pegar do webhook
-        // Em invoice.paid, a subscription_details nem sempre tem o metadata completo se não foi mapeado,
+        // Em invoice.paid, a subscription_details nem sempre tem o metadata completo se n�o foi mapeado,
         // mas em subscriptions criadas com metadata, invoice.subscription_details.metadata deve conter.
-        // O metadata também pode estar na raiz da subscription se for `customer.subscription.updated`.
+        // O metadata tamb�m pode estar na raiz da subscription se for `customer.subscription.updated`.
         const stripeMetadata = typeStr.startsWith('invoice') && dataObject.subscription_details?.metadata
                               ? dataObject.subscription_details.metadata
                               : dataObject.metadata;
@@ -641,7 +641,7 @@ app.post('/api/webhook/payment', async (req, res) => {
 
   if (txId && paymentId) {
     try {
-      // Idempotência — ignora se este payment_id já foi processado com sucesso
+      // Idempot�ncia � ignora se este payment_id j� foi processado com sucesso
       const { data: existing } = await supabase
         .from('transactions')
         .select('id')
@@ -650,7 +650,7 @@ app.post('/api/webhook/payment', async (req, res) => {
         .maybeSingle();
 
       if (existing) {
-        console.log(`[webhook/${gateway}] payment_id ${paymentId} já processado — ignorando.`);
+        console.log(`[webhook/${gateway}] payment_id ${paymentId} j� processado � ignorando.`);
         return res.sendStatus(200);
       }
 
@@ -662,7 +662,7 @@ app.post('/api/webhook/payment', async (req, res) => {
       if (rpcErr) {
         console.error(`[webhook/${gateway}] RPC activate_subscription error:`, rpcErr);
       } else {
-        console.log(`[webhook/${gateway}] Assinatura ativada para transação ${txId}`);
+        console.log(`[webhook/${gateway}] Assinatura ativada para transa��o ${txId}`);
         if (adId) {
           await meiliClient.index('ads').updateDocuments([{ id: adId, featured: true }]);
         }
@@ -675,9 +675,9 @@ app.post('/api/webhook/payment', async (req, res) => {
   res.sendStatus(200);
 });
 
-// ═════════════════════════════════════════════════════════════════════════════
+// ?????????????????????????????????????????????????????????????????????????????
 // API v1 (REST para Parceiros)
-// ═════════════════════════════════════════════════════════════════════════════
+// ?????????????????????????????????????????????????????????????????????????????
 
 const apiKeyAuth    = createApiKeyAuth(supabase, redisClient);
 const rateLimiter   = createRateLimiter(redisClient);
@@ -697,8 +697,8 @@ app.use('/api/v1', errorHandler);
 
 app.use(errorHandler); // cobre /api/checkout*, /api/webhook*, etc.
 
-// ── Start server ───────────────────────────────────────────────────────────
+// ?? Start server ???????????????????????????????????????????????????????????
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 Tauze Class API running on port ${PORT}`);
+  console.log(`?? Tauze Class API running on port ${PORT}`);
 });

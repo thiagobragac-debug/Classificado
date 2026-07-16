@@ -1,13 +1,13 @@
 /* ================================================================
-   TAUZE CLASS — Supabase Client
-   Configuração central da conexão com o banco de dados real.
+   TAUZE CLASS � Supabase Client
+   Configura��o central da conex�o com o banco de dados real.
    ================================================================ */
 
 const SUPABASE_URL  = 'https://rfzuzuobwuanmbrcthqe.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmenV6dW9id3Vhbm1icmN0aHFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwNzg1OTMsImV4cCI6MjA5ODY1NDU5M30.m-Mop7RgpVo730lwjcra1egF8p9APv6AGnW1YnFvOgY';
 
 // Carrega o SDK do Supabase via CDN (adicionado ao HTML via <script>)
-// e expõe o cliente global
+// e exp�e o cliente global
 let _sb = null;
 function getSupabase() {
   if (_sb) return _sb;
@@ -17,15 +17,15 @@ function getSupabase() {
   return _sb;
 }
 
-// ─── AUTH ──────────────────────────────────────────────────────
+// ??? AUTH ??????????????????????????????????????????????????????
 
-/** Retorna a sessão atual (null se não logado) */
+/** Retorna a sess�o atual (null se n�o logado) */
 async function getSession() {
   const { data: { session } } = await getSupabase().auth.getSession();
   return session;
 }
 
-/** Retorna o usuário logado + perfil do banco */
+/** Retorna o usu�rio logado + perfil do banco */
 async function getCurrentUser() {
   const session = await getSession();
   if (!session) return null;
@@ -78,12 +78,12 @@ async function resetPassword(email) {
   if (error) throw error;
 }
 
-/** Escuta mudanças de sessão (login/logout) */
+/** Escuta mudan�as de sess�o (login/logout) */
 function onAuthChange(callback) {
   return getSupabase().auth.onAuthStateChange(callback);
 }
 
-// ─── PERFIL ────────────────────────────────────────────────────
+// ??? PERFIL ????????????????????????????????????????????????????
 
 async function getProfile(userId) {
   const { data, error } = await getSupabase()
@@ -123,7 +123,7 @@ async function updateProfile(userId, updates) {
   return data;
 }
 
-// ─── GEOGRAFIA ──────────────────────────────────────────────────
+// ??? GEOGRAFIA ??????????????????????????????????????????????????
 
 const geoCache = {
   countries: null,
@@ -166,7 +166,7 @@ async function getCities(estadoId) {
   return data;
 }
 
-// ─── ANÚNCIOS ─────────────────────────────────────────────────
+// ??? AN�NCIOS ?????????????????????????????????????????????????
 
 async function getAds({ category, country, state, city, search, preco_min, preco_max, featured, page, cursor, limit = 20, status = 'active' } = {}) {
   // If cursor is provided, we treat it as the current page number
@@ -183,29 +183,29 @@ async function getAds({ category, country, state, city, search, preco_min, preco
   const BR_STATES = {
     "Acre": "AC", "AC": "Acre",
     "Alagoas": "AL", "AL": "Alagoas",
-    "Amapá": "AP", "AP": "Amapá",
+    "Amap�": "AP", "AP": "Amap�",
     "Amazonas": "AM", "AM": "Amazonas",
     "Bahia": "BA", "BA": "Bahia",
-    "Ceará": "CE", "CE": "Ceará",
+    "Cear�": "CE", "CE": "Cear�",
     "Distrito Federal": "DF", "DF": "Distrito Federal",
-    "Espírito Santo": "ES", "ES": "Espírito Santo",
-    "Goiás": "GO", "GO": "Goiás",
-    "Maranhão": "MA", "MA": "Maranhão",
+    "Esp�rito Santo": "ES", "ES": "Esp�rito Santo",
+    "Goi�s": "GO", "GO": "Goi�s",
+    "Maranh�o": "MA", "MA": "Maranh�o",
     "Mato Grosso": "MT", "MT": "Mato Grosso",
     "Mato Grosso do Sul": "MS", "MS": "Mato Grosso do Sul",
     "Minas Gerais": "MG", "MG": "Minas Gerais",
-    "Pará": "PA", "PA": "Pará",
-    "Paraíba": "PB", "PB": "Paraíba",
-    "Paraná": "PR", "PR": "Paraná",
+    "Par�": "PA", "PA": "Par�",
+    "Para�ba": "PB", "PB": "Para�ba",
+    "Paran�": "PR", "PR": "Paran�",
     "Pernambuco": "PE", "PE": "Pernambuco",
-    "Piauí": "PI", "PI": "Piauí",
+    "Piau�": "PI", "PI": "Piau�",
     "Rio de Janeiro": "RJ", "RJ": "Rio de Janeiro",
     "Rio Grande do Norte": "RN", "RN": "Rio Grande do Norte",
     "Rio Grande do Sul": "RS", "RS": "Rio Grande do Sul",
-    "Rondônia": "RO", "RO": "Rondônia",
+    "Rond�nia": "RO", "RO": "Rond�nia",
     "Roraima": "RR", "RR": "Roraima",
     "Santa Catarina": "SC", "SC": "Santa Catarina",
-    "São Paulo": "SP", "SP": "São Paulo",
+    "S�o Paulo": "SP", "SP": "S�o Paulo",
     "Sergipe": "SE", "SE": "Sergipe",
     "Tocantins": "TO", "TO": "Tocantins"
   };
@@ -243,13 +243,13 @@ async function getAdById(id) {
     .maybeSingle();
   if (error) throw error;
 
-  // Incrementa visualizações via RPC server-side com debounce por IP (30min)
-  // O IP é hasheado no cliente para evitar enviar o IP real
+  // Incrementa visualiza��es via RPC server-side com debounce por IP (30min)
+  // O IP � hasheado no cliente para evitar enviar o IP real
   const viewedKey = 'viewed_ad_' + id;
   if (!sessionStorage.getItem(viewedKey)) {
     sessionStorage.setItem(viewedKey, 'true');
     try {
-      // SHA-256 do IP real é gerado no servidor; aqui usamos um token de sessão anônimo
+      // SHA-256 do IP real � gerado no servidor; aqui usamos um token de sess�o an�nimo
       const sessionToken = sessionStorage.getItem('tc_view_token') || (() => {
         const t = crypto.randomUUID();
         sessionStorage.setItem('tc_view_token', t);
@@ -260,7 +260,7 @@ async function getAdById(id) {
       const ipHash  = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2,'0')).join('');
       getSupabase().rpc('increment_ad_view_safe', { p_ad_id: id, p_ip_hash: ipHash }).catch(() => {});
     } catch {
-      // fallback silencioso se SubtleCrypto não estiver disponível
+      // fallback silencioso se SubtleCrypto n�o estiver dispon�vel
     }
   }
 
@@ -269,7 +269,7 @@ async function getAdById(id) {
 
 async function createAd(adData) {
   const session = await getSession();
-  if (!session) throw new Error('Não autenticado');
+  if (!session) throw new Error('N�o autenticado');
 
   const { data, error } = await getSupabase()
     .from('ads')
@@ -304,7 +304,7 @@ async function getMyAds() {
   return data.filter(ad => ad.status !== 'deleted');
 }
 
-// ─── COMPRESSÃO DE IMAGEM ─────────────────────────────────────
+// ??? COMPRESS�O DE IMAGEM ?????????????????????????????????????
 function compressImage(file, maxWidth = 1200, quality = 0.8) {
   return new Promise((resolve) => {
     if (!file.type.match(/image.*/)) return resolve(file);
@@ -335,11 +335,11 @@ function compressImage(file, maxWidth = 1200, quality = 0.8) {
   });
 }
 
-// ─── UPLOAD DE IMAGEM ─────────────────────────────────────────
+// ??? UPLOAD DE IMAGEM ?????????????????????????????????????????
 
 async function uploadAdImage(rawFile, adId) {
   const session = await getSession();
-  if (!session) throw new Error('Não autenticado');
+  if (!session) throw new Error('N�o autenticado');
 
   const file = await compressImage(rawFile, 1200, 0.8);
 
@@ -356,7 +356,7 @@ async function uploadAdImage(rawFile, adId) {
   return publicUrl;
 }
 
-// ─── FAVORITOS ────────────────────────────────────────────────
+// ??? FAVORITOS ????????????????????????????????????????????????
 
 async function _rpcToggleFav(adId) {
   const session = await getSession();
@@ -390,11 +390,11 @@ async function getMyFavorites() {
   return data.map(f => f.ads);
 }
 
-// ─── MENSAGENS ────────────────────────────────────────────────
+// ??? MENSAGENS ????????????????????????????????????????????????
 
 async function sendMessage(adId, receiverId, content) {
   const session = await getSession();
-  if (!session) throw new Error('Não autenticado');
+  if (!session) throw new Error('N�o autenticado');
   const { data, error } = await getSupabase().from('messages').insert({
     ad_id: adId, sender_id: session.user.id, receiver_id: receiverId, content
   }).select().maybeSingle();
@@ -425,7 +425,7 @@ function subscribeToMessages(userId, callback) {
     .subscribe();
 }
 
-// ─── LEILÕES ──────────────────────────────────────────────────
+// ??? LEIL�ES ??????????????????????????????????????????????????
 
 async function getAuctions({ status = 'live', limit = 20 } = {}) {
   const { data, error } = await getSupabase()
@@ -440,15 +440,15 @@ async function getAuctions({ status = 'live', limit = 20 } = {}) {
 
 async function placeBid(auctionId, amount) {
   const session = await getSession();
-  if (!session) throw new Error('Não autenticado');
+  if (!session) throw new Error('N�o autenticado');
 
-  // Validação básica no cliente (a validação definitiva é feita atomicamente no servidor)
+  // Valida��o b�sica no cliente (a valida��o definitiva � feita atomicamente no servidor)
   const numAmount = Number(amount);
   if (!isFinite(numAmount) || numAmount <= 0) {
-    throw new Error('Valor do lance inválido.');
+    throw new Error('Valor do lance inv�lido.');
   }
 
-  // RPC atômica com SELECT FOR UPDATE — previne race condition TOCTOU
+  // RPC at�mica com SELECT FOR UPDATE � previne race condition TOCTOU
   const { data, error } = await getSupabase().rpc('place_bid_atomic', {
     p_auction_id: auctionId,
     p_user_id:    session.user.id,
@@ -475,18 +475,18 @@ function subscribeToAuction(auctionId, callback) {
     .subscribe();
 }
 
-// ─── DENÚNCIAS ────────────────────────────────────────────────
+// ??? DEN�NCIAS ????????????????????????????????????????????????
 
 async function reportAd(adId, reason, severity = 'low') {
   const session = await getSession();
-  if (!session) throw new Error('Não autenticado');
+  if (!session) throw new Error('N�o autenticado');
   const { error } = await getSupabase().from('reports').insert({
     ad_id: adId, reporter_id: session.user.id, reason, severity
   });
   if (error) throw error;
 }
 
-// ─── BANNERS PÚBLICOS ─────────────────────────────────────────
+// ??? BANNERS P�BLICOS ?????????????????????????????????????????
 
 function normalizeString(str) {
   if (!str) return '';
@@ -531,7 +531,7 @@ async function getBanners(position, userLoc = null) {
   return globalBanners;
 }
 
-// ─── CATEGORIAS ───────────────────────────────────────────────
+// ??? CATEGORIAS ???????????????????????????????????????????????
 
 async function getCategories() {
   const { data } = await getSupabase()
@@ -539,7 +539,7 @@ async function getCategories() {
   return data || [];
 }
 
-// ─── ASSINATURAS ─────────────────────────────────────────────
+// ??? ASSINATURAS ?????????????????????????????????????????????
 
 async function getMySubscription() {
   const session = await getSession();
@@ -550,7 +550,7 @@ async function getMySubscription() {
   return data;
 }
 
-// ─── LIMITES POR PLANO ────────────────────────────────────────
+// ??? LIMITES POR PLANO ????????????????????????????????????????
 const PLAN_LIMITS = {
   free:    { ads: 3,   featured: 0, highlight: false },
   pro:     { ads: 15,  featured: 2, highlight: true  },
@@ -567,7 +567,7 @@ async function canPostAd() {
   return activeAds.length < limit;
 }
 
-// ─── ESTATÍSTICAS REAIS DA PLATAFORMA ─────────────────────────
+// ??? ESTAT�STICAS REAIS DA PLATAFORMA ?????????????????????????
 async function fetchPlatformStats() {
   try {
     const sb = getSupabase();
@@ -602,7 +602,7 @@ async function fetchPlatformStats() {
   }
 }
 
-// ─── TAGS POPULARES ───────────────────────────────────────────
+// ??? TAGS POPULARES ???????????????????????????????????????????
 const PROFANITY_LIST = ['merda', 'porra', 'caralho', 'puta', 'foda', 'buceta', 'cu', 'bosta', 'cacete', 'arrombado', 'viado'];
 const STOP_WORDS = ['para', 'com', 'uma', 'venda', 'vendo', 'novo', 'nova', 'usado', 'usada', 'como', 'mais', 'este', 'esta', 'esse', 'essa'];
 
@@ -631,7 +631,7 @@ async function fetchPopularTags(lang) {
   }
 }
 
-// ─── SYNC CATEGORIES DO BANCO ─────────────────────────────────
+// ??? SYNC CATEGORIES DO BANCO ?????????????????????????????????
 async function fetchCategoriesFromDB() {
   try {
     const dbCats = await getCategories();
@@ -645,7 +645,7 @@ async function fetchCategoriesFromDB() {
           id: dbCat.id,
           name_pt: dbCat.name_pt || dbCat.name,
           name_es: dbCat.name_es || dbCat.nameEs || dbCat.name_pt,
-          icon: dbCat.icon || '📦',
+          icon: dbCat.icon || '??',
           color: dbCat.color || '',
           active: dbCat.active !== false,
           count: 0
@@ -656,7 +656,7 @@ async function fetchCategoriesFromDB() {
   }
 }
 
-// ─── EVENTOS ──────────────────────────────────────────────────
+// ??? EVENTOS ??????????????????????????????????????????????????
 async function fetchEventsFromDB() {
   try {
     const sb = getSupabase();

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -258,23 +258,23 @@
                     <option value="por saca (60kg)">por saca (60kg)</option>
                     <option value="por saca (50kg)">por saca (50kg)</option>
                     <option value="por arroba">por arroba</option>
-                    <option value="por cabeÃ§a">por cabeÃ§a</option>
+                    <option value="por cabeça">por cabeça</option>
                     <option value="por litro">por litro</option>
                     <option value="por hectare">por hectare</option>
                     <option value="por alqueire">por alqueire</option>
-                    <option value="por mÂ²">por mÂ²</option>
-                    <option value="por mÂ³">por mÂ³</option>
+                    <option value="por m²">por m²</option>
+                    <option value="por m³">por m³</option>
                     <option value="por lote">por lote</option>
                     <option value="por fardo">por fardo</option>
                     <option value="por dose">por dose</option>
-                    <option value="por mÃªs">por mÃªs</option>
+                    <option value="por mês">por mês</option>
                     <option value="por dia">por dia</option>
                   </select>
                 </div>
                 <div class="form-group">
-                  <label class="form-label" for="condicao">CondiÃ§Ã£o</label>
+                  <label class="form-label" for="condicao">Condição</label>
                   <select id="condicao" name="condicao" class="form-input" style="cursor:pointer">
-                    <option value="">NÃ£o aplicÃ¡vel</option>
+                    <option value="">Não aplicável</option>
                     <option value="novo">Novo</option>
                     <option value="usado">Usado</option>
                   </select>
@@ -361,9 +361,9 @@
   
           <footer class="site-footer simplified-footer" style="background: #020617; color: rgba(255,255,255,0.6); padding: 1.25rem 0; margin-top: auto;" role="contentinfo">
     <div class="container" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
-      <div style="font-weight: 600; color: white; font-size: 0.9rem;">Tauze Class <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.6; margin-left: 0.5rem;" data-i18n="footer_copy">Â© 2026. Todos os direitos reservados.</span></div>
+      <div style="font-weight: 600; color: white; font-size: 0.9rem;">Tauze Class <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.6; margin-left: 0.5rem;" data-i18n="footer_copy">© 2026. Todos os direitos reservados.</span></div>
       <div style="display:flex; gap: 1.5rem; font-size: var(--fs-sm);">
-        <a href="index.html" style="transition: color 0.2s; color: rgba(255,255,255,0.6);" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,0.6)'">InÃ­cio</a>
+        <a href="index.html" style="transition: color 0.2s; color: rgba(255,255,255,0.6);" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,0.6)'">Início</a>
         <a href="#" style="transition: color 0.2s; color: rgba(255,255,255,0.6);" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,0.6)'">Suporte</a>
         <a href="institucional.html#termos">Termos de Uso</a>
       </div>
@@ -384,7 +384,7 @@
 
     var quill = new Quill('#editor-container', {
       theme: 'snow',
-      placeholder: 'Descreva detalhes importantes: estado de conservaÃ§Ã£o, raÃ§a, quantidade, diferenciais...',
+      placeholder: 'Descreva detalhes importantes: estado de conservação, raça, quantidade, diferenciais...',
       modules: {
         toolbar: [
           ['bold', 'italic', 'underline', 'strike'],
@@ -423,8 +423,8 @@
       
       if (editAdId) {
         var pageTitleEl = document.querySelector('h1.list-hero-title');
-        if (pageTitleEl) pageTitleEl.textContent = 'Editar AnÃºncio';
-        submitBtn.innerHTML = '<span class="btn-icon"></span> Salvar AlteraÃ§Ãµes';
+        if (pageTitleEl) pageTitleEl.textContent = 'Editar Anúncio';
+        submitBtn.innerHTML = '<span class="btn-icon"></span> Salvar Alterações';
         try {
           var ad = await getAdById(editAdId);
           if (ad) {
@@ -445,7 +445,7 @@
             document.getElementById('cidade').value = ad.city || '';
             quill.clipboard.dangerouslyPasteHTML(ad.description || '');
           }
-        } catch(e) { console.warn('Erro ao carregar anÃºncio:', e); }
+        } catch(e) { console.warn('Erro ao carregar anúncio:', e); }
       } else {
         // Auto-fill silently from user profile, falling back to loc
         if (typeof getProfile === 'function') {
@@ -634,9 +634,9 @@
       photoCount.textContent=count+' de '+MAX_FILES+' foto'+(count!==1?'s':'')+' selecionada'+(count!==1?'s':'');
     }
 
-    // â”€â”€ CompressÃ£o client-side via Canvas API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Compressão client-side via Canvas API ──────────────────────
     // Redimensiona para max 1280px e comprime em JPEG quality=0.82.
-    // PNG com alfa (transpariÃªncia) mantÃ©m PNG para preservar qualidade.
+    // PNG com alfa (transpariência) mantém PNG para preservar qualidade.
     function compressImage(file, maxPx, quality) {
       maxPx   = maxPx   || 1280;
       quality = quality || 0.82;
@@ -663,7 +663,7 @@
             canvas.toBlob(function(blob) {
               if (!blob || blob.size >= file.size) return resolve(file);
               var out = new File([blob], file.name, { type: mime, lastModified: Date.now() });
-              console.log('[img] ' + (file.size/1024).toFixed(0) + 'KB â†’ ' + (out.size/1024).toFixed(0) + 'KB (' + file.name + ')');
+              console.log('[img] ' + (file.size/1024).toFixed(0) + 'KB → ' + (out.size/1024).toFixed(0) + 'KB (' + file.name + ')');
               resolve(out);
             }, mime, quality);
           };
@@ -691,7 +691,7 @@
       if (descricao === '<p><br></p>' || descricao === '') descricao = '';
       document.getElementById('descricao').value = descricao;
       
-      if(!titulo||!categoryId||!pais||!estado||!cidade||!descricao){showError('Por favor, preencha todos os campos obrigatÃ³rios.');return;}
+      if(!titulo||!categoryId||!pais||!estado||!cidade||!descricao){showError('Por favor, preencha todos os campos obrigatórios.');return;}
       setLoading(true);
       try{
         var validFiles=selectedFiles.filter(Boolean);
@@ -705,7 +705,7 @@
             uploadBar.style.width=Math.round(((ci+0.5)/validFiles.length)*50)+'%';
             compressedFiles.push(await compressImage(validFiles[ci],1280,0.82));
           }
-          // Fase 2: Upload das imagens jÃ¡ otimizadas
+          // Fase 2: Upload das imagens já otimizadas
           for(var i=0;i<compressedFiles.length;i++){
             uploadLabel.textContent='Enviando foto '+(i+1)+' de '+compressedFiles.length+'...';
             uploadBar.style.width=(50+Math.round(((i+1)/compressedFiles.length)*50))+'%';
