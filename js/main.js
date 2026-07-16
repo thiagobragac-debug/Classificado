@@ -69,7 +69,7 @@ const _locationPromise = (async () => {
     if (cached) {
       const { ts, loc } = JSON.parse(cached);
       if (loc && (loc.city || loc.state || loc.country) && (Date.now() - ts < CACHE_TTL)) {
-        console.log('[geo] usando cache (localStorage):', loc);
+        // console.log('[geo] usando cache (localStorage):', loc);
         return loc;
       }
     }
@@ -129,7 +129,7 @@ const _locationPromise = (async () => {
           state:   geo.address.state || null,
           country: geo.address.country || null,
         };
-        console.log('[geo] Provedor 1 — GPS+Nominatim ok:', loc);
+        // console.log('[geo] Provedor 1 — GPS+Nominatim ok:', loc);
         return save(loc);
       }
     }
@@ -148,7 +148,7 @@ const _locationPromise = (async () => {
         state:   data.region       || null,
         country: normalizeCountry(data.country_code),
       };
-      console.log('[geo] Provedor 2 — ipapi.co ok:', loc);
+      // console.log('[geo] Provedor 2 — ipapi.co ok:', loc);
       return save(loc);
     }
   } catch (_) {}
@@ -166,7 +166,7 @@ const _locationPromise = (async () => {
         state:   data.regionName  || null,
         country: normalizeCountry(data.countryCode),
       };
-      console.log('[geo] Provedor 3 — freeipapi.com ok:', loc);
+      // console.log('[geo] Provedor 3 — freeipapi.com ok:', loc);
       return save(loc);
     }
   } catch (_) {}
@@ -1440,7 +1440,7 @@ function showCustomPwaPrompt() {
     if (deferredPrompt) {
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
-      console.log('PWA prompt outcome:', outcome);
+      // console.log('PWA prompt outcome:', outcome);
       deferredPrompt = null;
     }
   });

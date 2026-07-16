@@ -364,7 +364,7 @@
       <div style="font-weight: 600; color: white; font-size: 0.9rem;">Tauze Class <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.6; margin-left: 0.5rem;" data-i18n="footer_copy">© 2026. Todos os direitos reservados.</span></div>
       <div style="display:flex; gap: 1.5rem; font-size: var(--fs-sm);">
         <a href="index.html" style="transition: color 0.2s; color: rgba(255,255,255,0.6);" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,0.6)'">Início</a>
-        <a href="#" style="transition: color 0.2s; color: rgba(255,255,255,0.6);" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,0.6)'">Suporte</a>
+        <a href="javascript:void(0)" style="transition: color 0.2s; color: rgba(255,255,255,0.6);" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,0.6)'">Suporte</a>
         <a href="institucional.html#termos">Termos de Uso</a>
       </div>
     </div>
@@ -681,6 +681,7 @@
       var titulo=document.getElementById('titulo').value.trim();
       var categoryId=categoriaSelect.value;
       var preco = parseFloat(precoInput.value) || null;
+      if (preco !== null && preco < 0) { showError('O preço não pode ser negativo.'); return; }
       var moeda=document.getElementById('moeda').value;
       var unidadePreco=document.getElementById('unidade-preco').value.trim();
       var pais=document.getElementById('pais').value;

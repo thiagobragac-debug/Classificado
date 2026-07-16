@@ -67,6 +67,9 @@ async function loginWithGoogle() {
 /** Logout */
 async function logout() {
   await getSupabase().auth.signOut();
+  localStorage.removeItem('tc_favorites');
+  localStorage.removeItem('tc_user_initials');
+  localStorage.removeItem('tc_user_id');
   window.location.href = '/login.html';
 }
 

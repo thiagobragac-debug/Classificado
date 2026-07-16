@@ -98,7 +98,7 @@ async function rpcAds(rpcName, loc, limit) {
       p_limit:   limit,
     });
     if (error) throw error;
-    console.log(`[home] ${rpcName} ok — ${(data||[]).length} anúncios`);
+    // console.log(`[home] ${rpcName} ok — ${(data||[]).length} anúncios`);
     return (data || []).map(norm);
   } catch (e) {
     console.warn(`[home] ${rpcName} RPC falhou (${e.message}), usando fallback`);
@@ -123,7 +123,7 @@ async function rpcAds(rpcName, loc, limit) {
 
 // ─── 1. STATS REAIS + ANIMAÇÃO ───────────────
 async function initHomeStats() {
-  console.log('[home] initHomeStats — buscando...');
+  // console.log('[home] initHomeStats — buscando...');
 
   // Não invalida o cache — deixa fetchPlatformStats decidir se usa cache (TTL 2min)
   try {
@@ -169,7 +169,7 @@ async function initHomeStats() {
 // ─── 2. CATEGORIAS COM CONTAGENS REAIS ────────
 // Uma única função que busca categorias E contagens em paralelo
 async function renderCategoriesHome() {
-  console.log('[home] renderCategoriesHome — buscando...');
+  // console.log('[home] renderCategoriesHome — buscando...');
 
   try {
     const sb = getSupabase();
@@ -323,7 +323,7 @@ async function renderRecentAdsHome() {
 
 // ─── INIT ────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('[home] DOMContentLoaded — iniciando...');
+  // console.log('[home] DOMContentLoaded — iniciando...');
 
   const btn = document.getElementById('btn-load-more');
   if (btn) {
@@ -343,7 +343,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderRecentAdsHome(),
     renderCountriesHome(),
   ]).then(() => {
-    console.log('[home] ✅ Tudo carregado!');
+    // console.log('[home] ✅ Tudo carregado!');
   }).catch(e => {
     console.error('[home] ❌ Erro no carregamento:', e);
   });

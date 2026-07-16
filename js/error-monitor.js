@@ -109,7 +109,7 @@
             'Network Error',
           ],
         });
-        console.log('[TauzeClass] Sentry inicializado.');
+        // console.log('[TauzeClass] Sentry inicializado.');
       }
     };
     script.onerror = () => console.warn('[TauzeClass] Falha ao carregar SDK do Sentry.');
@@ -124,5 +124,5 @@
     setTimeout(tryLoadSentry, 1500);
   }
 
-  console.log('[TauzeClass] Error monitor v2 iniciado.');
+  // console.log('[TauzeClass] Error monitor v2 iniciado.');
 })();
