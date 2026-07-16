@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <!-- Security headers (defence-in-depth, complements server-side headers) -->
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Leilões ao Vivo — Tauze Class</title>
+  <link rel="stylesheet" href="css/style.css?v=1784160758676">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2316A34A'/%3E%3Ctext y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'%3ET%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+
+  <header class="site-header" role="banner">
+    <div class="container header-inner">
+
+      <a href="index.html" class="logo" aria-label="Tauze Class — Início">
+        <div class="logo-mark">TC</div>
+        <div class="logo-text">
+          <span class="logo-name">Tauze Class</span>
+          <span class="logo-tagline">Classificados Agro</span>
+        </div>
+      </a>
+
+      <div class="header-search" role="search" style="display: none;">
+        <span class="search-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        </span>
+        <input type="search" id="header-search-input" placeholder="Buscar leilões e remates..."
+               data-i18n-placeholder="search_placeholder" aria-label="Buscar anúncios">
+      </div>
+
+      <nav class="header-nav" role="navigation" aria-label="Menu principal">
+        <a href="index.html" data-i18n="nav_home" >Início</a>
+        <a href="listagem.html" data-i18n="nav_ads" >Anúncios</a>
+        <a href="eventos.html" data-i18n="nav_events" >Eventos</a>
+        <a href="leiloes.html" class="nav-live active"><span class="live-indicator"></span><span data-i18n="nav_auctions">Leilões Ao Vivo</span></a>
+        <a href="planos.html" data-i18n="nav_plans" >Planos</a>
+        <div class="auth-wrapper"><a href="login.html" data-i18n="nav_login">Entrar</a></div>
+      </nav>
+
+      <div class="lang-toggle" role="group" aria-label="Selecionar idioma">
+        <button data-lang="pt" class="active" aria-label="Português">PT</button>
+        <button data-lang="es" aria-label="Español">ES</button>
+      </div>
+
+      <a href="anunciar.html" class="btn-anunciar-header" id="btn-post-header">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <span data-i18n="btn_post">Anunciar Grátis</span>
+      </a>
+
+      <button class="hamburger" aria-label="Abrir menu" aria-expanded="false" aria-controls="mobile-menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- LEILÕES HEADER -->
+  <section id="leiloes-header" class="page-header" style="background: linear-gradient(135deg, #111827, #1f2937); background-size: cover; background-position: center; text-align: left; padding: calc(var(--header-h) + 3rem) 0 3rem; position: relative; overflow: hidden;">
+    <div style="position: absolute; inset: 0; background: linear-gradient(90deg, rgba(17,24,39,0.95) 0%, rgba(17,24,39,0.5) 100%); z-index: 0;"></div>
+    
+    <!-- ARROW SAFE WRAPPER -->
+    <div style="max-width: 1400px; margin: 0 auto; position: relative; width: 100%;">
+      <!-- SLIDER CONTROLS -->
+      <button id="slider-prev" style="position:absolute; left: 1rem; top:50%; transform:translateY(-50%); background:rgba(255,255,255,0.2); border:none; border-radius:50%; width:48px; height:48px; color:white; cursor:pointer; display:none; align-items:center; justify-content:center; backdrop-filter:blur(4px); z-index:10; transition: background 0.3s;" onmouseover="this.style.background='rgba(255,255,255,0.4)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">
+        <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      </button>
+      <button id="slider-next" style="position:absolute; right: 1rem; top:50%; transform:translateY(-50%); background:rgba(255,255,255,0.2); border:none; border-radius:50%; width:48px; height:48px; color:white; cursor:pointer; display:none; align-items:center; justify-content:center; backdrop-filter:blur(4px); z-index:10; transition: background 0.3s;" onmouseover="this.style.background='rgba(255,255,255,0.4)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">
+        <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </button>
+
+      <div class="container container--page" style="position: relative; z-index: 1; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 2rem; padding: 0 4.5rem; max-width: 1200px; margin: 0 auto; min-height: 240px;">
+        <div style="flex: 1; min-width: 300px; display: flex; flex-direction: column; justify-content: center;">
+          <div>
+            <div id="live-indicator-container" style="display: inline-flex; align-items: center; gap: 0.5rem; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #ef4444; padding: 0.3rem 0.8rem; border-radius: 2rem; font-weight: 700; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.75rem;">
+              <span class="live-indicator"></span> Transmissão Ao Vivo
+            </div>
+          </div>
+          <h1 id="leiloes-title" style="font-size: 2.2rem; margin-bottom: 0.2rem; color: white;">Leilões e Remates</h1>
+          <p id="leiloes-subtitle" style="font-size: 1rem; max-width: 500px; color: rgba(255,255,255,0.7); margin-bottom: 0;">Acompanhe os melhores lotes e dê seu lance em tempo real.</p>
+          <div id="catalog-btn-container" style="margin-top: 1rem; display: flex; gap: 0.8rem; flex-wrap: wrap;">
+             <!-- JS will inject the catalog and access buttons here -->
+          </div>
+        </div>
+      
+      <div style="background: linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%); padding: 1rem 1.5rem; border-radius: 1rem; border: 1px solid rgba(255,255,255,0.15); backdrop-filter: blur(12px); box-shadow: 0 15px 35px rgba(0,0,0,0.2); position: relative; z-index: 10; display: flex; flex-direction: column; justify-content: center; align-items: center; box-sizing: border-box; overflow: hidden;">
+        <!-- OVERLAY PARA O ESTADO AO VIVO -->
+        <div id="live-overlay-content" style="position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 20; background: transparent;">
+        </div>
+        
+        <!-- CONTEÚDO DO CRONÔMETRO (sempre dita o tamanho da caixa) -->
+        <div id="countdown-wrapper" style="display: flex; flex-direction: column; align-items: center; width: 100%; transition: opacity 0.3s;">
+          <h3 id="countdown-title" style="margin-bottom: 1rem; color: white; font-size: 1rem; text-align: center; font-weight: 600;">Tempo restante:</h3>
+        <div id="countdown-timer" style="display: flex; gap: 0.8rem; text-align: center;">
+          
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
+            <div style="background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); padding: 1rem 1.2rem; border-radius: 0.8rem; min-width: 75px; box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);">
+              <div id="auction-days" style="font-size: 2.2rem; font-weight: 800; color: white; line-height: 1; font-family: monospace;">02</div>
+            </div>
+            <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--clr-primary); letter-spacing: 1px;">Dias</div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
+            <div style="background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); padding: 1rem 1.2rem; border-radius: 0.8rem; min-width: 75px; box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);">
+              <div id="auction-hours" style="font-size: 2.2rem; font-weight: 800; color: white; line-height: 1; font-family: monospace;">14</div>
+            </div>
+            <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--clr-primary); letter-spacing: 1px;">Horas</div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
+            <div style="background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); padding: 1rem 1.2rem; border-radius: 0.8rem; min-width: 75px; box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);">
+              <div id="auction-mins" style="font-size: 2.2rem; font-weight: 800; color: white; line-height: 1; font-family: monospace;">45</div>
+            </div>
+            <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--clr-primary); letter-spacing: 1px;">Min</div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
+            <div style="background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); padding: 1rem 1.2rem; border-radius: 0.8rem; min-width: 75px; box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);">
+              <div id="auction-secs" style="font-size: 2.2rem; font-weight: 800; color: #ef4444; line-height: 1; font-family: monospace; text-shadow: 0 0 15px rgba(239,68,68,0.5);">30</div>
+            </div>
+            <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: #ef4444; letter-spacing: 1px;">Seg</div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+    
+    </div>
+  </section>
+
+  <!-- LISTAGEM DE LEILÕES -->
+  <main class="container" style="padding: 3rem 1.5rem;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+      <div>
+        <h2 id="lotes-grid-title" class="section-title">Próximos Leilões</h2>
+        <p style="color: var(--clr-text-light);">Confira o calendário completo de eventos e remates.</p>
+      </div>
+      <div style="display: flex; gap: 0.8rem; flex-wrap: wrap; align-items: center; width: 100%; max-width: 650px; justify-content: flex-end;">
+        <div style="position: relative; flex: 1; min-width: 200px;">
+          <svg style="position: absolute; left: 1.2rem; top: 50%; transform: translateY(-50%); color: #6b7280; pointer-events: none;" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" id="filterSearchLeiloes" placeholder="Buscar por raça, fazenda, nome..." class="form-input premium-filter" onkeyup="filterLeiloesList()">
+        </div>
+          
+        <div class="custom-select-wrapper" style="position: relative; min-width: 160px; flex-shrink: 0;">
+          <input type="month" id="filterMonthLeiloes" class="form-input premium-filter" style="padding-right: 1.2rem; cursor: text;" onchange="filterLeiloesList()">
+        </div>
+
+        <div class="custom-select-wrapper" style="position: relative; min-width: 160px; flex-shrink: 0;">
+          <select id="filterTypeLeiloes" class="form-input premium-filter" onchange="filterLeiloesList()">
+            <option value="todos">Todos os status</option>
+            <option value="live">Ao Vivo</option>
+            <option value="scheduled">Agendados</option>
+            <option value="closed">Encerrados</option>
+          </select>
+          <svg class="select-icon" style="position: absolute; right: 1.2rem; top: 50%; transform: translateY(-50%); color: #6b7280; pointer-events: none;" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- AUCTION GRID -->
+    <div id="lotes-container" class="ads-grid" style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));">
+      <!-- Lotes renderizados dinamicamente via JS -->
+    </div>
+
+    <!-- BANNER LEILÃO FOOTER -->
+    <div id="banner-leiloes-footer" style="margin-top: 2rem;"></div>
+  </main>
+
+  <!-- FOOTER -->
+      <footer class="site-footer simplified-footer" style="background: #020617; color: rgba(255,255,255,0.6); padding: 1.25rem 0; margin-top: auto;" role="contentinfo">
+    <div class="container" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+      <div style="font-weight: 600; color: white; font-size: 0.9rem;">Tauze Class <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.6; margin-left: 0.5rem;" data-i18n="footer_copy">© 2026. Todos os direitos reservados.</span></div>
+      <div style="display:flex; gap: 1.5rem; font-size: var(--fs-sm);">
+        <a href="index.html" style="transition: color 0.2s; color: rgba(255,255,255,0.6);" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,0.6)'">Início</a>
+        <a href="javascript:void(0)" style="transition: color 0.2s; color: rgba(255,255,255,0.6);" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,0.6)'">Suporte</a>
+        <a href="institucional.html#termos">Termos de Uso</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/data.js"></script>
+  <script src="/js/supabase.js?v=639197771809908242"></script>
+  <script src="js/ui_constants.js"></script>
+<script src="js/main.js?v=639197771809908242"></script>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", async function() {
+      let auctions = [];
+      let allLots = [];
+      try {
+        const sb = window.getSupabase ? window.getSupabase() : null;
+        if (sb) {
+          const resA = await sb.from('auction_events').select('*').order('date', {ascending: true});
+          if (!resA.error && resA.data) auctions = resA.data;
+          const resL = await sb.from('auction_lots').select('*').order('lot_number', {ascending: true});
+          if (!resL.error && resL.data) allLots = resL.data;
+        }
+      } catch(e) { console.error(e); }
+
+      // Map to frontend expected names
+      auctions = auctions.map(a => ({
+         id: a.id, title: a.title, date: a.date, status: a.status, youtube: a.youtube, cover: a.cover, catalog: a.catalog
+      }));
+      allLots = allLots.map(l => ({
+         id: l.id, auctionId: l.auction_id, number: l.lot_number, title: l.title, minBid: l.min_bid, image: l.image, video: l.video, sire: l.sire, dam: l.dam
+      }));
+
+      const nowMs = new Date().getTime();
+      
+      const getPriority = (status) => {
+        if (status === 'live' || status === 'aovivo' || status === 'active') return 1;
+        if (status === 'scheduled' || status === 'agendado') return 2;
+        return 3;
+      };
+
+      const allSortedAuctions = [...auctions].sort((a, b) => {
+        const pA = getPriority(a.status);
+        const pB = getPriority(b.status);
+        if (pA !== pB) return pA - pB;
+        
+        const tA = new Date(a.date).getTime();
+        const tB = new Date(b.date).getTime();
+        
+        if (pA === 3) return tB - tA; // closed: most recent first
+        return tA - tB; // others: closest first
+      });
+      const upcomingAuctions = auctions
+        .filter(a => a.status === 'aovivo' || a.status === 'active' || (a.status === 'agendado' && new Date(a.date).getTime() > nowMs))
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+      let currentSlide = 0;
+      let targetDate = new Date();
+
+      if (upcomingAuctions.length > 0) {
+        if (upcomingAuctions.length > 1) {
+          document.getElementById('slider-prev').style.display = 'flex';
+          document.getElementById('slider-next').style.display = 'flex';
+        }
+
+        renderSlide(currentSlide);
+
+        document.getElementById('slider-prev').addEventListener('click', () => {
+          currentSlide = (currentSlide - 1 + upcomingAuctions.length) % upcomingAuctions.length;
+          renderSlide(currentSlide);
+        });
+        document.getElementById('slider-next').addEventListener('click', () => {
+          currentSlide = (currentSlide + 1) % upcomingAuctions.length;
+          renderSlide(currentSlide);
+        });
+
+      } else {
+        targetDate.setDate(targetDate.getDate() + 3);
+        targetDate.setHours(20, 0, 0, 0);
+        document.getElementById('lotes-container').innerHTML = `<p style="grid-column: 1/-1; text-align:center; padding: 3rem; color: var(--clr-text-light);">Nenhum leilão ativo no momento.</p>`;
+      }
+
+      function renderSlide(index) {
+        const auction = upcomingAuctions[index];
+        targetDate = new Date(auction.date);
+        
+        document.getElementById('leiloes-title').innerText = auction.title;
+        
+        const headerEl = document.getElementById('leiloes-header');
+        if (auction.cover) {
+          headerEl.style.backgroundImage = `url('${auction.cover}')`;
+        } else {
+          headerEl.style.backgroundImage = 'none';
+          headerEl.style.background = 'linear-gradient(135deg, #111827, #1f2937)';
+        }
+
+        const catContainer = document.getElementById('catalog-btn-container');
+        let btnsHTML = `<a href="leilao.html?id=${auction.id}" class="btn btn--outline" style="border-color: white; color: white; display:inline-flex; align-items:center; gap:8px;">Acessar Leilão Completo</a>`;
+        
+        if (auction.catalog) {
+          btnsHTML += `<a href="${auction.catalog}" download="catalogo.pdf" class="btn btn--primary" style="display:inline-flex; align-items:center; gap:8px;"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Baixar Catálogo</a>`;
+        }
+        catContainer.style.display = 'flex';
+        catContainer.innerHTML = btnsHTML;
+
+        const liveInd = document.getElementById('live-indicator-container');
+        const countdownWrapper = document.getElementById('countdown-wrapper');
+        const liveOverlay = document.getElementById('live-overlay-content');
+        
+        if (auction.status === 'aovivo') {
+          liveInd.style.background = 'rgba(239, 68, 68, 0.15)';
+          liveInd.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+          liveInd.style.color = '#ef4444';
+          liveInd.innerHTML = '<span class="live-indicator"></span> Transmissão Ao Vivo';
+          
+          // Oculta o cronômetro mantendo o espaço ocupado
+          countdownWrapper.style.opacity = '0';
+          countdownWrapper.style.pointerEvents = 'none';
+          
+          // Exibe o conteúdo ao vivo por cima
+          liveOverlay.style.display = 'flex';
+          liveOverlay.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 0.5rem; color: #ef4444; font-weight: 700; font-size: 1rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 1rem;">
+              <span class="live-indicator"></span> O LEILÃO JÁ COMEÇOU
+            </div>
+            <button class="btn btn--primary" style="padding: 0.6rem 1.8rem; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3); transition: all 0.3s;" onclick="window.location.href='leilao.html?id=${auction.id}'" onmouseover="this.style.boxShadow='0 6px 20px rgba(16, 185, 129, 0.6)'; this.style.transform='translateY(-2px)'" onmouseout="this.style.boxShadow='0 4px 15px rgba(16, 185, 129, 0.3)'; this.style.transform='translateY(0)'">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              Participar Agora
+            </button>
+          `;
+        } else {
+          liveInd.style.background = 'rgba(255,255,255,0.1)';
+          liveInd.style.borderColor = 'rgba(255,255,255,0.3)';
+          liveInd.style.color = '#fff';
+          liveInd.innerHTML = 'Evento Agendado';
+          
+          // Exibe o cronômetro normalmente
+          countdownWrapper.style.opacity = '1';
+          countdownWrapper.style.pointerEvents = 'auto';
+          
+          // Oculta o overlay ao vivo
+          liveOverlay.style.display = 'none';
+          liveOverlay.innerHTML = '';
+        }
+      }
+
+      function renderAuctionsGrid(auctionsList) {
+        const container = document.getElementById('lotes-container');
+        container.innerHTML = '';
+        if(auctionsList.length === 0) {
+          container.innerHTML = `<p style="grid-column: 1/-1; text-align:center; padding: 3rem; color: var(--clr-text-light);">Nenhum leilão cadastrado no momento.</p>`;
+          return;
+        }
+
+        auctionsList.forEach(auction => {
+          const dateObj = new Date(auction.date);
+          const formattedDate = dateObj.toLocaleDateString('pt-BR');
+          const formattedTime = dateObj.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+          
+          let statusConfig;
+          if (auction.status === 'aovivo' || auction.status === 'live' || auction.status === 'active') {
+            statusConfig = { bg: '#ef4444', text: 'AO VIVO', color: 'white', stripe: '#ef4444' };
+          } else if (auction.status === 'encerrado' || auction.status === 'closed') {
+            statusConfig = { bg: '#9ca3af', text: 'ENCERRADO', color: 'white', stripe: '#9ca3af', border: '1px solid #d1d5db' };
+          } else {
+            statusConfig = { bg: 'rgba(0,0,0,0.7)', text: 'AGENDADO', color: 'white', stripe: 'var(--clr-primary-light)', border: '1px solid rgba(255,255,255,0.2)' };
+          }
+
+          const isLive = (auction.status === 'aovivo' || auction.status === 'live' || auction.status === 'active');
+          const isClosed = (auction.status === 'encerrado' || auction.status === 'closed');
+          
+          const imgHtml = auction.cover ? `<img src="${auction.cover}" alt="${auction.title}" style="${!isLive ? 'filter: grayscale(0.2);' : ''}">` : `<img src="https://placehold.co/400x300?text=Sem+Foto" alt="Sem Foto" style="width:100%;height:100%;object-fit:cover;${!isLive ? 'filter: grayscale(0.2);' : ''}">`;
+          
+          const linkAction = `localStorage.setItem('tc_selected_auction', '${auction.id}'); window.location.href='leilao.html?id=${auction.id}'`;
+
+          const article = document.createElement('article');
+          article.className = 'ad-card';
+          article.style.position = 'relative';
+          article.innerHTML = `
+            <div class="ad-card__stripe" style="background: ${statusConfig.stripe}; height: 4px;"></div>
+            <div class="ad-card__image" style="cursor: pointer;" onclick="${linkAction}">
+              <div style="position: absolute; top: 1rem; left: 1rem; background: ${statusConfig.bg}; color: ${statusConfig.color}; padding: 0.4rem 1rem; border-radius: 2rem; font-weight: 700; font-size: 0.85rem; z-index: 10; display: flex; align-items: center; gap: 6px; ${statusConfig.border ? 'border: '+statusConfig.border+'; backdrop-filter: blur(8px);' : 'box-shadow: 0 4px 12px rgba(239,68,68,0.4);'}">
+                ${auction.status === 'aovivo' ? '<span class="live-indicator" style="background: white; animation: none; box-shadow: none;"></span>' : ''} ${statusConfig.text}
+              </div>
+              ${imgHtml}
+            </div>
+            <div class="ad-card__body">
+              <div style="font-size: 0.85rem; color: var(--clr-text-light); font-weight: 600; margin-bottom: 0.5rem; display: flex; justify-content: space-between;">
+                <span>Data: ${formattedDate}</span>
+                <span>Hora: ${formattedTime}</span>
+              </div>
+              <h3 class="ad-card__title" style="margin-bottom: 1rem;">${auction.title}</h3>
+              
+              <div style="display: flex; gap: 0.5rem; margin-top: auto;">
+                <a href="leilao.html?id=${auction.id}" onclick="localStorage.setItem('tc_selected_auction', '${auction.id}')" class="btn btn--${auction.status === 'aovivo' ? 'primary' : 'outline'}" style="flex: 1; justify-content: center; text-decoration: none;">Ver Lotes</a>
+                <button onclick="if(typeof showToast === 'function') showToast('Lembrete definido com sucesso! Você será notificado antes do início do leilão.', 'success'); else alert('Lembrete definido com sucesso!');" class="btn btn--outline" style="padding: 0 1rem;" title="Definir Lembrete">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                </button>
+                ${auction.catalog ? `<a href="${auction.catalog}" download class="btn btn--outline" style="padding: 0 1rem;" title="Baixar Catálogo"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg></a>` : ''}
+              </div>
+            </div>
+          `;
+          container.appendChild(article);
+        });
+      }
+
+      // Render the grid with all auctions
+      renderAuctionsGrid(allSortedAuctions);
+
+      window.filterLeiloesList = function() {
+        const term = document.getElementById('filterSearchLeiloes').value.toLowerCase();
+        const status = document.getElementById('filterTypeLeiloes').value;
+        const filterMonth = document.getElementById('filterMonthLeiloes').value;
+        
+        const filtered = allSortedAuctions.filter(a => {
+          const matchTerm = a.title.toLowerCase().includes(term);
+          
+          let matchStatus = true;
+          if (status !== 'todos') {
+             const getUnifiedStatus = (s) => {
+               if (s === 'aovivo' || s === 'live' || s === 'active') return 'live';
+               if (s === 'agendado' || s === 'scheduled') return 'scheduled';
+               return 'closed';
+             };
+             matchStatus = getUnifiedStatus(a.status) === status;
+          }
+          
+          let matchMonth = true;
+          if (filterMonth) {
+            const auctionDate = new Date(a.date).toISOString().split('T')[0];
+            matchMonth = auctionDate.startsWith(filterMonth);
+          }
+          
+          return matchTerm && matchStatus && matchMonth;
+        });
+        
+        renderAuctionsGrid(filtered);
+      }
+
+      const dEl = document.getElementById('auction-days');
+      const hEl = document.getElementById('auction-hours');
+      const mEl = document.getElementById('auction-mins');
+      const sEl = document.getElementById('auction-secs');
+
+      function updateCountdown() {
+        const now = new Date().getTime();
+        const distance = targetDate.getTime() - now;
+
+        if (distance < 0) {
+          dEl.textContent = "00";
+          hEl.textContent = "00";
+          mEl.textContent = "00";
+          sEl.textContent = "00";
+          return;
+        }
+
+        const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+        dEl.textContent = String(days).padStart(2, '0');
+        hEl.textContent = String(hours).padStart(2, '0');
+        mEl.textContent = String(minutes).padStart(2, '0');
+        sEl.textContent = String(seconds).padStart(2, '0');
+      }
+
+      updateCountdown();
+      setInterval(updateCountdown, 1000);
+    });
+  </script>
+
+  <script>
+  document.addEventListener('DOMContentLoaded', async () => {
+    try {
+      if (typeof getAuctions !== 'function') return;
+
+      const dbAuctions = await getAuctions({ status: 'live', limit: 20 });
+      if (!dbAuctions || dbAuctions.length === 0) return; // fall back to mock
+
+      const container = document.getElementById('lotes-container');
+      if (!container) return;
+
+      function fmtCurrency(v) {
+        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
+      }
+
+      function buildCountdown(endAt) {
+        const diff = new Date(endAt) - new Date();
+        if (diff <= 0) return 'Encerrado';
+        const d = Math.floor(diff / 86400000);
+        const h = Math.floor((diff % 86400000) / 3600000);
+        const m = Math.floor((diff % 3600000) / 60000);
+        const s = Math.floor((diff % 60000) / 1000);
+        if (d > 0) return `${d}d ${String(h).padStart(2,'0')}h`;
+        return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+      }
+
+      container.innerHTML = '';
+
+      dbAuctions.forEach(auction => {
+        const title     = auction.ads?.title_pt || auction.title || 'Leilão';
+        const image     = auction.ads?.images?.[0] || auction.cover || '';
+        const category  = auction.ads?.category_id || '';
+        const currentBid = auction.current_bid || auction.start_price || 0;
+        const endAt     = auction.end_at || auction.date;
+        const isLive    = auction.status === 'live' || auction.status === 'aovivo';
+
+        const statusConfig = isLive
+          ? { bg: '#ef4444', text: 'AO VIVO', color: 'white', stripe: '#ef4444' }
+          : { bg: 'rgba(0,0,0,0.7)', text: 'AGENDADO', color: 'white', stripe: 'var(--clr-primary-light)', border: '1px solid rgba(255,255,255,0.2)' };
+
+        const imgHtml = image
+          ? `<img src="${image}" alt="${title}" style="width:100%;height:100%;object-fit:cover;">`
+          : `<div style="width:100%;height:100%;background:#e5e7eb;display:flex;align-items:center;justify-content:center;color:#9ca3af;">Sem imagem</div>`;
+
+        const article = document.createElement('article');
+        article.className = 'ad-card';
+        article.style.position = 'relative';
+        article.style.cursor = 'pointer';
+        article.addEventListener('click', () => { window.location.href = `/leilao.html?id=${auction.id}`; });
+
+        const cdId = `cd-${auction.id}`;
+        article.innerHTML = `
+          <div class="ad-card__stripe" style="background:${statusConfig.stripe};height:4px;"></div>
+          <div class="ad-card__image">
+            <div style="position:absolute;top:1rem;left:1rem;background:${statusConfig.bg};color:${statusConfig.color};padding:.4rem 1rem;border-radius:2rem;font-weight:700;font-size:.85rem;z-index:10;display:flex;align-items:center;gap:6px;${statusConfig.border ? 'border:'+statusConfig.border+';backdrop-filter:blur(8px);' : 'box-shadow:0 4px 12px rgba(239,68,68,.4);'}">
+              ${isLive ? '<span class="live-indicator" style="background:white;animation:none;box-shadow:none;"></span>' : ''} ${statusConfig.text}
+            </div>
+            ${imgHtml}
+          </div>
+          <div class="ad-card__body">
+            ${category ? `<div style="font-size:.75rem;font-weight:700;color:var(--clr-primary);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem;">${category}</div>` : ''}
+            <h3 class="ad-card__title" style="margin-bottom:.75rem;">${title}</h3>
+            <div style="background:linear-gradient(135deg,#f0fdf4,#fff);border:2px solid #bbf7d0;padding:.8rem;border-radius:.8rem;margin-bottom:.75rem;text-align:center;">
+              <div style="font-size:.7rem;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.2rem;">LANCE ATUAL</div>
+              <div style="font-size:1.6rem;font-weight:800;color:var(--clr-primary);">${fmtCurrency(currentBid)}</div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:.8rem;color:var(--clr-text-light);margin-bottom:.75rem;">
+              <span>⏱️ <span id="${cdId}">${buildCountdown(endAt)}</span></span>
+              <a href="/leilao.html?id=${auction.id}" class="btn btn--${isLive ? 'primary' : 'outline'}" style="padding:.4rem .9rem;font-size:.8rem;text-decoration:none;" onclick="event.stopPropagation();">${isLive ? 'Participar' : 'Ver Lotes'}</a>
+            </div>
+          </div>
+        `;
+        container.appendChild(article);
+
+        // Tick countdown every second
+        if (endAt) {
+          setInterval(() => {
+            const el = document.getElementById(cdId);
+            if (el) el.textContent = buildCountdown(endAt);
+          }, 1000);
+        }
+      });
+
+    } catch(e) {
+      console.warn('Usando dados mock para lista de leilões:', e.message);
+    }
+  });
+  </script>
+</body>
+</html>

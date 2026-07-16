@@ -1,5 +1,8 @@
 {
   "dependencies": {
+    "@capacitor/android": "^8.4.2",
+    "@capacitor/cli": "^8.4.2",
+    "@capacitor/core": "^8.4.2",
     "@vitalets/google-translate-api": "^9.2.1",
     "bcryptjs": "^3.0.3",
     "cheerio": "^1.2.0",

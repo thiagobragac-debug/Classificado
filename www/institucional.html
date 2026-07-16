@@ -1,0 +1,1842 @@
+<!DOCTYPE html><html lang="pt-BR"><head>
+  <meta charset="UTF-8">
+  <!-- Security headers (defence-in-depth, complements server-side headers) -->
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tauze Class — Classificados do Agronegócio Mercosul</title>
+  <meta name="description" content="Tauze Class — O maior portal de classificados do agronegocio do Mercosul. Compre e venda animais, insumos, maquinas e imoveis rurais no Brasil, Argentina, Paraguai e Uruguai.">
+  <meta name="keywords" content="classificados agronegocio, venda animais, bovinos, equinos, maquinas agricolas, imoveis rurais, mercosul, brasil, argentina">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://tauzeclass.com.br/index.html">
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Tauze Class — Classificados do Agronegocio Mercosul">
+  <meta property="og:description" content="O maior portal de classificados do agronegocio do Mercosul. Bovinos, equinos, maquinas, insumos e imoveis rurais.">
+  <meta property="og:url" content="https://tauzeclass.com.br">
+  <meta property="og:image" content="https://tauzeclass.com.br/assets/og-home.jpg">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:site_name" content="Tauze Class">
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Tauze Class — Classificados do Agronegocio">
+  <meta name="twitter:description" content="Compre e venda no maior classificado agro do Mercosul.">
+  <meta name="twitter:image" content="https://tauzeclass.com.br/assets/og-home.jpg">
+  <link rel="stylesheet" href="css/style.css?v=1784160758676">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%2316A34A'/><text y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'>T</text></svg>">
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#16A34A">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Tauze Class">
+  <!-- Error Monitor (defer) -->
+  <script defer="" src="/js/error-monitor.js"></script>
+  <!-- Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then(r => console.log('[SW] Registrado:', r.scope))
+          .catch(e => console.warn('[SW] Falha ao registrar:', e));
+      });
+    }
+  </script>
+  <script>
+    let hasToken = false;
+    for(let i=0; i<localStorage.length; i++){
+      if(localStorage.key(i).includes('auth-token')){ hasToken=true; break; }
+    }
+    if (hasToken) {
+      document.documentElement.classList.add('is-logged-in');
+      let ini = localStorage.getItem('tc_user_initials');
+      if (ini) document.documentElement.style.setProperty('--tc-user-ini', '"' + ini + '"');
+    }
+  </script>
+  <link rel="stylesheet" href="css/listagem.css?v=4">
+</head>
+<body>
+
+<!-- Anti-FOUC: esconde o body até o idioma correto ser aplicado.
+     Executado imediatamente após <body> para garantir que document.body existe.
+     setLang() em main.js revela a página com fade suave de 150ms. -->
+<script>
+  (function() {
+    var lang = localStorage.getItem('tc_lang') || 'pt';
+    // Só esconde para idioma Espanhol (evita penalizar usuários PT, maioria)
+    if (lang !== 'pt') {
+      document.body.style.visibility = 'hidden';
+      // Fallback: revela em 600ms mesmo se JS principal falhar
+      window.__tcFoucTimer = setTimeout(function() {
+        document.body.style.visibility = '';
+      }, 600);
+    }
+  })();
+</script>
+<!-- ─── HEADER ─────────────────────────────── -->
+<header class="site-header" role="banner">
+  <div class="container header-inner">
+
+    <a href="index.html" class="logo" aria-label="Tauze Class — Início">
+      <div class="logo-mark">TC</div>
+      <div class="logo-text">
+        <span class="logo-name">Tauze Class</span>
+        <span class="logo-tagline">Classificados Agro</span>
+      </div>
+    </a>
+
+
+
+    <nav class="header-nav" role="navigation" aria-label="Menu principal">
+        <a href="index.html" data-i18n="nav_home" class="active">Início</a>
+        <a href="listagem.html" data-i18n="nav_ads">Anúncios</a>
+        <a href="eventos.html" data-i18n="nav_events">Eventos</a>
+        <a href="leiloes.html" class="nav-live "><span class="live-indicator"></span><span data-i18n="nav_auctions">Leilões Ao Vivo</span></a>
+        <a href="planos.html" data-i18n="nav_plans">Planos</a>
+        <div class="auth-wrapper"><a href="login.html" data-i18n="nav_login">Entrar</a></div>
+      </nav>
+
+    <div class="lang-toggle" role="group" aria-label="Selecionar idioma">
+      <button data-lang="pt" class="active" aria-label="Português">PT</button>
+      <button data-lang="es" aria-label="Español">ES</button>
+    </div>
+
+    <a href="anunciar.html" class="btn-anunciar-header" id="btn-post-header">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+      <span data-i18n="btn_post">Anunciar Grátis</span>
+    </a>
+
+    <button class="hamburger" aria-label="Abrir menu" aria-expanded="false" aria-controls="mobile-menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</header>
+
+<!-- Mobile Menu -->
+<nav class="mobile-menu" id="mobile-menu" aria-label="Menu mobile">
+      <a href="index.html" data-i18n="nav_home" class="active">Início</a>
+      <a href="listagem.html" data-i18n="nav_ads">Anúncios</a>
+      <a href="eventos.html" data-i18n="nav_events">Eventos</a>
+      <a href="leiloes.html" class="nav-live "><span class="live-indicator"></span><span data-i18n="nav_auctions">Leilões Ao Vivo</span></a>
+      <a href="planos.html" data-i18n="nav_plans">Planos</a>
+      <div class="auth-wrapper" style="width:100%;"><a href="login.html" class="btn-login-mobile" data-i18n="nav_login">Entrar / Cadastrar</a></div>
+    </nav>
+
+<main id="main-content" style="margin-top:var(--header-h);min-height:80vh">
+
+  <style>
+    :root {
+      --inst-sidebar-w: 280px;
+    }
+    
+    
+    
+    
+    
+    
+    .inst-layout {
+      display: grid;
+      grid-template-columns: var(--inst-sidebar-w) 1fr;
+      gap: 3rem;
+      padding: 4rem 0;
+      align-items: start;
+    }
+    
+    @media (max-width: 900px) {
+      .inst-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .inst-sidebar {
+      background: #fff;
+      border: 1px solid var(--clr-border, #e5e7eb);
+      border-radius: 16px;
+      padding: 1.75rem 1.25rem;
+      position: sticky;
+      top: 100px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+    }
+    
+    .inst-nav-group {
+      margin-bottom: 2.25rem;
+    }
+    .inst-nav-group:last-child {
+      margin-bottom: 0;
+    }
+    
+    .inst-nav-title {
+      font-size: 0.75rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--clr-text-muted, #6b7280);
+      margin-bottom: 1rem;
+      padding-left: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .inst-nav-link {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      border-radius: 10px;
+      color: var(--clr-text-muted, #4b5563);
+      font-weight: 600;
+      font-size: 0.95rem;
+      transition: all 0.25s ease;
+      text-decoration: none;
+      cursor: pointer;
+      position: relative;
+      margin-bottom: 0.25rem;
+    }
+    
+    .inst-nav-link svg {
+      width: 18px;
+      height: 18px;
+      color: var(--clr-text-muted, #9ca3af);
+      transition: all 0.25s ease;
+    }
+    
+    .inst-nav-link:hover {
+      background: rgba(22,163,74,0.05);
+      color: var(--clr-heading, #111);
+      transform: translateX(4px);
+    }
+    
+    .inst-nav-link:hover svg {
+      color: var(--clr-primary, #16a34a);
+    }
+    
+    .inst-nav-link.active {
+      background: linear-gradient(90deg, rgba(22,163,74,0.1) 0%, rgba(22,163,74,0.02) 100%);
+      color: var(--clr-primary, #16a34a);
+      font-weight: 700;
+      box-shadow: inset 3px 0 0 var(--clr-primary, #16a34a);
+    }
+    
+    .inst-nav-link.active svg {
+      color: var(--clr-primary, #16a34a);
+      filter: drop-shadow(0 2px 4px rgba(22,163,74,0.3));
+    }
+
+    .inst-content-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 3rem;
+      min-height: 500px;
+      opacity: 1;
+      transition: opacity 0.3s ease;
+    }
+    
+    .inst-content-box.fading {
+      opacity: 0;
+    }
+
+    .inst-prose {
+      color: var(--clr-body);
+      line-height: 1.8;
+      font-size: 1.0625rem;
+    }
+    
+    .inst-prose h2 {
+      font-size: 1.75rem;
+      color: var(--clr-heading);
+      margin-top: 2.5rem;
+      margin-bottom: 1rem;
+      font-weight: 700;
+    }
+    
+    .inst-prose h2:first-child {
+      margin-top: 0;
+    }
+    
+    .inst-prose h3 {
+      font-size: 1.25rem;
+      color: var(--clr-heading);
+      margin-top: 2rem;
+      margin-bottom: 0.75rem;
+      font-weight: 600;
+    }
+    
+    .inst-prose p {
+      margin-bottom: 1.5rem;
+    }
+    
+    .inst-prose ul {
+      margin-bottom: 1.5rem;
+      padding-left: 1.5rem;
+    }
+    
+    .inst-prose li {
+      margin-bottom: 0.5rem;
+      position: relative;
+    }
+    
+    .inst-prose li::marker {
+      color: var(--clr-primary);
+    }
+    
+    .inst-prose strong {
+      color: var(--clr-heading);
+      font-weight: 600;
+    }
+    
+    .inst-prose a {
+      color: var(--clr-primary);
+      text-decoration: underline;
+      text-underline-offset: 4px;
+    }
+    
+    @media (max-width: 640px) {
+      .inst-content-box {
+        padding: 1.5rem;
+      }
+    }
+
+    /* ── Premium Grid System Fix ──────────────────────────────────────
+       Prevents orphan cards in auto-fit grids.
+       Uses explicit column counts with clean responsive breakpoints.    */
+    .inst-grid-2  { display:grid; grid-template-columns:repeat(2,1fr); gap:1.25rem }
+    .inst-grid-3  { display:grid; grid-template-columns:repeat(3,1fr); gap:1.25rem }
+    .inst-grid-4  { display:grid; grid-template-columns:repeat(4,1fr); gap:1rem    }
+    .inst-grid-2x2{ display:grid; grid-template-columns:repeat(2,1fr); gap:1rem    }
+    @media(max-width:900px){
+      .inst-grid-3  { grid-template-columns:repeat(2,1fr) }
+      .inst-grid-4  { grid-template-columns:repeat(2,1fr) }
+    }
+    @media(max-width:600px){
+      .inst-grid-2, .inst-grid-3, .inst-grid-4, .inst-grid-2x2 { grid-template-columns:1fr }
+    }
+    /* Card base — premium feel */
+    .inst-card {
+      background:#fff;
+      border:1px solid var(--clr-border,#e5e7eb);
+      border-radius:14px;
+      padding:1.5rem;
+      display:flex;
+      flex-direction:column;
+      gap:.5rem;
+      transition:box-shadow .25s, border-color .25s, transform .2s;
+    }
+    .inst-card:hover {
+      box-shadow:0 6px 24px rgba(0,0,0,.09);
+      border-color:rgba(22,163,74,.3);
+      transform:translateY(-2px);
+    }
+    .inst-card .card-icon { font-size:2rem; margin-bottom:.25rem }
+    .inst-card h3 { font-size:1rem; font-weight:700; margin:0; color:var(--clr-heading,#111) }
+    .inst-card p  { font-size:.875rem; color:var(--clr-text-muted,#6b7280); margin:0; line-height:1.5 }
+    .inst-card a  { font-weight:600; color:var(--clr-primary,#16a34a); text-decoration:none; font-size:.9rem }
+    .inst-card a:hover { text-decoration:underline }
+    .inst-card .card-meta { font-size:.8rem; color:var(--clr-text-muted,#9ca3af) }
+    .inst-card-accent { border-top:3px solid var(--clr-primary,#16a34a) }
+    .inst-stat-card {
+      background:linear-gradient(135deg,rgba(22,163,74,.08),rgba(22,163,74,.02));
+      border:1px solid rgba(22,163,74,.18);
+      border-radius:14px;
+      padding:1.25rem;
+      text-align:center;
+    }
+    .inst-stat-card .stat-num { font-size:2rem; font-weight:800; color:var(--clr-primary,#16a34a); line-height:1 }
+    .inst-stat-card .stat-lbl { font-size:.8rem; color:var(--clr-text-muted,#6b7280); margin-top:.35rem }
+
+
+    /* ───────────────────────────────────────────────────────────────
+       INSTITUTIONAL PAGES — PREMIUM DESIGN SYSTEM
+       ─────────────────────────────────────────────────────────────── */
+
+    /* ── Fale Conosco — Form ────────────────────────────────────── */
+    .contact-form-box {
+      background: var(--clr-surface-alt, #f9fafb);
+      border: 1px solid var(--clr-border, #e5e7eb);
+      border-radius: 14px;
+      padding: 2rem;
+      margin-top: 2rem;
+    }
+    .contact-form-box h2 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin: 0 0 1.5rem;
+      color: var(--clr-heading, #111);
+    }
+    .cf-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .cf-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+    .cf-field label {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--clr-heading, #374151);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .cf-field input,
+    .cf-field select,
+    .cf-field textarea {
+      padding: 0.7rem 1rem;
+      border: 1px solid var(--clr-border, #e5e7eb);
+      border-radius: 10px;
+      font-size: 0.9rem;
+      background: #fff;
+      color: var(--clr-text, #111);
+      outline: none;
+      transition: border-color 0.25s, box-shadow 0.25s;
+      font-family: inherit;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .cf-field input:focus,
+    .cf-field select:focus,
+    .cf-field textarea:focus {
+      border-color: var(--clr-primary, #16a34a);
+      box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.1);
+    }
+    .cf-full { grid-column: 1 / -1; }
+    .cf-btn {
+      margin-top: 0.75rem;
+      padding: 0.75rem 2.5rem;
+      background: linear-gradient(135deg, #16a34a, #15803d);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: background 0.25s, transform 0.15s, box-shadow 0.25s;
+      box-shadow: 0 4px 14px rgba(22, 163, 74, 0.25);
+    }
+    .cf-btn:hover {
+      background: linear-gradient(135deg, #15803d, #166534);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(22, 163, 74, 0.35);
+    }
+    .cf-btn:active {
+      transform: translateY(0);
+    }
+    .cf-note {
+      font-size: 0.8rem;
+      color: var(--clr-text-muted, #9ca3af);
+      margin-top: 1rem;
+      line-height: 1.5;
+    }
+    @media (max-width: 600px) {
+      .cf-row { grid-template-columns: 1fr; }
+    }
+
+    /* ── Sobre Nós — Values + Disclaimer ────────────────────────── */
+    .sobre-value {
+      border-left: 3px solid var(--clr-primary, #16a34a);
+      padding: 1rem 1.25rem;
+      background: #fff;
+      border-radius: 0 12px 12px 0;
+      transition: box-shadow 0.25s, transform 0.2s;
+    }
+    .sobre-value:hover {
+      box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+      transform: translateX(4px);
+    }
+    .sobre-value h3 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin: 0 0 0.4rem;
+      color: var(--clr-heading, #111);
+    }
+    .sobre-value p {
+      font-size: 0.875rem;
+      color: var(--clr-text-muted, #6b7280);
+      margin: 0;
+      line-height: 1.5;
+    }
+    .sobre-disclaimer {
+      background: rgba(239, 68, 68, 0.04);
+      border: 1px solid rgba(239, 68, 68, 0.15);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      margin-top: 2rem;
+      font-size: 0.9rem;
+      color: #7f1d1d;
+      line-height: 1.6;
+    }
+
+    /* ── Trabalhe Conosco — Vagas ────────────────────────────────── */
+    .vagas-grid {
+      display: grid;
+      gap: 1rem;
+      margin: 1.5rem 0;
+    }
+    .vaga-card {
+      border: 1px solid var(--clr-border, #e5e7eb);
+      border-radius: 14px;
+      padding: 1.5rem 1.75rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1.5rem;
+      transition: box-shadow 0.25s, border-color 0.25s, transform 0.2s;
+      background: #fff;
+    }
+    .vaga-card:hover {
+      box-shadow: 0 6px 24px rgba(0,0,0,0.08);
+      border-color: rgba(22,163,74,0.3);
+      transform: translateY(-2px);
+    }
+    .vaga-info h3 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin: 0 0 0.4rem;
+      color: var(--clr-heading, #111);
+    }
+    .vaga-info p {
+      font-size: 0.875rem;
+      color: var(--clr-text-muted, #6b7280);
+      margin: 0;
+      line-height: 1.5;
+    }
+    .vaga-tags {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-top: 0.75rem;
+    }
+    .vaga-tag {
+      padding: 0.25rem 0.75rem;
+      border-radius: 99px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      background: rgba(22,163,74,0.1);
+      color: #15803d;
+      letter-spacing: 0.02em;
+    }
+    .vaga-tag.remote {
+      background: rgba(59,130,246,0.1);
+      color: #1d4ed8;
+    }
+    .vaga-tag.pj {
+      background: rgba(234,179,8,0.12);
+      color: #92400e;
+    }
+    .vaga-btn {
+      flex-shrink: 0;
+      padding: 0.6rem 1.5rem;
+      border: 2px solid var(--clr-primary, #16a34a);
+      border-radius: 10px;
+      color: var(--clr-primary, #16a34a);
+      font-weight: 700;
+      font-size: 0.875rem;
+      text-decoration: none;
+      white-space: nowrap;
+      transition: background 0.25s, color 0.25s, transform 0.15s, box-shadow 0.25s;
+    }
+    .vaga-btn:hover {
+      background: var(--clr-primary, #16a34a);
+      color: #fff;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 14px rgba(22,163,74,0.3);
+    }
+    @media (max-width: 600px) {
+      .vaga-card {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .vaga-btn {
+        text-align: center;
+      }
+    }
+
+    /* ── Imprensa — Guidelines ──────────────────────────────────── */
+    .press-guidelines {
+      background: #fff;
+      border: 1px solid var(--clr-border, #e5e7eb);
+      border-radius: 14px;
+      padding: 1.75rem;
+      margin-top: 2rem;
+    }
+    .press-guidelines h2 {
+      margin-top: 0 !important;
+    }
+    .press-guidelines ul {
+      font-size: 0.9rem;
+      color: var(--clr-text-muted, #374151);
+      line-height: 1.7;
+    }
+
+    /* ── API — Endpoints + Steps ─────────────────────────────────── */
+    .api-endpoint {
+      background: #1a1a2e;
+      border-radius: 12px;
+      padding: 1rem 1.5rem;
+      margin: 0.75rem 0;
+      font-family: 'Courier New', monospace;
+      font-size: 0.875rem;
+      color: #e2e8f0;
+      overflow-x: auto;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .api-endpoint:hover {
+      transform: translateX(4px);
+      box-shadow: 0 4px 16px rgba(26, 26, 46, 0.3);
+    }
+    .api-method {
+      display: inline-block;
+      padding: 0.2rem 0.7rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 800;
+      margin-right: 0.75rem;
+      letter-spacing: 0.03em;
+    }
+    .get    { background: #16a34a; color: #fff; }
+    .post   { background: #2563eb; color: #fff; }
+    .put    { background: #d97706; color: #fff; }
+    .delete { background: #dc2626; color: #fff; }
+    .api-steps {
+      counter-reset: step;
+      display: grid;
+      gap: 1.25rem;
+      margin: 1.5rem 0;
+    }
+    .api-step {
+      display: flex;
+      gap: 1.25rem;
+      align-items: flex-start;
+    }
+    .api-step::before {
+      counter-increment: step;
+      content: counter(step);
+      min-width: 2.25rem;
+      height: 2.25rem;
+      background: linear-gradient(135deg, #16a34a, #15803d);
+      color: #fff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 0.9rem;
+      flex-shrink: 0;
+      margin-top: 0.1rem;
+      box-shadow: 0 3px 10px rgba(22,163,74,0.3);
+    }
+    .api-step-body h4 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin: 0 0 0.3rem;
+      color: var(--clr-heading, #111);
+    }
+    .api-step-body p {
+      font-size: 0.875rem;
+      color: var(--clr-text-muted, #6b7280);
+      margin: 0;
+      line-height: 1.5;
+    }
+
+    /* ── FAQ — Accordion (ajuda) ──────────────────────────────────── */
+    .faq-section { margin-bottom: 2.5rem; }
+    .faq-section h2 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--clr-heading, #111);
+      border-bottom: 2px solid var(--clr-primary, #16a34a);
+      padding-bottom: 0.5rem;
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    details.faq-item {
+      border: 1px solid var(--clr-border, #e5e7eb);
+      border-radius: 12px;
+      margin-bottom: 0.75rem;
+      overflow: hidden;
+      transition: box-shadow 0.25s, border-color 0.25s;
+    }
+    details.faq-item:hover {
+      box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+    }
+    details.faq-item[open] {
+      box-shadow: 0 4px 20px rgba(22,163,74,0.1);
+      border-color: rgba(22,163,74,0.3);
+    }
+    details.faq-item summary {
+      padding: 1rem 1.25rem;
+      font-weight: 600;
+      font-size: 0.9375rem;
+      cursor: pointer;
+      list-style: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      color: var(--clr-heading, #111);
+      transition: background 0.2s;
+    }
+    details.faq-item summary:hover {
+      background: rgba(22,163,74,0.03);
+    }
+    details.faq-item summary::after {
+      content: "＋";
+      font-size: 1.2rem;
+      color: var(--clr-primary, #16a34a);
+      flex-shrink: 0;
+      transition: transform 0.25s;
+    }
+    details.faq-item[open] summary::after {
+      content: "─";
+    }
+    details.faq-item summary::-webkit-details-marker { display: none; }
+    .faq-answer {
+      padding: 0.5rem 1.25rem 1.5rem;
+      font-size: 0.925rem;
+      line-height: 1.75;
+      color: var(--clr-text-muted, #374151);
+      border-top: 1px solid var(--clr-border, #e5e7eb);
+    }
+    .faq-answer p { margin: 0.75rem 0 0; }
+    .faq-answer ul { margin: 0.5rem 0 0 1.25rem; }
+    .faq-answer li { margin-bottom: 0.35rem; }
+    .faq-alert {
+      padding: 0.85rem 1.1rem;
+      border-radius: 10px;
+      font-size: 0.875rem;
+      margin-top: 0.85rem;
+      line-height: 1.5;
+    }
+    .faq-alert-warn {
+      background: rgba(239,68,68,0.06);
+      border-left: 3px solid #ef4444;
+      color: #7f1d1d;
+    }
+    .faq-alert-info {
+      background: rgba(59,130,246,0.06);
+      border-left: 3px solid #3b82f6;
+      color: #1e3a5f;
+    }
+    .faq-alert-ok {
+      background: rgba(22,163,74,0.06);
+      border-left: 3px solid #16a34a;
+      color: #14532d;
+    }
+
+  </style>
+
+  
+  <div class="list-hero">
+    <div class="container">
+      <div class="list-hero-inner">
+        <div>
+          <nav aria-label="Breadcrumb" class="breadcrumb">
+            <a href="index.html">Início</a>
+            <span aria-hidden="true">›</span>
+            <span id="bc-category">Institucional</span>
+          </nav>
+          <h1 class="list-hero-title" id="inst-hero-title">Institucional</h1>
+          <p class="list-hero-count" id="inst-hero-subtitle">Transparência e segurança para o agronegócio.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="inst-layout">
+      <aside class="inst-sidebar">
+        
+        <div class="inst-nav-group">
+          <div class="inst-nav-title" data-i18n="inst_sidebar_support">Ajuda & Suporte</div>
+          <a class="inst-nav-link" data-page="ajuda">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <span data-i18n="inst_nav_ajuda">Central de Ajuda</span>
+          </a>
+          <a class="inst-nav-link" data-page="contato">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            <span data-i18n="inst_nav_contato">Fale Conosco</span>
+          </a>
+          <a class="inst-nav-link" data-page="denuncia">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <span data-i18n="inst_nav_denuncia">Denunciar Anúncio</span>
+          </a>
+        </div>
+
+        <div class="inst-nav-group">
+          <div class="inst-nav-title" data-i18n="inst_sidebar_policies">Políticas</div>
+          <a class="inst-nav-link" data-page="termos">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            <span data-i18n="inst_nav_termos">Termos de Uso</span>
+          </a>
+          <a class="inst-nav-link" data-page="privacidade">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <span data-i18n="inst_nav_privacidade">Política de Privacidade</span>
+          </a>
+          <a class="inst-nav-link" data-page="cookies">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="7.5" cy="9.5" r="1.5"/><circle cx="12.5" cy="6.5" r="1.5"/><circle cx="16.5" cy="11.5" r="1.5"/><circle cx="10.5" cy="14.5" r="1.5"/><path d="M22 12c-2.76 0-5 2.24-5 5s2.24 5 5 5"/></svg>
+            <span data-i18n="inst_nav_cookies">Política de Cookies</span>
+          </a>
+        </div>
+
+        <div class="inst-nav-group">
+          <div class="inst-nav-title" data-i18n="inst_sidebar_company">A Empresa</div>
+          <a class="inst-nav-link" data-page="sobre">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            <span data-i18n="inst_nav_sobre">Sobre Nós</span>
+          </a>
+          <a class="inst-nav-link" data-page="trabalhe-conosco">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <span data-i18n="inst_nav_trabalhe">Trabalhe Conosco</span>
+          </a>
+          <a class="inst-nav-link" data-page="imprensa">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 16h20"/><path d="M5 20h14a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2z"/><path d="M8 10h.01"/><path d="M12 10h.01"/><path d="M16 10h.01"/></svg>
+            <span data-i18n="inst_nav_imprensa">Imprensa</span>
+          </a>
+          <a class="inst-nav-link" data-page="api">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            <span data-i18n="inst_nav_api">API para Parceiros</span>
+          </a>
+        </div>
+      </aside>
+
+      <main class="inst-content-box" id="inst-content-box">
+        <div class="inst-prose" id="inst-prose-content">
+          <!-- Dinâmico -->
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+
+      /* ── Conteúdo de cada página ─────────────────────────────────── */
+      var pages = {
+        ajuda: {
+          title: 'Central de Ajuda',
+          subtitle: 'Como podemos ajudar você hoje?',
+          html: document.getElementById('tpl-ajuda') ? document.getElementById('tpl-ajuda').innerHTML : ''
+        },
+        privacidade: {
+          title: 'Política de Privacidade',
+          subtitle: 'Seus dados são nosso compromisso — tratados com responsabilidade e transparência.',
+          html: document.getElementById('tpl-privacidade') ? document.getElementById('tpl-privacidade').innerHTML : ''
+        },
+        termos: {
+          title: 'Termos de Uso',
+          subtitle: 'Leia com atenção antes de utilizar a plataforma.',
+          html: document.getElementById('tpl-termos') ? document.getElementById('tpl-termos').innerHTML : ''
+        },
+        denuncia: {
+          title: 'Denunciar Anúncio',
+          subtitle: 'Segurança e transparência são a base do nosso ambiente.',
+          html: document.getElementById('tpl-denuncia') ? document.getElementById('tpl-denuncia').innerHTML : ''
+        },
+        cookies: {
+          title: 'Política de Cookies',
+          subtitle: 'Transparência total sobre como utilizamos tecnologias de rastreamento.',
+          html: document.getElementById('tpl-cookies') ? document.getElementById('tpl-cookies').innerHTML : ''
+        },
+        contato: {
+          title: 'Fale Conosco',
+          subtitle: 'Estamos sempre prontos para lhe atender.',
+          html: document.getElementById('tpl-contato') ? document.getElementById('tpl-contato').innerHTML : ''
+        },
+        sobre: {
+          title: 'Sobre Nós',
+          subtitle: 'A maior vitrine digital do agronegócio no Mercosul.',
+          html: document.getElementById('tpl-sobre') ? document.getElementById('tpl-sobre').innerHTML : ''
+        },
+        'trabalhe-conosco': {
+          title: 'Trabalhe Conosco',
+          subtitle: 'Junte-se à revolução digital do Agro.',
+          html: document.getElementById('tpl-trabalhe') ? document.getElementById('tpl-trabalhe').innerHTML : ''
+        },
+        imprensa: {
+          title: 'Imprensa',
+          subtitle: 'Informações e contatos para a mídia.',
+          html: document.getElementById('tpl-imprensa') ? document.getElementById('tpl-imprensa').innerHTML : ''
+        },
+        api: {
+          title: 'API para Parceiros',
+          subtitle: 'Integração em desenvolvimento — cadastre-se para acesso antecipado.',
+          html: document.getElementById('tpl-api') ? document.getElementById('tpl-api').innerHTML : ''
+        }
+      };
+
+      /* ── DOM refs ─────────────────────────────────────────────────── */
+      var heroTitle    = document.getElementById('inst-hero-title');
+      var heroSubtitle = document.getElementById('inst-hero-subtitle');
+      var contentBox   = document.getElementById('inst-content-box');
+      var proseContent = document.getElementById('inst-prose-content');
+      var navLinks     = document.querySelectorAll('.inst-nav-link');
+
+      /* ── loadPage ─────────────────────────────────────────────────── */
+      function loadPage(pageId) {
+        var data = pages[pageId];
+
+        navLinks.forEach(function(link) {
+          link.classList.toggle('active', link.getAttribute('data-page') === pageId);
+        });
+
+        contentBox.classList.add('fading');
+        setTimeout(function() {
+          if (data) {
+            heroTitle.setAttribute('data-i18n', 'inst_title_' + pageId);
+            heroTitle.textContent    = data.title;
+            heroSubtitle.setAttribute('data-i18n', 'inst_sub_' + pageId);
+            heroSubtitle.textContent = data.subtitle;
+            proseContent.innerHTML   = data.html;
+            
+            if(typeof updatePageText === 'function') updatePageText();
+            
+            document.title           = data.title + ' — Tauze Class';
+          } else {
+            heroTitle.removeAttribute('data-i18n');
+            heroTitle.textContent    = 'Página não encontrada';
+            heroSubtitle.removeAttribute('data-i18n');
+            heroSubtitle.textContent = 'Erro 404';
+            proseContent.innerHTML   = '<p data-i18n="inst_404_msg">A página que você está procurando não existe ou foi movida.</p>';
+            if(typeof updatePageText === 'function') updatePageText();
+          }
+          contentBox.classList.remove('fading');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }, 250);
+      }
+
+      /* ── Clique nos links do menu ─────────────────────────────────── */
+      navLinks.forEach(function(link) {
+        link.addEventListener('click', function(e) {
+          e.preventDefault();
+          var p = link.getAttribute('data-page');
+          var newUrl = location.protocol + '//' + location.host + location.pathname + '?page=' + p;
+          history.pushState({ page: p }, '', newUrl);
+          loadPage(p);
+        });
+      });
+
+      /* ── Botão Voltar/Avançar ─────────────────────────────────────── */
+      window.addEventListener('popstate', function(e) {
+        var p = (e.state && e.state.page) || new URLSearchParams(location.search).get('page') || 'sobre';
+        loadPage(p);
+      });
+
+      /* ── Carga inicial pela URL ───────────────────────────────────── */
+      var initialPage = new URLSearchParams(location.search).get('page') || 'sobre';
+      loadPage(initialPage);
+    });
+  </script>
+
+  <!-- ── Conteúdo legal (lido por JS) ────────────────────────────── -->
+
+  <div id="tpl-ajuda" hidden="">
+    
+<div class="faq-section">
+  <h2 data-i18n="inst_tpl_1">📢 Publicar Anúncios</h2>
+  <details class="faq-item">
+    <summary data-i18n="inst_tpl_2">Como faço para publicar um anúncio?</summary>
+    <div class="faq-answer">
+      <p data-i18n="inst_tpl_html_5">Clique em <strong data-i18n="inst_tpl_3">"+ Novo Anúncio"</strong> no canto superior direito. Se ainda não tiver conta, o sistema solicitará o cadastro (gratuito). Em seguida: escolha a categoria (bovinos, equinos, máquinas, insumos, imóveis rurais etc.), preencha título, descrição, preço e localização, adicione fotos (mínimo 1, máximo 12) e clique em <strong data-i18n="inst_tpl_4">"Publicar"</strong>. O anúncio ficará disponível em instantes.</p>
+    </div>
+  </details>
+  <details class="faq-item">
+    <summary data-i18n="inst_tpl_6">A publicação é gratuita? Existe limite de anúncios?</summary>
+    <div class="faq-answer">
+      <p data-i18n="inst_tpl_html_8">Sim! A publicação básica é <strong data-i18n="inst_tpl_7">gratuita</strong>. Cada conta pode manter anúncios ativos conforme o plano. Anúncios expirados podem ser renovados diretamente no painel do usuário.</p>
+    </div>
+  </details>
+  <details class="faq-item">
+    <summary data-i18n="inst_tpl_9">Quais documentos são obrigatórios ao vender animais?</summary>
+    <div class="faq-answer">
+      <p data-i18n="inst_tpl_html_11">Embora o Tauze Class não exija documentação para publicação, a <strong data-i18n="inst_tpl_10">legislação brasileira exige</strong> do vendedor no ato da transação:</p>
+      <ul>
+        <li data-i18n="inst_tpl_html_13"><strong data-i18n="inst_tpl_12">GTA (Guia de Trânsito Animal)</strong> — obrigatória para movimentação entre municípios/estados (IN MAPA n° 54/2019);</li>
+        <li data-i18n="inst_tpl_html_15"><strong data-i18n="inst_tpl_14">Atestado sanitário</strong> emitido por médico-veterinário habilitado;</li>
+        <li data-i18n="inst_tpl_html_17"><strong data-i18n="inst_tpl_16">Nota Fiscal</strong> de venda do animal;</li>
+        <li data-i18n="inst_tpl_html_19">Para reprodutores: <strong data-i18n="inst_tpl_18">certificado de raça</strong> e registro na associação competente.</li>
+      </ul>
+      <div class="faq-alert faq-alert-warn" data-i18n="inst_tpl_html_21">⚠─ A ausência de GTA e nota fiscal é infração legal. Negocie apenas com vendedores que apresentem esses documentos <strong data-i18n="inst_tpl_20">antes</strong> de qualquer pagamento.</div>
+    </div>
+  </details>
+  <details class="faq-item">
+    <summary data-i18n="inst_tpl_22">Posso anunciar qualquer tipo de animal ou produto?</summary>
+    <div class="faq-answer">
+      <p data-i18n="inst_tpl_html_24">São aceitos anúncios de animais e produtos do setor agropecuário legalmente comercializáveis. São <strong data-i18n="inst_tpl_23">expressamente proibidos</strong>: animais silvestres sem licença IBAMA; produtos de origem ilícita; agrotóxicos proibidos ou sem registro no MAPA; medicamentos veterinários sujeitos a receituário sem comprovação. Anúncios em desacordo serão removidos e o usuário poderá ser banido.</p>
+    </div>
+  </details>
+  <details class="faq-item">
+    <summary data-i18n="inst_tpl_25">Como edito ou excluo um anúncio já publicado?</summary>
+    <div class="faq-answer">
+      <p data-i18n="inst_tpl_html_29">Acesse o <strong data-i18n="inst_tpl_26">Painel do Usuário</strong> (ícone do perfil → "Meus Anúncios"). Localize o anúncio e clique em <strong data-i18n="inst_tpl_27">"Editar"</strong> ou <strong data-i18n="inst_tpl_28">"Excluir"</strong>. Anúncios vendidos podem ser marcados como tal e são arquivados automaticamente.</p>
+    </div>
+  </details>
+</div>
+
+<div class="faq-section">
+  <h2 data-i18n="inst_tpl_30">🔒 Segurança, Fraudes e Golpes</h2>
+  <details class="faq-item">
+    <summary data-i18n="inst_tpl_31">O Tauze Class garante a segurança das transações?</summary>
+    <div class="faq-answer">
+      <p data-i18n="inst_tpl_html_35">Não. O Tauze Class é um <strong data-i18n="inst_tpl_32">mural de classificados digital</strong> — uma ferramenta tecnológica de publicação de anúncios. <strong data-i18n="inst_tpl_33">Não somos parte, intermediários financeiros ou garantes</strong> de nenhuma negociação entre usuários. Toda compra e venda é de <strong data-i18n="inst_tpl_34">risco e responsabilidade exclusiva das partes envolvidas</strong>.</p>
+      <div class="faq-alert faq-alert-warn" data-i18n="inst_tpl_html_37">⚠─ O Tauze Class <strong data-i18n="inst_tpl_36">não oferece escrow, garantia de entrega, seguro de transação nem reembolso</strong> por negociações entre usuários.</div>
+    </div>
+  </details>
+  <details class="faq-item">
+    <summary data-i18n="inst_tpl_38">Como me proteger de golpes e estelionatos?</summary>
+    <div class="faq-answer">
+      <p data-i18n="inst_tpl_39">Boas práticas essenciais antes de qualquer negociação:</p>
+      <ul>
+        <li data-i18n="inst_tpl_html_41">✅ <strong data-i18n="inst_tpl_40">Nunca pague antecipado</strong> sem ver o animal/produto pessoalmente;</li>
+        <li data-i18n="inst_tpl_html_43">✅ Exija <strong data-i18n="inst_tpl_42">GTA, nota fiscal e documento do vendedor</strong> antes de qualquer transferência;</li>
+        <li data-i18n="inst_tpl_html_45">✅ Prefira negociar em <strong data-i18n="inst_tpl_44">local público e seguro</strong> ou solicite visita à propriedade;</li>
+        <li data-i18n="inst_tpl_html_47">✅ Desconfie de preços <strong data-i18n="inst_tpl_46">muito abaixo do mercado</strong> — principal sinal de golpe;</li>
+        <li data-i18n="inst_tpl_html_49">✅ Confirme a identidade do vendedor por <strong data-i18n="inst_tpl_48">videochamada</strong> antes de qualquer acordo;</li>
+        <li data-i18n="inst_tpl_50">✅ Pesquise o telefone do anunciante no Google — golpistas costumam deixar rastros online.</li>
+      </ul>
+      <div class="faq-alert faq-alert-warn" data-i18n="inst_tpl_html_52">⚠─ Desconfie de qualquer pedido de <strong data-i18n="inst_tpl_51">Pix antecipado, depósito ou TED</strong> sem conferência presencial do produto.</div>
+    </div>
+  </details>
+  <details class="faq-item">
+    <summary data-i18n="inst_tpl_53">Fui vítima de golpe. O que devo fazer?</summary>
+    <div class="faq-answer">
+      <p data-i18n="inst_tpl_html_55">Lamentamos o ocorrido. Siga estes passos <strong data-i18n="inst_tpl_54">imediatamente</strong>:</p>
+      <ul>
+        <li data-i18n="inst_tpl_html_57">1─⃣ <strong data-i18n="inst_tpl_56">Registre Boletim de Ocorrência</strong> na Delegacia de Crimes Virtuais ou Delegacia Eletrônica do seu estado;</li>
+        <li data-i18n="inst_tpl_html_59">2─⃣ <strong data-i18n="inst_tpl_58">Bloqueie o Pix</strong> junto ao seu banco e informe a fraude (o banco pode acionar o Mecanismo Especial de Devolução — MED do BACEN);</li>
+        <li data-i18n="inst_tpl_html_62">3─⃣ <strong data-i18n="inst_tpl_60">Denuncie o anúncio</strong> em <a href="mailto:seguranca@tauzeclass.com.br" data-i18n="inst_tpl_61">seguranca@tauzeclass.com.br</a> com evidências para remoção imediata;</li>
+        <li data-i18n="inst_tpl_html_64">4─⃣ Guarde <strong data-i18n="inst_tpl_63">todas as conversas, prints e comprovantes</strong> para a investigação policial.</li>
+      </ul>
+      <div class="faq-alert faq-alert-info" data-i18n="inst_tpl_html_66">ℹ─ O Tauze Class colaborará com investigações policiais <strong data-i18n="inst_tpl_65">exclusivamente mediante ordem judicial</strong>, preservando registros conforme o Marco Civil da Internet (Lei n° 12.965/2014).</div>
+    </div>
+  </details>
+  <details class="faq-item">
+    <summary data-i18n="inst_tpl_67">O vendedor sumiu após o pagamento. O Tauze Class pode me reembolsar?</summary>
+    <div class="faq-answer">
+      <p data-i18n="inst_tpl_html_69"><strong data-i18n="inst_tpl_68">Não.</strong> O Tauze Class não é parte da negociação, não processa valores financeiros entre usuários e não possui qualquer responsabilidade legal de reembolso. Providências que podem ajudar:</p>
+      <ul>
+        <li data-i18n="inst_tpl_70">Acione seu banco para tentativa de estorno (especialmente em Pix recentes — até 80 min);</li>
+        <li data-i18n="inst_tpl_71">Registre B.O. e acione o Ministério Público;</li>
+        <li data-i18n="inst_tpl_72">Consulte um advogado para ação de reparação de danos contra o vendedor identificável.</li>
+      </ul>
+    </div>
+  </details>
+  <details class="faq-item">
+    <summary data-i18n="inst_tpl_73">Um anúncio parece falso. Como reporto?</summary>
+    <div class="faq-answer">
+      <p data-i18n="inst_tpl_html_75">Envie e-mail para <a href="mailto:seguranca@tauzeclass.com.br" data-i18n="inst_tpl_74">seguranca@tauzeclass.com.br</a> com o link do anúncio, a descrição do problema e prints como evidência. Nossa equipe analisa em até 5 dias úteis e pode remover o anúncio imediatamente em casos flagrantes.</p>
+    </div>
+  </details>
+</div>
+
+<div class="faq-section">
+  <h2 data-i18n="inst_tpl_76">👤 Conta e Acesso</h2>
+  <details class="faq-item">
+    <summary data-i18n="inst_tpl_77">Como crio minha conta?</summary>
+    <div class="faq-answer">
+      <p data-i18n="inst_tpl_html_81">Clique em <strong data-i18n="inst_tpl_78">"Entrar"</strong> no menu superior e selecione <strong data-i18n="inst_tpl_79">"Criar conta"</strong>. Preencha nome, e-mail e senha. Confirme pelo link enviado ao seu e-mail (verifique o spam). O cadastro é <strong data-i18n="inst_tpl_80">gratuito</strong>.</p>
+    </div>
+  </details>
+  <details class="faq-item">
+    <summary data-i18n="inst_tpl_82">Esqueci minha senha. Como recupero o acesso?</summary>
+    <div class="faq-answer">
+      <p data-i18n="inst_tpl_html_85">Na tela de login, clique em <strong data-i18n="inst_tpl_83">"Esqueci minha senha"</strong>, informe seu e-mail e aguarde o link de redefinição (verifique o spam). O link expira em <strong data-i18n="inst_tpl_84">60 minutos</strong> por segurança.</p>
+    </div>
+  </details>
+  <details class="faq-item">
+    <summary data-i18n="inst_tpl_86">Minha conta foi suspensa. O que acontece com meus anúncios?</summary>
+    <div class="faq-answer">
+      <p data-i18n="inst_tpl_html_88">Contas suspensas têm todos os anúncios removidos automaticamente da listagem pública. A suspensão pode ocorrer por violação dos Termos de Uso, publicação de conteúdo proibido ou determinação judicial. Para solicitar revisão: <a href="mailto:contato@tauzeclass.com.br" data-i18n="inst_tpl_87">contato@tauzeclass.com.br</a>.</p>
+    </div>
+  </details>
+  <details class="faq-item">
+    <summary data-i18n="inst_tpl_89">Como excluo minha conta e meus dados (LGPD)?</summary>
+    <div class="faq-answer">
+      <p data-i18n="inst_tpl_html_93">Envie solicitação para <a href="mailto:privacidade@tauzeclass.com.br" data-i18n="inst_tpl_90">privacidade@tauzeclass.com.br</a> com o assunto <em data-i18n="inst_tpl_91">"Exclusão de Conta"</em>. Conforme a LGPD (Art. 18), seus dados serão anonimizados ou excluídos em até <strong data-i18n="inst_tpl_92">90 dias</strong>, salvo obrigação legal de retenção.</p>
+    </div>
+  </details>
+</div>
+
+<div class="faq-section">
+  <h2 data-i18n="inst_tpl_94">─ Anúncios e Buscas</h2>
+  <details class="faq-item">
+    <summary data-i18n="inst_tpl_95">Por que meu anúncio não aparece nas buscas?</summary>
+    <div class="faq-answer">
+      <p data-i18n="inst_tpl_96">Possíveis motivos: anúncio em análise (primeiros minutos após publicação); conta não confirmada por e-mail; anúncio expirado (renove no painel); filtro de localização ativo na busca; anúncio sinalizado pela moderação (verifique seu e-mail).</p>
+    </div>
+  </details>
+  <details class="faq-item">
+    <summary data-i18n="inst_tpl_97">Como entro em contato com um anunciante?</summary>
+    <div class="faq-answer">
+      <p data-i18n="inst_tpl_html_100">Cada anúncio exibe o <strong data-i18n="inst_tpl_98">telefone ou WhatsApp</strong> informado pelo anunciante. O contato é feito <strong data-i18n="inst_tpl_99">diretamente entre comprador e vendedor</strong>, sem intermediação do Tauze Class. Confirme sempre a identidade do vendedor antes de negociar.</p>
+    </div>
+  </details>
+  <details class="faq-item">
+    <summary data-i18n="inst_tpl_101">O preço no anúncio é negociável?</summary>
+    <div class="faq-answer">
+      <p data-i18n="inst_tpl_102">Isso é definido exclusivamente pelo anunciante. O Tauze Class não interfere nas condições de negociação. Entre em contato diretamente com o vendedor para verificar a possibilidade de negociação.</p>
+    </div>
+  </details>
+</div>
+
+<div class="faq-section">
+  <h2 data-i18n="inst_tpl_103">🛡─ Privacidade e LGPD</h2>
+  <details class="faq-item">
+    <summary data-i18n="inst_tpl_104">O Tauze Class vende meus dados para terceiros?</summary>
+    <div class="faq-answer">
+      <p data-i18n="inst_tpl_html_108"><strong data-i18n="inst_tpl_105">Não.</strong> O Tauze Class não vende, aluga, cede ou comercializa dados pessoais. O compartilhamento ocorre apenas com fornecedores de infraestrutura (Supabase) e, exclusivamente mediante <strong data-i18n="inst_tpl_106">ordem judicial</strong>, com autoridades públicas. Veja a <a href="?page=privacidade" data-i18n="inst_tpl_107">Política de Privacidade</a> completa.</p>
+    </div>
+  </details>
+  <details class="faq-item">
+    <summary data-i18n="inst_tpl_109">Posso solicitar a exclusão dos meus dados pessoais?</summary>
+    <div class="faq-answer">
+      <p data-i18n="inst_tpl_html_112">Sim. Nos termos da <strong data-i18n="inst_tpl_110">LGPD (Art. 18)</strong>, você pode solicitar exclusão, portabilidade ou correção dos seus dados a qualquer momento. Envie para <a href="mailto:privacidade@tauzeclass.com.br" data-i18n="inst_tpl_111">privacidade@tauzeclass.com.br</a>. Prazo: até 15 dias úteis.</p>
+    </div>
+  </details>
+</div>
+
+<div class="faq-section">
+  <h2 data-i18n="inst_tpl_113">📞 Ainda precisa de ajuda?</h2>
+  <p style="color:var(--clr-text-muted,#374151);font-size:.95rem" data-i18n="inst_tpl_114">Não encontrou o que procurava? Fale com nossa equipe:</p>
+  <div style="display:grid;gap:.75rem;margin-top:1rem">
+    <a href="?page=contato" style="display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;border:1px solid var(--clr-border,#e5e7eb);border-radius:10px;text-decoration:none;color:var(--clr-text,#111)">
+      <span style="font-size:1.5rem" data-i18n="inst_tpl_115">📧</span>
+      <div><strong data-i18n="inst_tpl_116">Fale Conosco</strong><br><span style="font-size:.85rem;color:var(--clr-text-muted,#6b7280)" data-i18n="inst_tpl_117">contato@tauzeclass.com.br — Seg–Sex, 08h–18h</span></div>
+    </a>
+    <a href="?page=denuncia" style="display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;border:1px solid var(--clr-border,#e5e7eb);border-radius:10px;text-decoration:none;color:var(--clr-text,#111)">
+      <span style="font-size:1.5rem" data-i18n="inst_tpl_118">🚨</span>
+      <div><strong data-i18n="inst_tpl_119">Denunciar Anúncio</strong><br><span style="font-size:.85rem;color:var(--clr-text-muted,#6b7280)" data-i18n="inst_tpl_120">seguranca@tauzeclass.com.br — Análise em até 5 dias úteis</span></div>
+    </a>
+  </div>
+</div>
+
+  </div>
+  <div id="tpl-contato" hidden="">
+    
+
+<p style="font-size:1rem;color:var(--clr-text-muted,#374151);margin-bottom:1.5rem" data-i18n="inst_tpl_121">Nossa equipe de especialistas em agronegócio digital está pronta para ajudar você. Escolha o canal mais adequado para a sua necessidade:</p>
+
+<div class="inst-grid-2x2">
+  <div class="inst-card">
+    <span class="card-icon" data-i18n="inst_tpl_122">📧</span>
+    <h3 data-i18n="inst_tpl_123">Atendimento Geral</h3>
+    <p data-i18n="inst_tpl_124">Dúvidas sobre anúncios, conta e plataforma</p>
+    <a href="mailto:contato@tauzeclass.com.br" data-i18n="inst_tpl_125">contato@tauzeclass.com.br</a>
+    <p style="margin-top:.25rem" data-i18n="inst_tpl_126">Seg–Sex, 08h–18h (horário de Brasília)</p>
+  </div>
+  <div class="inst-card">
+    <span class="card-icon" data-i18n="inst_tpl_127">🔒</span>
+    <h3 data-i18n="inst_tpl_128">Segurança e Denúncias</h3>
+    <p data-i18n="inst_tpl_129">Anúncios suspeitos, fraudes e irregularidades</p>
+    <a href="mailto:seguranca@tauzeclass.com.br" data-i18n="inst_tpl_130">seguranca@tauzeclass.com.br</a>
+    <p style="margin-top:.25rem" data-i18n="inst_tpl_131">Análise em até 5 dias úteis</p>
+  </div>
+  <div class="inst-card">
+    <span class="card-icon" data-i18n="inst_tpl_132">🛡─</span>
+    <h3 data-i18n="inst_tpl_133">Privacidade e LGPD</h3>
+    <p data-i18n="inst_tpl_134">Solicitações de dados, exclusão de conta</p>
+    <a href="mailto:privacidade@tauzeclass.com.br" data-i18n="inst_tpl_135">privacidade@tauzeclass.com.br</a>
+    <p style="margin-top:.25rem" data-i18n="inst_tpl_136">Resposta em até 15 dias úteis</p>
+  </div>
+  <div class="inst-card">
+    <span class="card-icon" data-i18n="inst_tpl_137">─</span>
+    <h3 data-i18n="inst_tpl_138">Parcerias Comerciais</h3>
+    <p data-i18n="inst_tpl_139">Anúncios premium, integrações e API</p>
+    <a href="mailto:dev@tauzeclass.com.br" data-i18n="inst_tpl_140">dev@tauzeclass.com.br</a>
+    <p style="margin-top:.25rem" data-i18n="inst_tpl_141">Seg–Sex, 08h–18h</p>
+  </div>
+</div>
+
+<div class="contact-form-box">
+  <h2 data-i18n="inst_tpl_142">─ Envie sua Mensagem</h2>
+  <form id="contact-form" onsubmit="(function(e){e.preventDefault();var b=document.getElementById('cf-submit');b.textContent='✅ Mensagem enviada!';b.style.background='#15803d';b.disabled=true;setTimeout(function(){b.textContent='Enviar Mensagem';b.style.background='';b.disabled=false},4000)})(event)">
+    <div class="cf-row">
+      <div class="cf-field">
+        <label for="cf-nome" data-i18n="inst_tpl_143">Nome completo *</label>
+        <input id="cf-nome" type="text" placeholder="Seu nome" required="">
+      </div>
+      <div class="cf-field">
+        <label for="cf-email" data-i18n="inst_tpl_144">E-mail *</label>
+        <input id="cf-email" type="email" placeholder="seu@email.com" required="">
+      </div>
+    </div>
+    <div class="cf-row">
+      <div class="cf-field">
+        <label for="cf-tel" data-i18n="inst_tpl_145">Telefone / WhatsApp</label>
+        <input id="cf-tel" type="tel" placeholder="(00) 00000-0000">
+      </div>
+      <div class="cf-field">
+        <label for="cf-assunto" data-i18n="inst_tpl_146">Assunto *</label>
+        <select id="cf-assunto" required="">
+          <option value="" data-i18n="inst_tpl_147">Selecione...</option>
+          <option data-i18n="inst_tpl_148">Dúvida sobre anúncio</option>
+          <option data-i18n="inst_tpl_149">Problemas com conta</option>
+          <option data-i18n="inst_tpl_150">Reportar fraude ou golpe</option>
+          <option data-i18n="inst_tpl_151">Parceria comercial</option>
+          <option data-i18n="inst_tpl_152">Privacidade / LGPD</option>
+          <option data-i18n="inst_tpl_153">Imprensa</option>
+          <option data-i18n="inst_tpl_154">Outro</option>
+        </select>
+      </div>
+    </div>
+    <div class="cf-row">
+      <div class="cf-field cf-full">
+        <label for="cf-msg" data-i18n="inst_tpl_155">Mensagem *</label>
+        <textarea id="cf-msg" rows="5" placeholder="Descreva sua solicitação com o máximo de detalhes possível..." required="" style="resize:vertical"></textarea>
+      </div>
+    </div>
+    <button type="submit" class="cf-btn" id="cf-submit" data-i18n="inst_tpl_156">Enviar Mensagem</button>
+    <p class="cf-note" data-i18n="inst_tpl_html_158">⚠─ <strong data-i18n="inst_tpl_157">Importante:</strong> Este formulário é para atendimento geral. Em casos de fraude ou crime, registre imediatamente um Boletim de Ocorrência junto às autoridades competentes, independentemente do contato conosco.</p>
+  </form>
+</div>
+
+  </div>
+  <div id="tpl-sobre" hidden="">
+    
+
+<p style="font-size:1rem;line-height:1.7;color:var(--clr-text-muted,#374151)" data-i18n="inst_tpl_html_160">O <strong data-i18n="inst_tpl_159">Tauze Class</strong> nasceu da visão de que o agronegócio merecia uma plataforma digital de classificados tão robusta quanto o próprio setor — moderno, ágil e conectado ao ritmo do campo.</p>
+
+<div class="inst-grid-4">
+  <div class="inst-stat-card"><div class="stat-num" data-i18n="inst_tpl_161">🌎</div><div class="stat-lbl" data-i18n="inst_tpl_162">Cobertura Mercosul</div></div>
+  <div class="inst-stat-card"><div class="stat-num" data-i18n="inst_tpl_163">──</div><div class="stat-lbl" data-i18n="inst_tpl_164">Agropecuária Especializada</div></div>
+  <div class="inst-stat-card"><div class="stat-num" data-i18n="inst_tpl_165">⚡</div><div class="stat-lbl" data-i18n="inst_tpl_166">Publicação em Minutos</div></div>
+  <div class="inst-stat-card"><div class="stat-num" data-i18n="inst_tpl_167">🔒</div><div class="stat-lbl" data-i18n="inst_tpl_168">Plataforma Segura</div></div>
+</div>
+
+<h2 data-i18n="inst_tpl_169">Nossa Missão</h2>
+<p data-i18n="inst_tpl_170">Conectar produtores rurais, criadores, agricultores e empresários do agronegócio a compradores qualificados, por meio de uma plataforma de classificados digital, rápida, acessível e transparente — sem burocracia, sem intermediários e sem fronteiras dentro do Mercosul.</p>
+
+<h2 data-i18n="inst_tpl_171">Nossa Visão</h2>
+<p data-i18n="inst_tpl_172">Ser a referência número um em classificados digitais do agronegócio no Mercosul, levando tecnologia de ponta e liquidez de mercado ao produtor rural, do grande fazendeiro ao pequeno criador familiar.</p>
+
+<h2 data-i18n="inst_tpl_173">Nossos Valores</h2>
+<div class="inst-grid-2x2">
+  <div class="sobre-value"><h3 data-i18n="inst_tpl_174">─ Transparência</h3><p data-i18n="inst_tpl_175">Operamos como mural de classificados neutro. Não interferimos nas negociações e somos claros sobre o que somos e o que não somos.</p></div>
+  <div class="sobre-value"><h3 data-i18n="inst_tpl_176">🌿 Compromisso com o Campo</h3><p data-i18n="inst_tpl_177">Desenvolvemos funcionalidades pensadas para a realidade do produtor rural brasileiro e do Mercosul.</p></div>
+  <div class="sobre-value"><h3 data-i18n="inst_tpl_178">⚡ Tecnologia Acessível</h3><p data-i18n="inst_tpl_179">Interface simples e rápida, que funciona bem mesmo em conexões rurais de baixa velocidade.</p></div>
+  <div class="sobre-value"><h3 data-i18n="inst_tpl_180">🔒 Responsabilidade Legal</h3><p data-i18n="inst_tpl_181">Operamos em conformidade com o Marco Civil da Internet, LGPD e demais normas do setor agropecuário.</p></div>
+</div>
+
+<h2 data-i18n="inst_tpl_182">O que Fazemos — e o que Não Fazemos</h2>
+<p data-i18n="inst_tpl_html_185">O Tauze Class é uma <strong data-i18n="inst_tpl_183">ferramenta tecnológica de publicação de anúncios classificados</strong>. Funcionamos como um <em data-i18n="inst_tpl_184">mural de avisos digital</em>:</p>
+<ul>
+  <li data-i18n="inst_tpl_186">✅ Oferecemos espaço para publicação de anúncios do setor agropecuário;</li>
+  <li data-i18n="inst_tpl_187">✅ Conectamos anunciantes e interessados;</li>
+  <li data-i18n="inst_tpl_188">✅ Moderamos anúncios que violem nossas diretrizes e a legislação.</li>
+</ul>
+
+<div class="sobre-disclaimer" data-i18n="inst_tpl_html_190">
+  ⚠─ <strong data-i18n="inst_tpl_189">O Tauze Class não é</strong> vendedor, intermediário financeiro, garantidor de transações ou responsável pelo conteúdo publicado por terceiros. Toda negociação é de responsabilidade exclusiva das partes envolvidas, nos termos do Art. 19 da Lei nº 12.965/2014 (Marco Civil da Internet).
+</div>
+
+<h2 data-i18n="inst_tpl_191">Tecnologia</h2>
+<p data-i18n="inst_tpl_192">A plataforma é desenvolvida com tecnologias modernas de cloud computing, hospedada em infraestrutura segura com certificação de dados (Supabase), garantindo alta disponibilidade e proteção de dados em conformidade com a LGPD.</p>
+
+<h2 data-i18n="inst_tpl_193">Localização</h2>
+<p data-i18n="inst_tpl_html_194">── Tauze Class — Belo Horizonte, Minas Gerais, Brasil.<br>Foro de eleição: Comarca de Belo Horizonte/MG.</p>
+
+  </div>
+  <div id="tpl-trabalhe" hidden="">
+    
+
+<p style="font-size:1rem;color:var(--clr-text-muted,#374151)" data-i18n="inst_tpl_html_196">Somos uma startup do agronegócio digital em crescimento acelerado no Mercosul. Se você é apaixonado por tecnologia <em data-i18n="inst_tpl_195">e</em> pelo campo, este é o seu lugar.</p>
+
+<h2 data-i18n="inst_tpl_197">Nossa Cultura</h2>
+<div class="inst-grid-4">
+  <div class="inst-card" style="text-align:center"><div class="card-icon" data-i18n="inst_tpl_198">🌾</div><h3 data-i18n="inst_tpl_199">Propósito Real</h3><p data-i18n="inst_tpl_200">Trabalho com impacto direto no produtor rural e no agronegócio brasileiro.</p></div>
+  <div class="inst-card" style="text-align:center"><div class="card-icon" data-i18n="inst_tpl_201">🚀</div><h3 data-i18n="inst_tpl_202">Ambiente ─gil</h3><p data-i18n="inst_tpl_203">Times pequenos, decisões rápidas e responsabilidade sobre os resultados.</p></div>
+  <div class="inst-card" style="text-align:center"><div class="card-icon" data-i18n="inst_tpl_204">──</div><h3 data-i18n="inst_tpl_205">Remoto Friendly</h3><p data-i18n="inst_tpl_206">Cultura de trabalho flexível com encontros presenciais periódicos.</p></div>
+  <div class="inst-card" style="text-align:center"><div class="card-icon" data-i18n="inst_tpl_207">📈</div><h3 data-i18n="inst_tpl_208">Crescimento</h3><p data-i18n="inst_tpl_209">Ambiente propício para aprender, liderar e crescer junto com a empresa.</p></div>
+</div>
+
+<h2 data-i18n="inst_tpl_210">Vagas em Aberto</h2>
+<div class="vagas-grid">
+  <div class="vaga-card">
+    <div class="vaga-info">
+      <h3 data-i18n="inst_tpl_211">Desenvolvedor(a) Full Stack</h3>
+      <p data-i18n="inst_tpl_212">Responsável pelo desenvolvimento e manutenção da plataforma web. Supabase, JavaScript, HTML/CSS.</p>
+      <div class="vaga-tags"><span class="vaga-tag" data-i18n="inst_tpl_213">Full Stack</span><span class="vaga-tag remote" data-i18n="inst_tpl_214">Remoto</span><span class="vaga-tag pj" data-i18n="inst_tpl_215">PJ</span></div>
+    </div>
+    <a href="mailto:vagas@tauzeclass.com.br?subject=Candidatura - Full Stack" class="vaga-btn" data-i18n="inst_tpl_216">Candidatar</a>
+  </div>
+  <div class="vaga-card">
+    <div class="vaga-info">
+      <h3 data-i18n="inst_tpl_217">Moderador(a) de Conteúdo</h3>
+      <p data-i18n="inst_tpl_218">Análise e moderação de anúncios, atendimento a denúncias e suporte ao usuário. Conhecimento em agronegócio é diferencial.</p>
+      <div class="vaga-tags"><span class="vaga-tag" data-i18n="inst_tpl_219">Moderação</span><span class="vaga-tag remote" data-i18n="inst_tpl_220">Remoto</span><span class="vaga-tag pj" data-i18n="inst_tpl_221">PJ</span></div>
+    </div>
+    <a href="mailto:vagas@tauzeclass.com.br?subject=Candidatura - Moderador" class="vaga-btn" data-i18n="inst_tpl_222">Candidatar</a>
+  </div>
+  <div class="vaga-card">
+    <div class="vaga-info">
+      <h3 data-i18n="inst_tpl_223">Especialista em Agronegócio</h3>
+      <p data-i18n="inst_tpl_224">Apoio na curadoria de categorias, nomenclaturas e validação de conteúdo técnico do setor rural.</p>
+      <div class="vaga-tags"><span class="vaga-tag" data-i18n="inst_tpl_225">Agro</span><span class="vaga-tag remote" data-i18n="inst_tpl_226">Remoto</span><span class="vaga-tag pj" data-i18n="inst_tpl_227">PJ</span></div>
+    </div>
+    <a href="mailto:vagas@tauzeclass.com.br?subject=Candidatura - Agronegócio" class="vaga-btn" data-i18n="inst_tpl_228">Candidatar</a>
+  </div>
+</div>
+
+<h2 data-i18n="inst_tpl_229">Não achou sua vaga?</h2>
+<p data-i18n="inst_tpl_html_232">Estamos sempre em busca de talentos excepcionais. Envie seu currículo para <a href="mailto:vagas@tauzeclass.com.br"><strong data-i18n="inst_tpl_230">vagas@tauzeclass.com.br</strong></a> com o assunto <em data-i18n="inst_tpl_231">"Candidatura Espontânea — [sua área]"</em>. Guardamos seu perfil para futuras oportunidades.</p>
+
+<div style="background:var(--clr-surface-alt,#f9fafb);border:1px solid var(--clr-border,#e5e7eb);border-radius:12px;padding:1.25rem;margin-top:1.5rem;font-size:.875rem;color:var(--clr-text-muted,#6b7280)" data-i18n="inst_tpl_html_234">
+  ℹ─ O Tauze Class é uma empresa comprometida com a <strong data-i18n="inst_tpl_233">diversidade e inclusão</strong>. Todas as vagas são abertas a candidatos independentemente de gênero, raça, orientação sexual, deficiência ou qualquer outra característica protegida por lei.
+</div>
+
+  </div>
+  <div id="tpl-imprensa" hidden="">
+    
+<p style="font-size:1rem;color:var(--clr-text-muted,#374151)" data-i18n="inst_tpl_235">O Tauze Class mantém um canal dedicado à imprensa para garantir informações precisas e oficiais sobre a plataforma.</p>
+
+<div class="inst-grid-3">
+  <div class="inst-card">
+    <h3 data-i18n="inst_tpl_236">📰 Assessoria de Imprensa</h3>
+    <p data-i18n="inst_tpl_237">Solicitações de entrevistas, declarações, dados e press releases.</p>
+    <a href="mailto:press@tauzeclass.com.br" data-i18n="inst_tpl_238">press@tauzeclass.com.br</a>
+    <br><span style="font-size:.8rem;color:var(--clr-text-muted,#9ca3af);margin-top:.35rem;display:block" data-i18n="inst_tpl_239">Retorno em até 2 dias úteis</span>
+  </div>
+  <div class="inst-card">
+    <h3 data-i18n="inst_tpl_240">─ Parcerias de Conteúdo</h3>
+    <p data-i18n="inst_tpl_241">Colunistas, portais especializados em agronegócio e veículos digitais.</p>
+    <a href="mailto:press@tauzeclass.com.br" data-i18n="inst_tpl_242">press@tauzeclass.com.br</a>
+  </div>
+  <div class="inst-card">
+    <h3 data-i18n="inst_tpl_243">📊 Dados e Pesquisas</h3>
+    <p data-i18n="inst_tpl_244">Dados de mercado, tendências do agronegócio digital e estatísticas da plataforma.</p>
+    <a href="mailto:press@tauzeclass.com.br" data-i18n="inst_tpl_245">press@tauzeclass.com.br</a>
+  </div>
+</div>
+
+<h2 data-i18n="inst_tpl_246">Fatos Sobre o Tauze Class</h2>
+<div class="inst-grid-4">
+  <div class="inst-stat-card"><div class="stat-num" data-i18n="inst_tpl_247">🌎</div><div class="stat-lbl" data-i18n="inst_tpl_248">Cobertura no Mercosul</div></div>
+  <div class="inst-stat-card"><div class="stat-num" data-i18n="inst_tpl_249">──</div><div class="stat-lbl" data-i18n="inst_tpl_250">Foco 100% Agropecuário</div></div>
+  <div class="inst-stat-card"><div class="stat-num" data-i18n="inst_tpl_251">📱</div><div class="stat-lbl" data-i18n="inst_tpl_252">Plataforma Mobile-First</div></div>
+  <div class="inst-stat-card"><div class="stat-num" data-i18n="inst_tpl_253">🔒</div><div class="stat-lbl" data-i18n="inst_tpl_254">Conformidade LGPD</div></div>
+</div>
+
+<div class="press-guidelines">
+  <h2 style="margin-top:0" data-i18n="inst_tpl_255">📋 Diretrizes para uso da Marca</h2>
+  <p data-i18n="inst_tpl_256">Ao mencionar o Tauze Class em publicações, pedimos que:</p>
+  <ul style="font-size:.9rem;color:var(--clr-text-muted,#374151)">
+    <li data-i18n="inst_tpl_html_258">Use a grafia correta: <strong data-i18n="inst_tpl_257">Tauze Class</strong> (duas palavras, T e C maiúsculos);</li>
+    <li data-i18n="inst_tpl_html_261">Descreva a plataforma como: <em data-i18n="inst_tpl_259">"portal de classificados digitais do agronegócio"</em> ou <em data-i18n="inst_tpl_260">"mural de anúncios digital do agronegócio"</em>;</li>
+    <li data-i18n="inst_tpl_262">Não atribua ao Tauze Class responsabilidade por negociações entre usuários — a plataforma é intermediário tecnológico neutro, nos termos do Art. 19 do Marco Civil da Internet (Lei nº 12.965/2014);</li>
+    <li data-i18n="inst_tpl_263">Para uso do logotipo e materiais visuais, solicite o kit de imprensa pelo e-mail acima.</li>
+  </ul>
+</div>
+
+<h2 data-i18n="inst_tpl_264">Nota Legal para Veículos de Comunicação</h2>
+<p style="font-size:.9rem;color:var(--clr-text-muted,#374151)" data-i18n="inst_tpl_265">O Tauze Class opera como provedor de aplicações de internet nos termos da Lei nº 12.965/2014 (Marco Civil da Internet), não sendo responsável por conteúdo publicado por terceiros usuários. Solicitamos que matérias jornalísticas reflitam com precisão essa natureza da plataforma.</p>
+
+  </div>
+  <div id="tpl-api" hidden="">
+    <div style="text-align:center;padding:2rem 0 1rem">
+      <div style="display:inline-flex;align-items:center;gap:.5rem;background:linear-gradient(135deg,rgba(22,163,74,.1),rgba(22,163,74,.03));border:1px solid rgba(22,163,74,.2);border-radius:99px;padding:.4rem 1.25rem;margin-bottom:1.5rem">
+        <span style="font-size:.75rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#15803d" data-i18n="inst_tpl_266">🚀 Em Desenvolvimento</span>
+      </div>
+      <h2 style="font-size:1.75rem;font-weight:800;margin:.5rem 0;color:var(--clr-heading,#111)" data-i18n="inst_tpl_267">API REST — Em Breve</h2>
+      <p style="font-size:1.05rem;color:var(--clr-text-muted,#6b7280);max-width:600px;margin:0 auto 2rem;line-height:1.7" data-i18n="inst_tpl_268">Estamos desenvolvendo uma API REST robusta para que parceiros tecnológicos possam integrar seus sistemas diretamente ao Tauze Class.</p>
+    </div>
+
+    <h2 data-i18n="inst_tpl_269">O que será possível com a API</h2>
+    <div class="inst-grid-2x2" style="margin:1.5rem 0">
+      <div class="inst-card inst-card-accent">
+        <span class="card-icon" data-i18n="inst_tpl_270">──</span>
+        <h3 data-i18n="inst_tpl_271">Leiloeiras e Leilões</h3>
+        <p data-i18n="inst_tpl_272">Sincronize lotes disponíveis automaticamente como anúncios. Ideal para casas de leilão que desejam ampliar o alcance dos animais ofertados.</p>
+      </div>
+      <div class="inst-card inst-card-accent">
+        <span class="card-icon" data-i18n="inst_tpl_273">🌾</span>
+        <h3 data-i18n="inst_tpl_274">ERPs Rurais</h3>
+        <p data-i18n="inst_tpl_275">Publique e gerencie estoque de animais e insumos direto do seu sistema de gestão rural, sem acesso manual à plataforma.</p>
+      </div>
+      <div class="inst-card inst-card-accent">
+        <span class="card-icon" data-i18n="inst_tpl_276">──</span>
+        <h3 data-i18n="inst_tpl_277">Fintechs Agro</h3>
+        <p data-i18n="inst_tpl_278">Consulte anúncios para precificação de garantias e avaliação de ativos agropecuários em tempo real.</p>
+      </div>
+      <div class="inst-card inst-card-accent">
+        <span class="card-icon" data-i18n="inst_tpl_279">📊</span>
+        <h3 data-i18n="inst_tpl_280">Marketplaces</h3>
+        <p data-i18n="inst_tpl_281">Exiba anúncios do Tauze Class na sua plataforma via feed autorizado, com dados atualizados automaticamente.</p>
+      </div>
+    </div>
+
+    <h2 data-i18n="inst_tpl_282">Endpoints Planejados</h2>
+    <p style="color:var(--clr-text-muted,#6b7280);margin-bottom:1rem" data-i18n="inst_tpl_283">A documentação completa (Swagger/OpenAPI) será disponibilizada junto com o lançamento da API.</p>
+    <div class="api-endpoint" data-i18n="inst_tpl_html_285"><span class="api-method get" data-i18n="inst_tpl_284">GET</span> /v1/anuncios — Listagem com filtros avançados</div>
+    <div class="api-endpoint" data-i18n="inst_tpl_html_287"><span class="api-method get" data-i18n="inst_tpl_286">GET</span> /v1/anuncios/{id} — Detalhes de um anúncio</div>
+    <div class="api-endpoint" data-i18n="inst_tpl_html_289"><span class="api-method post" data-i18n="inst_tpl_288">POST</span> /v1/anuncios — Publicar novo anúncio</div>
+    <div class="api-endpoint" data-i18n="inst_tpl_html_291"><span class="api-method put" data-i18n="inst_tpl_290">PUT</span> /v1/anuncios/{id} — Atualizar anúncio</div>
+    <div class="api-endpoint" data-i18n="inst_tpl_html_293"><span class="api-method delete" data-i18n="inst_tpl_292">DELETE</span> /v1/anuncios/{id} — Remover anúncio</div>
+    <div class="api-endpoint" data-i18n="inst_tpl_html_295"><span class="api-method get" data-i18n="inst_tpl_294">GET</span> /v1/categorias — ─rvore de categorias</div>
+    <div class="api-endpoint" data-i18n="inst_tpl_html_297"><span class="api-method get" data-i18n="inst_tpl_296">GET</span> /v1/localizacoes — Estados e municípios</div>
+
+    <h2 data-i18n="inst_tpl_298">Cronograma Previsto</h2>
+    <div class="api-steps">
+      <div class="api-step">
+        <div class="api-step-body">
+          <h4 data-i18n="inst_tpl_html_300">Fase 1 — Documentação e Sandbox <span style="font-size:.8rem;color:var(--clr-text-muted,#9ca3af);font-weight:400" data-i18n="inst_tpl_299">(em andamento)</span></h4>
+          <p data-i18n="inst_tpl_301">Definição dos endpoints, autenticação por API Key e criação do ambiente de testes (sandbox) para parceiros selecionados.</p>
+        </div>
+      </div>
+      <div class="api-step">
+        <div class="api-step-body">
+          <h4 data-i18n="inst_tpl_302">Fase 2 — Beta Fechado</h4>
+          <p data-i18n="inst_tpl_303">Parceiros da lista de espera receberão acesso antecipado para testar a integração e fornecer feedback.</p>
+        </div>
+      </div>
+      <div class="api-step">
+        <div class="api-step-body">
+          <h4 data-i18n="inst_tpl_304">Fase 3 — Lançamento Público</h4>
+          <p data-i18n="inst_tpl_305">API disponível para todos os parceiros aprovados, com documentação Swagger, SDKs e suporte técnico dedicado.</p>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:linear-gradient(135deg,rgba(22,163,74,.06),rgba(22,163,74,.02));border:1px solid rgba(22,163,74,.2);border-radius:16px;padding:2rem;margin-top:2rem;text-align:center">
+      <h2 style="margin-top:0;font-size:1.15rem" data-i18n="inst_tpl_306">📋 Lista de Espera — Acesso Antecipado</h2>
+      <p style="color:var(--clr-text-muted,#6b7280);font-size:.95rem;margin-bottom:1.5rem;max-width:500px;margin-left:auto;margin-right:auto" data-i18n="inst_tpl_307">Cadastre-se para ser um dos primeiros a receber acesso à API do Tauze Class quando ela for lançada.</p>
+      <form onsubmit="(function(e){e.preventDefault();var b=document.getElementById('api-waitlist-btn');b.textContent='✅ Cadastrado com sucesso!';b.style.background='#15803d';b.disabled=true;setTimeout(function(){b.textContent='Entrar na Lista de Espera';b.style.background='';b.disabled=false},5000)})(event)" style="max-width:500px;margin:0 auto">
+        <div style="display:grid;gap:.75rem;margin-bottom:1rem">
+          <div class="cf-field">
+            <label for="api-nome" data-i18n="inst_tpl_308">Nome / Empresa *</label>
+            <input id="api-nome" type="text" placeholder="Nome da sua empresa ou seu nome" required="">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+            <div class="cf-field">
+              <label for="api-email" data-i18n="inst_tpl_309">E-mail *</label>
+              <input id="api-email" type="email" placeholder="dev@empresa.com" required="">
+            </div>
+            <div class="cf-field">
+              <label for="api-tipo" data-i18n="inst_tpl_310">Tipo de Sistema</label>
+              <select id="api-tipo">
+                <option value="" data-i18n="inst_tpl_311">Selecione...</option>
+                <option data-i18n="inst_tpl_312">ERP Rural</option>
+                <option data-i18n="inst_tpl_313">Casa de Leilão</option>
+                <option data-i18n="inst_tpl_314">Fintech Agro</option>
+                <option data-i18n="inst_tpl_315">Marketplace</option>
+                <option data-i18n="inst_tpl_316">Aplicativo Mobile</option>
+                <option data-i18n="inst_tpl_317">Outro</option>
+              </select>
+            </div>
+          </div>
+          <div class="cf-field">
+            <label for="api-desc" data-i18n="inst_tpl_318">Descreva brevemente sua necessidade</label>
+            <textarea id="api-desc" rows="3" placeholder="Como você pretende usar a API..." style="resize:vertical"></textarea>
+          </div>
+        </div>
+        <button type="submit" class="cf-btn" id="api-waitlist-btn" style="width:100%" data-i18n="inst_tpl_319">Entrar na Lista de Espera</button>
+      </form>
+    </div>
+
+    <div style="background:var(--clr-surface-alt,#f9fafb);border:1px solid var(--clr-border,#e5e7eb);border-radius:12px;padding:1.25rem;margin-top:1.25rem;font-size:.875rem;display:flex;align-items:center;gap:.75rem">
+      <span style="font-size:1.5rem" data-i18n="inst_tpl_320">📧</span>
+      <div>
+        <strong data-i18n="inst_tpl_321">Contato técnico:</strong> <a href="mailto:dev@tauzeclass.com.br" style="color:var(--clr-primary,#16a34a);font-weight:600" data-i18n="inst_tpl_322">dev@tauzeclass.com.br</a><br>
+        <span style="color:var(--clr-text-muted,#9ca3af)" data-i18n="inst_tpl_323">Para dúvidas sobre integração ou manifestação de interesse.</span>
+      </div>
+    </div>
+  </div>
+  
+  <div id="tpl-privacidade" hidden="">
+
+    <p style="background:rgba(59,130,246,.07);border-left:4px solid #3b82f6;padding:1rem 1.25rem;border-radius:0 8px 8px 0;color:#1e3a5f;font-size:.9375rem;margin-bottom:2rem" data-i18n="inst_tpl_html_327">
+      <strong data-i18n="inst_tpl_324">Última atualização:</strong> Julho de 2026 &nbsp;|&nbsp; Versão 2.0<br>
+      Esta Política está em conformidade com a <strong data-i18n="inst_tpl_325">LGPD (Lei nº 13.709/2018)</strong>, o <strong data-i18n="inst_tpl_326">Marco Civil da Internet (Lei nº 12.965/2014)</strong> e demais normativos da ANPD.
+    </p>
+
+    <h2 data-i18n="inst_tpl_328">1. Controlador e Encarregado dos Dados (DPO)</h2>
+    <p data-i18n="inst_tpl_html_330">O controlador dos dados pessoais coletados nesta plataforma é o <strong data-i18n="inst_tpl_329">Tauze Class</strong>. Nos termos do Art. 41 da LGPD, o Encarregado de Proteção de Dados (DPO) pode ser contactado pelo canal abaixo:</p>
+    <p style="padding:.75rem 1.25rem;background:rgba(59,130,246,.05);border:1px solid rgba(59,130,246,.2);border-radius:8px;margin:.5rem 0 1rem" data-i18n="inst_tpl_html_332">
+      📧 <strong><a href="mailto:privacidade@tauzeclass.com.br" data-i18n="inst_tpl_331">privacidade@tauzeclass.com.br</a></strong> — Prazo de resposta: até 15 dias úteis (Art. 18, LGPD).
+    </p>
+
+    <h2 data-i18n="inst_tpl_333">2. Natureza da Plataforma e Responsabilidade pelo Conteúdo de Terceiros</h2>
+    <p data-i18n="inst_tpl_html_336">O Tauze Class é um <strong data-i18n="inst_tpl_334">intermediário tecnológico neutro</strong>. Os dados pessoais inseridos pelos usuários nos anúncios (nome, telefone, localização) são de <strong data-i18n="inst_tpl_335">responsabilidade exclusiva do anunciante</strong>, que declara, ao publicar, que possui o direito de divulgar tais dados e que eles lhe pertencem ou foram disponibilizados com autorização expressa do titular.</p>
+    <p data-i18n="inst_tpl_html_338">O Tauze Class <strong data-i18n="inst_tpl_337">não se responsabiliza</strong> pelo uso que terceiros (outros usuários) façam dos dados de contato exibidos nos anúncios, uma vez que tais dados são divulgados voluntariamente pelo próprio anunciante para fins de negociação.</p>
+
+    <h2 data-i18n="inst_tpl_339">3. Dados que Coletamos e Finalidade</h2>
+    <p data-i18n="inst_tpl_html_341">Coletamos apenas dados <strong data-i18n="inst_tpl_340">estritamente necessários</strong> (princípio da minimização — Art. 6º, III, LGPD):</p>
+    <ul>
+      <li data-i18n="inst_tpl_html_343"><strong data-i18n="inst_tpl_342">Dados de Cadastro:</strong> Nome, e-mail, telefone e estado/cidade, fornecidos voluntariamente para criação de conta e publicação de anúncios.</li>
+      <li data-i18n="inst_tpl_html_345"><strong data-i18n="inst_tpl_344">Dados dos Anúncios:</strong> Textos, imagens, preços e categoria inseridos pelo próprio anunciante.</li>
+      <li data-i18n="inst_tpl_html_347"><strong data-i18n="inst_tpl_346">Logs de Acesso:</strong> IP anonimizado, tipo de navegador, data e hora de acesso — retidos pelo prazo mínimo legal (Art. 15, Marco Civil da Internet).</li>
+      <li data-i18n="inst_tpl_html_349"><strong data-i18n="inst_tpl_348">Dados de Suporte:</strong> Mensagens enviadas ao atendimento via e-mail ou formulário de contato.</li>
+    </ul>
+    <p data-i18n="inst_tpl_html_351">O Tauze Class <strong data-i18n="inst_tpl_350">não coleta</strong> dados sensíveis (Art. 5º, II, LGPD) como CPF, RG, dados biométricos, bancários ou de saúde. Dados de pagamento são processados exclusivamente por gateways certificados (PCI-DSS), sem acesso do Tauze Class aos dados completos do cartão.</p>
+
+    <h2 data-i18n="inst_tpl_352">4. Bases Legais para o Tratamento (Art. 7º, LGPD)</h2>
+    <ul>
+      <li data-i18n="inst_tpl_html_354"><strong data-i18n="inst_tpl_353">Execução de Contrato (Art. 7º, V):</strong> Criação de conta, publicação e exibição de anúncios.</li>
+      <li data-i18n="inst_tpl_html_356"><strong data-i18n="inst_tpl_355">Legítimo Interesse (Art. 7º, IX):</strong> Prevenção de fraudes, segurança da plataforma e proteção dos direitos do Tauze Class.</li>
+      <li data-i18n="inst_tpl_html_358"><strong data-i18n="inst_tpl_357">Cumprimento de Obrigação Legal (Art. 7º, II):</strong> Atendimento a ordens judiciais e requisições de autoridades competentes.</li>
+      <li data-i18n="inst_tpl_html_360"><strong data-i18n="inst_tpl_359">Consentimento (Art. 7º, I):</strong> Envio de comunicações de marketing — revogável a qualquer momento sem ônus.</li>
+    </ul>
+
+    <h2 data-i18n="inst_tpl_361">5. Compartilhamento de Dados</h2>
+    <p data-i18n="inst_tpl_html_363">O Tauze Class <strong data-i18n="inst_tpl_362">não vende, não aluga, não cede e não comercializa</strong> seus dados pessoais. O compartilhamento ocorre apenas nas hipóteses abaixo:</p>
+    <ul>
+      <li data-i18n="inst_tpl_html_365"><strong data-i18n="inst_tpl_364">Fornecedores de Infraestrutura:</strong> Supabase (banco de dados e autenticação), mediante cláusulas de confidencialidade compatíveis com a LGPD.</li>
+      <li data-i18n="inst_tpl_html_369"><strong data-i18n="inst_tpl_366">Autoridades Públicas:</strong> Apenas mediante <strong data-i18n="inst_tpl_367">ordem judicial expressa</strong>, nos termos dos Arts. 13 e 15 do Marco Civil da Internet. O Tauze Class <strong data-i18n="inst_tpl_368">não fornece dados de usuários espontaneamente</strong> a qualquer autoridade sem mandado judicial.</li>
+      <li data-i18n="inst_tpl_html_371"><strong data-i18n="inst_tpl_370">Defesa de Direitos:</strong> Para exercício ou defesa de direitos do Tauze Class em processos judiciais ou administrativos.</li>
+    </ul>
+
+    <h2 data-i18n="inst_tpl_372">6. Transferência Internacional de Dados</h2>
+    <p data-i18n="inst_tpl_html_374">A infraestrutura utiliza servidores da Supabase Inc. (EUA), nos termos do Art. 33, II e V da LGPD, mediante <strong data-i18n="inst_tpl_373">cláusulas contratuais padrão (SCCs)</strong> que garantem nível de proteção equivalente ao da LGPD.</p>
+
+    <h2 data-i18n="inst_tpl_375">7. Retenção e Exclusão de Dados</h2>
+    <ul>
+      <li data-i18n="inst_tpl_html_378"><strong data-i18n="inst_tpl_376">Dados de conta:</strong> Retidos enquanto ativa; excluídos ou anonimizados em até <strong data-i18n="inst_tpl_377">90 dias</strong> após encerramento.</li>
+      <li data-i18n="inst_tpl_html_381"><strong data-i18n="inst_tpl_379">Logs de acesso:</strong> <strong data-i18n="inst_tpl_380">6 meses</strong> (Art. 15, Marco Civil).</li>
+      <li data-i18n="inst_tpl_html_384"><strong data-i18n="inst_tpl_382">Registros de conexão:</strong> <strong data-i18n="inst_tpl_383">1 ano</strong> (Art. 13, Marco Civil).</li>
+      <li data-i18n="inst_tpl_html_387"><strong data-i18n="inst_tpl_385">Dados fiscais e contábeis:</strong> <strong data-i18n="inst_tpl_386">5 anos</strong>, conforme legislação tributária.</li>
+    </ul>
+
+    <h2 data-i18n="inst_tpl_388">8. Seus Direitos como Titular (LGPD, Art. 18)</h2>
+    <p data-i18n="inst_tpl_html_393">A qualquer momento, você pode solicitar: confirmação de tratamento; acesso, correção ou exclusão dos seus dados; portabilidade; revogação de consentimento. Envie para <a href="mailto:privacidade@tauzeclass.com.br" data-i18n="inst_tpl_389">privacidade@tauzeclass.com.br</a>. Responderemos em até <strong data-i18n="inst_tpl_390">15 dias úteis</strong>. Você pode também peticionar à <strong data-i18n="inst_tpl_391">ANPD</strong> em <a href="https://www.gov.br/anpd" target="_blank" rel="noopener" data-i18n="inst_tpl_392">www.gov.br/anpd</a>.</p>
+
+    <h2 data-i18n="inst_tpl_394">9. Segurança dos Dados e Notificação de Incidentes</h2>
+    <p data-i18n="inst_tpl_html_397">Adotamos medidas técnicas proporcionais ao risco: criptografia TLS/HTTPS em trânsito, RBAC (controle de acesso baseado em função) e monitoramento de acessos. Em caso de incidente relevante, notificaremos a ANPD e os titulares afetados <strong data-i18n="inst_tpl_395">em até 72 horas</strong> (Art. 48, LGPD). O Tauze Class <strong data-i18n="inst_tpl_396">não se responsabiliza</strong> por danos causados por ataques de hackers, phishing direcionado ao usuário ou outras ameaças externas não atribuíveis a falha técnica comprovada da empresa.</p>
+
+    <h2 data-i18n="inst_tpl_398">10. Alterações nesta Política</h2>
+    <p data-i18n="inst_tpl_html_400">Alterações relevantes serão comunicadas com antecedência mínima de <strong data-i18n="inst_tpl_399">10 dias</strong>. O uso continuado após a data de vigência implica aceitação da nova versão.</p>
+
+    <p style="margin-top:2rem;padding:1rem 1.25rem;background:var(--clr-surface-alt,#f9fafb);border:1px solid var(--clr-border,#e5e7eb);border-radius:8px;font-size:.875rem;color:var(--clr-text-muted)" data-i18n="inst_tpl_html_402">
+      ⚠─ <strong data-i18n="inst_tpl_401">Nota:</strong> Documento com fins informativos gerais. Recomendamos revisão por advogado especialista em LGPD e Direito Digital antes da publicação definitiva.
+    </p>
+
+  </div>
+  <div id="tpl-termos" hidden="">
+
+    <p style="background:rgba(239,68,68,.07);border-left:4px solid #ef4444;padding:1rem 1.25rem;border-radius:0 8px 8px 0;color:#7f1d1d;font-size:.9375rem;margin-bottom:2rem" data-i18n="inst_tpl_html_405">
+      <strong data-i18n="inst_tpl_403">Última atualização:</strong> Julho de 2026 &nbsp;|&nbsp; Versão 2.0<br>
+      Ao acessar, navegar ou utilizar qualquer recurso do <strong data-i18n="inst_tpl_404">Tauze Class</strong>, você declara ter lido, compreendido e concordado integralmente com estes Termos. Caso não concorde, descontinue imediatamente o uso da plataforma.
+    </p>
+
+    <p style="background:rgba(234,179,8,.07);border-left:4px solid #ca8a04;padding:1rem 1.25rem;border-radius:0 8px 8px 0;color:#713f12;font-size:.9rem;margin-bottom:2rem" data-i18n="inst_tpl_html_408">
+      <strong data-i18n="inst_tpl_406">⚠─ AVISO GERAL — LEIA ANTES DE QUALQUER NEGOCIAÇÃO:</strong> O Tauze Class é uma ferramenta tecnológica de publicação de anúncios. <strong data-i18n="inst_tpl_407">Não intermediamos, não garantimos e não somos parte de nenhuma compra, venda, troca ou qualquer outra transação realizada entre usuários.</strong> Toda e qualquer negociação é de risco e responsabilidade exclusiva das partes envolvidas. O Tauze Class não responde por fraudes, golpes, estelionatos ou inadimplemento entre usuários.
+    </p>
+
+    <h2 data-i18n="inst_tpl_409">1. Natureza da Plataforma — Intermediário Tecnológico Neutro</h2>
+    <p data-i18n="inst_tpl_html_413">O <strong data-i18n="inst_tpl_410">Tauze Class</strong> é uma plataforma de tecnologia da informação que disponibiliza, exclusivamente, infraestrutura técnica para <strong data-i18n="inst_tpl_411">publicação de anúncios classificados digitais</strong> do setor agropecuário. A plataforma opera como um <em data-i18n="inst_tpl_412">mural de avisos digital neutro</em>, sem qualquer participação, intervenção ou conhecimento prévio sobre o conteúdo dos anúncios publicados.</p>
+    <p data-i18n="inst_tpl_html_415">O Tauze Class <strong data-i18n="inst_tpl_414">não é</strong> e jamais poderá ser interpretado como: vendedor, produtor, criador, importador, exportador, franqueador, prestador de serviço, leiloeiro, representante, mandatário, agente, sócio, parceiro comercial ou garantidor de qualquer produto, animal, serviço ou pessoa anunciada em sua plataforma.</p>
+    <p data-i18n="inst_tpl_html_419">Nos termos do <strong data-i18n="inst_tpl_416">Art. 19 da Lei nº 12.965/2014 (Marco Civil da Internet)</strong>, o Tauze Class somente poderá ser responsabilizado por conteúdo de terceiros após <strong data-i18n="inst_tpl_417">ordem judicial específica e fundamentada</strong>, salvo violação evidente e flagrante das presentes Diretrizes de uso. A simples existência de um anúncio na plataforma <strong data-i18n="inst_tpl_418">não gera qualquer responsabilidade solidária, subsidiária ou objetiva do Tauze Class</strong> perante compradores, vendedores ou terceiros.</p>
+
+    <h2 data-i18n="inst_tpl_420">2. Isenção Total de Responsabilidade — Anúncios, Transações e Negociações</h2>
+    <p data-i18n="inst_tpl_html_423">O Tauze Class, na qualidade de <strong data-i18n="inst_tpl_421">provedor neutro de aplicações de internet</strong>, declara expressamente que <strong data-i18n="inst_tpl_422">não</strong> verifica, audita, certifica, inspeciona, homologa, endossa ou garante, sob nenhuma hipótese ou circunstância:</p>
+    <ul>
+      <li data-i18n="inst_tpl_424">A veracidade, precisão, atualidade ou completude das informações contidas em qualquer anúncio;</li>
+      <li data-i18n="inst_tpl_425">A legalidade, procedência, qualidade, estado sanitário, fitossanitário ou veterinário dos produtos, animais ou serviços anunciados;</li>
+      <li data-i18n="inst_tpl_426">A identidade real, idoneidade, capacidade civil, solvência, regularidade fiscal, situação criminal ou existência jurídica dos anunciantes e usuários;</li>
+      <li data-i18n="inst_tpl_427">A existência física, disponibilidade, estado de conservação ou conformidade dos bens descritos nos anúncios;</li>
+      <li data-i18n="inst_tpl_428">O cumprimento de quaisquer obrigações assumidas entre usuários após contato estabelecido pela plataforma.</li>
+    </ul>
+    <p data-i18n="inst_tpl_html_431">Qualquer transação, contrato (verbal ou escrito), pagamento, transferência financeira, entrega de bem ou prestação de serviço realizada entre usuários é de <strong data-i18n="inst_tpl_429">risco e responsabilidade exclusiva e integral das partes envolvidas</strong>. O Tauze Class <strong data-i18n="inst_tpl_430">não integra</strong>, não garante, não fiscaliza e não responde por tais atos, sendo vedada qualquer tentativa de responsabilização solidária ou subsidiária da plataforma por atos praticados exclusivamente por usuários.</p>
+
+    <h2 data-i18n="inst_tpl_432">3. Isenção Expressa — Fraudes, Golpes, Estelionato e Crimes Digitais</h2>
+    <p style="background:rgba(239,68,68,.05);border:1px solid rgba(239,68,68,.2);padding:1rem;border-radius:8px">
+      <strong data-i18n="inst_tpl_433">O Tauze Class não se responsabiliza, em nenhuma hipótese, por fraudes, golpes, estelionatos, falsificações de identidade, crimes digitais ou quaisquer outras condutas ilícitas praticadas por usuários da plataforma contra outros usuários ou terceiros.</strong>
+    </p>
+    <p data-i18n="inst_tpl_434">O usuário (comprador/interessado) reconhece e aceita expressamente que:</p>
+    <ul>
+      <li data-i18n="inst_tpl_html_437">É de sua <strong data-i18n="inst_tpl_435">exclusiva e intransferível responsabilidade</strong> verificar a autenticidade do anúncio, confirmar a identidade real do vendedor e checar a existência física do produto <strong data-i18n="inst_tpl_436">antes de efetuar qualquer pagamento</strong>;</li>
+      <li data-i18n="inst_tpl_html_439">O Tauze Class <strong data-i18n="inst_tpl_438">recomenda expressamente</strong> que nenhum pagamento antecipado seja realizado sem a conferência presencial do produto e dos documentos do vendedor (RG, CPF, nota fiscal, GTA etc.);</li>
+      <li data-i18n="inst_tpl_html_441">O Tauze Class <strong data-i18n="inst_tpl_440">não oferece, não garante e não realiza</strong> qualquer forma de escrow, custódia financeira, garantia de entrega ou seguro de transação entre usuários;</li>
+      <li data-i18n="inst_tpl_html_443">O Tauze Class <strong data-i18n="inst_tpl_442">não possui qualquer obrigação legal ou contratual</strong> de reembolsar, ressarcir ou indenizar usuários que sejam vítimas de fraude ou golpe praticado por outros usuários;</li>
+      <li data-i18n="inst_tpl_html_446">Em caso de crime (golpe, estelionato, falsidade ideológica), a vítima deve registrar <strong data-i18n="inst_tpl_444">Boletim de Ocorrência</strong> imediatamente na Delegacia de Crimes Virtuais ou Delegacia Eletrônica de seu estado, e acionar as autoridades competentes. O Tauze Class cooperará com investigações <strong data-i18n="inst_tpl_445">exclusivamente mediante ordem judicial expressa</strong>, preservando os registros de acesso e conexão nos prazos determinados pelo Marco Civil da Internet.</li>
+    </ul>
+    <p data-i18n="inst_tpl_html_448">A utilização da plataforma implica reconhecimento pelo usuário de que o Tauze Class é mero <em data-i18n="inst_tpl_447">canal de comunicação técnico</em>, não sendo cabível qualquer ação de regresso, indenizatória ou de responsabilização civil contra o Tauze Class por atos de terceiros usuários.</p>
+
+    <h2 data-i18n="inst_tpl_449">4. Responsabilidade Exclusiva e Integral do Anunciante</h2>
+    <p data-i18n="inst_tpl_html_451">O anunciante é o <strong data-i18n="inst_tpl_450">único e exclusivo responsável</strong> — civil e criminalmente — por todo o conteúdo que publica e pelos efeitos jurídicos dele decorrentes, incluindo:</p>
+    <ul>
+      <li data-i18n="inst_tpl_452">A veracidade, licitude, precisão e atualidade de textos, imagens, preços e demais informações dos anúncios;</li>
+      <li data-i18n="inst_tpl_453">O cumprimento de toda legislação sanitária (MAPA, IBAMA, SIF, ANVISA), ambiental, tributária e comercial aplicável à venda, transporte ou cessão dos itens anunciados;</li>
+      <li data-i18n="inst_tpl_454">A obtenção de GTA (Guia de Trânsito Animal), nota fiscal eletrônica, certificados sanitários, fitossanitários e demais documentos exigidos por lei;</li>
+      <li data-i18n="inst_tpl_455">Eventuais danos causados a compradores, animais, propriedades rurais ou terceiros decorrentes de informações falsas, enganosas ou omissas;</li>
+      <li data-i18n="inst_tpl_456">O respeito a direitos de propriedade intelectual de terceiros nas imagens, vídeos e textos utilizados nos anúncios.</li>
+    </ul>
+    <p data-i18n="inst_tpl_html_458">Ao publicar um anúncio, o anunciante concorda em <strong data-i18n="inst_tpl_457">defender, indenizar e isentar o Tauze Class</strong>, seus sócios, diretores, funcionários, agentes e parceiros de quaisquer reclamações, ações judiciais, processos administrativos, multas, sanções, danos e despesas (incluindo honorários advocatícios razoáveis) resultantes do conteúdo publicado ou de sua conduta na plataforma. Essa obrigação de indenizar sobrevive ao encerramento da conta ou ao término do uso da plataforma.</p>
+
+    <h2 data-i18n="inst_tpl_459">5. Conteúdo Expressamente Proibido</h2>
+    <p data-i18n="inst_tpl_html_461">É <strong data-i18n="inst_tpl_460">terminantemente vedado</strong> anunciar ou negociar na plataforma:</p>
+    <ul>
+      <li data-i18n="inst_tpl_462">Animais silvestres, exóticos ou ameaçados sem licença do IBAMA (Lei nº 9.605/1998, Art. 29 — pena de até 1 ano de detenção e multa);</li>
+      <li data-i18n="inst_tpl_463">Produtos, animais ou bens de origem ilícita (furto, roubo, contrabando, descaminho, estelionato);</li>
+      <li data-i18n="inst_tpl_464">Medicamentos veterinários sujeitos a receituário, sem apresentação da prescrição (IN MAPA nº 35/2020);</li>
+      <li data-i18n="inst_tpl_465">Agrotóxicos proibidos, não registrados ou falsificados (Lei nº 7.802/1989);</li>
+      <li data-i18n="inst_tpl_466">Armas de fogo, munições, explosivos ou materiais de uso restrito (Lei nº 10.826/2003);</li>
+      <li data-i18n="inst_tpl_467">Qualquer produto ou serviço cuja comercialização seja proibida pela legislação brasileira ou do Mercosul.</li>
+    </ul>
+    <p data-i18n="inst_tpl_html_469">O descumprimento implicará remoção imediata do anúncio, bloqueio ou banimento da conta e, quando cabível, comunicação formal às autoridades competentes. O Tauze Class <strong data-i18n="inst_tpl_468">não responde solidariamente</strong> por anúncios de conteúdo ilícito publicados por usuários, nos termos do Art. 19 do Marco Civil da Internet.</p>
+
+    <h2 data-i18n="inst_tpl_470">6. Propriedade Intelectual</h2>
+    <p data-i18n="inst_tpl_471">Toda a arquitetura, código-fonte, design, marcas, logotipos, textos e recursos visuais do Tauze Class são propriedade exclusiva da empresa, protegidos pela Lei de Propriedade Intelectual (Lei nº 9.610/1998) e Lei de Software (Lei nº 9.609/1998). Qualquer reprodução não autorizada configura infração sujeita às sanções civis e penais aplicáveis.</p>
+    <p data-i18n="inst_tpl_html_473">Ao publicar conteúdo (textos, fotos, vídeos), o anunciante concede ao Tauze Class licença <strong data-i18n="inst_tpl_472">não exclusiva, gratuita, irrevogável durante a vigência do anúncio e de abrangência mundial</strong> para exibir, reproduzir e distribuir tal conteúdo exclusivamente para fins de exibição do anúncio e divulgação da plataforma.</p>
+
+    <h2 data-i18n="inst_tpl_474">7. Suspensão e Encerramento de Conta</h2>
+    <p data-i18n="inst_tpl_html_476">O Tauze Class reserva-se o direito de <strong data-i18n="inst_tpl_475">suspender, bloquear ou encerrar contas</strong>, a seu exclusivo critério, sem aviso prévio e sem direito a indenização, nas hipóteses de: violação destes Termos; fornecimento de informações falsas no cadastro; uso fraudulento, abusivo ou prejudicial a outros usuários; ou por determinação judicial ou administrativa.</p>
+
+    <h2 data-i18n="inst_tpl_477">8. Limitação de Responsabilidade Técnica — Cláusula "As Is"</h2>
+    <p data-i18n="inst_tpl_html_480">A plataforma é fornecida <strong data-i18n="inst_tpl_478">"no estado em que se encontra" (as is)</strong>, sem garantias expressas ou implícitas de disponibilidade ininterrupta, adequação a finalidade específica ou ausência de erros. O Tauze Class não será responsável por: indisponibilidade do serviço; perda de dados; ataques de segurança não atribuíveis a conduta dolosa comprovada da empresa; ou qualquer dano indireto, incidental, especial ou consequente. <strong data-i18n="inst_tpl_479">Em nenhuma hipótese a responsabilidade total do Tauze Class perante um usuário excederá o valor efetivamente pago por esse usuário à plataforma nos 12 meses anteriores ao evento danoso.</strong></p>
+
+    <h2 data-i18n="inst_tpl_481">9. Alterações nos Termos</h2>
+    <p data-i18n="inst_tpl_html_483">O Tauze Class poderá alterar estes Termos a qualquer momento. Alterações significativas serão comunicadas com no mínimo <strong data-i18n="inst_tpl_482">10 dias de antecedência</strong> por e-mail cadastrado ou aviso em destaque na plataforma. O uso continuado implica aceitação automática da nova versão.</p>
+
+    <h2 data-i18n="inst_tpl_484">10. Legislação Aplicável e Foro de Eleição</h2>
+    <p data-i18n="inst_tpl_html_490">Estes Termos são regidos pelas leis da República Federativa do Brasil, especialmente: <strong data-i18n="inst_tpl_485">Código Civil (Lei nº 10.406/2002)</strong>; <strong data-i18n="inst_tpl_486">Marco Civil da Internet (Lei nº 12.965/2014)</strong>; <strong data-i18n="inst_tpl_487">LGPD (Lei nº 13.709/2018)</strong>; e o <strong data-i18n="inst_tpl_488">Código de Defesa do Consumidor (Lei nº 8.078/1990) no que couber ao operador de plataforma digital</strong>. Fica eleito o foro da Comarca de <strong data-i18n="inst_tpl_489">Belo Horizonte, Estado de Minas Gerais</strong>, para dirimir quaisquer controvérsias, renunciando as partes a qualquer outro foro, por mais privilegiado que seja.</p>
+
+    <p style="margin-top:2rem;padding:1rem 1.25rem;background:var(--clr-surface-alt,#f9fafb);border:1px solid var(--clr-border,#e5e7eb);border-radius:8px;font-size:.875rem;color:var(--clr-text-muted)" data-i18n="inst_tpl_html_492">
+      ⚠─ <strong data-i18n="inst_tpl_491">Nota importante:</strong> Este documento possui fins informativos gerais. Recomendamos que a versão final seja revisada por advogado especialista em Direito Digital e Agronegócio, garantindo plena conformidade com a legislação vigente e adequação à realidade jurídica da sua empresa.
+    </p>
+
+  </div>
+  <div id="tpl-denuncia" hidden="">
+
+    <p style="background:rgba(239,68,68,.07);border-left:4px solid #ef4444;padding:1rem 1.25rem;border-radius:0 8px 8px 0;color:#7f1d1d;font-size:.9375rem;margin-bottom:2rem" data-i18n="inst_tpl_html_495">
+      <strong data-i18n="inst_tpl_493">⚠─ Aviso importante:</strong> O canal de denúncias destina-se <strong data-i18n="inst_tpl_494">exclusivamente</strong> ao reporte de anúncios que violem as Diretrizes da Plataforma e/ou a legislação vigente. Denúncias de má-fé, falsas ou infundadas podem sujeitar o denunciante a responsabilização civil e criminal, conforme legislação brasileira.
+    </p>
+
+    <h2 data-i18n="inst_tpl_496">1. Natureza do Canal — Isenção e Limites de Responsabilidade</h2>
+    <p data-i18n="inst_tpl_html_501">O canal de denúncias do Tauze Class é um <strong data-i18n="inst_tpl_497">mecanismo interno de moderação voluntária</strong>, sem caráter judicial ou policial. O Tauze Class atua como <strong data-i18n="inst_tpl_498">intermediário tecnológico de boa-fé</strong>, nos termos do <strong data-i18n="inst_tpl_499">Art. 19 da Lei nº 12.965/2014 (Marco Civil da Internet)</strong>, sendo responsável pela remoção de conteúdo de terceiros <strong data-i18n="inst_tpl_500">apenas após ordem judicial específica e fundamentada</strong>, salvo violação flagrante e evidente das Diretrizes.</p>
+    <p data-i18n="inst_tpl_html_505">O recebimento de uma denúncia <strong data-i18n="inst_tpl_502">não obriga</strong> o Tauze Class a remover imediatamente o anúncio reportado. O Tauze Class <strong data-i18n="inst_tpl_503">não responde</strong> perante o denunciante pelos prazos de análise, pelo resultado da apuração ou por eventual manutenção do anúncio após análise. A responsabilidade pelos conteúdos ilícitos publicados é <strong data-i18n="inst_tpl_504">exclusiva do anunciante</strong> que os publicou.</p>
+    <p data-i18n="inst_tpl_html_507">O Tauze Class <strong data-i18n="inst_tpl_506">não presta serviço de segurança pública, investigação criminal ou assessoria jurídica</strong> por meio deste canal. Em casos de crime, o usuário deve acionar as autoridades competentes (Polícia Civil, Ministério Público) independentemente de qualquer ação da plataforma.</p>
+
+    <h2 data-i18n="inst_tpl_508">2. O que Pode Ser Denunciado</h2>
+    <ul>
+      <li data-i18n="inst_tpl_html_510"><strong data-i18n="inst_tpl_509">── Animais Silvestres e Tráfico de Fauna:</strong> Comércio de espécies sem licença do IBAMA (Lei nº 9.605/1998, Art. 29).</li>
+      <li data-i18n="inst_tpl_html_512"><strong data-i18n="inst_tpl_511">⚠─ Fraude, Estelionato e Golpes:</strong> Anúncios com fotos falsas, preços irreais, produtos inexistentes ou que solicitem pagamento antecipado sem entrega.</li>
+      <li data-i18n="inst_tpl_html_514"><strong data-i18n="inst_tpl_513">🌿 Agrotóxicos Ilegais:</strong> Defensivos proibidos, sem registro ou falsificados (Lei nº 7.802/1989).</li>
+      <li data-i18n="inst_tpl_html_516"><strong data-i18n="inst_tpl_515">── Irregularidades Sanitárias:</strong> Animais ou produtos sem GTA, SIF ou documentação obrigatória pelo MAPA.</li>
+      <li data-i18n="inst_tpl_html_518"><strong data-i18n="inst_tpl_517">🔫 Itens de Comércio Vedado:</strong> Armas, munições, explosivos ou entorpecentes.</li>
+      <li data-i18n="inst_tpl_html_520"><strong data-i18n="inst_tpl_519">👤 Conteúdo Ofensivo ou Discriminatório:</strong> Ódio, racismo, sexismo (Lei nº 7.716/1989 e Código Penal).</li>
+      <li data-i18n="inst_tpl_html_522"><strong data-i18n="inst_tpl_521">📸 Violação de Propriedade Intelectual:</strong> Uso não autorizado de imagens ou marcas de terceiros (Lei nº 9.610/1998).</li>
+    </ul>
+
+    <h2 data-i18n="inst_tpl_523">3. Como Fazer uma Denúncia</h2>
+    <ul>
+      <li data-i18n="inst_tpl_html_525">O <strong data-i18n="inst_tpl_524">link completo ou ID do anúncio</strong> a ser reportado;</li>
+      <li data-i18n="inst_tpl_html_527">A <strong data-i18n="inst_tpl_526">categoria de violação</strong> identificada;</li>
+      <li data-i18n="inst_tpl_html_529">Uma <strong data-i18n="inst_tpl_528">descrição objetiva e factual</strong> do problema;</li>
+      <li data-i18n="inst_tpl_html_531"><strong data-i18n="inst_tpl_530">Capturas de tela ou evidências</strong> que comprovem a irregularidade (fortemente recomendado).</li>
+    </ul>
+    <p style="text-align:center;padding:1.25rem;background:rgba(22,163,74,.07);border:1px solid rgba(22,163,74,.2);border-radius:8px;margin:1.5rem 0" data-i18n="inst_tpl_html_533">
+      📧 <strong><a href="mailto:seguranca@tauzeclass.com.br" data-i18n="inst_tpl_532">seguranca@tauzeclass.com.br</a></strong>
+    </p>
+
+    <h2 data-i18n="inst_tpl_534">4. Processo de Análise e Prazos</h2>
+    <ul>
+      <li data-i18n="inst_tpl_html_536"><strong data-i18n="inst_tpl_535">Confirmação (até 24h):</strong> Protocolo de recebimento automático.</li>
+      <li data-i18n="inst_tpl_html_538"><strong data-i18n="inst_tpl_537">Análise Interna (até 5 dias úteis):</strong> Avaliação pela equipe de moderação com base nas Diretrizes e na legislação vigente.</li>
+      <li data-i18n="inst_tpl_html_540"><strong data-i18n="inst_tpl_539">Decisão:</strong> Manutenção, sinalização ou remoção do anúncio. Em casos criminais, os dados são preservados para eventual encaminhamento às autoridades mediante ordem judicial.</li>
+    </ul>
+    <p data-i18n="inst_tpl_html_542">O Tauze Class <strong data-i18n="inst_tpl_541">não informa ao denunciante o conteúdo da conversa</strong> com o anunciante denunciado, nem o resultado integral da investigação interna, resguardando o sigilo processual e os direitos de defesa do denunciado.</p>
+
+    <h2 data-i18n="inst_tpl_543">5. Direito de Defesa do Anunciante Denunciado</h2>
+    <p data-i18n="inst_tpl_html_547">Em observância ao contraditório e à ampla defesa, o anunciante poderá contestar a remoção no prazo de <strong data-i18n="inst_tpl_544">5 dias úteis</strong>, enviando recurso fundamentado para <a href="mailto:seguranca@tauzeclass.com.br" data-i18n="inst_tpl_545">seguranca@tauzeclass.com.br</a> com o assunto <em data-i18n="inst_tpl_546">"Recurso — [ID do Anúncio]"</em>. A decisão final do Tauze Class é soberana no âmbito da plataforma, sem prejuízo do direito das partes de buscar tutela judicial.</p>
+
+    <h2 data-i18n="inst_tpl_548">6. Proibição de Denúncia de Má-Fé e Concorrência Desleal</h2>
+    <p data-i18n="inst_tpl_html_550">É <strong data-i18n="inst_tpl_549">expressamente proibido</strong> utilizar o canal para reportar anúncios concorrentes sem embasamento real, com o intuito de prejudicar negócios de terceiros. Tais condutas configuram ato ilícito (Arts. 186 e 187, Código Civil), podendo caracterizar calúnia, difamação ou injúria (Arts. 138–140, Código Penal) e concorrência desleal (Lei nº 9.279/1996, Art. 195). O Tauze Class poderá suspender o acesso do denunciante de má-fé e fornecer seus dados de identificação às autoridades mediante ordem judicial.</p>
+
+    <h2 data-i18n="inst_tpl_551">7. Preservação de Registros e Cooperação Judicial</h2>
+    <p data-i18n="inst_tpl_html_555">Em cumprimento ao Marco Civil da Internet, o Tauze Class preserva registros de acesso por <strong data-i18n="inst_tpl_552">6 meses</strong> (Art. 15) e de conexão por <strong data-i18n="inst_tpl_553">1 ano</strong> (Art. 13), além de registros de denúncias e moderação pelo prazo necessário à eventual investigação. Esses dados são disponibilizados <strong data-i18n="inst_tpl_554">exclusivamente mediante ordem judicial específica</strong>, nunca espontaneamente ou sem mandado.</p>
+
+    <p style="margin-top:2rem;padding:1rem 1.25rem;background:var(--clr-surface-alt,#f9fafb);border:1px solid var(--clr-border,#e5e7eb);border-radius:8px;font-size:.875rem;color:var(--clr-text-muted)" data-i18n="inst_tpl_html_558">
+      ℹ─ <strong data-i18n="inst_tpl_556">Emergências:</strong> Se você foi vítima de crime (golpe, estelionato, tráfico de animais), <strong data-i18n="inst_tpl_557">registre imediatamente um Boletim de Ocorrência</strong> na Delegacia de Crimes Virtuais ou Delegacia Eletrônica do seu estado e acione as autoridades competentes.
+    </p>
+
+  </div>
+  <div id="tpl-cookies" hidden="">
+
+    <p style="background:rgba(59,130,246,.07);border-left:4px solid #3b82f6;padding:1rem 1.25rem;border-radius:0 8px 8px 0;color:#1e3a5f;font-size:.9375rem;margin-bottom:2rem" data-i18n="inst_tpl_html_562">
+      <strong data-i18n="inst_tpl_559">Última atualização:</strong> Julho de 2026 &nbsp;|&nbsp; Versão 2.0<br>
+      Esta Política de Cookies complementa nossa Política de Privacidade e está em conformidade com a <strong data-i18n="inst_tpl_560">LGPD (Lei nº 13.709/2018)</strong>, o <strong data-i18n="inst_tpl_561">Marco Civil da Internet (Lei nº 12.965/2014)</strong> e as Diretrizes da ANPD.
+    </p>
+
+    <h2 data-i18n="inst_tpl_563">1. O que são Cookies e Tecnologias Similares</h2>
+    <p data-i18n="inst_tpl_html_568">Cookies são pequenos arquivos de texto armazenados no seu dispositivo quando você visita uma página web. Além de cookies, podemos utilizar <em data-i18n="inst_tpl_564">localStorage</em>, <em data-i18n="inst_tpl_565">sessionStorage</em> e <em data-i18n="inst_tpl_566">tokens de sessão JWT</em>. O Tauze Class <strong data-i18n="inst_tpl_567">não utiliza cookies para fins publicitários, rastreamento entre sites (cross-site tracking) ou comercialização de dados a anunciantes</strong>.</p>
+
+    <h2 data-i18n="inst_tpl_569">2. Tipos de Cookies que Utilizamos</h2>
+
+    <h3 data-i18n="inst_tpl_html_571">🔒 Cookies Estritamente Necessários <small style="font-weight:400;font-size:.8em" data-i18n="inst_tpl_570">(não requerem consentimento)</small></h3>
+    <p data-i18n="inst_tpl_html_573">Indispensáveis para o funcionamento da plataforma. Não podem ser desativados sem comprometer os serviços essenciais. <strong data-i18n="inst_tpl_572">Base legal:</strong> Legítimo Interesse (Art. 7º, IX, LGPD).</p>
+    <ul>
+      <li data-i18n="inst_tpl_html_575"><strong data-i18n="inst_tpl_574">Token de Sessão (Supabase JWT):</strong> Mantém sua sessão autenticada. Expira ao fechar o navegador ou após inatividade prolongada.</li>
+      <li data-i18n="inst_tpl_html_577"><strong data-i18n="inst_tpl_576">Preferência de Idioma:</strong> Armazena sua escolha entre Português e Espanhol.</li>
+      <li data-i18n="inst_tpl_html_579"><strong data-i18n="inst_tpl_578">Token CSRF:</strong> Protege contra ataques de Cross-Site Request Forgery.</li>
+    </ul>
+
+    <h3 data-i18n="inst_tpl_html_581">📊 Cookies Analíticos <small style="font-weight:400;font-size:.8em" data-i18n="inst_tpl_580">(requerem consentimento — Art. 7º, I, LGPD)</small></h3>
+    <p data-i18n="inst_tpl_html_583">Anonimizados e agregados — <strong data-i18n="inst_tpl_582">não identificam você individualmente</strong>.</p>
+    <ul>
+      <li data-i18n="inst_tpl_html_585"><strong data-i18n="inst_tpl_584">Páginas visitadas e tempo de sessão:</strong> Para otimizar a navegação.</li>
+      <li data-i18n="inst_tpl_html_587"><strong data-i18n="inst_tpl_586">Fluxo de publicação:</strong> Para detectar e corrigir dificuldades no processo de criação de anúncios.</li>
+    </ul>
+
+    <h3 data-i18n="inst_tpl_html_589">⚙─ Cookies de Funcionalidade <small style="font-weight:400;font-size:.8em" data-i18n="inst_tpl_588">(requerem consentimento — Art. 7º, I, LGPD)</small></h3>
+    <ul>
+      <li data-i18n="inst_tpl_html_591"><strong data-i18n="inst_tpl_590">Filtros de busca:</strong> Lembra sua última pesquisa, categoria e localização.</li>
+      <li data-i18n="inst_tpl_html_593"><strong data-i18n="inst_tpl_592">Modo de visualização:</strong> Grade ou lista na página de anúncios.</li>
+    </ul>
+
+    <h2 data-i18n="inst_tpl_594">3. Cookies de Terceiros — Isenção de Responsabilidade</h2>
+    <p data-i18n="inst_tpl_html_596">Utilizamos serviços de terceiros que podem instalar seus próprios cookies. O Tauze Class <strong data-i18n="inst_tpl_595">não controla, não tem acesso e não é responsável</strong> pelos cookies de terceiros nem pelo tratamento de dados que esses provedores realizem de forma autônoma. Consulte as políticas de privacidade de cada fornecedor:</p>
+    <ul>
+      <li><strong data-i18n="inst_tpl_597">Supabase Inc.:</strong> <a href="https://supabase.com/privacy" target="_blank" rel="noopener" data-i18n="inst_tpl_598">Política de Privacidade</a></li>
+      <li data-i18n="inst_tpl_html_600"><strong data-i18n="inst_tpl_599">jsDelivr CDN:</strong> Entrega de arquivos JavaScript — sem coleta de dados pessoais identificáveis.</li>
+    </ul>
+
+    <h2 data-i18n="inst_tpl_601">4. Como Gerenciar e Recusar Cookies</h2>
+    <ul>
+      <li data-i18n="inst_tpl_html_603"><strong data-i18n="inst_tpl_602">Chrome:</strong> Configurações → Privacidade e Segurança → Cookies</li>
+      <li data-i18n="inst_tpl_html_605"><strong data-i18n="inst_tpl_604">Firefox:</strong> Preferências → Privacidade e Segurança → Cookies e Dados do Site</li>
+      <li data-i18n="inst_tpl_html_607"><strong data-i18n="inst_tpl_606">Safari:</strong> Preferências → Privacidade → Gerenciar Dados do Site</li>
+      <li data-i18n="inst_tpl_html_609"><strong data-i18n="inst_tpl_608">Edge:</strong> Configurações → Cookies e Permissões do Site</li>
+    </ul>
+    <p data-i18n="inst_tpl_html_611"><strong data-i18n="inst_tpl_610">Atenção:</strong> A desativação de cookies estritamente necessários impedirá o login e a publicação de anúncios. A desativação de cookies analíticos ou de funcionalidade não afeta as funcionalidades essenciais.</p>
+
+    <h2 data-i18n="inst_tpl_612">5. Tempo de Retenção</h2>
+    <ul>
+      <li data-i18n="inst_tpl_html_614"><strong data-i18n="inst_tpl_613">Cookies de sessão:</strong> Expiram ao fechar o navegador.</li>
+      <li data-i18n="inst_tpl_html_617"><strong data-i18n="inst_tpl_615">Cookies de funcionalidade:</strong> Até <strong data-i18n="inst_tpl_616">12 meses</strong>.</li>
+      <li data-i18n="inst_tpl_html_620"><strong data-i18n="inst_tpl_618">Dados analíticos anonimizados:</strong> Até <strong data-i18n="inst_tpl_619">26 meses</strong>, conforme boas práticas.</li>
+    </ul>
+
+    <h2 data-i18n="inst_tpl_621">6. Seus Direitos em Relação a Cookies (LGPD)</h2>
+    <p data-i18n="inst_tpl_html_623">Você pode recusar cookies não essenciais, revogar consentimento, solicitar informações sobre seu uso e requerer exclusão dos dados coletados. Para exercer esses direitos: <a href="mailto:privacidade@tauzeclass.com.br" data-i18n="inst_tpl_622">privacidade@tauzeclass.com.br</a>.</p>
+
+    <h2 data-i18n="inst_tpl_624">7. Alterações nesta Política</h2>
+    <p data-i18n="inst_tpl_html_626">Alterações relevantes serão comunicadas com antecedência mínima de <strong data-i18n="inst_tpl_625">10 dias</strong>. O uso continuado após a data de vigência implica aceitação da nova versão.</p>
+
+    <p style="margin-top:2rem;padding:1rem 1.25rem;background:var(--clr-surface-alt,#f9fafb);border:1px solid var(--clr-border,#e5e7eb);border-radius:8px;font-size:.875rem;color:var(--clr-text-muted)" data-i18n="inst_tpl_html_628">
+      ⚠─ <strong data-i18n="inst_tpl_627">Nota:</strong> Documento com fins informativos gerais. Recomendamos revisão por advogado especialista em LGPD e Direito Digital antes da publicação definitiva.
+    </p>
+
+  </div>
+
+</main>
+
+<!-- ─── FOOTER ──────────────────────────────── -->
+    <footer class="site-footer" role="contentinfo">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-col">
+        <div class="logo footer-logo" style="margin-bottom:var(--sp-4)">
+          <div class="logo-mark">TC</div>
+          <div class="logo-text">
+            <span class="logo-name">Tauze Class</span>
+            <span class="logo-tagline">Classificados Agro</span>
+          </div>
+        </div>
+        <p class="footer-desc" data-i18n="footer_desc">O maior portal de classificados do agronegócio do Mercosul.</p>
+        <div class="footer-social" aria-label="Redes sociais">
+          <a href="javascript:void(0)" class="social-btn" aria-label="Instagram">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+          </a>
+          <a href="javascript:void(0)" class="social-btn" aria-label="Facebook">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+          </a>
+          <a href="javascript:void(0)" class="social-btn" aria-label="WhatsApp">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.125.553 4.122 1.523 5.855L.057 23.268a.5.5 0 0 0 .618.635l5.579-1.461A11.942 11.942 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.75c-1.924 0-3.72-.523-5.256-1.43l-.377-.224-3.914 1.025 1.044-3.81-.246-.393A9.716 9.716 0 0 1 2.25 12C2.25 6.615 6.615 2.25 12 2.25S21.75 6.615 21.75 12 17.385 21.75 12 21.75z"/></svg>
+          </a>
+        </div>
+      </div>
+      <div class="footer-col">
+        <h4 data-i18n="footer_ads">Anúncios</h4>
+        <ul id="footer-ads"></ul>
+      </div>
+      <div class="footer-col">
+        <h4 data-i18n="footer_help">Ajuda</h4>
+        <ul id="footer-help"></ul>
+      </div>
+      <div class="footer-col">
+        <h4 data-i18n="footer_company">Empresa</h4>
+        <ul id="footer-company"></ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span data-i18n="footer_copy">© 2026 Tauze Class. Todos os direitos reservados.</span>
+      <div style="display:flex;gap:var(--sp-4)">
+        <a href="javascript:void(0)">Privacidade</a>
+        <a href="javascript:void(0)">Termos</a>
+        <a href="javascript:void(0)">Cookies</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- Scripts com defer: baixados em paralelo, executados na ordem correta
+     após o HTML ser parseado — máxima performance de carregamento -->
+<script defer="" src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script defer="" src="js/supabase.js?v=639197771809908242"></script>
+<script defer="" src="js/data.js?v=3"></script>
+<script defer="" src="js/ui_constants.js?v=3"></script>
+<script defer="" src="js/main.js?v=639197771809908242"></script>
+<script defer="" src="js/home.js?v=3"></script>
+<script defer="" src="js/search_autocomplete.js"></script>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    // Render Ad Banners
+    if (typeof renderAdBanner === 'function') {
+      renderAdBanner('home_top', 'banner-home-top');
+      renderAdBanner('home_mid', 'banner-home-mid');
+    }
+
+    // Badge geográfico — usa os dados do RPC já carregado pelo hero
+    // Zero queries extras: reutiliza o cache sessionStorage de fetchPlatformStats()
+    if (typeof fetchPlatformStats === 'function') {
+      fetchPlatformStats().then(stats => {
+        const badge = document.getElementById('recent-geo-badge');
+        if (!badge || !stats) return;
+        const cities    = stats.total_cities    || 0;
+        const countries = stats.total_countries || 0;
+        badge.innerHTML = `
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:1rem">
+            <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(22,163,74,.08);border:1px solid rgba(22,163,74,.2);border-radius:99px;padding:4px 12px;font-size:13px;font-weight:600;color:var(--clr-primary,#16a34a)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+              ${cities} cidade${cities !== 1 ? 's' : ''}
+            </span>
+            <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.2);border-radius:99px;padding:4px 12px;font-size:13px;font-weight:600;color:#3b82f6">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+              ${countries} pa${countries !== 1 ? 'íses' : 'ís'}
+            </span>
+            <span style="font-size:12px;color:var(--clr-muted,#6b7280)">com anúncios ativos</span>
+          </div>`;
+      }).catch(() => {}); // silencia erro se stats não disponível
+    }
+  });
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "Tauze Class",
+  "description": "O maior portal de classificados do agronegocio do Mercosul",
+  "url": "https://tauzeclass.com.br",
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": "https://tauzeclass.com.br/listagem.html?q={search_term_string}",
+    "query-input": "required name=search_term_string"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Tauze Class",
+    "url": "https://tauzeclass.com.br"
+  }
+}
+</script>
+
+
+
+</body></html>

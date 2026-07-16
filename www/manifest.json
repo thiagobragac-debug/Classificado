@@ -1,0 +1,51 @@
+{
+  "name": "Tauze Class — Classificados do Agronegócio",
+  "short_name": "Tauze Class",
+  "description": "O maior portal de classificados do agronegócio do Mercosul. Bovinos, máquinas, insumos e imóveis rurais.",
+  "start_url": "/index.html",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0a0f0a",
+  "theme_color": "#16A34A",
+  "orientation": "portrait-primary",
+  "lang": "pt-BR",
+  "categories": ["business", "shopping"],
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='32' fill='%2316A34A'/><text y='140' x='28' font-size='120' font-weight='800' fill='white' font-family='sans-serif'>T</text></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='80' fill='%2316A34A'/><text y='380' x='60' font-size='340' font-weight='800' fill='white' font-family='sans-serif'>T</text></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Ver Anúncios",
+      "short_name": "Anúncios",
+      "description": "Buscar anúncios do agronegócio",
+      "url": "/listagem.html",
+      "icons": []
+    },
+    {
+      "name": "Anunciar",
+      "short_name": "Anunciar",
+      "description": "Publicar um novo anúncio",
+      "url": "/anunciar.html",
+      "icons": []
+    },
+    {
+      "name": "Leilões",
+      "short_name": "Leilões",
+      "description": "Leilões rurais ao vivo",
+      "url": "/leiloes.html",
+      "icons": []
+    }
+  ]
+}
