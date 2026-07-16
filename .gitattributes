@@ -1,0 +1,16 @@
+# Força o Git a lidar com todos os arquivos de texto como UTF-8
+* text=auto eol=lf
+
+# Explicitamente marca arquivos web para text/UTF-8
+*.html text eol=lf
+*.css text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+
+# Arquivos binários ignorados na conversão
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
