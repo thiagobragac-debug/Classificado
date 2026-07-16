@@ -159,19 +159,19 @@
             <input type="text" id="msg-search" data-i18n-placeholder="pnl_search_convs" placeholder="Buscar conversas..." oninput="renderMessageList()" style="width:100%;box-sizing:border-box;padding:.75rem 1rem .75rem 2.8rem;border-radius:2rem;border:1px solid #e2e8f0;background:#fff;font-size:.9rem;outline:none;transition:all .2s;color:#0f172a" onfocus="this.style.borderColor='#16a34a';this.style.boxShadow='0 0 0 4px #16a34a1a'" onblur="this.style.borderColor='#e2e8f0';this.style.boxShadow='none'">
           </div>
         </div>
-        <div style="background:#fff;border-radius:1rem;box-shadow:0 2px 16px rgba(0,0,0,.06);overflow:hidden">
+        <div style="display:flex; flex-direction:column; gap:0;">
           <style>
-            .msg-item-row { transition: background 0.2s; cursor: pointer; display: grid; grid-template-columns: 48px 1fr auto auto; gap: 1rem; align-items: center; padding: 1rem 1.25rem; border-bottom: 1px solid #f1f5f9; }
-            .msg-item-row:hover { background: #f8fafc; }
+            .msg-item-row { transition: all 0.2s; cursor: pointer; display: grid; grid-template-columns: 48px 1fr auto auto; gap: 1rem; align-items: center; padding: 1rem 1.25rem; background: #fff; border-radius: 1rem; box-shadow: 0 2px 8px rgba(0,0,0,.04); border: 1px solid #f1f5f9; margin-bottom: 0.75rem; }
+            .msg-item-row:hover { box-shadow: 0 4px 12px rgba(0,0,0,.08); transform: translateY(-2px); border-color: #e2e8f0; }
             .msg-del-btn { transition: transform 0.2s; background: #fee2e2 !important; color: #ef4444 !important; opacity: 1 !important; }
             .msg-del-btn:hover { transform: scale(1.15); background: #fca5a5 !important; color: #b91c1c !important; }
           </style>
           <div id="messages-list-view">
-            <div id="msgs-spinner" style="display:flex;align-items:center;justify-content:center;padding:3rem">
+            <div id="msgs-spinner" style="display:flex;align-items:center;justify-content:center;padding:3rem; background: #fff; border-radius: 1rem; box-shadow: 0 2px 16px rgba(0,0,0,.06);">
               <div style="width:28px;height:28px;border-radius:50%;border:3px solid #e2e8f0;border-top-color:#16a34a;animation:spin .7s linear infinite"></div>
             </div>
           </div>
-          <div id="thread-view" style="display:none;flex-direction:column;height:520px">
+          <div id="thread-view" style="display:none;flex-direction:column;height:520px; background:#fff;border-radius:1rem;box-shadow:0 2px 16px rgba(0,0,0,.06);overflow:hidden;">
             <div style="display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;border-bottom:1px solid #f1f5f9">
               <div style="display:flex;align-items:center;gap:.75rem">
                 <button onclick="closeThread()" style="background:none;border:none;cursor:pointer;color:#64748b;padding:.3rem;border-radius:.4rem">
@@ -988,9 +988,9 @@
       const ini=(conv.otherName[0]||'?').toUpperCase();
       return `<div class="msg-item-row" onclick="openThread('${conv.key}')">
         <div style="width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,#16a34a,#22c55e);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1rem;color:#fff;flex-shrink:0">${ini}</div>
-        <div style="min-width:0">
-          <div style="font-weight:700;font-size:.9rem;color:var(--clr-text);margin-bottom:.2rem">${esc(conv.otherName)}</div>
-          <div style="font-size:.75rem;color:#16a34a;font-weight:600;margin-bottom:.2rem">Re: ${esc(conv.adTitle)}</div>
+        <div style="min-width:0; overflow:hidden;">
+          <div style="font-weight:700;font-size:.9rem;color:var(--clr-text);margin-bottom:.2rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(conv.otherName)}</div>
+          <div style="font-size:.75rem;color:#16a34a;font-weight:600;margin-bottom:.2rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Re: ${esc(conv.adTitle)}</div>
           <div style="font-size:.8rem;color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(last?.content||'')}</div>
         </div>
         <div style="font-size:.72rem;color:#94a3b8;white-space:nowrap">${last?fDate(last.created_at):''}</div>
