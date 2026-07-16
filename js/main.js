@@ -63,18 +63,18 @@ const _locationPromise = (async () => {
     try { localStorage.removeItem(k); } catch (_) {}
   });
 
-  // Lê cache com TTL
+  // Lê cache com TTL — retorno instantâneo se válido (visitas recorrentes não sofrem delay)
   try {
     const cached = localStorage.getItem(CACHE_KEY);
     if (cached) {
       const { ts, loc } = JSON.parse(cached);
       if (loc && (loc.city || loc.state || loc.country) && (Date.now() - ts < CACHE_TTL)) {
-        // console.log('[geo] usando cache (localStorage):', loc);
         return loc;
       }
     }
   } catch (_) {}
 
+  // ── Utilitários ──────────────────────────────────────────────────────────
   const withTimeout = (p, ms) => Promise.race([
     p,
     new Promise(res => setTimeout(() => res(null), ms))
@@ -104,74 +104,124 @@ const _locationPromise = (async () => {
     return map[c] || map[c.toUpperCase()] || c;
   };
 
-  // ── Provedor 1: GPS + Nominatim (mais preciso, requer permissão) ──
-  try {
-    const coords = await withTimeout(
-      new Promise((res, rej) => {
-        if (!navigator.geolocation) return rej(new Error('no geolocation'));
-        navigator.geolocation.getCurrentPosition(
-          pos => res({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
-          err => rej(err),
-          { timeout: 5000, maximumAge: 3600000 }
-        );
-      }),
-      6000
-    );
-    if (coords) {
+  // ── Provedor 1: GPS + Nominatim (mais preciso, requer permissão) ──────────
+  // Roda como Promise separada para competir com os provedores de IP.
+  // Tem prioridade máxima por ser o mais preciso, mas não bloqueia os demais.
+  const gpsProvider = (async () => {
+    try {
+      const coords = await withTimeout(
+        new Promise((res, rej) => {
+          if (!navigator.geolocation) return rej(new Error('no geolocation'));
+          navigator.geolocation.getCurrentPosition(
+            pos => res({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+            err => rej(err),
+            { timeout: 5000, maximumAge: 3600000 }
+          );
+        }),
+        6000
+      );
+      if (!coords) return null;
       const geo = await withTimeout(
         fetch(`https://nominatim.openstreetmap.org/reverse?lat=${coords.lat}&lon=${coords.lon}&format=json&accept-language=pt`)
           .then(r => r.ok ? r.json() : null),
         5000
       );
       if (geo && geo.address) {
-        const loc = {
+        return {
           city:    geo.address.city || geo.address.town || geo.address.village || null,
           state:   geo.address.state || null,
           country: geo.address.country || null,
+          _source: 'gps+nominatim'
         };
-        // console.log('[geo] Provedor 1 — GPS+Nominatim ok:', loc);
-        return save(loc);
       }
-    }
-  } catch (_) {}
+    } catch (_) {}
+    return null;
+  })();
 
-  // ── Provedor 2: ipapi.co — gratuito, HTTPS nativo ──
+  // ── Provedor 2: ipapi.co — gratuito, HTTPS nativo ────────────────────────
+  const ipapiProvider = (async () => {
+    try {
+      const data = await withTimeout(
+        fetch('https://ipapi.co/json/').then(r => r.ok ? r.json() : null),
+        4000
+      );
+      if (data && !data.error && data.country_code) {
+        return {
+          city:    data.city    || null,
+          state:   data.region  || null,
+          country: normalizeCountry(data.country_code),
+          _source: 'ipapi.co'
+        };
+      }
+    } catch (_) {}
+    return null;
+  })();
+
+  // ── Provedor 3: freeipapi.com — contingência secundária, HTTPS ───────────
+  const freeIpapiProvider = (async () => {
+    try {
+      const data = await withTimeout(
+        fetch('https://freeipapi.com/api/json').then(r => r.ok ? r.json() : null),
+        4000
+      );
+      if (data && data.countryCode && data.countryCode !== '-') {
+        return {
+          city:    data.cityName   || null,
+          state:   data.regionName || null,
+          country: normalizeCountry(data.countryCode),
+          _source: 'freeipapi.com'
+        };
+      }
+    } catch (_) {}
+    return null;
+  })();
+
+  // ── Estratégia PARALELA com hierarquia de qualidade ──────────────────────
+  // GPS tem prioridade máxima (mais preciso). Os provedores de IP correm em
+  // paralelo para garantir que o primeiro a responder seja usado como fallback,
+  // sem esperar que os anteriores falhem sequencialmente.
+  //
+  // Algoritmo:
+  // 1. Dispara GPS + IP providers SIMULTANEAMENTE (zero waterfall)
+  // 2. Se GPS retornar antes dos IPs → usa GPS (mais preciso)
+  // 3. Se IP retornar primeiro → usa como fallback imediato
+  // 4. Quando GPS chegar depois → NÃO re-busca (já está em cache)
+  //
+  // Resultado: tempo de resposta = tempo do provedor MAIS RÁPIDO (não a soma)
   try {
-    const data = await withTimeout(
-      fetch('https://ipapi.co/json/')
-        .then(r => r.ok ? r.json() : null),
-      4000
-    );
-    if (data && !data.error && data.country_code) {
-      const loc = {
-        city:    data.city         || null,
-        state:   data.region       || null,
-        country: normalizeCountry(data.country_code),
-      };
-      // console.log('[geo] Provedor 2 — ipapi.co ok:', loc);
+    // Race de IP providers em paralelo (o mais veloz vence)
+    const fastIpRace = Promise.any([ipapiProvider, freeIpapiProvider])
+      .catch(() => null); // Promise.any rejeita apenas se TODOS falharem
+
+    // GPS tem até 2s de vantagem — se resolver rápido, usa com prioridade
+    const gpsOrIp = await Promise.race([
+      gpsProvider,
+      new Promise(res => setTimeout(async () => res(await fastIpRace), 2000))
+    ]);
+
+    if (gpsOrIp && (gpsOrIp.city || gpsOrIp.state || gpsOrIp.country)) {
+      // Descarta _source do objeto final antes de salvar
+      const { _source, ...loc } = gpsOrIp;
       return save(loc);
     }
-  } catch (_) {}
 
-  // ── Provedor 3: freeipapi.com — contingência secundária, HTTPS ──
-  try {
-    const data = await withTimeout(
-      fetch('https://freeipapi.com/api/json')
-        .then(r => r.ok ? r.json() : null),
-      4000
-    );
-    if (data && data.countryCode && data.countryCode !== '-') {
-      const loc = {
-        city:    data.cityName    || null,
-        state:   data.regionName  || null,
-        country: normalizeCountry(data.countryCode),
-      };
-      // console.log('[geo] Provedor 3 — freeipapi.com ok:', loc);
+    // GPS não chegou rápido: aguarda o IP race com timeout máximo de 4s
+    const ipResult = await withTimeout(fastIpRace, 4000);
+    if (ipResult && (ipResult.city || ipResult.state || ipResult.country)) {
+      const { _source, ...loc } = ipResult;
       return save(loc);
     }
+
+    // GPS ainda pode estar chegando: aguarda até 6s no total
+    const gpsLate = await withTimeout(gpsProvider, 6000);
+    if (gpsLate && (gpsLate.city || gpsLate.state || gpsLate.country)) {
+      const { _source, ...loc } = gpsLate;
+      return save(loc);
+    }
+
   } catch (_) {}
 
-  // ── Provedor 4: fallback global ──
+  // ── Provedor 4: fallback global (nenhum provedor respondeu) ──────────────
   console.warn('[geo] Todos os provedores falharam — exibindo resultados globais');
   return null;
 })();

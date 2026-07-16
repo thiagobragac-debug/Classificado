@@ -224,7 +224,12 @@ async function getAds({ category, country, state, city, search, preco_min, preco
     }
   }
   if (city)      q = q.eq('city', city);
-  if (search)    q = q.ilike('title_pt', `%${search}%`);
+  if (search) {
+    // Busca bilíngue: título PT e ES com ilike — para Full-Text Search com índice GIN,
+    // execute o SQL do script 09_fts_index.sql no Supabase e troque para:
+    // q = q.textSearch('fts', search, { config: 'portuguese' });
+    q = q.or(`title_pt.ilike.%${search}%,title_es.ilike.%${search}%`);
+  }
   if (preco_min) q = q.gte('price', preco_min);
   if (preco_max) q = q.lte('price', preco_max);
   if (featured)  q = q.eq('featured', true);
