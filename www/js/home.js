@@ -236,6 +236,8 @@ async function renderCountriesHome() {
   if (!grid) return;
   
   try {
+    const sb = getSupabase(); // C5: sb não era declarado — corrigido
+    if (!sb) return;
     const { data, error } = await sb.rpc('get_country_counts');
     if (error) throw error;
     

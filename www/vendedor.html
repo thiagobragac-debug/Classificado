@@ -2,6 +2,11 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
+  <!-- A6: preconnect para domínios críticos — elimina latência de handshake TLS -->
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="preconnect" href="https://rfzuzuobwuanmbrcthqe.supabase.co" crossorigin>
+  <link rel="dns-prefetch" href="https://ipapi.co">
+  <link rel="dns-prefetch" href="https://flagcdn.com">
   <!-- Security headers (defence-in-depth, complements server-side headers) -->
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta name="referrer" content="strict-origin-when-cross-origin">
@@ -310,12 +315,12 @@
   Filtros
 </button>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="/js/supabase.js?v=639197771809908242"></script>
-<script src="js/data.js?v=1783509347784"></script>
-<script src="js/ui_constants.js"></script>
-<script src="js/main.js?v=639197771809908242"></script>
-<script src="js/filters.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script defer src="/js/supabase.js?v=639197771809908242"></script>
+<script defer src="js/data.js?v=1783509347784"></script>
+<script defer src="js/ui_constants.js"></script>
+<script defer src="js/main.js?v=639197771809908242"></script>
+<script defer src="js/filters.js"></script>
 <script>
   document.addEventListener('DOMContentLoaded', async () => {
     if (typeof renderAdBanner === 'function') {

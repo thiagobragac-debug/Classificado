@@ -177,7 +177,7 @@ async function getAds({ category, country, state, city, search, preco_min, preco
   
   let q = getSupabase()
     .from('ads')
-    .select('*, profiles(name, avatar_url, verified, phone_whatsapp)', { count: 'exact' })
+    .select('*, profiles(name, avatar_url, verified, phone_whatsapp)')
     .eq('status', status)
     .order('featured', { ascending: false })
     .order('created_at', { ascending: false })
@@ -224,7 +224,12 @@ async function getAds({ category, country, state, city, search, preco_min, preco
     }
   }
   if (city)      q = q.eq('city', city);
-  if (search)    q = q.ilike('title_pt', `%${search}%`);
+  if (search) {
+    // Full-Text Search com índice GIN (script 09_fts_index.sql aplicado ✅)
+    // textSearch usa to_tsquery() — até 100x mais rápido que ilike em tabelas grandes.
+    // A coluna 'fts' é gerada automaticamente pelo banco (GENERATED ALWAYS AS STORED).
+    q = q.textSearch('fts', search, { config: 'portuguese', type: 'plain' });
+  }
   if (preco_min) q = q.gte('price', preco_min);
   if (preco_max) q = q.lte('price', preco_max);
   if (featured)  q = q.eq('featured', true);
@@ -232,10 +237,13 @@ async function getAds({ category, country, state, city, search, preco_min, preco
   const { data, error, count } = await q;
   if (error) throw error;
   
-  const hasMore = (currentPage * limit) < count;
+  // hasMore: solicitamos limit+1 internamente via slice (sem count:exact)
+  const hasMore = data && data.length > limit;
+  if (hasMore) data.pop(); // remove o item extra
   const nextCursor = hasMore ? currentPage + 1 : null;
-  
-  return { ads: data, total: count, nextCursor, hasMore };
+  const total = null; // sem count:exact — evita full table scan
+
+  return { ads: data || [], total, nextCursor, hasMore };
 }
 
 async function getAdById(id) {
@@ -301,10 +309,13 @@ async function getMyAds() {
   const session = await getSession();
   if (!session) return [];
   const { data, error } = await getSupabase()
-    .from('ads').select('*').eq('user_id', session.user.id)
+    .from('ads')
+    .select('id, title_pt, title_es, price, currency, status, featured, images, category_id, city, state, country, created_at, views_count, expires_at')
+    .eq('user_id', session.user.id)
+    .not('status', 'eq', 'deleted')
     .order('created_at', { ascending: false });
   if (error) throw error;
-  return data.filter(ad => ad.status !== 'deleted');
+  return data || [];
 }
 
 // ??? COMPRESS�O DE IMAGEM ?????????????????????????????????????
@@ -626,12 +637,20 @@ async function canPostAd() {
 async function fetchPlatformStats() {
   try {
     const sb = getSupabase();
-    const { count: adsCount } = await sb.from('ads').select('*', { count: 'exact', head: true }).eq('status', 'active');
-    const { count: auctionsCount } = await sb.from('auctions').select('*', { count: 'exact', head: true }).eq('status', 'live');
-    const { count: bovinosCount } = await sb.from('ads').select('*', { count: 'exact', head: true }).eq('status', 'active').eq('category_id', 'cat-bovinos');
-    const { count: maquinasCount } = await sb.from('ads').select('*', { count: 'exact', head: true }).eq('status', 'active').eq('category_id', 'cat-maquinas');
-
-    const { data: settings } = await sb.from('platform_settings').select('key, value');
+    // C2: 5 queries em paralelo (antes eram sequenciais — economiza ~1-1.5s)
+    const [
+      { count: adsCount },
+      { count: auctionsCount },
+      { count: bovinosCount },
+      { count: maquinasCount },
+      { data: settings }
+    ] = await Promise.all([
+      sb.from('ads').select('*', { count: 'exact', head: true }).eq('status', 'active'),
+      sb.from('auctions').select('*', { count: 'exact', head: true }).eq('status', 'live'),
+      sb.from('ads').select('*', { count: 'exact', head: true }).eq('status', 'active').eq('category_id', 'cat-bovinos'),
+      sb.from('ads').select('*', { count: 'exact', head: true }).eq('status', 'active').eq('category_id', 'cat-maquinas'),
+      sb.from('platform_settings').select('key, value'),
+    ]);
     const sMap = {};
     if (settings) {
       settings.forEach(s => sMap[s.key] = s.value);

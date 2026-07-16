@@ -63,18 +63,18 @@ const _locationPromise = (async () => {
     try { localStorage.removeItem(k); } catch (_) {}
   });
 
-  // Lê cache com TTL
+  // Lê cache com TTL — retorno instantâneo se válido (visitas recorrentes não sofrem delay)
   try {
     const cached = localStorage.getItem(CACHE_KEY);
     if (cached) {
       const { ts, loc } = JSON.parse(cached);
       if (loc && (loc.city || loc.state || loc.country) && (Date.now() - ts < CACHE_TTL)) {
-        // console.log('[geo] usando cache (localStorage):', loc);
         return loc;
       }
     }
   } catch (_) {}
 
+  // ── Utilitários ──────────────────────────────────────────────────────────
   const withTimeout = (p, ms) => Promise.race([
     p,
     new Promise(res => setTimeout(() => res(null), ms))
@@ -104,74 +104,124 @@ const _locationPromise = (async () => {
     return map[c] || map[c.toUpperCase()] || c;
   };
 
-  // ── Provedor 1: GPS + Nominatim (mais preciso, requer permissão) ──
-  try {
-    const coords = await withTimeout(
-      new Promise((res, rej) => {
-        if (!navigator.geolocation) return rej(new Error('no geolocation'));
-        navigator.geolocation.getCurrentPosition(
-          pos => res({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
-          err => rej(err),
-          { timeout: 5000, maximumAge: 3600000 }
-        );
-      }),
-      6000
-    );
-    if (coords) {
+  // ── Provedor 1: GPS + Nominatim (mais preciso, requer permissão) ──────────
+  // Roda como Promise separada para competir com os provedores de IP.
+  // Tem prioridade máxima por ser o mais preciso, mas não bloqueia os demais.
+  const gpsProvider = (async () => {
+    try {
+      const coords = await withTimeout(
+        new Promise((res, rej) => {
+          if (!navigator.geolocation) return rej(new Error('no geolocation'));
+          navigator.geolocation.getCurrentPosition(
+            pos => res({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+            err => rej(err),
+            { timeout: 5000, maximumAge: 3600000 }
+          );
+        }),
+        6000
+      );
+      if (!coords) return null;
       const geo = await withTimeout(
         fetch(`https://nominatim.openstreetmap.org/reverse?lat=${coords.lat}&lon=${coords.lon}&format=json&accept-language=pt`)
           .then(r => r.ok ? r.json() : null),
         5000
       );
       if (geo && geo.address) {
-        const loc = {
+        return {
           city:    geo.address.city || geo.address.town || geo.address.village || null,
           state:   geo.address.state || null,
           country: geo.address.country || null,
+          _source: 'gps+nominatim'
         };
-        // console.log('[geo] Provedor 1 — GPS+Nominatim ok:', loc);
-        return save(loc);
       }
-    }
-  } catch (_) {}
+    } catch (_) {}
+    return null;
+  })();
 
-  // ── Provedor 2: ipapi.co — gratuito, HTTPS nativo ──
+  // ── Provedor 2: ipapi.co — gratuito, HTTPS nativo ────────────────────────
+  const ipapiProvider = (async () => {
+    try {
+      const data = await withTimeout(
+        fetch('https://ipapi.co/json/').then(r => r.ok ? r.json() : null),
+        4000
+      );
+      if (data && !data.error && data.country_code) {
+        return {
+          city:    data.city    || null,
+          state:   data.region  || null,
+          country: normalizeCountry(data.country_code),
+          _source: 'ipapi.co'
+        };
+      }
+    } catch (_) {}
+    return null;
+  })();
+
+  // ── Provedor 3: freeipapi.com — contingência secundária, HTTPS ───────────
+  const freeIpapiProvider = (async () => {
+    try {
+      const data = await withTimeout(
+        fetch('https://freeipapi.com/api/json').then(r => r.ok ? r.json() : null),
+        4000
+      );
+      if (data && data.countryCode && data.countryCode !== '-') {
+        return {
+          city:    data.cityName   || null,
+          state:   data.regionName || null,
+          country: normalizeCountry(data.countryCode),
+          _source: 'freeipapi.com'
+        };
+      }
+    } catch (_) {}
+    return null;
+  })();
+
+  // ── Estratégia PARALELA com hierarquia de qualidade ──────────────────────
+  // GPS tem prioridade máxima (mais preciso). Os provedores de IP correm em
+  // paralelo para garantir que o primeiro a responder seja usado como fallback,
+  // sem esperar que os anteriores falhem sequencialmente.
+  //
+  // Algoritmo:
+  // 1. Dispara GPS + IP providers SIMULTANEAMENTE (zero waterfall)
+  // 2. Se GPS retornar antes dos IPs → usa GPS (mais preciso)
+  // 3. Se IP retornar primeiro → usa como fallback imediato
+  // 4. Quando GPS chegar depois → NÃO re-busca (já está em cache)
+  //
+  // Resultado: tempo de resposta = tempo do provedor MAIS RÁPIDO (não a soma)
   try {
-    const data = await withTimeout(
-      fetch('https://ipapi.co/json/')
-        .then(r => r.ok ? r.json() : null),
-      4000
-    );
-    if (data && !data.error && data.country_code) {
-      const loc = {
-        city:    data.city         || null,
-        state:   data.region       || null,
-        country: normalizeCountry(data.country_code),
-      };
-      // console.log('[geo] Provedor 2 — ipapi.co ok:', loc);
+    // Race de IP providers em paralelo (o mais veloz vence)
+    const fastIpRace = Promise.any([ipapiProvider, freeIpapiProvider])
+      .catch(() => null); // Promise.any rejeita apenas se TODOS falharem
+
+    // GPS tem até 2s de vantagem — se resolver rápido, usa com prioridade
+    const gpsOrIp = await Promise.race([
+      gpsProvider,
+      new Promise(res => setTimeout(async () => res(await fastIpRace), 2000))
+    ]);
+
+    if (gpsOrIp && (gpsOrIp.city || gpsOrIp.state || gpsOrIp.country)) {
+      // Descarta _source do objeto final antes de salvar
+      const { _source, ...loc } = gpsOrIp;
       return save(loc);
     }
-  } catch (_) {}
 
-  // ── Provedor 3: freeipapi.com — contingência secundária, HTTPS ──
-  try {
-    const data = await withTimeout(
-      fetch('https://freeipapi.com/api/json')
-        .then(r => r.ok ? r.json() : null),
-      4000
-    );
-    if (data && data.countryCode && data.countryCode !== '-') {
-      const loc = {
-        city:    data.cityName    || null,
-        state:   data.regionName  || null,
-        country: normalizeCountry(data.countryCode),
-      };
-      // console.log('[geo] Provedor 3 — freeipapi.com ok:', loc);
+    // GPS não chegou rápido: aguarda o IP race com timeout máximo de 4s
+    const ipResult = await withTimeout(fastIpRace, 4000);
+    if (ipResult && (ipResult.city || ipResult.state || ipResult.country)) {
+      const { _source, ...loc } = ipResult;
       return save(loc);
     }
+
+    // GPS ainda pode estar chegando: aguarda até 6s no total
+    const gpsLate = await withTimeout(gpsProvider, 6000);
+    if (gpsLate && (gpsLate.city || gpsLate.state || gpsLate.country)) {
+      const { _source, ...loc } = gpsLate;
+      return save(loc);
+    }
+
   } catch (_) {}
 
-  // ── Provedor 4: fallback global ──
+  // ── Provedor 4: fallback global (nenhum provedor respondeu) ──────────────
   console.warn('[geo] Todos os provedores falharam — exibindo resultados globais');
   return null;
 })();
@@ -458,11 +508,11 @@ function initMobileMenu() {
 }
 
 // ─── SECURITY ─────────────────────────────
+// Mapa cacheado — criado UMA VEZ (não a cada chamada de escapeHTML)
+const _ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' };
 window.escapeHTML = function(str) {
   if (str === null || str === undefined) return '';
-  return str.toString().replace(/[&<>'"]/g,
-    tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
-  );
+  return str.toString().replace(/[&<>'"]/g, t => _ESC_MAP[t] || t);
 };
 
 // ─── UTILS ────────────────────────────────────
@@ -498,9 +548,25 @@ function animateNumbers() {
 }
 
 // ─── FORMAT CURRENCY ─────────────────────────────
+// Instâncias de Intl.NumberFormat cacheadas — custo de instanciação é alto
+const _fmtPtBR = new Intl.NumberFormat('pt-BR');
+const _fmtCurrencyCache = {};
 function formatNum(n) {
-  return new Intl.NumberFormat('pt-BR').format(n);
+  return _fmtPtBR.format(n);
 }
+function _getCurrencyFmt(lang, currency) {
+  const key = lang + '_' + currency;
+  if (!_fmtCurrencyCache[key]) {
+    _fmtCurrencyCache[key] = new Intl.NumberFormat(lang === 'es' ? 'es-AR' : 'pt-BR', { style: 'currency', currency });
+  }
+  return _fmtCurrencyCache[key];
+}
+
+// Mapa de bandeiras — constante global (não recriada a cada buildAdCard)
+const _COUNTRY_FLAGS = {
+  'Brasil': '🇧🇷', 'Argentina': '🇦🇷', 'Paraguai': '🇵🇾',
+  'Uruguai': '🇺🇾', 'Bolivia': '🇧🇴', 'Chile': '🇨🇱', 'Colombia': '🇨🇴'
+};
 
 // ─── ANIMATE COUNT UP ─────────────────────────
 function animateCount(el, target, duration = 1800, format = null) {
@@ -583,7 +649,7 @@ function buildAdCard(ad, lang) {
     const numPrice = Number(ad.price);
     if (!isNaN(numPrice)) {
       const currency = ad.currency || 'BRL';
-      priceStr = new Intl.NumberFormat(lang === 'es' ? 'es-AR' : 'pt-BR', { style: 'currency', currency }).format(numPrice);
+      priceStr = _getCurrencyFmt(lang, currency).format(numPrice);
     } else {
       priceStr = escapeHTML(ad.price);
     }
@@ -591,15 +657,8 @@ function buildAdCard(ad, lang) {
 
   const unit  = escapeHTML(lang === 'es' ? ad.price_unit_es : ad.price_unit_pt);
   
-  const flags = {
-    'Brasil': '🇧🇷',
-    'Argentina': '🇦🇷',
-    'Paraguai': '🇵🇾',
-    'Uruguai': '🇺🇾',
-    'Bolivia': '🇧🇴',
-    'Chile': '🇨🇱',
-    'Colombia': '🇨🇴'
-  };
+  // flags: usa constante global _COUNTRY_FLAGS (sem realocação a cada card)
+  const flags = _COUNTRY_FLAGS;
 
   const locParts = [ad.city, ad.state].filter(Boolean);
   let locStr = locParts.length ? locParts.join(', ') : '';
@@ -1474,40 +1533,3 @@ function showCustomPwaPrompt() {
 }
 
 
-// ── PWA Install Prompt ──────────────────────
-var deferredPrompt;
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  deferredPrompt = e;
-  
-  if (window.location.pathname.endsWith('index.html') || window.location.pathname === '/' || window.location.pathname.endsWith('classificado/')) {
-    const banner = document.createElement('div');
-    banner.id = 'pwa-install-banner';
-    banner.style = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:12px 20px;border-radius:12px;display:flex;align-items:center;gap:15px;box-shadow:0 10px 25px -5px rgba(0,0,0,0.3);z-index:9999;width:90%;max-width:400px;justify-content:space-between;';
-    banner.innerHTML = `
-      <div style="display:flex;align-items:center;gap:12px;">
-        <div style="background:#16a34a;color:#fff;width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:18px;">T</div>
-        <div>
-          <div style="font-weight:700;font-size:0.95rem;">Tauze Class App</div>
-          <div style="font-size:0.8rem;color:#cbd5e1;">Acesse mais rápido!</div>
-        </div>
-      </div>
-      <div style="display:flex;align-items:center;gap:10px;">
-        <button id="pwa-install-btn" style="background:#16a34a;color:#fff;border:none;padding:6px 12px;border-radius:6px;font-weight:600;font-size:0.85rem;cursor:pointer;">Instalar</button>
-        <button id="pwa-close-btn" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:1.2rem;line-height:1;">&times;</button>
-      </div>
-    `;
-    document.body.appendChild(banner);
-    
-    document.getElementById('pwa-install-btn').addEventListener('click', async () => {
-      banner.style.display = 'none';
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      deferredPrompt = null;
-    });
-    
-    document.getElementById('pwa-close-btn').addEventListener('click', () => {
-      banner.style.display = 'none';
-    });
-  }
-});
