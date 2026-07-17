@@ -432,40 +432,42 @@ function t(key) {
 
 function updatePageText() {
   const dict = I18N[currentLang] || I18N.pt;
-  document.querySelectorAll('[data-i18n]').forEach(el => {
-    const key = el.dataset.i18n;
-    if (dict[key]) {
-      if (key.includes('_html_')) {
-        el.innerHTML = dict[key];
-      } else {
-        el.textContent = dict[key];
+  requestAnimationFrame(() => {
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const key = el.dataset.i18n;
+      if (dict[key]) {
+        if (key.includes('_html_')) {
+          el.innerHTML = dict[key];
+        } else {
+          el.textContent = dict[key];
+        }
       }
+    });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+      const key = el.dataset.i18nPlaceholder;
+      if (dict[key]) el.placeholder = dict[key];
+    });
+    document.querySelectorAll('option[data-i18n-opt]').forEach(el => {
+      const key = el.dataset.i18nOpt;
+      if (dict[key]) el.textContent = dict[key];
+    });
+    const countryFirst = document.querySelector('#filter-country option[value=""]');
+    if (countryFirst) countryFirst.textContent = t('filter_country_all');
+    const stateFirst = document.querySelector('#filter-state option[value=""]');
+    if (stateFirst) stateFirst.textContent = t('filter_state_all');
+    const cityFirst = document.querySelector('#filter-city option[value=""]');
+    if (cityFirst) cityFirst.textContent = t('filter_city_all');
+    const listTitle = document.getElementById('list-page-title');
+    if (listTitle && listTitle.dataset.catDefault) {
+      listTitle.textContent = t('list_title_all');
+    }
+    if (typeof renderAdsList === 'function') {
+      renderAdsList();
+    }
+    if (typeof updateResultsCount === 'function') {
+      updateResultsCount();
     }
   });
-  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
-    const key = el.dataset.i18nPlaceholder;
-    if (dict[key]) el.placeholder = dict[key];
-  });
-  document.querySelectorAll('option[data-i18n-opt]').forEach(el => {
-    const key = el.dataset.i18nOpt;
-    if (dict[key]) el.textContent = dict[key];
-  });
-  const countryFirst = document.querySelector('#filter-country option[value=""]');
-  if (countryFirst) countryFirst.textContent = t('filter_country_all');
-  const stateFirst = document.querySelector('#filter-state option[value=""]');
-  if (stateFirst) stateFirst.textContent = t('filter_state_all');
-  const cityFirst = document.querySelector('#filter-city option[value=""]');
-  if (cityFirst) cityFirst.textContent = t('filter_city_all');
-  const listTitle = document.getElementById('list-page-title');
-  if (listTitle && listTitle.dataset.catDefault) {
-    listTitle.textContent = t('list_title_all');
-  }
-  if (typeof renderAdsList === 'function') {
-    renderAdsList();
-  }
-  if (typeof updateResultsCount === 'function') {
-    updateResultsCount();
-  }
 }
 
 // ─── HEADER SCROLL ────────────────────────────
@@ -474,7 +476,10 @@ function initHeader() {
   if (!header) return;
   // B-05: throttle com requestAnimationFrame — evita JS desnecessário a cada frame de scroll
   let _scrollTicking = false;
-  window.addEventListener('scroll', () => {
+  if (window._headerScrollListener) {
+    window.removeEventListener('scroll', window._headerScrollListener);
+  }
+  window._headerScrollListener = () => {
     if (!_scrollTicking) {
       requestAnimationFrame(() => {
         header.classList.toggle('scrolled', window.scrollY > 8);
@@ -482,7 +487,8 @@ function initHeader() {
       });
       _scrollTicking = true;
     }
-  }, { passive: true });
+  };
+  window.addEventListener('scroll', window._headerScrollListener, { passive: true });
 }
 
 // ─── MOBILE MENU ──────────────────────────────
@@ -1158,6 +1164,9 @@ async function updateHeaderAuth() {
 
         // Toggle dropdown logic with smooth animation
         // C-03: AbortController para remover listener global quando usuário fizer logout/refresh
+        if (window._dropdownAbortController) {
+          window._dropdownAbortController.abort();
+        }
         let closeTimeout;
         const dropdownController = new AbortController();
         const { signal: dropSignal } = dropdownController;
@@ -1229,6 +1238,11 @@ async function updateHeaderAuth() {
 
           getMyMessages().then(msgs => {
             updateGlobalBadge(msgs);
+            
+            if (window._globalMsgSub) {
+              try { window._globalMsgSub.unsubscribe(); } catch (_) {}
+            }
+            
             // C-04: salvar ref da subscription para poder chamar .unsubscribe()
             const msgSub = subscribeToMessages(session.user.id, (payload) => {
               if (payload.new) {
@@ -1241,6 +1255,7 @@ async function updateHeaderAuth() {
                 }
               }
             });
+            window._globalMsgSub = msgSub;
             // C-04: desconectar canal ao sair da página
             window.addEventListener('beforeunload', () => {
               try { msgSub.unsubscribe(); } catch (_) {}

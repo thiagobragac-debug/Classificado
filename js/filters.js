@@ -466,6 +466,7 @@ async function fetchAndRenderAds(append = false) {
     setTimeout(initObserver, 50);
 
   } catch (e) {
+    if (e.name === 'AbortError') return;
     console.error('[filters] Erro ao buscar anúncios:', e);
     if (!append) {
       container.innerHTML = `
@@ -480,22 +481,29 @@ async function fetchAndRenderAds(append = false) {
 }
 
 // ─── INFINITE SCROLL (cursor-based) ──────────
+let _infiniteObserver = null;
+
 function setupInfiniteScroll() {
   const pagContainer = document.getElementById('pagination');
   if (!pagContainer) return;
+
+  if (_infiniteObserver) {
+    _infiniteObserver.disconnect();
+    _infiniteObserver = null;
+  }
 
   if (_hasMore) {
     pagContainer.innerHTML = `<div id="infinite-sentinel" style="padding:var(--sp-8);text-align:center;color:var(--clr-text-muted);width:100%;">Carregando mais anúncios...</div>`;
     setTimeout(() => {
       const sentinel = document.getElementById('infinite-sentinel');
       if (!sentinel) return;
-      const obs = new IntersectionObserver((entries) => {
+      _infiniteObserver = new IntersectionObserver((entries) => {
         if (entries[0].isIntersecting && _hasMore && !_isLoading) {
-          obs.disconnect();
+          _infiniteObserver.disconnect();
           fetchAndRenderAds(true);
         }
       }, { rootMargin: '400px' });
-      obs.observe(sentinel);
+      _infiniteObserver.observe(sentinel);
     }, 50);
   } else {
     pagContainer.innerHTML = '';
@@ -575,16 +583,17 @@ function updateActiveFilterTags(cat, feat, neg, verif, pMin, pMax, countryOpt, s
   // Evita duplicação: "Perto de você — Belo Horizonte ✕" + "Belo Horizonte ✕".
 
   container.innerHTML = tags.map((tag, i) => `<button class="active-filter-tag" onclick="removeFilterTag(${i})" aria-label="Remover filtro: ${tag.label}">${tag.label} <span aria-hidden="true">✕</span></button>`).join('');
-  container._clearFns = tags.map(t => t.clear);
+  _activeFilterClearFns = tags.map(t => t.clear);
 
   // Adiciona o geo-badge no topo (lê os dropdowns como fonte de verdade)
   renderGeoFilterBadge();
 
 } // ← fechamento correto de updateActiveFilterTags
 
+let _activeFilterClearFns = [];
+
 function removeFilterTag(i) {
-  const container = document.getElementById('active-filters');
-  if (container && container._clearFns && container._clearFns[i]) container._clearFns[i]();
+  if (_activeFilterClearFns[i]) _activeFilterClearFns[i]();
 }
 
 // ─── CLEAR FILTERS ────────────────────────────

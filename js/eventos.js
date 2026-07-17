@@ -42,8 +42,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Busca eventos do banco (só futuros, limit 200)
   if (typeof fetchEventsFromDB === 'function') {
-    const rawEvents = await fetchEventsFromDB();
-    _realEvents = rawEvents.map(e => ({ ...e, locationStr: e.location_str || '' }));
+    try {
+      const rawEvents = await fetchEventsFromDB();
+      _realEvents = rawEvents.map(e => ({ ...e, locationStr: e.location_str || '' }));
+    } catch (err) {
+      console.error('[eventos] Falha ao carregar eventos:', err);
+    }
   }
 
   // Renderiza destaques imediatamente (sem localização)

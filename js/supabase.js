@@ -223,13 +223,13 @@ const BR_STATES = {
   'Tocantins': 'TO', 'TO': 'Tocantins',
 };
 
-async function getAds({ category, country, state, city, search, preco_min, preco_max, featured, page, cursor, limit = 20, status = 'active', user_id } = {}) {
+async function getAds({ category, country, state, city, search, preco_min, preco_max, featured, page, cursor, limit = 20, status = 'active', user_id, signal } = {}) {
   const currentPage = cursor ? parseInt(cursor) : (page ? parseInt(page) : 1);
   const from = (currentPage - 1) * limit;
 
   let q = getSupabase()
     .from('ads')
-    .select('*, profiles(name, avatar_url, verified, phone_whatsapp)')
+    .select('id, title_pt, title_es, price, currency, status, featured, images, category_id, city, state, country, created_at, views_count, expires_at, profiles(name, avatar_url, verified, phone_whatsapp)')
     .eq('status', status)
     .order('featured', { ascending: false })
     .order('created_at', { ascending: false })
@@ -256,6 +256,10 @@ async function getAds({ category, country, state, city, search, preco_min, preco
   if (preco_min) q = q.gte('price', preco_min);
   if (preco_max) q = q.lte('price', preco_max);
   if (featured)  q = q.eq('featured', true);
+
+  if (signal) {
+    q = q.abortSignal(signal);
+  }
 
   const { data, error } = await q;
   if (error) throw error;
@@ -301,30 +305,45 @@ async function getAdById(id) {
 }
 
 async function createAd(adData) {
-  const session = await getSession();
-  if (!session) throw new Error('N�o autenticado');
+  try {
+    const session = await getSession();
+    if (!session) throw new Error('No autenticado');
 
-  const { data, error } = await getSupabase()
-    .from('ads')
-    .insert({ ...adData, user_id: session.user.id })
-    .select().maybeSingle();
-  if (error) throw error;
-  return data;
+    const { data, error } = await getSupabase()
+      .from('ads')
+      .insert({ ...adData, user_id: session.user.id })
+      .select().maybeSingle();
+    if (error) throw error;
+    return data;
+  } catch (err) {
+    console.error('[createAd] Erro:', err);
+    throw err;
+  }
 }
 
 async function updateAd(adId, updates) {
-  const { data, error } = await getSupabase()
-    .from('ads').update({ ...updates, updated_at: new Date().toISOString() })
-    .eq('id', adId).select().maybeSingle();
-  if (error) throw error;
-  return data;
+  try {
+    const { data, error } = await getSupabase()
+      .from('ads').update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', adId).select().maybeSingle();
+    if (error) throw error;
+    return data;
+  } catch (err) {
+    console.error('[updateAd] Erro:', err);
+    throw err;
+  }
 }
 
 async function deleteAd(adId) {
-  const { error } = await getSupabase()
-    .from('ads').update({ status: 'deleted', updated_at: new Date().toISOString() })
-    .eq('id', adId);
-  if (error) throw error;
+  try {
+    const { error } = await getSupabase()
+      .from('ads').update({ status: 'deleted', updated_at: new Date().toISOString() })
+      .eq('id', adId);
+    if (error) throw error;
+  } catch (err) {
+    console.error('[deleteAd] Erro:', err);
+    throw err;
+  }
 }
 
 async function getMyAds({ status = 'all', page = 1, limit = 12 } = {}) {
@@ -350,7 +369,7 @@ async function getMyAds({ status = 'all', page = 1, limit = 12 } = {}) {
   return { data: data || [], total: count || 0 };
 }
 
-// ??? COMPRESS�O DE IMAGEM ?????????????????????????????????????
+// ??? COMPRESSO DE IMAGEM ?????????????????????????????????????
 function compressImage(file, maxWidth = 1200, quality = 0.8) {
   return new Promise((resolve) => {
     if (!file.type.match(/image.*/)) return resolve(file);
@@ -422,7 +441,7 @@ function compressImage(file, maxWidth = 1200, quality = 0.8) {
 
 async function uploadAdImage(rawFile, adId) {
   const session = await getSession();
-  if (!session) throw new Error('N�o autenticado');
+  if (!session) throw new Error('No autenticado');
 
   const file = await compressImage(rawFile, 1200, 0.8);
 
@@ -513,13 +532,18 @@ async function getMyFavorites() {
 // ??? MENSAGENS ????????????????????????????????????????????????
 
 async function sendMessage(adId, receiverId, content) {
-  const session = await getSession();
-  if (!session) throw new Error('N�o autenticado');
-  const { data, error } = await getSupabase().from('messages').insert({
-    ad_id: adId, sender_id: session.user.id, receiver_id: receiverId, content
-  }).select().maybeSingle();
-  if (error) throw error;
-  return data;
+  try {
+    const session = await getSession();
+    if (!session) throw new Error('No autenticado');
+    const { data, error } = await getSupabase().from('messages').insert({
+      ad_id: adId, sender_id: session.user.id, receiver_id: receiverId, content
+    }).select().maybeSingle();
+    if (error) throw error;
+    return data;
+  } catch (err) {
+    console.error('[sendMessage] Erro:', err);
+    throw err;
+  }
 }
 
 async function getMyMessages() {
