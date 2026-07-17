@@ -370,8 +370,12 @@
 
   function openReviewModal() {
     if (!localStorage.getItem('auth-token')) {
-      alert("Você precisa estar logado (com e-mail/telefone autenticado) para avaliar vendedores.");
-      window.location.href = "login.html?redirect=" + encodeURIComponent(window.location.href);
+      if (typeof window.showToast === 'function') {
+        window.showToast("Você precisa estar logado para avaliar vendedores.", "warning", 3000);
+      }
+      setTimeout(() => {
+        window.location.href = "login.html?redirect=" + encodeURIComponent(window.location.href);
+      }, 3000);
       return;
     }
     document.getElementById('review-modal').style.display = 'flex';
@@ -390,6 +394,7 @@
     btn.innerHTML = 'Enviando...'; btn.disabled = true;
 
     try {
+      const sb = getSupabase();
       const { data: { user } } = await sb.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
@@ -413,8 +418,10 @@
       }
       
       closeReviewModal();
-      alert("Avaliação enviada com sucesso! Obrigado por ajudar a comunidade.");
-      window.location.reload();
+      if (typeof window.showToast === 'function') {
+        window.showToast("Avaliação enviada com sucesso! Obrigado.", "success", 4000);
+      }
+      setTimeout(() => window.location.reload(), 1500);
 
     } catch (e) {
       const alertDiv = document.getElementById('review-alert');
@@ -433,17 +440,18 @@
     }
     
     // Pegar nome
-    const { data: profile } = await sb.from('profiles').select('name').eq('id', sellerId).single();
-    const name = profile?.name || 'Vendedor Anônimo';
+    const sb = getSupabase();
+    const { data: profile } = await sb.from('profiles').select('name, display_name').eq('id', sellerId).single();
+    const name = profile?.display_name || profile?.name || 'Vendedor Anônimo';
     document.getElementById('seller-name').textContent = name;
     document.getElementById('seller-avatar').textContent = name.charAt(0).toUpperCase();
 
     // Pegar reviews
-    const { data: reviews } = await sb.from('seller_reviews').select('rating').eq('seller_id', sellerId);
-    if(reviews && reviews.length > 0) {
-      const total = reviews.reduce((sum, r) => sum + r.rating, 0);
-      const avg = total / reviews.length;
-      document.getElementById('seller-rating-text').textContent = `(${reviews.length} avaliação${reviews.length>1?'ões':''}) • Média ${avg.toFixed(1)}`;
+    const { data: stats } = await sb.rpc('get_seller_stats', { p_seller_id: sellerId });
+    if(stats && stats.length > 0 && stats[0].total_reviews > 0) {
+      const total = stats[0].total_reviews;
+      const avg = stats[0].avg_rating;
+      document.getElementById('seller-rating-text').textContent = `(${total} avaliação${total>1?'ões':''}) • Média ${avg.toFixed(1)}`;
       
       let starsHtml = '';
       for(let i=1; i<=5; i++) {

@@ -810,9 +810,19 @@
       _myAds=await getMyAds();
       const { data: vData } = await sb.from('ad_views_daily').select('view_date, views_count');
       window._dailyViews = vData || [];
+      const session = await getSession();
+      if(session && session.user) {
+        const { data: stats } = await sb.rpc('get_user_ads_stats', { p_user_id: session.user.id });
+        if(stats && stats.length > 0) {
+          window._totalViews = stats[0].total_views;
+          window._totalAds = stats[0].total_ads;
+        }
+      }
     } catch(e) {
       _myAds=[];
       window._dailyViews=[];
+      window._totalViews = 0;
+      window._totalAds = 0;
       showToast('Erro ao carregar anúncios.','error');
     }
     renderAds();
@@ -838,7 +848,7 @@
 
     // -- Analytics Chart --
     let analyticsHtml = '';
-    const totalViews = _myAds.reduce((acc, a) => acc + (a.views_count||0), 0);
+    const totalViews = window._totalViews || 0;
     
     if (_myAds.length > 0 && statusFilter === 'all') {
       const topAds = [..._myAds].sort((a,b) => (b.views_count||0) - (a.views_count||0)).slice(0, 5);

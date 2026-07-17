@@ -383,6 +383,7 @@ async function fetchAndRenderAds(append = false) {
       preco_min: f.priceMin,
       preco_max: f.priceMax,
       featured:  f.featured || null,
+      user_id:   typeof sellerId !== 'undefined' ? sellerId : null,
       cursor:    append ? _nextCursor : null,
       limit:     PAGE_SIZE,
       signal:    signal,

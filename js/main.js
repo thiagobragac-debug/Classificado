@@ -236,9 +236,26 @@ function icon(name, size = 20) {
 }
 
 // ─── FAVORITES & RECENTLY VIEWED ─────────────
-window.tcFavorites = new Set(JSON.parse(localStorage.getItem('tc_favorites') || '[]'));
-window.tcRecentViews = JSON.parse(localStorage.getItem('tc_recent_views') || '[]');
+window.tcFavorites = new Set();
+window.tcRecentViews = [];
 window.recentPage = 0;
+
+// Inicializa de forma assíncrona para não bloquear a thread principal (parser do JS)
+Promise.resolve().then(() => {
+  try {
+    const favs = localStorage.getItem('tc_favorites');
+    if (favs) window.tcFavorites = new Set(JSON.parse(favs));
+  } catch (e) {
+    console.warn('Erro ao ler tc_favorites', e);
+  }
+  
+  try {
+    const recents = localStorage.getItem('tc_recent_views');
+    if (recents) window.tcRecentViews = JSON.parse(recents);
+  } catch (e) {
+    console.warn('Erro ao ler tc_recent_views', e);
+  }
+});
 
 /**
  * toggleFavorite — versão unificada.
@@ -246,39 +263,7 @@ window.recentPage = 0;
  * e sincroniza com o banco via _rpcToggleFav (rollback em caso de erro).
  */
 // ─── TOAST NOTIFICATION ─────────────────────
-// Notificação visual leve, auto-injetada, sem dependência externa
-(function injectToastStyles() {
-  if (document.getElementById('tc-toast-style')) return;
-  const s = document.createElement('style');
-  s.id = 'tc-toast-style';
-  s.textContent = `
-    #tc-toast-container {
-      position: fixed; bottom: 24px; right: 24px;
-      z-index: 99999; display: flex; flex-direction: column;
-      gap: 10px; pointer-events: none;
-    }
-    .tc-toast {
-      display: flex; align-items: center; gap: 10px;
-      padding: 13px 18px; border-radius: 12px;
-      font-family: var(--font-body,'Inter',sans-serif);
-      font-size: .875rem; font-weight: 500; line-height: 1.4;
-      box-shadow: 0 8px 24px rgba(0,0,0,.14), 0 2px 6px rgba(0,0,0,.08);
-      pointer-events: auto; min-width: 240px; max-width: 360px;
-      animation: tcToastIn .3s cubic-bezier(.34,1.56,.64,1);
-      transition: opacity .35s, transform .35s;
-    }
-    .tc-toast.hiding { opacity: 0; transform: translateY(8px); }
-    .tc-toast--error   { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
-    .tc-toast--success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
-    .tc-toast--info    { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
-    .tc-toast--warning { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
-    @keyframes tcToastIn {
-      from { opacity: 0; transform: translateY(16px) scale(.95); }
-      to   { opacity: 1; transform: translateY(0)   scale(1);    }
-    }
-  `;
-  document.head.appendChild(s);
-})();
+// Estilos do toast movidos para css/style.css
 
 window.showToast = function(message, type = 'info', durationMs = 4000) {
   let container = document.getElementById('tc-toast-container');
@@ -306,13 +291,16 @@ window.showToast = function(message, type = 'info', durationMs = 4000) {
   toast.appendChild(msgSpan);
   container.appendChild(toast);
 
+  let isDismissing = false;
   const dismiss = () => {
+    if (isDismissing) return;
+    isDismissing = true;
     toast.classList.add('hiding');
     setTimeout(() => toast.remove(), 380);
   };
 
   const timer = setTimeout(dismiss, durationMs);
-  toast.addEventListener('click', () => { clearTimeout(timer); dismiss(); });
+  toast.addEventListener('click', () => { clearTimeout(timer); dismiss(); }, { once: true });
 };
 
 async function toggleFavorite(event, adId) {
@@ -335,10 +323,9 @@ async function toggleFavorite(event, adId) {
 
   // 2. Atualiza visual de todos os botões deste anúncio na página
   const updateVisuals = (active) => {
-    document.querySelectorAll('.ad-card__fav').forEach(btn => {
-      if (btn.closest('[aria-label]')?.getAttribute('aria-label') === adId || btn.dataset.adId === adId) {
-        btn.classList.toggle('active', active);
-      }
+    // Usar seletor específico é muito mais rápido que iterar sobre todos os botões
+    document.querySelectorAll(`.ad-card__fav[data-ad-id="${adId}"]`).forEach(btn => {
+      btn.classList.toggle('active', active);
     });
   };
   updateVisuals(!isFav);
@@ -1355,8 +1342,9 @@ function applyDynamicSettings() {
     if (!url) return null;
     try {
       const parsed = new URL(url);
-      // B-03: 'data:' removido — data:text/html com scripts é perigoso como favicon/bgImage
-      if (!['http:', 'https:'].includes(parsed.protocol)) return null;
+      // B-03: 'data:' removido anteriormente, mas é necessário para logos em base64 salvos no admin
+      if (!['http:', 'https:', 'data:'].includes(parsed.protocol)) return null;
+      if (parsed.protocol === 'data:' && !url.startsWith('data:image/')) return null;
       return url;
     } catch {
       return url.startsWith('javascript') ? null : url;
@@ -1536,7 +1524,11 @@ function showCustomPwaPrompt() {
   if (rawLogoUrl) {
     try {
       const parsed = new URL(rawLogoUrl);
-      if (['http:', 'https:'].includes(parsed.protocol)) safeLogoUrl = rawLogoUrl;
+      if (['http:', 'https:', 'data:'].includes(parsed.protocol)) {
+        if (parsed.protocol !== 'data:' || rawLogoUrl.startsWith('data:image/')) {
+          safeLogoUrl = rawLogoUrl;
+        }
+      }
     } catch (_) {}
   }
 

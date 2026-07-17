@@ -301,7 +301,7 @@ app.post('/api/checkout', checkoutLimiter, async (req, res) => {
 
     const frontendUrl = process.env.FRONTEND_URL?.split(',')[0]?.trim() || 'http://localhost:8080';
 
-    const { data: settingsArr } = await supabase.from('platform_settings').select('*');
+    const { data: settingsArr } = await supabase.rpc('get_backend_secrets', { token: process.env.BACKEND_SECRET_TOKEN });
     const settings = Object.fromEntries((settingsArr || []).map(s => [s.key, s.value]));
     const gateway  = process.env.PAYMENT_GATEWAY || settings.payment_gateway || 'mercadopago';
 
@@ -347,7 +347,7 @@ app.post('/api/checkout/subscription/intent', checkoutLimiter, async (req, res) 
     if (!plan) throw new Error('Plano n�o encontrado');
     if (plan.price <= 0) return res.json({ free: true });
 
-    const { data: settingsArr } = await supabase.from('platform_settings').select('*');
+    const { data: settingsArr } = await supabase.rpc('get_backend_secrets', { token: process.env.BACKEND_SECRET_TOKEN });
     const settings = Object.fromEntries((settingsArr || []).map(s => [s.key, s.value]));
     const gateway  = process.env.PAYMENT_GATEWAY || settings.payment_gateway || 'mercadopago';
 
@@ -385,7 +385,7 @@ app.post('/api/checkout/subscription/process', checkoutLimiter, async (req, res)
     const { data: { user }, error: authErr } = await supabaseAuth.auth.getUser();
     if (authErr || !user) return res.status(401).json({ error: 'Token inv�lido' });
 
-    const { data: settingsArr } = await supabase.from('platform_settings').select('*');
+    const { data: settingsArr } = await supabase.rpc('get_backend_secrets', { token: process.env.BACKEND_SECRET_TOKEN });
     const settings = Object.fromEntries((settingsArr || []).map(s => [s.key, s.value]));
     const gateway  = process.env.PAYMENT_GATEWAY || settings.payment_gateway || 'mercadopago';
 
@@ -460,7 +460,7 @@ app.post('/api/checkout/intent', checkoutLimiter, async (req, res) => {
     if (!plan) throw new Error('Plano n�o encontrado');
     if (plan.price <= 0) return res.json({ free: true });
 
-    const { data: settingsArr } = await supabase.from('platform_settings').select('*');
+    const { data: settingsArr } = await supabase.rpc('get_backend_secrets', { token: process.env.BACKEND_SECRET_TOKEN });
     const settings = Object.fromEntries((settingsArr || []).map(s => [s.key, s.value]));
     const gateway  = process.env.PAYMENT_GATEWAY || settings.payment_gateway || 'mercadopago';
 
@@ -494,7 +494,7 @@ app.post('/api/checkout/process', checkoutLimiter, async (req, res) => {
   if (!supabaseAuth) return res.status(401).json({ error: 'Token de autentica��o necess�rio' });
 
   try {
-    const { data: settingsArr } = await supabase.from('platform_settings').select('*');
+    const { data: settingsArr } = await supabase.rpc('get_backend_secrets', { token: process.env.BACKEND_SECRET_TOKEN });
     const settings = Object.fromEntries((settingsArr || []).map(s => [s.key, s.value]));
     const gateway  = process.env.PAYMENT_GATEWAY || settings.payment_gateway || 'mercadopago';
 
@@ -556,7 +556,7 @@ app.post('/api/webhook/payment', async (req, res) => {
   // ?? Carrega settings do Supabase (para usar chaves salvas no admin) ????
   let settings = {};
   try {
-    const { data: settingsArr } = await supabase.from('platform_settings').select('*');
+    const { data: settingsArr } = await supabase.rpc('get_backend_secrets', { token: process.env.BACKEND_SECRET_TOKEN });
     settings = Object.fromEntries((settingsArr || []).map(s => [s.key, s.value]));
   } catch (_) { /* usa apenas env vars como fallback */ }
 

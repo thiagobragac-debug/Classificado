@@ -141,8 +141,19 @@ async function updateProfile(userId, updates) {
 const geoCache = {
   countries: null,
   states: {},
-  cities: {}
+  cities: {},
+  _stateKeys: [],
+  _cityKeys: []
 };
+
+const GEO_CACHE_LIMIT = 50;
+function _enforceGeoCache(cacheObj, keysArr, key) {
+  if (!keysArr.includes(key)) keysArr.push(key);
+  if (keysArr.length > GEO_CACHE_LIMIT) {
+    const old = keysArr.shift();
+    delete cacheObj[old];
+  }
+}
 
 async function getCountries() {
   if (geoCache.countries) return geoCache.countries;
@@ -164,6 +175,7 @@ async function getStates(paisId) {
     .order('nome', { ascending: true });
   if (error) throw error;
   geoCache.states[paisId] = data;
+  _enforceGeoCache(geoCache.states, geoCache._stateKeys, paisId);
   return data;
 }
 
@@ -176,6 +188,7 @@ async function getCities(estadoId) {
     .order('nome', { ascending: true });
   if (error) throw error;
   geoCache.cities[estadoId] = data;
+  _enforceGeoCache(geoCache.cities, geoCache._cityKeys, estadoId);
   return data;
 }
 
@@ -210,7 +223,7 @@ const BR_STATES = {
   'Tocantins': 'TO', 'TO': 'Tocantins',
 };
 
-async function getAds({ category, country, state, city, search, preco_min, preco_max, featured, page, cursor, limit = 20, status = 'active' } = {}) {
+async function getAds({ category, country, state, city, search, preco_min, preco_max, featured, page, cursor, limit = 20, status = 'active', user_id } = {}) {
   const currentPage = cursor ? parseInt(cursor) : (page ? parseInt(page) : 1);
   const from = (currentPage - 1) * limit;
 
@@ -222,6 +235,8 @@ async function getAds({ category, country, state, city, search, preco_min, preco
     .order('created_at', { ascending: false })
     // C-06: pede limit+1 para detectar hasMore corretamente
     .range(from, from + limit);
+
+  if (user_id)   q = q.eq('user_id', user_id);
 
   if (category)  q = q.eq('category_id', category);
   if (country)   q = q.eq('country', country);
@@ -329,6 +344,31 @@ async function getMyAds() {
 function compressImage(file, maxWidth = 1200, quality = 0.8) {
   return new Promise((resolve) => {
     if (!file.type.match(/image.*/)) return resolve(file);
+
+    if (typeof OffscreenCanvas !== 'undefined' && typeof Worker !== 'undefined') {
+      try {
+        const worker = new Worker('/js/image-worker.js');
+        worker.onmessage = (e) => {
+          if (e.data.blob) {
+            const newFile = new File([e.data.blob], e.data.fileName.replace(/\.[^/.]+$/, ".jpg"), { type: 'image/jpeg' });
+            resolve(newFile);
+          } else {
+            resolve(file); // fallback se der erro
+          }
+          worker.terminate();
+        };
+        worker.onerror = () => {
+          resolve(file); // fallback geral
+          worker.terminate();
+        };
+        worker.postMessage({ file, maxWidth, quality, watermarkText: 'Tauze Class' });
+        return;
+      } catch(e) {
+        // Falhou ao criar worker, segue pro fallback síncrono/canvas clássico
+      }
+    }
+
+    // Fallback: compressão clássica no thread principal (antigo)
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
@@ -488,13 +528,14 @@ async function getMyMessages() {
 
 /** Subscribe para mensagens em tempo real */
 function subscribeToMessages(userId, callback) {
-  return getSupabase()
+  const channel = getSupabase()
     .channel('messages')
     .on('postgres_changes', {
       event: 'INSERT', schema: 'public', table: 'messages',
       filter: `receiver_id=eq.${userId}`
-    }, callback)
-    .subscribe();
+    }, callback);
+  channel.subscribe();
+  return channel;
 }
 
 // ??? LEIL�ES ??????????????????????????????????????????????????
@@ -538,13 +579,23 @@ async function placeBid(auctionId, amount) {
 
 /** Subscribe para lances em tempo real */
 function subscribeToAuction(auctionId, callback) {
-  return getSupabase()
+  const channel = getSupabase()
     .channel(`auction:${auctionId}`)
     .on('postgres_changes', {
       event: 'INSERT', schema: 'public', table: 'auction_bids',
       filter: `auction_id=eq.${auctionId}`
-    }, callback)
-    .subscribe();
+    }, callback);
+  channel.subscribe();
+  return channel;
+}
+
+/** Remove uma inscrição de canal */
+function unsubscribeChannel(channel) {
+  if (channel && typeof channel.unsubscribe === 'function') {
+    channel.unsubscribe();
+  } else if (channel) {
+    getSupabase().removeChannel(channel);
+  }
 }
 
 // ??? DEN�NCIAS ????????????????????????????????????????????????

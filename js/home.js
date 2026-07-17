@@ -5,35 +5,7 @@
 // ============================================
 
 // ─── INJECT CSS ──────────────────────────────
-(function() {
-  if (document.getElementById('tc-home-style')) return;
-  const s = document.createElement('style');
-  s.id = 'tc-home-style';
-  s.textContent = `
-    @keyframes shimmer {
-      0%   { background-position: -200% 0; }
-      100% { background-position:  200% 0; }
-    }
-    .sk-card {
-      border-radius: 12px;
-      overflow: hidden;
-      background: #fff;
-      box-shadow: 0 1px 3px rgba(0,0,0,.06);
-    }
-    .sk-img  { height: 200px; background: linear-gradient(90deg,#f0f0f0 25%,#e8e8e8 50%,#f0f0f0 75%); background-size: 200% 100%; animation: shimmer 1.4s ease-in-out infinite; }
-    .sk-body { padding: 14px; }
-    .sk-line { height: 12px; border-radius: 4px; margin-bottom: 10px; background: linear-gradient(90deg,#f0f0f0 25%,#e8e8e8 50%,#f0f0f0 75%); background-size: 200% 100%; animation: shimmer 1.4s ease-in-out infinite; }
-    .geo-badge { margin-bottom: 12px; }
-    .geo-badge span {
-      display: inline-flex; align-items: center; gap: 6px;
-      font-size: .76rem; font-weight: 600;
-      color: var(--clr-primary-mid,#15803d);
-      background: #f0fdf4; border: 1px solid #bbf7d0;
-      padding: 3px 12px; border-radius: 99px;
-    }
-  `;
-  document.head.appendChild(s);
-})();
+// Estilos home movidos para css/style.css
 
 // ─── SKELETON ────────────────────────────────
 function skeleton(n) {
@@ -63,10 +35,17 @@ function geoBadge(level, loc) {
 function detectLevel(ads, loc) {
   if (!loc || !ads || !ads.length) return 'global';
   const n = s => (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
-  const a = ads[0];
-  if (loc.city    && n(a.city)    === n(loc.city))    return 'city';
-  if (loc.state   && n(a.state)   === n(loc.state))   return 'state';
-  if (loc.country && n(a.country) === n(loc.country)) return 'country';
+  let cityCount = 0, stateCount = 0, countryCount = 0;
+  for (const a of ads) {
+    if (loc.city && n(a.city) === n(loc.city)) cityCount++;
+    else if (loc.state && n(a.state) === n(loc.state)) stateCount++;
+    else if (loc.country && n(a.country) === n(loc.country)) countryCount++;
+  }
+  const total = ads.length;
+  // Se a maioria (>= 50%) corresponde a uma região, usamos essa região.
+  if (cityCount >= total / 2) return 'city';
+  if (stateCount + cityCount >= total / 2) return 'state';
+  if (countryCount + stateCount + cityCount >= total / 2) return 'country';
   return 'global';
 }
 
@@ -221,6 +200,12 @@ async function renderFeaturedAdsHome() {
     }
   } catch (e) {
     console.error('[home] renderFeaturedAdsHome erro:', e);
+    grid.innerHTML = `<div class="empty-state">
+      <div class="empty-icon">🔌</div>
+      <h3>Erro de Conexão</h3>
+      <p>Não foi possível carregar os anúncios. Tente novamente.</p>
+    </div>`;
+    return;
   }
 
   grid.innerHTML = '';
@@ -298,6 +283,12 @@ async function renderRecentAdsHome() {
       }
     } catch (e) {
       console.error('[home] renderRecentAdsHome erro:', e);
+      grid.innerHTML = `<div class="empty-state">
+        <div class="empty-icon">🔌</div>
+        <h3>Erro de Conexão</h3>
+        <p>Não foi possível carregar os anúncios recentes.</p>
+      </div>`;
+      return;
     }
 
     grid.innerHTML = '';

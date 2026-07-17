@@ -439,11 +439,11 @@
     document.getElementById('seller-avatar').textContent = name.charAt(0).toUpperCase();
 
     // Pegar reviews
-    const { data: reviews } = await sb.from('seller_reviews').select('rating').eq('seller_id', sellerId);
-    if(reviews && reviews.length > 0) {
-      const total = reviews.reduce((sum, r) => sum + r.rating, 0);
-      const avg = total / reviews.length;
-      document.getElementById('seller-rating-text').textContent = `(${reviews.length} avaliação${reviews.length>1?'ões':''}) • Média ${avg.toFixed(1)}`;
+    const { data: stats } = await sb.rpc('get_seller_stats', { p_seller_id: sellerId });
+    if(stats && stats.length > 0 && stats[0].total_reviews > 0) {
+      const total = stats[0].total_reviews;
+      const avg = stats[0].avg_rating;
+      document.getElementById('seller-rating-text').textContent = `(${total} avaliação${total>1?'ões':''}) • Média ${avg.toFixed(1)}`;
       
       let starsHtml = '';
       for(let i=1; i<=5; i++) {

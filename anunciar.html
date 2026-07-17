@@ -413,7 +413,7 @@
 
     async function init(){
       var session=await getSession();
-      if(!session){window.location.href='/login.html';return;}
+      if(!session){window.location.href='/login.html?redirect=/anunciar.html';return;}
       var navLogin=document.getElementById('nav-login');
       var navDashboard=document.getElementById('nav-dashboard');
       if(navLogin)navLogin.style.display='none';

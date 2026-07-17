@@ -583,13 +583,14 @@
           
           // Inject Reviews logic
           try {
-            const { data: revs } = await sb.from('seller_reviews').select('rating').eq('seller_id', sellerId);
+            const { data: stats } = await sb.rpc('get_seller_stats', { p_seller_id: sellerId });
             let avgHtml = '';
-            if(revs && revs.length > 0) {
-              const avg = revs.reduce((sum, r) => sum + r.rating, 0) / revs.length;
+            if(stats && stats.length > 0 && stats[0].total_reviews > 0) {
+              const avg = stats[0].avg_rating;
+              const total = stats[0].total_reviews;
               let stars = '';
               for(let i=1; i<=5; i++) stars += (i <= Math.round(avg)) ? '★' : '☆';
-              avgHtml = `<div style="color:#f59e0b;font-size:1.1rem;margin-top:2px;">${stars} <span style="color:#64748b;font-size:0.8rem;font-weight:700;">(${revs.length})</span></div>`;
+              avgHtml = `<div style="color:#f59e0b;font-size:1.1rem;margin-top:2px;">${stars} <span style="color:#64748b;font-size:0.8rem;font-weight:700;">(${total})</span></div>`;
             }
             if(!document.getElementById('injected-stars-badge')) {
                const starDiv = document.createElement('div');

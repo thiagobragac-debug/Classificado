@@ -31,7 +31,12 @@ serve(async (req) => {
     const { ad_id, plan_id } = await req.json()
 
     // Buscar configurações do painel admin (Multi-Gateway)
-    const { data: settingsArr, error: settingsErr } = await supabaseClient
+    // Usa a Service Role para ignorar o bloqueio de RLS das chaves secretas
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+    const { data: settingsArr, error: settingsErr } = await supabaseAdmin
       .from('platform_settings')
       .select('*');
 
