@@ -2,8 +2,6 @@
    TAUZE CLASS — Design System v2 (Modern Clean)
    ============================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
-
 /* ─── DESIGN TOKENS v2 ───────────────────── */
 :root {
   /* Brand Colors — Emerald Clean */
@@ -800,6 +798,7 @@ html.is-logged-in .auth-wrapper a[href="login.html"]::after {
   cursor: pointer; transition: all var(--transition-spring);
   text-align: center; border: 1.5px solid transparent;
   box-shadow: var(--shadow-xs);
+  will-change: transform, box-shadow;
 }
 .cat-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-lg); }
 
@@ -824,6 +823,7 @@ html.is-logged-in .auth-wrapper a[href="login.html"]::after {
   background: white; border-radius: var(--r-xl); overflow: hidden;
   box-shadow: var(--shadow-card); border: none;
   transition: all var(--transition-base); cursor: pointer; position: relative;
+  will-change: transform, box-shadow;
 }
 .ad-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-card-hover); }
 
@@ -987,7 +987,7 @@ html.is-logged-in .auth-wrapper a[href="login.html"]::after {
 .badge--new      { background: #DBEAFE; color: #1D4ED8; }
 
 /* ─── ANIMATIONS ─────────────────────────── */
-.fade-in-up { opacity: 0; transform: translateY(20px); transition: opacity .55s ease, transform .55s ease; }
+.fade-in-up { opacity: 0; transform: translateY(20px); transition: opacity .55s ease, transform .55s ease; will-change: transform, opacity; }
 .fade-in-up.visible { opacity: 1; transform: translateY(0); }
 
 .skeleton { background: linear-gradient(90deg, var(--clr-bg-alt) 25%, var(--clr-surface-alt) 50%, var(--clr-bg-alt) 75%); background-size: 200% 100%; animation: skeleton-loading 1.4s infinite; border-radius: var(--r-sm); }

@@ -319,7 +319,7 @@ async function toggleFavorite(event, adId) {
   } else {
     window.tcFavorites.add(adId);
   }
-  localStorage.setItem('tc_favorites', JSON.stringify([...window.tcFavorites]));
+  _saveFavoritesDeferred();
 
   // 2. Atualiza visual de todos os botões deste anúncio na página
   const updateVisuals = (active) => {
@@ -338,7 +338,7 @@ async function toggleFavorite(event, adId) {
       if (typeof serverState === 'boolean' && serverState !== finalState) {
         if (serverState) window.tcFavorites.add(adId);
         else window.tcFavorites.delete(adId);
-        localStorage.setItem('tc_favorites', JSON.stringify([...window.tcFavorites]));
+        _saveFavoritesDeferred();
         updateVisuals(serverState);
         finalState = serverState;
       }
@@ -346,7 +346,7 @@ async function toggleFavorite(event, adId) {
       // Rollback: desfaz a atualização otimista e notifica o usuário
       if (isFav) window.tcFavorites.add(adId);
       else window.tcFavorites.delete(adId);
-      localStorage.setItem('tc_favorites', JSON.stringify([...window.tcFavorites]));
+      _saveFavoritesDeferred();
       updateVisuals(isFav);
       finalState = isFav;
       console.error('[toggleFavorite] Erro ao sincronizar, revertido:', err.message);
@@ -380,7 +380,20 @@ function recordRecentView(ad) {
     image: ad.image
   });
   if (window.tcRecentViews.length > 10) window.tcRecentViews.pop();
-  localStorage.setItem('tc_recent_views', JSON.stringify(window.tcRecentViews));
+  
+  if (window.requestIdleCallback) {
+    window.requestIdleCallback(() => localStorage.setItem('tc_recent_views', JSON.stringify(window.tcRecentViews)));
+  } else {
+    setTimeout(() => localStorage.setItem('tc_recent_views', JSON.stringify(window.tcRecentViews)), 0);
+  }
+}
+
+function _saveFavoritesDeferred() {
+  if (window.requestIdleCallback) {
+    window.requestIdleCallback(() => localStorage.setItem('tc_favorites', JSON.stringify([...window.tcFavorites])));
+  } else {
+    setTimeout(() => localStorage.setItem('tc_favorites', JSON.stringify([...window.tcFavorites])), 0);
+  }
 }
 
 async function renderRecentlyViewed() {
@@ -1456,7 +1469,7 @@ window.renderAdBanner = async function(position, containerId) {
     container.innerHTML = `
       <div class="ad-banner-wrapper" style="width:100%;height:${heightStyle};position:relative;margin:1.5rem 0;overflow:hidden;border-radius:12px;background:#000;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);">
         <a href="${escapeHTML(linkUrl)}" target="_blank" rel="noopener sponsored" style="display:block;width:100%;height:100%;position:relative;">
-          <img src="${escapeHTML(imageUrl)}" alt="${escapeHTML(bannerName)}" style="width:100%;height:100%;object-fit:cover;opacity:0.85;transition:opacity 0.3s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.85'" loading="lazy">
+          <img src="${escapeHTML(imageUrl)}" alt="${escapeHTML(bannerName)}" style="width:100%;height:100%;object-fit:cover;opacity:0.85;transition:opacity 0.3s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.85'" loading="lazy" decoding="async">
         </a>
       </div>`;
     return;
@@ -1482,7 +1495,14 @@ window.renderAdBanner = async function(position, containerId) {
   }
   if (!isLogged) return;
 
+  // Throttle no reset do timer para evitar sobrecarga de CPU/Event Loop
+  let lastResetTime = 0;
   function resetTimer() {
+    const now = Date.now();
+    // Reseta no máximo a cada 10 segundos
+    if (now - lastResetTime < 10000) return;
+    lastResetTime = now;
+    
     clearTimeout(inactivityTimer);
     inactivityTimer = setTimeout(() => {
       console.warn('Sessão encerrada por inatividade (1 Hora).');
@@ -1502,7 +1522,8 @@ window.renderAdBanner = async function(position, containerId) {
     window.addEventListener(evt, resetTimer, { passive: true });
   });
 
-  // Inicia o timer
+  // Inicia o timer forçadamente na primeira vez
+  lastResetTime = Date.now() - 20000;
   resetTimer();
 })();
 

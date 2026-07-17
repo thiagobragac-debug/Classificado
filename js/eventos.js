@@ -173,8 +173,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // Listeners globais com AbortController para limpeza automática
+  let resizeTicking = false;
   window.addEventListener('resize', () => {
-    if (autocompleteBox.style.display === 'block') positionAutocomplete();
+    if (!resizeTicking && autocompleteBox.style.display === 'block') {
+      window.requestAnimationFrame(() => {
+        positionAutocomplete();
+        resizeTicking = false;
+      });
+      resizeTicking = true;
+    }
   }, { signal });
 
   document.addEventListener('click', (e) => {

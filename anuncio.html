@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://js.sentry-cdn.com https://browser.sentry-cdn.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://placehold.co https://rfzuzuobwuanmbrcthqe.supabase.co https://flagcdn.com; connect-src 'self' https://rfzuzuobwuanmbrcthqe.supabase.co wss://rfzuzuobwuanmbrcthqe.supabase.co https://ipapi.co https://freeipapi.com https://nominatim.openstreetmap.org https://*.sentry.io;">
   <meta charset="UTF-8">
   <!-- A6: preconnect para domínios críticos — elimina latência de handshake TLS -->
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
@@ -29,6 +30,9 @@
   <meta name="twitter:title" content="Anúncio — Tauze Class">
   <meta name="twitter:description" content="Confira os detalhes deste anúncio no Tauze Class.">
   <meta name="twitter:image" content="https://tauzeclass.com.br/assets/og-home.jpg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css?v=1783509347880">
   <link rel="stylesheet" href="css/anuncio.css">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2316A34A'/%3E%3Ctext y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'%3ET%3C/text%3E%3C/svg%3E">
@@ -193,7 +197,7 @@
             <div style="display:flex; align-items:center; justify-content:center; gap:1.5rem; margin-top:0.5rem; padding-bottom:0.5rem;">
               <button style="background:none; border:none; color:var(--clr-text-light); font-weight:600; font-size:0.9rem; cursor:pointer; display:flex; align-items:center; gap:0.4rem; transition:color .2s;"
                       onmouseover="this.style.color='var(--clr-primary)'" onmouseout="this.style.color='var(--clr-text-light)'"
-                      onclick="if(navigator.share) { navigator.share({title: document.title, url: window.location.href}).catch(e=>{}); } else { navigator.clipboard.writeText(window.location.href); const orig=this.innerHTML; this.innerHTML='<svg width=\'16\' height=\'16\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><polyline points=\'20 6 9 17 4 12\'></polyline></svg> Copiado!'; this.style.color='#16a34a'; setTimeout(()=> {this.innerHTML=orig; this.style.color='';}, 2000); }">
+                      onclick="const id = new URLSearchParams(window.location.search).get('id'); const shareUrl = id ? 'https://rfzuzuobwuanmbrcthqe.supabase.co/functions/v1/og-meta?id=' + id : window.location.href; if(navigator.share) { navigator.share({title: document.title, url: shareUrl}).catch(e=>{}); } else { navigator.clipboard.writeText(shareUrl); const orig=this.innerHTML; this.innerHTML='<svg width=\'16\' height=\'16\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><polyline points=\'20 6 9 17 4 12\'></polyline></svg> Copiado!'; this.style.color='#16a34a'; setTimeout(()=> {this.innerHTML=orig; this.style.color='';}, 2000); }">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
                 <span data-i18n="ad_share">Compartilhar</span>
               </button>

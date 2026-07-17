@@ -35,23 +35,65 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   const url = e.request.url;
-  // Requisições dinâmicas: sempre tenta a rede, usa cache só como fallback offline
+  
+  // 1. DADOS DINÂMICOS (Modo Offline Agrícola para Anúncios e Imagens do Supabase)
   if (url.includes('supabase.co') || url.includes('/api/') ||
       url.includes('ipapi.co') || url.includes('freeipapi.com') ||
       url.includes('nominatim.openstreetmap.org')) {
-    e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+    
+    // Só cacheamos requisições de leitura (GET)
+    if (e.request.method === 'GET') {
+      e.respondWith(
+        fetch(e.request).then(response => {
+          // Salva uma cópia no cache dinâmico se a rede funcionar (Modo Offline)
+          if (response.status === 200) {
+            const resClone = response.clone();
+            caches.open('tc-dynamic-v1').then(cache => {
+              cache.put(e.request, resClone);
+            });
+          }
+          return response;
+        }).catch(() => {
+          // Falhou (Offline na Fazenda) -> Tenta pegar do cache dinâmico!
+          return caches.match(e.request);
+        })
+      );
+    } else {
+      // POST, PUT, DELETE (Inserir anúncio, enviar msg) -> Tenta rede normal
+      e.respondWith(fetch(e.request));
+    }
     return;
   }
-  // Estáticos: stale-while-revalidate (serve cache imediatamente + atualiza em background)
-  e.respondWith(
-    caches.match(e.request).then((cached) => {
-      const fetchPromise = fetch(e.request).then((nr) => {
-        if (nr && nr.status === 200 && nr.type !== 'opaque') {
-          caches.open(CACHE_NAME).then((c) => c.put(e.request, nr.clone()));
+
+  // 2. ARQUIVOS ESTÁTICOS E HTML
+  const isHtml = e.request.headers.get('accept')?.includes('text/html');
+
+  if (isHtml) {
+    // HTML: Network First (Sempre tenta pegar a versão mais nova do servidor)
+    e.respondWith(
+      fetch(e.request).then((nr) => {
+        if (nr && nr.status === 200) {
+          const resClone = nr.clone();
+          caches.open(CACHE_NAME).then((c) => c.put(e.request, resClone));
         }
         return nr;
-      }).catch(() => null);
-      return cached || fetchPromise;
-    })
-  );
+      }).catch(() => {
+        // Se a rede falhar, retorna o HTML em cache
+        return caches.match(e.request);
+      })
+    );
+  } else {
+    // JS, CSS, Imagens: stale-while-revalidate (serve cache rápido + atualiza silenciosamente)
+    e.respondWith(
+      caches.match(e.request).then((cached) => {
+        const fetchPromise = fetch(e.request).then((nr) => {
+          if (nr && nr.status === 200 && nr.type !== 'opaque') {
+            caches.open(CACHE_NAME).then((c) => c.put(e.request, nr.clone()));
+          }
+          return nr;
+        }).catch(() => null);
+        return cached || fetchPromise;
+      })
+    );
+  }
 });

@@ -19,7 +19,7 @@
 
 .events-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem; }
 
-.event-card { background: white; border-radius: 16px; overflow: hidden; border: 1px solid var(--clr-border); transition: transform 0.3s, box-shadow 0.3s; cursor: pointer; display: flex; flex-direction: column; }
+.event-card { background: white; border-radius: 16px; overflow: hidden; border: 1px solid var(--clr-border); transition: transform 0.3s, box-shadow 0.3s; cursor: pointer; display: flex; flex-direction: column; will-change: transform, box-shadow; }
 .event-card:hover { transform: translateY(-4px); box-shadow: 0 12px 30px rgba(0,0,0,0.08); border-color: var(--clr-primary-soft); }
 .event-card-img { width: 100%; height: 200px; object-fit: cover; border-bottom: 1px solid var(--clr-border); }
 .event-card-body { padding: 1.5rem; flex: 1; display: flex; flex-direction: column; }

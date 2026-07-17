@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://js.sentry-cdn.com https://browser.sentry-cdn.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://placehold.co https://rfzuzuobwuanmbrcthqe.supabase.co https://flagcdn.com; connect-src 'self' https://rfzuzuobwuanmbrcthqe.supabase.co wss://rfzuzuobwuanmbrcthqe.supabase.co https://ipapi.co https://freeipapi.com https://nominatim.openstreetmap.org https://*.sentry.io;">
   <meta charset="UTF-8">
   <!-- A6: preconnect para domínios críticos — elimina latência de handshake TLS -->
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
@@ -13,6 +14,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Meu Painel — Tauze Class</title>
   <meta name="description" content="Gerencie seus anuncios, mensagens, favoritos e perfil no painel Tauze Class.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2316A34A'/%3E%3Ctext y='24' x='6' font-size='20' font-weight='800' fill='white' font-family='sans-serif'%3ET%3C/text%3E%3C/svg%3E">
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -227,9 +231,15 @@
 
       <!-- TAB 4: PROFILE -->
       <div id="panel-profile" class="p-panel" style="display:none">
-        <div style="margin-bottom:1.5rem">
-          <h1 style="font-size:1.75rem;font-weight:800;color:var(--clr-text)" data-i18n="pnl_profile">Meu Perfil</h1>
-          <p style="color:#64748b;font-size:.85rem;margin-top:.2rem" data-i18n="pnl_personal_data">Informações da sua conta</p>
+        <div style="margin-bottom:1.5rem; display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <h1 style="font-size:1.75rem;font-weight:800;color:var(--clr-text)" data-i18n="pnl_profile">Meu Perfil</h1>
+            <p style="color:#64748b;font-size:.85rem;margin-top:.2rem" data-i18n="pnl_personal_data">Informações da sua conta</p>
+          </div>
+          <button onclick="subscribeToPushNotifications()" style="display:inline-flex;align-items:center;gap:.5rem;padding:.6rem 1.2rem;border-radius:2rem;background:#3b82f6;color:#fff;font-weight:700;font-size:.85rem;border:none;cursor:pointer;box-shadow:0 4px 12px rgba(59, 130, 246, 0.3);transition:all .2s">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+            Ativar Notificações
+          </button>
         </div>
 
         <style>
@@ -487,6 +497,7 @@
   <script defer src="js/data.js"></script>
   <script defer src="js/ui_constants.js"></script>
   <script defer src="js/main.js?v=2"></script>
+  <script defer src="js/push.js"></script>
   <script>
   /* ================================================================
      PAINEL ─ Integração real com Supabase

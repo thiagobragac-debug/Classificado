@@ -28,11 +28,13 @@ function renderGeoFilterBadge() {
   const container = document.getElementById('active-filters');
   if (!container) return;
 
-  const existing = document.getElementById('geo-filter-badge');
-  if (existing) existing.remove();
-
   const level = _getActiveGeoLevel();
-  if (level === 'global') return;
+  let badge = document.getElementById('geo-filter-badge');
+
+  if (level === 'global') {
+    if (badge) badge.remove();
+    return;
+  }
 
   const cityEl    = document.getElementById('filter-city');
   const stateEl   = document.getElementById('filter-state');
@@ -54,16 +56,23 @@ function renderGeoFilterBadge() {
     country: 'Ver anúncios de todos os países',
   };
 
-  const badge = document.createElement('div');
-  badge.id = 'geo-filter-badge';
-  badge.innerHTML = `
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-    <span>${labels[level]}</span>
-    <button title="${nextLabels[level]}" aria-label="${nextLabels[level]}">✕</button>
-  `;
+  if (!badge) {
+    badge = document.createElement('div');
+    badge.id = 'geo-filter-badge';
+    badge.innerHTML = `
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      <span></span>
+      <button></button>
+    `;
+    badge.querySelector('button').addEventListener('click', advanceGeoLevel);
+    container.insertBefore(badge, container.firstChild);
+  }
 
-  badge.querySelector('button').addEventListener('click', advanceGeoLevel);
-  container.insertBefore(badge, container.firstChild);
+  badge.querySelector('span').textContent = labels[level];
+  const btn = badge.querySelector('button');
+  btn.textContent = '✕';
+  btn.title = nextLabels[level];
+  btn.setAttribute('aria-label', nextLabels[level]);
 }
 
 /**
