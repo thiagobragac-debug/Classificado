@@ -132,7 +132,7 @@
             <p id="ads-count-subtitle" style="color:#64748b;font-size:.85rem;margin-top:.2rem">Carregando…</p>
           </div>
           <div style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap">
-            <select id="my-ads-filter" onchange="currentAdsPage=1;renderAds()" style="padding:.65rem 1rem;border-radius:.75rem;border:1px solid #e2e8f0;background:#fff;color:var(--clr-text);font-size:.9rem;font-weight:600;outline:none;cursor:pointer">
+            <select id="my-ads-filter" onchange="currentAdsPage=1;loadAds()" style="padding:.65rem 1rem;border-radius:.75rem;border:1px solid #e2e8f0;background:#fff;color:var(--clr-text);font-size:.9rem;font-weight:600;outline:none;cursor:pointer">
               <option value="all" data-i18n="pnl_all_status">Todos os Status</option>
               <option value="active" data-i18n="pnl_active">Ativos</option>
               <option value="pending" data-i18n="pnl_pending">Pendentes</option>
@@ -806,8 +806,13 @@
 
   /* ── TAB 1 ─────────────────────────────────────── */
   async function loadAds(){
+    const filterSelect=document.getElementById('my-ads-filter');
+    const statusFilter=filterSelect?filterSelect.value:'all';
     try {
-      _myAds=await getMyAds();
+      const res = await getMyAds({ status: statusFilter, page: currentAdsPage, limit: 12 });
+      _myAds = res.data;
+      window._currentAdsTotal = res.total;
+
       const { data: vData } = await sb.from('ad_views_daily').select('view_date, views_count');
       window._dailyViews = vData || [];
       const session = await getSession();
@@ -817,12 +822,19 @@
           window._totalViews = stats[0].total_views;
           window._totalAds = stats[0].total_ads;
         }
+        // Fetch top 5 ads
+        if(statusFilter === 'all') {
+          const { data: top } = await sb.from('ads').select('title_pt, title_es, views_count').eq('user_id', session.user.id).not('status','eq','deleted').order('views_count',{ascending:false}).limit(5);
+          window._topAds = top || [];
+        }
       }
     } catch(e) {
       _myAds=[];
+      window._currentAdsTotal = 0;
       window._dailyViews=[];
       window._totalViews = 0;
       window._totalAds = 0;
+      window._topAds = [];
       showToast('Erro ao carregar anúncios.','error');
     }
     renderAds();
@@ -833,15 +845,9 @@
     const filterSelect=document.getElementById('my-ads-filter');
     const statusFilter=filterSelect?filterSelect.value:'all';
     
-    let filteredAds=_myAds;
-    if(statusFilter!=='all') {
-      filteredAds=_myAds.filter(a=>a.status===statusFilter);
-    }
-
-    const activeAds=_myAds.filter(a=>a.status==='active'||a.status==='pending');
-    updateAdsProgress(activeAds.length);
-    sTxt('ads-count-subtitle',filteredAds.length===0?'Nenhum anúncio encontrado':filteredAds.length+' anúncio'+(filteredAds.length>1?'s':''));
-    if(!filteredAds.length){
+    updateAdsProgress(window._totalAds || 0);
+    sTxt('ads-count-subtitle', window._currentAdsTotal === 0 ? 'Nenhum anúncio encontrado' : window._currentAdsTotal + ' anúncio' + (window._currentAdsTotal > 1 ? 's' : ''));
+    if(!_myAds.length){
        c.innerHTML=emptyHtml('<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>','Nenhum anúncio','Você não possui anúncios'+(statusFilter!=='all'?' com este status.':'.'),'<a href="anunciar.html" style="display:inline-flex;align-items:center;gap:.5rem;padding:.7rem 1.4rem;border-radius:.75rem;background:#16a34a;color:#fff;font-weight:700;font-size:.9rem;text-decoration:none">Publicar anúncio</a>');
        return;
     }
@@ -850,8 +856,8 @@
     let analyticsHtml = '';
     const totalViews = window._totalViews || 0;
     
-    if (_myAds.length > 0 && statusFilter === 'all') {
-      const topAds = [..._myAds].sort((a,b) => (b.views_count||0) - (a.views_count||0)).slice(0, 5);
+    if (window._topAds && window._topAds.length > 0 && statusFilter === 'all') {
+      const topAds = window._topAds;
       const maxViews = Math.max(...topAds.map(a => a.views_count||0), 1);
       
       const bars = topAds.map(a => {
@@ -880,7 +886,7 @@
           </div>
           <div style="flex:1; min-width:200px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:16px; display:flex; flex-direction:column; justify-content:center;">
             <div style="color:#64748b; font-size:0.85rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:4px;">Anúncios Ativos</div>
-            <div style="color:#0f172a; font-size:2rem; font-weight:800;">${activeAds.length}</div>
+            <div style="color:#0f172a; font-size:2rem; font-weight:800;">${window._totalAds || 0}</div>
           </div>
         </div>
 
@@ -893,11 +899,9 @@
       </div>`;
     }
 
-    
     const itemsPerPage = 12;
-    const totalPages = Math.ceil(filteredAds.length / itemsPerPage);
+    const totalPages = Math.ceil((window._currentAdsTotal || 0) / itemsPerPage);
     if (currentAdsPage > totalPages && totalPages > 0) currentAdsPage = totalPages;
-    const pagedAds = filteredAds.slice((currentAdsPage - 1) * itemsPerPage, currentAdsPage * itemsPerPage);
 
     let paginationHtml = '';
     if (totalPages > 1) {
@@ -908,7 +912,7 @@
         </div>`;
     }
 
-    c.innerHTML = analyticsHtml + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:1.5rem;padding:0 0 1.5rem 0">' + pagedAds.map(renderAdCard).join('') + '</div>' + paginationHtml;
+    c.innerHTML = analyticsHtml + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:1.5rem;padding:0 0 1.5rem 0">' + _myAds.map(renderAdCard).join('') + '</div>' + paginationHtml;
     
     // Inject Chart render logic
     setTimeout(() => {
@@ -1467,6 +1471,12 @@
 
   function resetBillingPage() {
     _billingPage = 1;
+  }
+
+  let currentAdsPage = 1;
+  function changeAdsPage(dir) {
+    currentAdsPage += dir;
+    loadAds();
   }
 
   function changeBillingPage(dir) {

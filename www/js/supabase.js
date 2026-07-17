@@ -305,17 +305,27 @@ async function deleteAd(adId) {
   if (error) throw error;
 }
 
-async function getMyAds() {
+async function getMyAds({ status = 'all', page = 1, limit = 12 } = {}) {
   const session = await getSession();
-  if (!session) return [];
-  const { data, error } = await getSupabase()
+  if (!session) return { data: [], total: 0 };
+  
+  const from = (page - 1) * limit;
+  let q = getSupabase()
     .from('ads')
-    .select('id, title_pt, title_es, price, currency, status, featured, images, category_id, city, state, country, created_at, views_count, expires_at')
+    .select('id, title_pt, title_es, price, currency, status, featured, images, category_id, city, state, country, created_at, views_count, expires_at', { count: 'exact' })
     .eq('user_id', session.user.id)
     .not('status', 'eq', 'deleted')
     .order('created_at', { ascending: false });
+
+  if (status !== 'all') {
+    q = q.eq('status', status);
+  }
+
+  q = q.range(from, from + limit - 1);
+  const { data, count, error } = await q;
   if (error) throw error;
-  return data || [];
+  
+  return { data: data || [], total: count || 0 };
 }
 
 // ??? COMPRESS�O DE IMAGEM ?????????????????????????????????????
@@ -628,9 +638,12 @@ async function canPostAd() {
   if (!user) return false;
   const plan  = user.profile?.plan || 'free';
   const limit = PLAN_LIMITS[plan].ads;
-  const myAds = await getMyAds();
-  const activeAds = myAds.filter(a => a.status === 'active' || a.status === 'pending');
-  return activeAds.length < limit;
+  const { count } = await getSupabase()
+    .from('ads')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .in('status', ['active', 'pending']);
+  return (count || 0) < limit;
 }
 
 // ??? ESTAT�STICAS REAIS DA PLATAFORMA ?????????????????????????
