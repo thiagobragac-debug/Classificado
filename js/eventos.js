@@ -242,7 +242,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       // Todos os campos do banco passam por _esc() para prevenir XSS
       card.innerHTML = `
-        <img src="${_esc(ev.image)}" alt="${_esc(ev.title)}" class="event-card-img">
+        <img src="${_esc(ev.image)}" alt="${_esc(ev.title)}" class="event-card-img" loading="lazy">
         <div class="event-card-body">
           ${ev.featured ? '<span class="event-card-tag">Destaque Oficial</span>' : ''}
           <h3 class="event-card-title">${_esc(ev.title)}</h3>
@@ -270,7 +270,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Todos os campos do banco passam por _esc() para prevenir XSS
     // O link usa atributo href separado (não via innerHTML) para segurança extra
     modalBody.innerHTML = `
-      <img src="${_esc(ev.image)}" class="modal-cover" alt="Capa">
+      <img src="${_esc(ev.image)}" class="modal-cover" alt="Capa" loading="lazy">
       <div class="modal-body-content">
         ${ev.featured ? '<span class="event-card-tag">Destaque Oficial</span>' : ''}
         <h2 class="modal-title">${_esc(ev.title)}</h2>

@@ -197,9 +197,9 @@
       try {
         const sb = window.getSupabase ? window.getSupabase() : null;
         if (sb) {
-          const resA = await sb.from('auction_events').select('*').order('date', {ascending: true});
+          const resA = await sb.from('auction_events').select('*').order('date', {ascending: true}).limit(50);
           if (!resA.error && resA.data) auctions = resA.data;
-          const resL = await sb.from('auction_lots').select('*').order('lot_number', {ascending: true});
+          const resL = await sb.from('auction_lots').select('*').order('lot_number', {ascending: true}).limit(500);
           if (!resL.error && resL.data) allLots = resL.data;
         }
       } catch(e) { console.error(e); }
@@ -492,7 +492,7 @@
           : { bg: 'rgba(0,0,0,0.7)', text: 'AGENDADO', color: 'white', stripe: 'var(--clr-primary-light)', border: '1px solid rgba(255,255,255,0.2)' };
 
         const imgHtml = image
-          ? `<img src="${image}" alt="${title}" style="width:100%;height:100%;object-fit:cover;">`
+          ? `<img src="${image}" alt="${title}" style="width:100%;height:100%;object-fit:cover;" loading="lazy">`
           : `<div style="width:100%;height:100%;background:#e5e7eb;display:flex;align-items:center;justify-content:center;color:#9ca3af;">Sem imagem</div>`;
 
         const article = document.createElement('article');
@@ -518,21 +518,23 @@
               <div style="font-size:1.6rem;font-weight:800;color:var(--clr-primary);">${fmtCurrency(currentBid)}</div>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;font-size:.8rem;color:var(--clr-text-light);margin-bottom:.75rem;">
-              <span>⏱️ <span id="${cdId}">${buildCountdown(endAt)}</span></span>
+              <span>⏱️ <span class="auction-countdown" data-end-at="${endAt}">${buildCountdown(endAt)}</span></span>
               <a href="/leilao.html?id=${auction.id}" class="btn btn--${isLive ? 'primary' : 'outline'}" style="padding:.4rem .9rem;font-size:.8rem;text-decoration:none;" onclick="event.stopPropagation();">${isLive ? 'Participar' : 'Ver Lotes'}</a>
             </div>
           </div>
         `;
         container.appendChild(article);
 
-        // Tick countdown every second
-        if (endAt) {
-          setInterval(() => {
-            const el = document.getElementById(cdId);
-            if (el) el.textContent = buildCountdown(endAt);
-          }, 1000);
-        }
+        // Timer handled globally below
       });
+
+      // Global tick for all countdowns
+      setInterval(() => {
+        document.querySelectorAll('.auction-countdown').forEach(el => {
+          const end = el.getAttribute('data-end-at');
+          if (end) el.textContent = buildCountdown(end);
+        });
+      }, 1000);
 
     } catch(e) {
       console.warn('Usando dados mock para lista de leilões:', e.message);

@@ -236,9 +236,9 @@
       try {
         const sb = window.getSupabase ? window.getSupabase() : null;
         if (sb) {
-          const resA = await sb.from('auction_events').select('*').order('date', {ascending: true});
+          const resA = await sb.from('auction_events').select('*').order('date', {ascending: true}).limit(50);
           if (!resA.error && resA.data) auctions = resA.data;
-          const resL = await sb.from('auction_lots').select('*').order('lot_number', {ascending: true});
+          const resL = await sb.from('auction_lots').select('*').order('lot_number', {ascending: true}).limit(500);
           if (!resL.error && resL.data) allLots = resL.data;
         }
       } catch(e) { console.error(e); }
@@ -406,7 +406,7 @@
             ? { bg: '#ef4444', text: 'LANCE ABERTO', color: 'white', stripe: '#ef4444' }
             : { bg: 'rgba(0,0,0,0.7)', text: 'AGENDADO', color: 'white', stripe: 'var(--clr-primary-light)', border: '1px solid rgba(255,255,255,0.2)' };
 
-          const imgHtml = lot.image ? `<img src="${safeImage}" alt="${safeTitle}" style="${auction.status === 'agendado' ? 'filter: grayscale(0.2);' : ''}">` : `<div style="width:100%;height:100%;background:#e5e7eb;display:flex;align-items:center;justify-content:center;color:#9ca3af;">Sem imagem</div>`;
+          const imgHtml = lot.image ? `<img src="${safeImage}" alt="${safeTitle}" style="${auction.status === 'agendado' ? 'filter: grayscale(0.2);' : ''}" loading="lazy">` : `<div style="width:100%;height:100%;background:#e5e7eb;display:flex;align-items:center;justify-content:center;color:#9ca3af;">Sem imagem</div>`;
 
           const article = document.createElement('article');
           article.className = 'ad-card';
@@ -482,7 +482,7 @@
             if(videoSrc.includes('watch?v=')) videoSrc = videoSrc.replace('watch?v=', 'embed/');
             imgContainer.innerHTML = `<iframe width="100%" height="100%" src="${videoSrc}" title="Vídeo do Lote" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
           } else if(lot.image) {
-            imgContainer.innerHTML = `<img src="${safeImage}" style="width:100%; height:100%; object-fit:cover;">`;
+            imgContainer.innerHTML = `<img src="${safeImage}" style="width:100%; height:100%; object-fit:cover;" loading="lazy">`;
           } else {
             imgContainer.innerHTML = `<span style="color:#9ca3af;">Sem mídia disponível</span>`;
           }

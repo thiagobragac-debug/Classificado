@@ -813,7 +813,10 @@
       _myAds = res.data;
       window._currentAdsTotal = res.total;
 
-      const { data: vData } = await sb.from('ad_views_daily').select('view_date, views_count');
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const isoDate = thirtyDaysAgo.toISOString().split('T')[0];
+      const { data: vData } = await sb.from('ad_views_daily').select('view_date, views_count').gte('view_date', isoDate);
       window._dailyViews = vData || [];
       const session = await getSession();
       if(session && session.user) {
