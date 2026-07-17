@@ -299,10 +299,10 @@
 
   <!-- Supabase SDK movido do head para cá: não bloqueia FCP -->
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script defer src="js/supabase.js?v=639197771809908242"></script>
+  <script defer src="js/supabase.js?v=1784245358926"></script>
   <script defer src="js/ui_constants.js"></script>
   <script defer src="js/data.js?v=1783509347784"></script>
-  <script defer src="js/main.js?v=639197771809908242"></script>
+  <script defer src="js/main.js?v=1784245358926"></script>
     <footer class="site-footer simplified-footer" style="background: #020617; color: rgba(255,255,255,0.6); padding: 1.25rem 0; margin-top: auto;" role="contentinfo">
     <div class="container" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
       <div style="font-weight: 600; color: white; font-size: 0.9rem;">Tauze Class <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.6; margin-left: 0.5rem;" data-i18n="footer_copy">© 2026. Todos os direitos reservados.</span></div>
@@ -323,8 +323,10 @@
       // Load real ad data from DB if ?id= param exists
       const params = new URLSearchParams(window.location.search);
       const adId = params.get('id');
-      if (!adId) return; // fallback to static mock for demo
-
+      if (!adId) {
+        document.querySelector('.product-grid').innerHTML = '<div style="padding: 4rem 2rem; text-align: center; width: 100%;"><h2>Ops! Anúncio não encontrado.</h2><p>Você acessou esta página sem o ID de um anúncio válido. <br><a href="index.html" style="color: var(--clr-primary); text-decoration: underline; font-weight: bold; margin-top: 1rem; display: inline-block;">Voltar para o Início</a></p></div>';
+        return;
+      }
       try {
         const ad = await getAdById(adId);
         if (!ad) return;

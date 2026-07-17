@@ -3,7 +3,8 @@
 // ============================================
 
 // ─── STATE ───────────────────────────────────
-let currentLang = localStorage.getItem('tc_lang') || null; // null = still auto-detecting
+// B-04: inicialização real em linha 49 via _getInitialLang() — esta linha era redundante e inconsistente
+let currentLang = null;
 
 // ─── LANG AUTO-DETECT ────────────────────────────────────────────
 // Hierarquia de prioridade:
@@ -484,27 +485,41 @@ function updatePageText() {
 function initHeader() {
   const header = document.querySelector('.site-header');
   if (!header) return;
+  // B-05: throttle com requestAnimationFrame — evita JS desnecessário a cada frame de scroll
+  let _scrollTicking = false;
   window.addEventListener('scroll', () => {
-    header.classList.toggle('scrolled', window.scrollY > 8);
+    if (!_scrollTicking) {
+      requestAnimationFrame(() => {
+        header.classList.toggle('scrolled', window.scrollY > 8);
+        _scrollTicking = false;
+      });
+      _scrollTicking = true;
+    }
   }, { passive: true });
 }
 
 // ─── MOBILE MENU ──────────────────────────────
+// A-05: AbortController permite cancelar os listeners se initMobileMenu() for chamada novamente
+let _mobileMenuController = null;
 function initMobileMenu() {
   const hamburger = document.querySelector('.hamburger');
   const mobileMenu = document.querySelector('.mobile-menu');
   if (!hamburger || !mobileMenu) return;
 
+  if (_mobileMenuController) _mobileMenuController.abort();
+  _mobileMenuController = new AbortController();
+  const { signal } = _mobileMenuController;
+
   hamburger.addEventListener('click', () => {
     const open = mobileMenu.classList.toggle('open');
     hamburger.setAttribute('aria-expanded', open);
-  });
+  }, { signal });
 
   document.addEventListener('click', (e) => {
     if (!hamburger.contains(e.target) && !mobileMenu.contains(e.target)) {
       mobileMenu.classList.remove('open');
     }
-  });
+  }, { signal });
 }
 
 // ─── SECURITY ─────────────────────────────
@@ -516,36 +531,8 @@ window.escapeHTML = function(str) {
 };
 
 // ─── UTILS ────────────────────────────────────
-function animateNumbers() {
-  const elements = document.querySelectorAll('.num[data-target]');
-  elements.forEach(el => {
-    const target = parseInt(el.getAttribute('data-target'), 10);
-    if (isNaN(target)) return;
-    const suffix = el.getAttribute('data-suffix') || '';
-
-    const formatValue = (val) => {
-      if (val >= 1000) {
-        return (val / 1000).toFixed(val % 1000 === 0 ? 0 : 1).replace('.0', '') + 'k' + suffix;
-      }
-      return val + suffix;
-    };
-
-    let start = 0;
-    const duration = 2000;
-    const stepTime = Math.abs(Math.floor(duration / 60));
-    const increment = target / (duration / stepTime);
-
-    const timer = setInterval(() => {
-      start += increment;
-      if (start >= target) {
-        el.innerText = formatValue(target);
-        clearInterval(timer);
-      } else {
-        el.innerText = formatValue(Math.ceil(start));
-      }
-    }, stepTime);
-  });
-}
+// M-04: animateNumbers() removida — era duplicata inferior de animateCount() (setInterval vs rAF)
+// animateCount() usa requestAnimationFrame (sincronizado com o browser). Usar sempre ela.
 
 // ─── FORMAT CURRENCY ─────────────────────────────
 // Instâncias de Intl.NumberFormat cacheadas — custo de instanciação é alto
@@ -589,37 +576,52 @@ function animateCount(el, target, duration = 1800, format = null) {
   requestAnimationFrame(update);
 }
 
-// ─── INTERSECTION OBSERVER ────────────────────
+// ─── INTERSECTION OBSERVER (SINGLETONS) ─────────
+let _globalFadeObserver = null;
+let _globalStatObserver = null;
+let _fadeDelayIndex = 0;
+let _fadeDelayTimeout = null;
+
 function initObserver() {
-  const fadeEls = document.querySelectorAll('.fade-in-up');
+  const fadeEls = document.querySelectorAll('.fade-in-up:not([data-observed])');
   if (fadeEls.length) {
-    let delayIndex = 0;
-    let delayTimeout = null;
-    const obs = new IntersectionObserver((entries) => {
-      entries.forEach((e) => {
-        if (e.isIntersecting) {
-          setTimeout(() => e.target.classList.add('visible'), delayIndex * 80);
-          delayIndex++;
-          obs.unobserve(e.target);
-        }
-      });
-      clearTimeout(delayTimeout);
-      delayTimeout = setTimeout(() => { delayIndex = 0; }, 100);
-    }, { threshold: 0.1 });
-    fadeEls.forEach(el => obs.observe(el));
+    if (!_globalFadeObserver) {
+      _globalFadeObserver = new IntersectionObserver((entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            if (document.contains(e.target)) {
+              setTimeout(() => e.target.classList.add('visible'), _fadeDelayIndex * 80);
+            }
+            _fadeDelayIndex++;
+            _globalFadeObserver.unobserve(e.target);
+          }
+        });
+        clearTimeout(_fadeDelayTimeout);
+        _fadeDelayTimeout = setTimeout(() => { _fadeDelayIndex = 0; }, 100);
+      }, { threshold: 0.1 });
+    }
+    fadeEls.forEach(el => {
+      el.dataset.observed = '1';
+      _globalFadeObserver.observe(el);
+    });
   }
 
-  const statNums = document.querySelectorAll('.stat-number[data-target]');
+  const statNums = document.querySelectorAll('.stat-number[data-target]:not([data-observed])');
   if (statNums.length) {
-    const obs2 = new IntersectionObserver((entries) => {
-      entries.forEach(e => {
-        if (e.isIntersecting) {
-          animateCount(e.target, parseFloat(e.target.dataset.target));
-          obs2.unobserve(e.target);
-        }
-      });
-    }, { threshold: 0.5 });
-    statNums.forEach(el => obs2.observe(el));
+    if (!_globalStatObserver) {
+      _globalStatObserver = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            animateCount(e.target, parseFloat(e.target.dataset.target));
+            _globalStatObserver.unobserve(e.target);
+          }
+        });
+      }, { threshold: 0.5 });
+    }
+    statNums.forEach(el => {
+      el.dataset.observed = '1';
+      _globalStatObserver.observe(el);
+    });
   }
 }
 
@@ -683,9 +685,9 @@ function buildAdCard(ad, lang) {
 
   return `
     <article class="ad-card fade-in-up${ad.featured ? ' ad-card--featured' : ''}"
-             onclick="location.href='anuncio.html?id=${ad.id}'" role="listitem" tabindex="0"
+             onclick="location.href='anuncio.html?id=${ad.id}&_r=1'" role="listitem" tabindex="0"
              aria-label="${title}"
-             onkeydown="if(event.key==='Enter')location.href='anuncio.html?id=${ad.id}'">
+             onkeydown="if(event.key==='Enter')location.href='anuncio.html?id=${ad.id}&_r=1'">
       <div class="ad-card__image">
         <img src="${escapeHTML(image)}" alt="${title}" loading="lazy">
         ${catName ? `<div class="ad-card__category-badge" style="background:${catColor.clr}; color:white;">${catName}</div>` : ''}
@@ -716,19 +718,25 @@ function buildAdCard(ad, lang) {
 }
 
 function renderCategories() {
-  const customCats = JSON.parse(localStorage.getItem('tc_admin_cats'));
+  // M-03: try/catch em JSON.parse — dado corrompido no localStorage não deve quebrar a página
+  let customCats = null;
+  try {
+    customCats = JSON.parse(localStorage.getItem('tc_admin_cats'));
+  } catch (e) {
+    console.warn('[renderCategories] tc_admin_cats inválido, ignorando:', e.message);
+  }
   if (customCats && customCats.length > 0) {
-    CATEGORIES.length = 0; // Clear mock categories if DB/Admin is available
+    CATEGORIES.length = 0;
     customCats.forEach(cc => {
-        CATEGORIES.push({
-          id: cc.id,
-          name_pt: cc.name,
-          name_es: cc.nameEs || cc.name,
-          icon: cc.icon,
-          color: cc.color || '',
-          count: cc.ads || 0,
-          active: cc.active !== false
-        });
+      CATEGORIES.push({
+        id: cc.id,
+        name_pt: cc.name,
+        name_es: cc.nameEs || cc.name,
+        icon: cc.icon,
+        color: cc.color || '',
+        count: cc.ads || 0,
+        active: cc.active !== false,
+      });
     });
   }
 
@@ -741,9 +749,10 @@ function renderCategories() {
     const isEmoji = cat.icon && !/^[a-z\-]+$/.test(cat.icon);
 
     return `
-    <div class="cat-card fade-in-up" onclick="location.href='listagem.html?cat=${cat.id}'" role="listitem" tabindex="0"
+    <div class="cat-card fade-in-up" onclick="location.href='listagem.html?cat=${cat.id}&_r=1'" role="listitem" tabindex="0"
+         aria-label="Ver anúncios da categoria ${currentLang === 'es' ? cat.name_es : cat.name_pt}"
          style="--cat-bg:${colorBg};--cat-clr:${colorClr}"
-         onkeydown="if(event.key==='Enter')location.href='listagem.html?cat=${cat.id}'">
+         onkeydown="if(event.key==='Enter')location.href='listagem.html?cat=${cat.id}&_r=1'">
       <div class="cat-icon" style="background:${colorBg}; ${isEmoji ? 'font-size:1.6rem;' : ''}">
         ${isEmoji ? cat.icon : `
         <svg viewBox="0 0 24 24" fill="none" stroke="${colorClr}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="24" height="24">
@@ -845,13 +854,19 @@ async function renderPopularTags() {
 
     const labelWidth = container.previousElementSibling?.offsetWidth || 70;
     const gap = 8;
-    let usedWidth = 0;
     const budget = availableWidth - labelWidth - gap * 2;
 
-    Array.from(container.children).forEach(pill => {
-      usedWidth += pill.offsetWidth + gap;
-      if (usedWidth > budget) pill.remove();
+    // A-04: separar leitura de offsetWidth da remoção do DOM
+    // ler todos os widths primeiro (1 reflow), depois remover (sem reflows adicionais)
+    const pills = Array.from(container.children);
+    const widths = pills.map(p => p.offsetWidth);
+    let usedWidth = 0;
+    const toRemove = [];
+    widths.forEach((w, i) => {
+      usedWidth += w + gap;
+      if (usedWidth > budget) toRemove.push(pills[i]);
     });
+    toRemove.forEach(p => p.remove());
   };
   
   render(tags);
@@ -872,7 +887,15 @@ async function renderPopularTags() {
 function initPopularTagsObserver() {
   const searchBar = document.querySelector('.hero-search-inner');
   if (!searchBar || typeof ResizeObserver === 'undefined') return;
-  new ResizeObserver(() => renderPopularTags()).observe(searchBar);
+  // C-05: armazenar ref para disconnect() + debounce de 300ms
+  // sem debounce: teclado virtual mobile dispara dezenas de queries ao banco por segundo
+  if (window._tagsResizeObserver) window._tagsResizeObserver.disconnect();
+  let _tagsTimer;
+  window._tagsResizeObserver = new ResizeObserver(() => {
+    clearTimeout(_tagsTimer);
+    _tagsTimer = setTimeout(() => renderPopularTags(), 300);
+  });
+  window._tagsResizeObserver.observe(searchBar);
 }
 
 function renderFooterLinks() {
@@ -918,7 +941,7 @@ function doSearch(term) {
     logSearchTerm(rawTerm, currentLang);
   }
   
-  location.href = `listagem.html?q=${q}&cat=${c}`;
+  location.href = `listagem.html?q=${q}&cat=${c}&_r=1`;
 }
 
 // ─── INIT UNIVERSAL (todas as páginas) ─────────────────────────
@@ -1002,6 +1025,8 @@ async function updateHeaderAuth() {
     
     // Salva para o anti-flicker CSS usar na próxima tela imediatamente
     localStorage.setItem('tc_user_initials', ini);
+    // C-07: salvar user_id para que o badge de mensagens funcione
+    localStorage.setItem('tc_user_id', session.user.id);
     document.documentElement.style.setProperty('--tc-user-ini', '"' + ini + '"');
     
     document.querySelectorAll('.header-nav, .mobile-menu').forEach(nav => {
@@ -1033,7 +1058,8 @@ async function updateHeaderAuth() {
         if (window.getMyMessages) {
           getMyMessages().then(msgs => {
             if(!msgs || !msgs.length) return;
-            let uid = localStorage.getItem('tc_user_id');
+            // C-07b: usar session.user.id diretamente (tc_user_id pode não estar disponível ainda)
+            const uid = session.user.id;
             if(!uid) return;
             let convs = {};
             msgs.forEach(m => {
@@ -1144,11 +1170,17 @@ async function updateHeaderAuth() {
         authWrapper.appendChild(wrapper);
 
         // Toggle dropdown logic with smooth animation
+        // C-03: AbortController para remover listener global quando usuário fizer logout/refresh
         let closeTimeout;
+        const dropdownController = new AbortController();
+        const { signal: dropSignal } = dropdownController;
+        // Guardar ref global para poder abortar no beforeunload/logout
+        window._dropdownAbortController = dropdownController;
+
         avatar.onclick = (e) => {
           e.stopPropagation();
           const isVisible = dropdown.style.display === 'flex';
-          
+
           document.querySelectorAll('.header-user-dropdown').forEach(d => {
             if (d !== dropdown) {
               d.style.opacity = '0';
@@ -1156,11 +1188,10 @@ async function updateHeaderAuth() {
               setTimeout(() => d.style.display = 'none', 200);
             }
           });
-          
+
           if (!isVisible) {
             clearTimeout(closeTimeout);
             dropdown.style.display = 'flex';
-            // Trigger reflow
             void dropdown.offsetWidth;
             dropdown.style.opacity = '1';
             dropdown.style.transform = 'scale(1)';
@@ -1177,13 +1208,15 @@ async function updateHeaderAuth() {
             dropdown.style.transform = 'scale(0.95)';
             closeTimeout = setTimeout(() => dropdown.style.display = 'none', 200);
           }
-        });
+        }, { signal: dropSignal });
 
         dropdown.addEventListener('mouseleave', () => {
+          // B-06: clearTimeout antes do novo timeout — evita fechar ao retornar o mouse
+          clearTimeout(closeTimeout);
           dropdown.style.opacity = '0';
           dropdown.style.transform = 'scale(0.95)';
-          setTimeout(() => dropdown.style.display = 'none', 200);
-        });
+          closeTimeout = setTimeout(() => dropdown.style.display = 'none', 200);
+        }, { signal: dropSignal });
         // -- Global Realtime Messages Subscription --
         if (typeof getMyMessages === 'function' && typeof subscribeToMessages === 'function') {
           const updateGlobalBadge = (msgs) => {
@@ -1209,15 +1242,22 @@ async function updateHeaderAuth() {
 
           getMyMessages().then(msgs => {
             updateGlobalBadge(msgs);
-            subscribeToMessages(session.user.id, (payload) => {
+            // C-04: salvar ref da subscription para poder chamar .unsubscribe()
+            const msgSub = subscribeToMessages(session.user.id, (payload) => {
               if (payload.new) {
                 msgs.push(payload.new);
+                // C-04: limitar array a 200 msgs — evita crescimento infinito em sessões longas
+                if (msgs.length > 200) msgs.splice(0, msgs.length - 200);
                 updateGlobalBadge(msgs);
                 if (!window.location.hash.includes('messages') && typeof showToast === 'function') {
                   showToast('Nova mensagem recebida!', 'success');
                 }
               }
             });
+            // C-04: desconectar canal ao sair da página
+            window.addEventListener('beforeunload', () => {
+              try { msgSub.unsubscribe(); } catch (_) {}
+            }, { once: true });
           }).catch(e => console.error('Erro RT messages', e));
         }
 
@@ -1315,7 +1355,8 @@ function applyDynamicSettings() {
     if (!url) return null;
     try {
       const parsed = new URL(url);
-      if (!['http:', 'https:', 'data:'].includes(parsed.protocol)) return null;
+      // B-03: 'data:' removido — data:text/html com scripts é perigoso como favicon/bgImage
+      if (!['http:', 'https:'].includes(parsed.protocol)) return null;
       return url;
     } catch {
       return url.startsWith('javascript') ? null : url;
@@ -1343,9 +1384,14 @@ function applyDynamicSettings() {
 
   const primaryColor = sanitizeCssColor(rawColor);
   if (primaryColor) {
-    const style = document.createElement('style');
-    style.textContent = `:root { --clr-primary: ${primaryColor} !important; --clr-primary-mid: ${primaryColor} !important; }`;
-    document.head.appendChild(style);
+    // B-01: reutilizar o mesmo elemento <style> — evita acumular múltiplos no <head>
+    let dynStyle = document.getElementById('tc-dynamic-colors');
+    if (!dynStyle) {
+      dynStyle = document.createElement('style');
+      dynStyle.id = 'tc-dynamic-colors';
+      document.head.appendChild(dynStyle);
+    }
+    dynStyle.textContent = `:root { --clr-primary: ${primaryColor} !important; --clr-primary-mid: ${primaryColor} !important; }`;
   }
 
   const featAuctions = localStorage.getItem('tc_feat_auctions') !== '0';
@@ -1440,7 +1486,8 @@ window.renderAdBanner = async function(position, containerId) {
       if (typeof logout === 'function') {
         logout();
       } else {
-        localStorage.clear();
+        // B-08: remover apenas chaves de autenticação — não apagar favoritos, lang, etc.
+        Object.keys(localStorage).filter(k => k.includes('auth') || k.includes('supabase')).forEach(k => localStorage.removeItem(k));
         sessionStorage.clear();
         window.location.href = '/login.html';
       }
@@ -1479,33 +1526,81 @@ window.addEventListener('beforeinstallprompt', (e) => {
 function showCustomPwaPrompt() {
   if (document.getElementById(pwaModalId)) return;
 
-  const appName = localStorage.getItem('tc_hero_title') || 'Tauze Class';
-  const logoUrl = localStorage.getItem('tc_logo_url');
-  const bgStyle = logoUrl ? `background-image: url('${logoUrl}');` : `background-image: url('assets/logo.png');`;
+  // C-01: construir modal via DOM API — sem interpolação de dados do localStorage em innerHTML
+  // Previne XSS caso localStorage seja comprometido por extensão ou script de terceiro
+  const rawLogoUrl = localStorage.getItem('tc_logo_url');
+  const rawAppName = localStorage.getItem('tc_hero_title') || 'Tauze Class';
 
-  const modalHtml = `
-    <div id="${pwaModalId}">
-      <div class="pwa-close-icon" id="pwa-close-btn">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-      </div>
-      <div class="pwa-modal-header">
-        <div class="pwa-modal-icon" style="${bgStyle}"></div>
-        <div class="pwa-modal-info">
-          <h3>Instale o App</h3>
-          <p>Adicione o <strong>${appName}</strong> à sua tela inicial para um acesso mais rápido e seguro.</p>
-        </div>
-      </div>
-      <div class="pwa-modal-actions">
-        <button class="btn-pwa-cancel" id="pwa-cancel-btn">Mais tarde</button>
-        <button class="btn-pwa-install" id="pwa-install-btn">Instalar App</button>
-      </div>
-    </div>
-  `;
+  // Valida URL do logo (mesma lógica de sanitizeBannerUrlLocal)
+  let safeLogoUrl = null;
+  if (rawLogoUrl) {
+    try {
+      const parsed = new URL(rawLogoUrl);
+      if (['http:', 'https:'].includes(parsed.protocol)) safeLogoUrl = rawLogoUrl;
+    } catch (_) {}
+  }
 
-  document.body.insertAdjacentHTML('beforeend', modalHtml);
-  
-  const modal = document.getElementById(pwaModalId);
-  // Trigger animation
+  const modal = document.createElement('div');
+  modal.id = pwaModalId;
+
+  const closeIcon = document.createElement('div');
+  closeIcon.className = 'pwa-close-icon';
+  closeIcon.id = 'pwa-close-btn';
+  closeIcon.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+
+  const header = document.createElement('div');
+  header.className = 'pwa-modal-header';
+
+  const iconDiv = document.createElement('div');
+  iconDiv.className = 'pwa-modal-icon';
+  // Atribuição via style.backgroundImage — não via innerHTML
+  if (safeLogoUrl) {
+    iconDiv.style.backgroundImage = `url('${CSS.escape(safeLogoUrl)}')`;
+  } else {
+    iconDiv.style.backgroundImage = "url('assets/logo.png')";
+  }
+
+  const info = document.createElement('div');
+  info.className = 'pwa-modal-info';
+
+  const h3 = document.createElement('h3');
+  h3.textContent = 'Instale o App';
+
+  const p = document.createElement('p');
+  p.textContent = 'Adicione o ';
+  const strong = document.createElement('strong');
+  // textContent escapa automaticamente — sem risco de XSS
+  strong.textContent = rawAppName;
+  p.appendChild(strong);
+  p.append(' à sua tela inicial para um acesso mais rápido e seguro.');
+
+  info.appendChild(h3);
+  info.appendChild(p);
+  header.appendChild(iconDiv);
+  header.appendChild(info);
+
+  const actions = document.createElement('div');
+  actions.className = 'pwa-modal-actions';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'btn-pwa-cancel';
+  cancelBtn.id = 'pwa-cancel-btn';
+  cancelBtn.textContent = 'Mais tarde';
+
+  const installBtn = document.createElement('button');
+  installBtn.className = 'btn-pwa-install';
+  installBtn.id = 'pwa-install-btn';
+  installBtn.textContent = 'Instalar App';
+
+  actions.appendChild(cancelBtn);
+  actions.appendChild(installBtn);
+  modal.appendChild(closeIcon);
+  modal.appendChild(header);
+  modal.appendChild(actions);
+
+  document.body.appendChild(modal);
+
+  // Trigger animation (modal já foi criado acima via createElement)
   requestAnimationFrame(() => {
     modal.classList.add('show');
   });

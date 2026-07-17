@@ -257,6 +257,9 @@ function renderCategoryFilters() {
   const existingInputs = container.querySelectorAll('input[name="category"]:not([value=""])');
   existingInputs.forEach(i => i.parentElement.remove());
 
+  // Usar DocumentFragment para evitar Layout Thrashing
+  const fragment = document.createDocumentFragment();
+
   CATEGORIES.forEach(cat => {
     if (!cat.active) return;
     const name   = escapeHTML(lang === 'es' ? (cat.name_es || cat.name_pt) : cat.name_pt);
@@ -286,8 +289,9 @@ function renderCategoryFilters() {
       </span>
       ${name} <span class="filter-count" id="count-${cat.id}"></span>
     `;
-    container.appendChild(label);
+    fragment.appendChild(label);
   });
+  container.appendChild(fragment);
 }
 
 // Cache em memória para contagens por categoria (evita chamar RPC a cada applyFilters)
@@ -341,6 +345,8 @@ function renderSkeleton(container, n = 4) {
 }
 
 // ─── BUSCA DE ANÚNCIOS DO BANCO ───────────────
+let _fetchAdsController = null;
+
 /**
  * Carrega anúncios do banco via getAds() com paginação keyset.
  * @param {boolean} append - se true, adiciona aos resultados existentes
@@ -348,6 +354,10 @@ function renderSkeleton(container, n = 4) {
 async function fetchAndRenderAds(append = false) {
   if (_isLoading) return;
   _isLoading = true;
+
+  if (_fetchAdsController) _fetchAdsController.abort();
+  _fetchAdsController = new AbortController();
+  const signal = _fetchAdsController.signal;
 
   const container = document.getElementById('ads-container');
   if (!container) { _isLoading = false; return; }
@@ -375,7 +385,13 @@ async function fetchAndRenderAds(append = false) {
       featured:  f.featured || null,
       cursor:    append ? _nextCursor : null,
       limit:     PAGE_SIZE,
+      signal:    signal,
     });
+
+    if (signal.aborted) {
+      _isLoading = false;
+      return; 
+    }
 
     const lang = f.lang;
     const ads  = result.ads || [];
@@ -615,6 +631,7 @@ async function initLocations() {
   try {
     const countries = await getCountries();
     countryEl.innerHTML = '<option value="">Todos os Países</option>';
+    const fragment = document.createDocumentFragment();
     countries.forEach(country => {
       const opt = document.createElement('option');
       opt.value = country.id;
@@ -623,8 +640,9 @@ async function initLocations() {
       opt.textContent = translatedName;
       opt.dataset.sigla = country.sigla;
       opt.dataset.nome  = country.nome;
-      countryEl.appendChild(opt);
+      fragment.appendChild(opt);
     });
+    countryEl.appendChild(fragment);
     countryEl.disabled = false;
   } catch (e) {
     console.error('Erro ao carregar países:', e);
@@ -651,13 +669,15 @@ async function updateLocationOptions(type) {
       try {
         const states = await getStates(selectedCountryId);
         stateEl.innerHTML = '<option value="">Todos os Estados</option>';
+        const fragment = document.createDocumentFragment();
         states.forEach(state => {
           const opt = document.createElement('option');
           opt.value = state.id;
           opt.textContent = state.nome;
           opt.dataset.sigla = state.sigla || '';
-          stateEl.appendChild(opt);
+          fragment.appendChild(opt);
         });
+        stateEl.appendChild(fragment);
         stateEl.disabled = false;
       } catch (e) {
         stateEl.innerHTML = '<option value="">Erro</option>';
@@ -675,12 +695,14 @@ async function updateLocationOptions(type) {
       try {
         const cities = await getCities(selectedStateId);
         cityEl.innerHTML = '<option value="">Todas as Cidades</option>';
+        const fragment = document.createDocumentFragment();
         cities.forEach(city => {
           const opt = document.createElement('option');
           opt.value = city.id;
           opt.textContent = city.nome;
-          cityEl.appendChild(opt);
+          fragment.appendChild(opt);
         });
+        cityEl.appendChild(fragment);
         cityEl.disabled = false;
       } catch (e) {
         cityEl.innerHTML = '<option value="">Erro</option>';

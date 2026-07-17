@@ -19,19 +19,24 @@ function getSupabase() {
 
 // ??? AUTH ??????????????????????????????????????????????????????
 
-/** Retorna a sess�o atual (null se n�o logado) */
+/** Retorna a sessão atual (null se não logado) */
 async function getSession() {
-  const { data: { session } } = await getSupabase().auth.getSession();
-  return session;
+  // C-02: guard contra SDK não carregado (CDN bloqueado, bloqueador de anúncios)
+  const sb = getSupabase();
+  if (!sb) return null;
+  const { data, error } = await sb.auth.getSession();
+  if (error) return null;
+  return data?.session ?? null;
 }
 
-/** Retorna o usu�rio logado + perfil do banco */
+/** Retorna o usuário logado + perfil do banco */
 async function getCurrentUser() {
   const session = await getSession();
   if (!session) return null;
+  // A-03: select apenas colunas necessárias — evita expor dados sensíveis no bundle
   const { data: profile } = await getSupabase()
     .from('profiles')
-    .select('*')
+    .select('id, name, display_name, avatar_url, verified, plan, country, pais')
     .eq('id', session.user.id)
     .maybeSingle();
   return { ...session.user, profile };
@@ -81,7 +86,7 @@ async function resetPassword(email) {
   if (error) throw error;
 }
 
-/** Escuta mudan�as de sess�o (login/logout) */
+/** Escuta mudanas de sesso (login/logout) */
 function onAuthChange(callback) {
   return getSupabase().auth.onAuthStateChange(callback);
 }
@@ -89,13 +94,18 @@ function onAuthChange(callback) {
 // ??? PERFIL ????????????????????????????????????????????????????
 
 async function getProfile(userId) {
-  const { data, error } = await getSupabase()
-    .from('profiles').select('*').eq('id', userId).maybeSingle();
-  if (error) throw error;
-  try {
-    const { data: secrets } = await getSupabase().from('profile_secrets').select('*').eq('id', userId).maybeSingle();
-    if (secrets) Object.assign(data, secrets);
-  } catch(e) {}
+  // A-07: queries paralelas (waterfall eliminado) + M-08: log de erro silenciado
+  const [profileResult, secretsResult] = await Promise.all([
+    getSupabase().from('profiles').select('*').eq('id', userId).maybeSingle(),
+    getSupabase().from('profile_secrets').select('*').eq('id', userId).maybeSingle(),
+  ]);
+  if (profileResult.error) throw profileResult.error;
+  const data = profileResult.data;
+  if (secretsResult.error) {
+    console.warn('[getProfile] Falha ao buscar profile_secrets:', secretsResult.error.message);
+  } else if (secretsResult.data) {
+    Object.assign(data, secretsResult.data);
+  }
   return data;
 }
 
@@ -169,49 +179,49 @@ async function getCities(estadoId) {
   return data;
 }
 
-// ??? AN�NCIOS ?????????????????????????????????????????????????
+// ??? ANNCIOS ?????????????????????????????// B-02: BR_STATES como constante de módulo — evita realocar o objeto a cada chamada de getAds()
+const BR_STATES = {
+  'Acre': 'AC', 'AC': 'Acre',
+  'Alagoas': 'AL', 'AL': 'Alagoas',
+  'Amapá': 'AP', 'AP': 'Amapá',
+  'Amazonas': 'AM', 'AM': 'Amazonas',
+  'Bahia': 'BA', 'BA': 'Bahia',
+  'Ceará': 'CE', 'CE': 'Ceará',
+  'Distrito Federal': 'DF', 'DF': 'Distrito Federal',
+  'Espírito Santo': 'ES', 'ES': 'Espírito Santo',
+  'Goiás': 'GO', 'GO': 'Goiás',
+  'Maranhão': 'MA', 'MA': 'Maranhão',
+  'Mato Grosso': 'MT', 'MT': 'Mato Grosso',
+  'Mato Grosso do Sul': 'MS', 'MS': 'Mato Grosso do Sul',
+  'Minas Gerais': 'MG', 'MG': 'Minas Gerais',
+  'Pará': 'PA', 'PA': 'Pará',
+  'Paraíba': 'PB', 'PB': 'Paraíba',
+  'Paraná': 'PR', 'PR': 'Paraná',
+  'Pernambuco': 'PE', 'PE': 'Pernambuco',
+  'Piauí': 'PI', 'PI': 'Piauí',
+  'Rio de Janeiro': 'RJ', 'RJ': 'Rio de Janeiro',
+  'Rio Grande do Norte': 'RN', 'RN': 'Rio Grande do Norte',
+  'Rio Grande do Sul': 'RS', 'RS': 'Rio Grande do Sul',
+  'Rondônia': 'RO', 'RO': 'Rondônia',
+  'Roraima': 'RR', 'RR': 'Roraima',
+  'Santa Catarina': 'SC', 'SC': 'Santa Catarina',
+  'São Paulo': 'SP', 'SP': 'São Paulo',
+  'Sergipe': 'SE', 'SE': 'Sergipe',
+  'Tocantins': 'TO', 'TO': 'Tocantins',
+};
 
 async function getAds({ category, country, state, city, search, preco_min, preco_max, featured, page, cursor, limit = 20, status = 'active' } = {}) {
-  // If cursor is provided, we treat it as the current page number
   const currentPage = cursor ? parseInt(cursor) : (page ? parseInt(page) : 1);
-  
+  const from = (currentPage - 1) * limit;
+
   let q = getSupabase()
     .from('ads')
     .select('*, profiles(name, avatar_url, verified, phone_whatsapp)')
     .eq('status', status)
     .order('featured', { ascending: false })
     .order('created_at', { ascending: false })
-    .range((currentPage - 1) * limit, currentPage * limit - 1);
-
-  const BR_STATES = {
-    "Acre": "AC", "AC": "Acre",
-    "Alagoas": "AL", "AL": "Alagoas",
-    "Amap�": "AP", "AP": "Amap�",
-    "Amazonas": "AM", "AM": "Amazonas",
-    "Bahia": "BA", "BA": "Bahia",
-    "Cear�": "CE", "CE": "Cear�",
-    "Distrito Federal": "DF", "DF": "Distrito Federal",
-    "Esp�rito Santo": "ES", "ES": "Esp�rito Santo",
-    "Goi�s": "GO", "GO": "Goi�s",
-    "Maranh�o": "MA", "MA": "Maranh�o",
-    "Mato Grosso": "MT", "MT": "Mato Grosso",
-    "Mato Grosso do Sul": "MS", "MS": "Mato Grosso do Sul",
-    "Minas Gerais": "MG", "MG": "Minas Gerais",
-    "Par�": "PA", "PA": "Par�",
-    "Para�ba": "PB", "PB": "Para�ba",
-    "Paran�": "PR", "PR": "Paran�",
-    "Pernambuco": "PE", "PE": "Pernambuco",
-    "Piau�": "PI", "PI": "Piau�",
-    "Rio de Janeiro": "RJ", "RJ": "Rio de Janeiro",
-    "Rio Grande do Norte": "RN", "RN": "Rio Grande do Norte",
-    "Rio Grande do Sul": "RS", "RS": "Rio Grande do Sul",
-    "Rond�nia": "RO", "RO": "Rond�nia",
-    "Roraima": "RR", "RR": "Roraima",
-    "Santa Catarina": "SC", "SC": "Santa Catarina",
-    "S�o Paulo": "SP", "SP": "S�o Paulo",
-    "Sergipe": "SE", "SE": "Sergipe",
-    "Tocantins": "TO", "TO": "Tocantins"
-  };
+    // C-06: pede limit+1 para detectar hasMore corretamente
+    .range(from, from + limit);
 
   if (category)  q = q.eq('category_id', category);
   if (country)   q = q.eq('country', country);
@@ -225,25 +235,22 @@ async function getAds({ category, country, state, city, search, preco_min, preco
   }
   if (city)      q = q.eq('city', city);
   if (search) {
-    // Full-Text Search com índice GIN (script 09_fts_index.sql aplicado ✅)
-    // textSearch usa to_tsquery() — até 100x mais rápido que ilike em tabelas grandes.
-    // A coluna 'fts' é gerada automaticamente pelo banco (GENERATED ALWAYS AS STORED).
+    // Full-Text Search com índice GIN — até 100x mais rápido que ilike em tabelas grandes.
     q = q.textSearch('fts', search, { config: 'portuguese', type: 'plain' });
   }
   if (preco_min) q = q.gte('price', preco_min);
   if (preco_max) q = q.lte('price', preco_max);
   if (featured)  q = q.eq('featured', true);
 
-  const { data, error, count } = await q;
+  const { data, error } = await q;
   if (error) throw error;
-  
-  // hasMore: solicitamos limit+1 internamente via slice (sem count:exact)
+
+  // C-06: detecta corretamente se há mais página (pedimos limit+1)
   const hasMore = data && data.length > limit;
   if (hasMore) data.pop(); // remove o item extra
   const nextCursor = hasMore ? currentPage + 1 : null;
-  const total = null; // sem count:exact — evita full table scan
 
-  return { ads: data || [], total, nextCursor, hasMore };
+  return { ads: data || [], total: null, nextCursor, hasMore };
 }
 
 async function getAdById(id) {
@@ -388,21 +395,18 @@ async function _rpcToggleFav(adId) {
   const session = await getSession();
   if (!session) { return false; } // Não redireciona, permite salvar localmente
 
-  const { data: existingRecords, error } = await getSupabase()
-    .from('favorites').select('id').eq('user_id', session.user.id).eq('ad_id', adId);
+  try {
+    const { data, error } = await getSupabase().rpc('toggle_favorite_atomic', {
+      p_user_id: session.user.id,
+      p_ad_id: adId
+    });
 
-  if (error) {
-    console.error('Erro ao buscar favorito:', error);
+    if (error) throw error;
+    // data deve retornar um booleano: true se inseriu (adicionado), false se deletou (removido)
+    return data;
+  } catch (error) {
+    console.error('Erro ao alternar favorito atômico:', error);
     throw error;
-  }
-
-  if (existingRecords && existingRecords.length > 0) {
-    const idsToDelete = existingRecords.map(r => r.id);
-    await getSupabase().from('favorites').delete().in('id', idsToDelete);
-    return false; // removido
-  } else {
-    await getSupabase().from('favorites').insert({ user_id: session.user.id, ad_id: adId });
-    return true; // adicionado
   }
 }
 
@@ -416,9 +420,9 @@ async function syncFavoritesLocal() {
     const localStr = localStorage.getItem('tc_favorites');
     const localFavs = localStr ? JSON.parse(localStr) : [];
     
-    // Pegar favoritos do banco
+    // A-01a: LIMIT explícito — evita carregar ilimitado para usuários com muitos favoritos
     const { data: dbRecords, error } = await getSupabase()
-      .from('favorites').select('ad_id').eq('user_id', session.user.id);
+      .from('favorites').select('ad_id').eq('user_id', session.user.id).limit(200);
       
     if (error) throw error;
     
@@ -471,11 +475,13 @@ async function sendMessage(adId, receiverId, content) {
 async function getMyMessages() {
   const session = await getSession();
   if (!session) return [];
+  // A-01b: LIMIT explícito — evita carregar todo histórico de mensagens de uma vez
   const { data, error } = await getSupabase()
     .from('messages')
     .select('*, ads(title_pt, images), sender:profiles!messages_sender_id_fkey(name, avatar_url), receiver:profiles!messages_receiver_id_fkey(name, avatar_url)')
     .or(`sender_id.eq.${session.user.id},receiver_id.eq.${session.user.id}`)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .limit(100);
   if (error) throw error;
   return data;
 }
@@ -560,8 +566,13 @@ function normalizeString(str) {
 }
 
 async function getBanners(position, userLoc = null) {
+  // A-01d: select apenas colunas necessárias + LIMIT — evita transferir banners desnecessários
   const { data } = await getSupabase()
-    .from('banners').select('*').eq('position', position).eq('status', 'active');
+    .from('banners')
+    .select('id, image_url, link_url, name, target_type, target_location')
+    .eq('position', position)
+    .eq('status', 'active')
+    .limit(20);
   const allBanners = data || [];
 
   if (!userLoc) return allBanners;
@@ -756,12 +767,14 @@ async function getSellerProfile(userId) {
 }
 
 async function getSellerAds(userId) {
+  // A-01c: LIMIT explícito — um vendedor ativo pode ter centenas de anúncios
   const { data, error } = await getSupabase()
     .from('ads')
     .select('id, title_pt, title_es, price, currency, category_id, location, status, images, is_featured, created_at, categories(name_pt, name_es, icon)')
     .eq('user_id', userId)
     .eq('status', 'active')
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .limit(50);
   if (error) throw error;
   return data || [];
 }
@@ -773,23 +786,24 @@ window.getSellerAds = getSellerAds;
 /* ── ANALYTICS: VIEWS ─────────────────────────────────────────────── */
 async function incrementAdView(adId) {
   try {
-    // Basic IP hash generation on client side (for debounce logic)
-    const ipStr = window.navigator.userAgent + '_' + window.screen.width; 
-    let hash = 0;
-    for (let i = 0; i < ipStr.length; i++) {
-        hash = ((hash << 5) - hash) + ipStr.charCodeAt(i);
-        hash |= 0;
-    }
-    const ipHash = 'client_' + Math.abs(hash).toString(16);
+    // Usa token de sessão anônimo como base do hash (consistente por aba, privado)
+    const sessionToken = sessionStorage.getItem('tc_view_token') || (() => {
+      const t = crypto.randomUUID();
+      sessionStorage.setItem('tc_view_token', t);
+      return t;
+    })();
+    const msgBuf = new TextEncoder().encode(sessionToken + adId);
+    const hashBuf = await crypto.subtle.digest('SHA-256', msgBuf);
+    const ipHash = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
 
-    const { data, error } = await getSupabase().rpc('increment_ad_view_safe', {
+    // M-05: verificar error da RPC (não apenas exceções JS)
+    const { error } = await getSupabase().rpc('increment_ad_view_safe', {
       p_ad_id: adId,
-      p_ip_hash: ipHash
+      p_ip_hash: ipHash,
     });
-    
-    // If RPC fails (maybe not deployed yet), fail silently
+    if (error) console.warn('[incrementAdView] Erro RPC:', error.message);
   } catch (err) {
-    console.warn('Could not increment views via RPC', err);
+    console.warn('[incrementAdView] Falha ao incrementar views:', err.message);
   }
 }
 window.incrementAdView = incrementAdView;

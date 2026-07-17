@@ -97,13 +97,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // ─ Autocomplete de cidade ──────────────────────────────────────────
   let searchTimeout;
+  let searchAbortController = null;
   const autocompleteBox = document.getElementById('autocomplete-results');
   document.body.appendChild(autocompleteBox); // foge do overflow:hidden do hero
 
   inputManual.addEventListener('input', (e) => {
     const query = e.target.value.trim();
     clearTimeout(searchTimeout);
+    if (searchAbortController) searchAbortController.abort();
     if (query.length < 3) { autocompleteBox.style.display = 'none'; return; }
+
+    searchAbortController = new AbortController();
+    const signal = searchAbortController.signal;
 
     searchTimeout = setTimeout(async () => {
       try {
@@ -114,7 +119,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Photon API para autocomplete de cidades
         const res = await fetch(
-          `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&osm_tag=place:city&osm_tag=place:municipality&osm_tag=place:town&limit=5`
+          `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&osm_tag=place:city&osm_tag=place:municipality&osm_tag=place:town&limit=5`,
+          { signal }
         );
         if (!res.ok) throw new Error('Photon indisponível');
         const rawData = await res.json();
