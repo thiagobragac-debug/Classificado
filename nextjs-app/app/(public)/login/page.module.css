@@ -1,0 +1,46 @@
+.loginSplit { display: grid; grid-template-columns: 1fr; min-height: 100vh; background: #fff; }
+@media(min-width: 900px) { .loginSplit { grid-template-columns: 1fr 1fr; } }
+
+.loginBanner { 
+  background: linear-gradient(135deg, rgba(22, 163, 74, 0.8), rgba(6, 78, 59, 0.8)), url('/assets/hero_farm.webp') center/cover;
+  padding: 4rem 4rem; 
+  color: #fff; 
+  display: flex; 
+  flex-direction: column; 
+  justify-content: flex-start; 
+  position: relative; 
+  overflow: hidden; 
+}
+.loginBanner h2 { font-size: 3rem; font-weight: 800; line-height: 1.1; margin-bottom: 1rem; position: relative; z-index: 1; letter-spacing: -0.02em; }
+.loginBanner p { font-size: 1.1rem; color: rgba(255, 255, 255, 0.85); line-height: 1.5; margin-bottom: 3rem; max-width: 450px; position: relative; z-index: 1; }
+
+.loginBadges { display: flex; flex-direction: column; gap: 0.75rem; position: relative; z-index: 1; }
+.badge { display: inline-flex; align-items: center; gap: 0.5rem; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(8px); padding: 0.6rem 1rem; border-radius: 99px; font-size: 0.9rem; font-weight: 600; color: #fff; border: 1px solid rgba(255, 255, 255, 0.2); width: fit-content; }
+
+.loginFormArea { padding: 2rem; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+@media(min-width: 900px) { .loginFormArea { padding: 4rem; } }
+
+.authToggle { display: flex; background: rgba(0,0,0,0.04); border-radius: 99px; padding: 0.35rem; margin-bottom: 2.5rem; }
+.toggleBtn { flex: 1; border: none; background: transparent; padding: 0.75rem 1.5rem; border-radius: 99px; font-size: 0.95rem; font-weight: 700; color: var(--clr-muted); cursor: pointer; transition: all .3s cubic-bezier(0.4, 0, 0.2, 1); }
+.toggleBtn.active { background: #fff; color: var(--clr-primary); box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+
+.socialLogin { margin-bottom: 1.5rem; }
+.btnSocial { width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.75rem; background: #fff; border: 1px solid rgba(0,0,0,0.12); border-radius: 12px; padding: 0.9rem; font-size: 0.95rem; font-weight: 700; color: var(--clr-text); cursor: pointer; transition: all .2s; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+.btnSocial:hover { background: #f8fafc; border-color: rgba(0,0,0,0.2); transform: translateY(-1px); }
+
+.divider { display: flex; align-items: center; text-align: center; margin-bottom: 1.5rem; color: var(--clr-muted); font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.divider::before, .divider::after { content: ''; flex: 1; border-bottom: 1px solid rgba(0,0,0,0.1); }
+.divider:not(:empty)::before { margin-right: .75rem; }
+.divider:not(:empty)::after { margin-left: .75rem; }
+
+.formGroup { margin-bottom: 1rem; }
+.formLabel { display: block; font-weight: 700; font-size: 0.8rem; letter-spacing: 0.03em; text-transform: uppercase; color: var(--clr-muted); margin-bottom: 0.6rem; }
+
+.inputWithIcon { position: relative; display: flex; align-items: center; }
+.inputWithIcon svg { position: absolute; left: 1rem; width: 18px; height: 18px; color: var(--clr-muted); transition: color .2s; }
+.inputWithIcon input { border-radius: 12px; border: 1px solid rgba(0,0,0,0.12); background: rgba(255,255,255,0.5); font-size: 0.95rem; padding: 0.9rem 1rem 0.9rem 2.8rem; width: 100%; box-sizing: border-box; transition: all .2s; }
+.inputWithIcon input:focus { background: #fff; border-color: var(--clr-primary); box-shadow: 0 0 0 4px rgba(22,163,74,.12); outline: none; }
+.inputWithIcon input:focus + svg { color: var(--clr-primary); }
+
+.togglePassword { position: absolute; right: 1rem; cursor: pointer; width: 18px; height: 18px; color: var(--clr-muted); }
+.togglePassword:hover { color: var(--clr-text); }
