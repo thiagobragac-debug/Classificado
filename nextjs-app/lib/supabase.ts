@@ -180,11 +180,29 @@ export async function uploadAdImage(file: File, folder = 'draft'): Promise<strin
 export async function rpcToggleFav(adId: string) {
   const session = await getSession();
   if (!session) return false;
-  const { data, error } = await getSupabase().rpc('toggle_favorite_atomic', {
-    p_user_id: session.user.id, p_ad_id: adId
-  });
-  if (error) throw error;
-  return data;
+  
+  try {
+    const { data, error } = await getSupabase().rpc('toggle_favorite_atomic', {
+      p_user_id: session.user.id, p_ad_id: adId
+    });
+    if (!error) return data;
+  } catch (e) {}
+
+  // Fallback se a RPC não existir
+  const { data: existing } = await getSupabase()
+    .from('favorites')
+    .select('id')
+    .eq('user_id', session.user.id)
+    .eq('ad_id', adId)
+    .maybeSingle();
+
+  if (existing) {
+    await getSupabase().from('favorites').delete().eq('id', existing.id);
+    return { status: 'removed' };
+  } else {
+    await getSupabase().from('favorites').insert({ user_id: session.user.id, ad_id: adId });
+    return { status: 'added' };
+  }
 }
 
 export async function getMyFavorites() {

@@ -11,8 +11,8 @@ export function PwaPrompt() {
       e.preventDefault();
       
       const lastDismissed = localStorage.getItem('tc_pwa_dismissed');
-      if (lastDismissed && (Date.now() - parseInt(lastDismissed, 10)) < 7 * 24 * 60 * 60 * 1000) {
-        return; // Don't show if dismissed within the last 7 days
+      if (lastDismissed && (Date.now() - parseInt(lastDismissed, 10)) < 30 * 24 * 60 * 60 * 1000) {
+        return; // Don't show if dismissed within the last 30 days
       }
 
       setDeferredPrompt(e);

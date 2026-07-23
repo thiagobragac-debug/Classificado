@@ -2,6 +2,18 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { SUPABASE_URL, SUPABASE_ANON } from './supabase';
 
+export function createAnonClient() {
+  return createServerClient(SUPABASE_URL, SUPABASE_ANON, { 
+    cookies: {
+      getAll() { return []; },
+      setAll() {}
+    },
+    global: {
+      fetch: (url, options) => fetch(url, { ...options, next: { revalidate: 3600 } })
+    }
+  });
+}
+
 export async function createClient() {
   const cookieStore = await cookies();
 
@@ -67,7 +79,7 @@ export async function getServerAds({
 
 // Server version of fetchPlatformStats
 export async function getServerPlatformStats() {
-  const supabase = await createClient();
+  const supabase = createAnonClient();
   const { count: adsCount } = await supabase.from('ads').select('*', { count: 'exact', head: true }).eq('status', 'active');
   const { count: usersCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('verified', true);
   return {
@@ -79,13 +91,13 @@ export async function getServerPlatformStats() {
 }
 
 export async function getServerTopSellers() {
-  const supabase = await createClient();
+  const supabase = createAnonClient();
   const { data } = await supabase.from('top_sellers_view').select('*');
   return data || [];
 }
 
 export async function getServerTestimonials() {
-  const supabase = await createClient();
+  const supabase = createAnonClient();
   const { data } = await supabase.from('testimonials').select('*').order('created_at', { ascending: false });
   return data || [];
 }

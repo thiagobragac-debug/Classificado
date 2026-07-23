@@ -376,3 +376,73 @@
   .popular { transform: none; }
   .popular:hover { transform: translateY(-6px); }
 }
+
+.billingToggleWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 2.5rem;
+}
+
+.billingLabel {
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.billingLabelActive {
+  font-weight: 700;
+  color: #fff;
+}
+
+.billingSwitch {
+  width: 60px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 32px;
+  position: relative;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+  transition: background 0.3s;
+}
+
+.billingSwitchActive {
+  background: #10b981;
+}
+
+.billingKnob {
+  width: 24px;
+  height: 24px;
+  background: #fff;
+  border-radius: 50%;
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  transition: left 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.billingKnobActive {
+  left: 32px;
+}
+
+.discountBadge {
+  background: #f59e0b;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 0.2rem 0.5rem;
+  border-radius: 12px;
+}
+
+.annualNote {
+  font-size: 0.8rem;
+  color: #16a34a;
+  font-weight: 700;
+  margin-top: 0.25rem;
+}

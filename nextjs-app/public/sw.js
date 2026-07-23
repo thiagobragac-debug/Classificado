@@ -2,7 +2,7 @@ const CACHE_NAME = 'tc-static-v205';
 
 const ASSETS_TO_CACHE = [
   '/', '/index.html', '/listagem.html', '/anuncio.html', '/login.html',
-  '/painel.html', '/anunciar.html', '/leiloes.html',
+  '/painel.html', '/anunciar.html', '/leiloes.html', '/_offline.html',
   '/css/style.css', '/css/listagem.css', '/css/anuncio.css', '/css/eventos.css',
   '/js/supabase.js', '/js/data.js', '/js/ui_constants.js', '/js/main.js',
   '/js/home.js', '/js/filters.js', '/js/search_autocomplete.js',
@@ -78,8 +78,13 @@ self.addEventListener('fetch', (e) => {
         }
         return nr;
       }).catch(() => {
-        // Se a rede falhar, retorna o HTML em cache
-        return caches.match(e.request);
+        // Se a rede falhar, retorna o HTML em cache ou a tela _offline.html
+        return caches.match(e.request).then((cachedResponse) => {
+          if (cachedResponse) {
+            return cachedResponse;
+          }
+          return caches.match('/_offline.html');
+        });
       })
     );
   } else {

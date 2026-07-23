@@ -19,7 +19,7 @@ export default function AdminConfiguracoes() {
     const { data, error } = await supabase.from('platform_settings').select('*')
     if (!error && data) {
       const obj: Record<string, string> = {}
-      data.forEach(item => { obj[item.key] = item.value })
+      data.forEach((item: any) => { obj[item.key] = item.value })
       setSettings(obj)
     }
     setLoading(false)

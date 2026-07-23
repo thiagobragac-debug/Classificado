@@ -16,20 +16,23 @@ const LangContext = createContext<LangContextValue>({
   t: (k) => k,
 });
 
-export function LangProvider({ children }: { children: React.ReactNode }) {
-  const [lang, setLangState] = useState<Lang>('pt');
+export function LangProvider({ children, initialLang }: { children: React.ReactNode, initialLang?: Lang }) {
+  const [lang, setLangState] = useState<Lang>(initialLang || 'pt');
 
   useEffect(() => {
     // Lê o idioma salvo no localStorage (mesmo comportamento do main.js original)
     const saved = localStorage.getItem('tc_lang') as Lang | null;
     if (saved === 'es' || saved === 'pt') {
-      setLangState(saved);
+      if (!initialLang && saved !== lang) {
+        setLangState(saved);
+      }
     }
-  }, []);
+  }, [initialLang, lang]);
 
   const setLang = useCallback((l: Lang) => {
     setLangState(l);
     localStorage.setItem('tc_lang', l);
+    document.cookie = `tc_lang=${l}; path=/; max-age=31536000`;
     document.documentElement.lang = l === 'es' ? 'es' : 'pt-BR';
   }, []);
 

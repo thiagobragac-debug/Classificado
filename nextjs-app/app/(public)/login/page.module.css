@@ -2,7 +2,7 @@
 @media(min-width: 900px) { .loginSplit { grid-template-columns: 1fr 1fr; } }
 
 .loginBanner { 
-  background: linear-gradient(135deg, rgba(22, 163, 74, 0.8), rgba(6, 78, 59, 0.8)), url('/assets/hero_farm.webp') center/cover;
+  /* background image optimized via next/image in component */
   padding: 4rem 4rem; 
   color: #fff; 
   display: flex; 
@@ -44,3 +44,20 @@
 
 .togglePassword { position: absolute; right: 1rem; cursor: pointer; width: 18px; height: 18px; color: var(--clr-muted); }
 .togglePassword:hover { color: var(--clr-text); }
+
+@keyframes skeletonPulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.4; }
+  100% { opacity: 1; }
+}
+:global(.skeleton-pulse) {
+  animation: skeletonPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes spin { 
+  from { transform: rotate(0deg); } 
+  to { transform: rotate(360deg); } 
+}
+:global(.animate-spin) {
+  animation: spin 1s linear infinite;
+}

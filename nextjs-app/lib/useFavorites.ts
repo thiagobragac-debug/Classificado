@@ -25,6 +25,7 @@ export function useFavorites() {
   }, []);
 
   const toggleFav = useCallback(async (adId: string) => {
+    let added = false;
     // 1. Otimistic UI Update
     setFavs(prev => {
       const next = { ...prev };
@@ -32,7 +33,7 @@ export function useFavorites() {
         delete next[adId];
       } else {
         next[adId] = true;
-        showToast('Adicionado aos favoritos! Acesse seu painel para não perder esta oferta.', 'success');
+        added = true;
       }
       
       // Sync with localStorage
@@ -42,6 +43,10 @@ export function useFavorites() {
       
       return next;
     });
+
+    if (added) {
+      showToast('Adicionado aos favoritos! Acesse seu painel para não perder esta oferta.', 'success');
+    }
 
     // 2. Persist in backend if logged in
     try {

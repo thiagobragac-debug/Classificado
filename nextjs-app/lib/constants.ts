@@ -39,6 +39,35 @@ export const I18N = {
     fc_machines: 'Máquinas', fc_machines_sub: 'prontas para trabalho',
     filter_featured: 'Destaque', filter_cat: 'Categoria',
     recently_viewed: 'Vistos Recentemente',
+    top_sellers_label: 'Lojas de Destaque', top_sellers: 'Top Vendedores',
+    testimonials_label: 'Provas Sociais', testimonials: 'Casos de Sucesso',
+
+    // Auth & Forms
+    auth_email: 'E-mail', auth_email_ph: 'seu@email.com',
+    auth_pass: 'Senha', auth_pass_ph: '••••••••',
+    auth_forgot: 'Esqueceu a senha?',
+    auth_login_btn: 'Entrar na Conta', auth_login_ing: 'Entrando...',
+    auth_google: 'Continuar com Google', auth_or_email: 'ou continue com e-mail',
+    auth_register_btn: 'Criar Conta', auth_register_ing: 'Criando conta...',
+    auth_name: 'Nome Completo', auth_name_ph: 'João da Silva',
+    auth_display: 'Nome de Exibição / Fazenda', auth_display_ph: 'Ex: Fazenda São João',
+    auth_doc: 'CPF / CNPJ', auth_doc_ph: '000.000.000-00 ou 00.000.000/0001-00',
+    auth_phone: 'WhatsApp / Telefone', auth_phone_ph: '+55 (99) 9 9999-9999',
+    auth_cep: 'CEP', auth_cep_ph: '00000-000',
+    auth_forgot_title: 'Recuperar Senha',
+    auth_forgot_desc: 'Digite o e-mail associado à sua conta e enviaremos um link para redefinir sua senha.',
+    auth_forgot_btn: 'Enviar link de recuperação', auth_forgot_ing: 'Enviando...',
+    auth_back_login: 'Voltar para o login',
+    
+    // Zod Validation (PT)
+    err_email: 'Digite um e-mail válido.',
+    err_pass_req: 'A senha é obrigatória.',
+    err_pass_min: 'A senha deve ter pelo menos 8 caracteres.',
+    err_name: 'O nome deve ter no mínimo 3 caracteres.',
+    err_display: 'O nome de exibição é obrigatório.',
+    err_doc: 'Documento inválido.',
+    err_phone: 'Telefone inválido.',
+    err_cep: 'CEP inválido.',
   },
   es: {
     nav_home: 'Inicio', nav_ads: 'Anuncios', nav_events: 'Eventos',
@@ -73,6 +102,35 @@ export const I18N = {
     fc_machines: 'Maquinaria', fc_machines_sub: 'lista para trabajar',
     filter_featured: 'Destacado', filter_cat: 'Categoría',
     recently_viewed: 'Vistos Recientemente',
+    top_sellers_label: 'Tiendas Destacadas', top_sellers: 'Top Vendedores',
+    testimonials_label: 'Pruebas Sociales', testimonials: 'Casos de Éxito',
+
+    // Auth & Forms
+    auth_email: 'Correo Electrónico', auth_email_ph: 'tu@email.com',
+    auth_pass: 'Contraseña', auth_pass_ph: '••••••••',
+    auth_forgot: '¿Olvidaste tu contraseña?',
+    auth_login_btn: 'Iniciar Sesión', auth_login_ing: 'Iniciando...',
+    auth_google: 'Continuar con Google', auth_or_email: 'o continuar con correo',
+    auth_register_btn: 'Crear Cuenta', auth_register_ing: 'Creando cuenta...',
+    auth_name: 'Nombre Completo', auth_name_ph: 'Juan Pérez',
+    auth_display: 'Nombre Público / Estancia', auth_display_ph: 'Ej: Estancia San Juan',
+    auth_doc: 'Documento de Identidad', auth_doc_ph: 'Número de documento',
+    auth_phone: 'WhatsApp / Teléfono', auth_phone_ph: '+00 (00) 0000-0000',
+    auth_cep: 'Código Postal', auth_cep_ph: '0000',
+    auth_forgot_title: 'Recuperar Contraseña',
+    auth_forgot_desc: 'Ingresa el correo asociado a tu cuenta y te enviaremos un enlace para restablecer tu contraseña.',
+    auth_forgot_btn: 'Enviar enlace de recuperación', auth_forgot_ing: 'Enviando...',
+    auth_back_login: 'Volver al inicio de sesión',
+    
+    // Zod Validation (ES)
+    err_email: 'Ingresa un correo electrónico válido.',
+    err_pass_req: 'La contraseña es obligatoria.',
+    err_pass_min: 'La contraseña debe tener al menos 8 caracteres.',
+    err_name: 'El nombre debe tener al menos 3 caracteres.',
+    err_display: 'El nombre público es obligatorio.',
+    err_doc: 'Documento inválido.',
+    err_phone: 'Teléfono inválido.',
+    err_cep: 'Código postal inválido.',
   }
 };
 

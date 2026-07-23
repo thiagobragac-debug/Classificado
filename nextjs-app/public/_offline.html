@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sem Conexão | Tauze Class</title>
+  <style>
+    :root {
+      --clr-primary: #16A34A;
+      --clr-text: #0f172a;
+      --clr-muted: #64748b;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f8fafc;
+      color: var(--clr-text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      text-align: center;
+    }
+    .icon {
+      width: 80px;
+      height: 80px;
+      color: var(--clr-muted);
+      margin-bottom: 24px;
+      opacity: 0.5;
+    }
+    h1 {
+      font-size: 1.5rem;
+      margin: 0 0 12px;
+      color: var(--clr-text);
+    }
+    p {
+      font-size: 1rem;
+      color: var(--clr-muted);
+      max-width: 340px;
+      margin: 0 0 32px;
+      line-height: 1.5;
+    }
+    button {
+      background: var(--clr-primary);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    button:active {
+      opacity: 0.8;
+    }
+  </style>
+</head>
+<body>
+  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M2 2l20 20"></path>
+    <path d="M8.53 8.53A11 11 0 0 1 12 8a11 11 0 0 1 9.53 5.47"></path>
+    <path d="M5.5 11.5A11 11 0 0 1 8.5 8.5"></path>
+    <path d="M11 14a3 3 0 0 1 4 4"></path>
+    <path d="M8 17a5 5 0 0 1 7.27-3.73"></path>
+  </svg>
+
+  <h1>Você está offline</h1>
+  <p>Parece que o seu dispositivo perdeu o sinal de internet. Verifique sua conexão e tente novamente.</p>
+  
+  <button onclick="window.location.reload()">Tentar Novamente</button>
+</body>
+</html>

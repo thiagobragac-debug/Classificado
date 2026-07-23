@@ -1,0 +1,195 @@
+'use client';
+
+import React, { useState } from 'react';
+import Link from 'next/link';
+import useSWR from 'swr';
+import { getMyAds, deleteAd, toggleAdStatus } from '@/lib/supabase';
+import { usePushNotifications } from './usePush';
+import styles from '../painel.module.css';
+
+const STATUS_LABELS: Record<string, { label: string; className: string }> = {
+  active:  { label: 'Ativo',     className: styles.statusActive },
+  pending: { label: 'Pendente',  className: styles.statusPending },
+  paused:  { label: 'Pausado',   className: styles.statusPaused },
+  expired: { label: 'Expirado',  className: styles.statusExpired },
+};
+
+function fMoney(price: number | null | undefined, currency = 'BRL') {
+  if (price == null) return '—';
+  const sym: Record<string, string> = { BRL: 'R$', USD: 'US$', ARS: 'AR$', PYG: '₲', UYU: '$U' };
+  const s = sym[currency] || currency;
+  return `${s} ${price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+}
+
+function fDate(iso: string) {
+  const d = new Date(iso);
+  const now = new Date();
+  const diff = Math.floor((now.getTime() - d.getTime()) / 1000);
+  if (diff < 60) return 'agora';
+  if (diff < 3600) return Math.floor(diff / 60) + 'min';
+  if (diff < 86400) return Math.floor(diff / 3600) + 'h';
+  if (diff < 2592000) return Math.floor(diff / 86400) + 'd';
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+}
+
+export function MyAdsTab({ userId }: { userId: string }) {
+  const [page, setPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const { subscribe, loading: pushLoading } = usePushNotifications();
+  
+  // SWR for data fetching
+  const { data, error, isLoading, mutate } = useSWR(
+    ['myAds', statusFilter, page],
+    () => getMyAds({ status: statusFilter, page, limit: 12 }),
+    { keepPreviousData: true }
+  );
+
+  const ads = data?.data || [];
+  const total = data?.total || 0;
+  const totalPages = Math.ceil(total / 12);
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Tem certeza que deseja excluir este anúncio?')) return;
+    try {
+      await deleteAd(id);
+      mutate(); // Refetch
+    } catch {
+      alert('Erro ao excluir.');
+    }
+  };
+
+  const handleToggle = async (id: string, status: string) => {
+    try {
+      await toggleAdStatus(id, status);
+      mutate(); // Refetch
+    } catch {
+      alert('Erro ao alterar status.');
+    }
+  };
+
+  return (
+    <div className={styles.fadeIn}>
+      <div className={styles.flexBetween}>
+        <div>
+          <h1 className={styles.headerTitle}>Meus Anúncios</h1>
+          <button 
+            onClick={subscribe} 
+            disabled={pushLoading}
+            className={styles.secondaryButton} 
+            style={{ marginTop: '0.5rem' }}
+          >
+            {pushLoading ? 'Ativando...' : '🔔 Ativar Notificações'}
+          </button>
+          <p className={styles.headerSubtitle}>
+            {isLoading ? 'Carregando...' : total === 0 ? 'Nenhum anúncio encontrado' : `${total} anúncio${total > 1 ? 's' : ''}`}
+          </p>
+        </div>
+        <select 
+          value={statusFilter} 
+          onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
+          className={styles.inputSelect}
+        >
+          <option value="all">Todos os Status</option>
+          <option value="active">Ativos</option>
+          <option value="pending">Pendentes</option>
+          <option value="paused">Pausados</option>
+          <option value="expired">Expirados</option>
+        </select>
+      </div>
+
+      {isLoading && ads.length === 0 ? (
+        <div className={styles.spinner} />
+      ) : error ? (
+        <div className={styles.emptyState}>Erro ao carregar anúncios.</div>
+      ) : ads.length === 0 ? (
+        <div className={styles.emptyState} style={{ padding: '4rem 2rem', border: '1px dashed var(--clr-border)', borderRadius: '1rem', background: 'white' }}>
+          <div className={styles.emptyStateIcon} style={{ width: '80px', height: '80px', background: 'linear-gradient(135deg, var(--clr-primary), #0ea5e9)', color: 'white', border: 'none', boxShadow: '0 10px 25px rgba(22,163,74,0.2)' }}>
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" /><path d="M12 8v8"/><path d="M8 12h8"/>
+            </svg>
+          </div>
+          <h3 className={styles.emptyStateTitle} style={{ fontSize: '1.5rem', marginTop: '1.5rem', fontWeight: 800 }}>Crie seu primeiro anúncio</h3>
+          <p className={styles.emptyStateDesc} style={{ fontSize: '1rem', maxWidth: '420px', lineHeight: 1.6, color: 'var(--clr-text-muted)' }}>
+            Alcance milhares de compradores em todo o Mercosul. Venda bovinos, máquinas e propriedades rurais com a melhor vitrine do agronegócio.
+          </p>
+          <Link href="/anunciar" className={styles.primaryButton} style={{ marginTop: '1.5rem', padding: '0.85rem 2.5rem', fontSize: '1.1rem', borderRadius: '2rem' }}>
+            Publicar Anúncio Agora
+          </Link>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {ads.map((ad: any) => {
+            const img = ad.images?.[0];
+            const status = STATUS_LABELS[ad.status] || STATUS_LABELS.pending;
+            
+            return (
+              <div key={ad.id} className={`${styles.card} ${styles.adCard}`}>
+                {/* Imagem */}
+                <div className={styles.adCardImage}>
+                  {img ? (
+                    <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" color="var(--clr-text-light)">
+                        <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+                      </svg>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Info */}
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '.6rem', marginBottom: '.35rem' }}>
+                    <span className={`${styles.statusBadge} ${status.className}`}>{status.label}</span>
+                    {ad.featured && <span className={`${styles.statusBadge} ${styles.statusFeatured}`}>⭐ Destaque</span>}
+                  </div>
+                  <div className={styles.adCardTitle}>
+                    {ad.title_pt || ad.title_es}
+                  </div>
+                  <div className={styles.adCardMeta}>
+                    <span className={styles.adCardPrice}>{fMoney(ad.price, ad.currency)}</span>
+                    {ad.city && <span>{ad.city}{ad.state ? `, ${ad.state}` : ''}</span>}
+                    <span>👁 {ad.views_count || 0} views</span>
+                    <span>{fDate(ad.created_at)}</span>
+                  </div>
+                </div>
+                
+                {/* Actions */}
+                <div className={styles.adCardActions}>
+                  <Link href={`/anunciar?id=${ad.id}`} title="Editar" className={styles.actionBtn}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  </Link>
+                  <button 
+                    title={ad.status === 'paused' ? 'Reativar' : 'Pausar'}
+                    onClick={() => handleToggle(ad.id, ad.status)}
+                    className={styles.actionBtn}
+                  >
+                    {ad.status === 'paused'
+                      ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                      : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                    }
+                  </button>
+                  <button title="Excluir" onClick={() => handleDelete(ad.id)} className={`${styles.actionBtn} ${styles.actionBtnDanger}`}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {totalPages > 1 && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', marginTop: '1.5rem' }}>
+          <button disabled={page <= 1} onClick={() => setPage(p => p - 1)} className={styles.secondaryButton}>
+            ← Anterior
+          </button>
+          <span style={{ fontSize: '.85rem', fontWeight: 700, color: 'var(--clr-text-muted)' }}>{page} / {totalPages}</span>
+          <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)} className={styles.secondaryButton}>
+            Próxima →
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}

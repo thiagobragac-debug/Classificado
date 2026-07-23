@@ -3,7 +3,9 @@
 .limitBanner p { margin: 0; font-size: .95rem; color: var(--clr-text); }
 .limitBanner a { color: var(--clr-accent); font-weight: 700; text-decoration: underline; white-space: nowrap; }
 .stepProgress { display: flex; margin-bottom: 2.5rem; border-radius: 99px; background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.6); box-shadow: 0 8px 25px rgba(0, 0, 0, 0.03); padding: 0.4rem; gap: 0.4rem; }
-.stepItem { flex: 1; display: flex; align-items: center; justify-content: center; gap: .65rem; padding: .75rem 1rem; font-size: .88rem; font-weight: 600; color: var(--clr-muted); transition: all .3s; border-radius: 99px; user-select: none; }
+.stepItem { flex: 1; display: flex; align-items: center; justify-content: center; gap: .65rem; padding: .75rem 1rem; font-size: .88rem; font-weight: 600; color: var(--clr-muted); transition: all .3s; border-radius: 99px; user-select: none; border: none; background: transparent; font-family: inherit; cursor: pointer; }
+.stepItem:disabled { cursor: not-allowed; opacity: 0.5; }
+.stepItem:focus-visible { outline: 2px solid var(--clr-primary); outline-offset: 2px; }
 .stepItem.active { background: linear-gradient(135deg, var(--clr-primary), var(--clr-accent)); color: #fff; box-shadow: 0 4px 15px rgba(22, 163, 74, .25); transform: translateY(-1px); }
 .stepNum { width: 24px; height: 24px; border-radius: 50%; border: 2px solid currentColor; display: flex; align-items: center; justify-content: center; font-size: .75rem; flex-shrink: 0; transition: all .3s; }
 .stepItem.active .stepNum { background: #fff; color: var(--clr-primary); border-color: #fff; }
@@ -41,3 +43,32 @@ input[type="checkbox"]:checked + .toggleSwitchSm::after { transform: translateX(
 
 @media (max-width: 800px) { .formGrid4 { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 600px) { .formGrid64, .formGrid3, .formGrid4 { grid-template-columns: 1fr; } .colFull { grid-column: 1; } .stepLabel { display: none; } }
+
+/* New Refactored Styles */
+.inputLabel { display: block; font-weight: 700; font-size: 0.8rem; color: var(--clr-muted); margin-bottom: 0.6rem; text-transform: uppercase; }
+.inputLabel span { color: #ef4444; }
+.errorText { color: #ef4444; font-size: 0.8rem; margin-top: 0.4rem; display: block; }
+.sectionSubHeader { font-size: 1.05rem; font-weight: 800; margin: 0 0 1.2rem 0; }
+.divider { margin-top: 0.5rem; padding-top: 2rem; border-top: 1px solid rgba(0,0,0,0.05); }
+
+/* Switch Acessível */
+.switchContainer { display: flex; justify-content: space-between; align-items: center; }
+.toggleInput { opacity: 0; width: 0; height: 0; position: absolute; }
+.toggleSwitchSm { position: relative; width: 32px; height: 18px; background-color: #cbd5e1; border-radius: 10px; transition: .3s; flex-shrink: 0; border: 2px solid transparent; }
+.toggleInput:focus-visible + .toggleSwitchSm { outline: 2px solid var(--clr-primary); outline-offset: 2px; }
+
+/* Status de Salvamento (Autosave) */
+.saveStatusContainer { display: flex; align-items: center; justify-content: flex-end; gap: 0.5rem; margin-bottom: 1rem; font-size: 0.85rem; font-weight: 600; min-height: 24px; transition: opacity 0.3s ease; }
+.saveStatusContainer.idle { opacity: 0; }
+.saveStatusContainer.saving { color: var(--clr-muted); }
+.saveStatusContainer.saved { color: var(--clr-primary); }
+.saveStatusContainer.error { color: #ef4444; }
+.spinner { width: 14px; height: 14px; border: 2px solid currentColor; border-bottom-color: transparent; border-radius: 50%; display: inline-block; animation: rotation 1s linear infinite; }
+@keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+/* Skeletons */
+.skeletonContainer { padding: 2rem; background: var(--clr-surface); border-radius: 24px; border: 1px solid rgba(0,0,0,0.04); box-shadow: 0 10px 40px rgba(0,0,0,0.03); }
+.skeletonHeader { width: 40%; height: 28px; background: #e2e8f0; border-radius: 8px; margin-bottom: 2rem; animation: pulse 1.5s infinite ease-in-out; }
+.skeletonGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+.skeletonField { height: 48px; background: #e2e8f0; border-radius: 12px; animation: pulse 1.5s infinite ease-in-out; }
+@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
