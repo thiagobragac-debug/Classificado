@@ -73,7 +73,7 @@ export default async function VendedorPage(props: Props) {
 
   return (
     <main className="flex-1 flex flex-col" style={{ marginTop: 'var(--header-h)' }}>
-      <div className="list-hero" style={{ paddingBottom: '80px' }}>
+      <div className="list-hero">
         <div className="container">
           <div className="list-hero-inner">
             <div>
@@ -94,8 +94,8 @@ export default async function VendedorPage(props: Props) {
       </div>
       
       <Suspense fallback={
-        <div className="container" style={{ marginTop: '-80px', position: 'relative', zIndex: 10 }}>
-           <div style={{ height: '200px', background: 'var(--clr-surface)', borderRadius: '1rem', border: '1px solid var(--clr-border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="container" style={{ marginTop: '-40px', position: 'relative', zIndex: 10 }}>
+           <div style={{ height: '120px', background: 'var(--clr-surface)', borderRadius: '1rem', border: '1px solid var(--clr-border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
              <span className="spinner" />
            </div>
         </div>
@@ -150,7 +150,7 @@ async function SellerContent({ sellerId, sellerName, parsedParams, geoContext }:
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd }} />
-      <div style={{ marginTop: '-80px', position: 'relative', zIndex: 10 }}>
+      <div style={{ marginTop: '-40px', position: 'relative', zIndex: 10 }}>
         <SellerProfileHeader
           sellerId={sellerId}
           sellerName={sellerName}

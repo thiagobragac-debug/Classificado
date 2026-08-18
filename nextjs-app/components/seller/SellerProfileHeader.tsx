@@ -52,7 +52,7 @@ export default function SellerProfileHeader({
 
   return (
     <>
-      <div className="container" style={{ marginTop: '2rem' }}>
+      <div className="container" style={{ marginTop: '1.5rem' }}>
         <div className={styles.sellerHeaderCard}>
           <div className={styles.sellerBanner} />
           
@@ -71,7 +71,7 @@ export default function SellerProfileHeader({
                 <h2 className={styles.sellerName}>{sellerName}</h2>
                 {stats.verified && (
                   <div className={styles.sellerBadge} title="Vendedor Verificado">
-                    <ShieldCheck size={14} />
+                    <ShieldCheck size={12} />
                     <span>Verificado</span>
                   </div>
                 )}
@@ -92,34 +92,32 @@ export default function SellerProfileHeader({
                   </span>
                   <span className={styles.statLabel}>Anos vendendo</span>
                 </div>
-              </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '1rem' }}>
-                <div style={{ display: 'flex', gap: '2px', color: '#f59e0b' }} aria-hidden="true">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <Star 
-                      key={star} 
-                      size={20} 
-                      fill={star <= Math.round(avg) && total > 0 ? "currentColor" : "none"} 
-                      strokeWidth={star <= Math.round(avg) && total > 0 ? 0 : 2}
-                      style={{ opacity: total > 0 ? 1 : 0.4 }}
-                    />
-                  ))}
+                {/* Estrelas inline */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginLeft: '0.5rem' }}>
+                  <div style={{ display: 'flex', gap: '1px', color: '#f59e0b' }} aria-hidden="true">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star 
+                        key={star} 
+                        size={14} 
+                        fill={star <= Math.round(avg) && total > 0 ? "currentColor" : "none"} 
+                        strokeWidth={star <= Math.round(avg) && total > 0 ? 0 : 1.5}
+                        style={{ opacity: total > 0 ? 1 : 0.35 }}
+                      />
+                    ))}
+                  </div>
+                  <span style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: 600 }}>{ratingText}</span>
                 </div>
-                <span className="sr-only" style={{ position: 'absolute', width: '1px', height: '1px', padding: 0, margin: '-1px', overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', whiteSpace: 'nowrap', borderWidth: 0 }}>
-                  Avaliação: {avg.toFixed(1)} de 5 estrelas
-                </span>
-                <span style={{ color: '#64748b', fontWeight: 700, fontSize: '0.95rem' }}>{ratingText}</span>
               </div>
             </div>
             
             <div className={styles.sellerActions}>
               <button onClick={handleShare} className={styles.btnShare} aria-label="Compartilhar perfil">
-                <Share2 size={18} /> 
+                <Share2 size={16} /> 
                 <span>Compartilhar</span>
               </button>
               <button onClick={() => setIsModalOpen(true)} className={styles.btnReview}>
-                <Star size={18} fill="currentColor" strokeWidth={0} /> Deixar Avaliação
+                <Star size={16} fill="currentColor" strokeWidth={0} /> Avaliar
               </button>
             </div>
           </div>
@@ -129,5 +127,6 @@ export default function SellerProfileHeader({
       {isModalOpen && <ReviewModal sellerId={sellerId} onClose={() => setIsModalOpen(false)} />}
     </>
   );
+
 }
 
