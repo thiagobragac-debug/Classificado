@@ -49,7 +49,7 @@ export function AnunciarWizard({ initialData, userProfile, isEditMode }: Anuncia
   const [currentStep, setCurrentStep] = useState(1)
   const [direction, setDirection] = useState(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [saveStatus, setSaveStatus] = useState<string>('idle')
   const [draftId, setDraftId] = useState<string | null>(initialData?.id || null)
   const draftTimer = useRef<NodeJS.Timeout | null>(null)
 
@@ -57,7 +57,7 @@ export function AnunciarWizard({ initialData, userProfile, isEditMode }: Anuncia
     resolver: zodResolver(AnuncioSchema),
     defaultValues: {
       titulo: initialData?.title_pt || '',
-      categoria: initialData?.category_id ? initialData.category_id.replace('cat-', '') : '',
+      categoria: initialData?.category_id || '',
       descricao: initialData?.description || '',
       moeda: initialData?.currency || 'BRL',
       preco: initialData?.price ? initialData.price.toString() : '',
@@ -79,11 +79,17 @@ export function AnunciarWizard({ initialData, userProfile, isEditMode }: Anuncia
       const localDraft = localStorage.getItem('tc_draft_ad');
       if (localDraft) {
         try {
-          const parsed = JSON.parse(localDraft);
+          const stored = JSON.parse(localDraft);
+          // Verificar expiração: rascunho dura no máximo 24h em dispositivos compartilhados
+          if (stored.expires && stored.expires < Date.now()) {
+            localStorage.removeItem('tc_draft_ad');
+            return;
+          }
+          const parsed = stored.data || stored; // compatibilidade com formato antigo
           // Restore form values
           reset({
             titulo: parsed.title_pt || '',
-            categoria: parsed.category_id ? parsed.category_id.replace('cat-', '') : '',
+            categoria: parsed.category_id || '',
             descricao: parsed.description || '',
             moeda: parsed.currency || 'BRL',
             preco: parsed.price ? parsed.price.toString() : '',
@@ -95,10 +101,12 @@ export function AnunciarWizard({ initialData, userProfile, isEditMode }: Anuncia
             cidade: parsed.city || userProfile?.city || '',
             fotos: parsed.images || []
           });
-          // After loading, clear it so we don't keep loading it if they start over
+          // Após carregar, remover para não recarregar se o usuário começar novamente
           localStorage.removeItem('tc_draft_ad');
           showToast('Rascunho recuperado. Você pode continuar de onde parou.', 'info');
         } catch(e) {
+          // Draft corrompido — limpar
+          localStorage.removeItem('tc_draft_ad');
           console.error('Error parsing local draft', e);
         }
       }
@@ -131,15 +139,19 @@ export function AnunciarWizard({ initialData, userProfile, isEditMode }: Anuncia
         try {
           const values = getValues()
           // Only save if basic info is present to avoid junk records
-          if (values.titulo.length > 3) {
+          if (values.titulo.length > 3 && values.categoria) {
             const payload = preparePayload(values, 'draft')
             
             const { getSupabase } = await import('@/lib/supabase');
             const { data: { session } } = await getSupabase().auth.getSession();
 
             if (!session) {
-              // progressive profiling: save to localStorage instead of db
-              localStorage.setItem('tc_draft_ad', JSON.stringify(payload));
+              // Progressive profiling: salvar com expiração de 24h
+              const draftWithExpiry = {
+                data: payload,
+                expires: Date.now() + 24 * 60 * 60 * 1000, // 24 horas
+              };
+              localStorage.setItem('tc_draft_ad', JSON.stringify(draftWithExpiry));
               setSaveStatus('saved');
               return;
             }
@@ -154,9 +166,15 @@ export function AnunciarWizard({ initialData, userProfile, isEditMode }: Anuncia
           } else {
             setSaveStatus('idle')
           }
-        } catch (e) {
+        } catch (e: any) {
           console.error("Erro ao salvar rascunho em background", e)
-          setSaveStatus('error')
+          setSaveStatus(e.message || 'error')
+          
+          // Prevenção contra spoofing/falha RLS: se não tem permissão para alterar este draft, limpa o ID
+          if (e.code === '403' || e.message?.includes('RLS') || e.code === '42501') {
+            setDraftId(null)
+            showToast('Erro de permissão no rascunho. Reiniciando novo.', 'error')
+          }
         }
       }, 1500)
     })
@@ -165,9 +183,7 @@ export function AnunciarWizard({ initialData, userProfile, isEditMode }: Anuncia
 
 
   const preparePayload = (data: AnuncioFormValues, status: InsertAdDTO['status']): InsertAdDTO => {
-    const finalCategoryId = ['bovinos', 'equinos', 'suinos', 'maquinas'].includes(data.categoria) 
-      ? `cat-${data.categoria}` 
-      : data.categoria
+    const finalCategoryId = data.categoria;
 
     let parsedPrice = null;
     if (data.preco) {
@@ -204,7 +220,11 @@ export function AnunciarWizard({ initialData, userProfile, isEditMode }: Anuncia
 
       if (!session) {
         // Progressive Profiling: Require login before final publish
-        localStorage.setItem('tc_draft_ad', JSON.stringify(payload));
+        const draftWithExpiry = {
+          data: payload,
+          expires: Date.now() + 24 * 60 * 60 * 1000, // 24 horas
+        };
+        localStorage.setItem('tc_draft_ad', JSON.stringify(draftWithExpiry));
         showToast('Quase lá! Faça login ou cadastre-se para publicar seu anúncio.', 'info');
         router.push('/login?redirectTo=/anunciar');
         return;
@@ -290,10 +310,10 @@ export function AnunciarWizard({ initialData, userProfile, isEditMode }: Anuncia
             </button>
           </div>
           
-          <div className={`${styles.saveStatusContainer} ${styles[saveStatus]}`} aria-live="polite">
+          <div className={`${styles.saveStatusContainer} ${saveStatus === 'saving' ? styles.saving : (saveStatus === 'saved' ? styles.saved : (saveStatus !== 'idle' ? styles.error : ''))}`} aria-live="polite">
             {saveStatus === 'saving' && <><span className={styles.spinner}></span> Salvando rascunho...</>}
             {saveStatus === 'saved' && <>Rascunho salvo</>}
-            {saveStatus === 'error' && <>Erro ao salvar rascunho</>}
+            {saveStatus !== 'idle' && saveStatus !== 'saving' && saveStatus !== 'saved' && <>Erro ao salvar: {saveStatus}</>}
           </div>
 
           <FormProvider {...methods}>

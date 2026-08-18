@@ -38,7 +38,7 @@ export function LoginForm({ onSetAlert, onNavigateToForgot }: LoginFormProps) {
     setLoading(true)
     try {
       await loginWithEmail(data.email, data.password)
-      const redirect = searchParams.get('next') || searchParams.get('redirect')
+      const redirect = searchParams.get('next') || searchParams.get('redirect') || searchParams.get('redirectTo')
       
       let safeRedirect = '/painel'
       if (redirect && redirect.startsWith('/')) {
@@ -47,7 +47,8 @@ export function LoginForm({ onSetAlert, onNavigateToForgot }: LoginFormProps) {
         }
       }
       
-      router.push(safeRedirect)
+      // Hard redirect para garantir o envio correto dos cookies para o servidor
+      window.location.href = safeRedirect
     } catch (err: any) {
       onSetAlert(err.message || 'Erro ao fazer login.', 'error')
       setLoading(false)
@@ -56,7 +57,13 @@ export function LoginForm({ onSetAlert, onNavigateToForgot }: LoginFormProps) {
 
   const handleGoogle = async () => {
     try {
-      await loginWithGoogle()
+      const redirect = searchParams.get('next') || searchParams.get('redirect') || searchParams.get('redirectTo')
+      
+      let safeRedirect = '/painel'
+      if (redirect && redirect.startsWith('/') && !redirect.startsWith('//')) {
+        safeRedirect = redirect
+      }
+      await loginWithGoogle(safeRedirect)
     } catch(err: any) {
       onSetAlert(err.message || 'Erro ao conectar com Google.', 'error')
     }

@@ -2,16 +2,29 @@
 
 import React, { useEffect, useState } from 'react'
 import { getSupabase } from '@/lib/supabase'
+import { showToast } from '@/lib/toast'
 
 export default function AdminUsuarios() {
   const [users, setUsers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 15
+  
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
 
   // Filters
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('Todos os status')
   const [countryFilter, setCountryFilter] = useState('Todos os países')
   const [planFilter, setPlanFilter] = useState('Todos os planos')
+
+  // Modals state
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviting, setInviting] = useState(false)
+
+  const [selectedUserForDetails, setSelectedUserForDetails] = useState<any>(null)
 
   useEffect(() => {
     loadUsers()
@@ -22,12 +35,19 @@ export default function AdminUsuarios() {
     const supabase = getSupabase()
     const { data, error } = await supabase
       .from('profiles')
-      .select('*')
+      .select('*, user_secrets(is_blocked, plan, email), ads(count)')
       .order('created_at', { ascending: false })
-      .limit(100)
+      .limit(1500)
     
     if (!error && data) {
-      setUsers(data)
+      const mapped = data.map((u: any) => ({
+        ...u,
+        is_blocked: Array.isArray(u.user_secrets) ? u.user_secrets[0]?.is_blocked : u.user_secrets?.is_blocked,
+        plan: Array.isArray(u.user_secrets) ? u.user_secrets[0]?.plan : u.user_secrets?.plan,
+        email: Array.isArray(u.user_secrets) ? u.user_secrets[0]?.email : u.user_secrets?.email,
+        ads_count: Array.isArray(u.ads) ? u.ads[0]?.count : (u.ads?.count || 0)
+      }))
+      setUsers(mapped)
     }
     setLoading(false)
   }
@@ -35,13 +55,13 @@ export default function AdminUsuarios() {
   const handleBlockToggle = async (userId: string, currentStatus: boolean) => {
     const supabase = getSupabase()
     const newStatus = !currentStatus
-    const { error } = await supabase.from('profiles').update({ is_blocked: newStatus }).eq('id', userId)
+    const { error } = await supabase.from('user_secrets').update({ is_blocked: newStatus }).eq('id', userId)
     if (!error) {
       setUsers(users.map(u => u.id === userId ? { ...u, is_blocked: newStatus } : u))
       // Aqui a gente pode chamar a lib do toast, mas como nao temos, uso um alert customizado ou confio no layout
-      alert(`Usuário ${newStatus ? 'bloqueado' : 'desbloqueado'} com sucesso!`)
+      showToast(`Usuário ${newStatus ? 'bloqueado' : 'desbloqueado'} com sucesso!`, 'success')
     } else {
-      alert('Erro ao alterar status: ' + error.message)
+      showToast('Erro ao alterar status: ' + error.message, 'error')
     }
   }
 
@@ -51,9 +71,9 @@ export default function AdminUsuarios() {
     const { error } = await supabase.from('profiles').update({ verified: newStatus }).eq('id', userId)
     if (!error) {
       setUsers(users.map(u => u.id === userId ? { ...u, verified: newStatus } : u))
-      alert(`Usuário marcado como ${newStatus ? 'Verificado' : 'Não Verificado'}!`)
+      showToast(`Usuário marcado como ${newStatus ? 'Verificado' : 'Não Verificado'}!`, 'success')
     } else {
-      alert('Erro ao alterar selo de verificação: ' + error.message)
+      showToast('Erro ao alterar selo de verificação: ' + error.message, 'error')
     }
   }
 
@@ -81,6 +101,39 @@ export default function AdminUsuarios() {
     document.body.removeChild(link);
   }
 
+  const toggleSelectAll = () => {
+    if (selectedIds.length === paginatedUsers.length) {
+      setSelectedIds([])
+    } else {
+      setSelectedIds(paginatedUsers.map(u => u.id))
+    }
+  }
+
+  const toggleSelect = (id: string) => {
+    if (selectedIds.includes(id)) {
+      setSelectedIds(selectedIds.filter(sid => sid !== id))
+    } else {
+      setSelectedIds([...selectedIds, id])
+    }
+  }
+
+  const handleBulkBlock = async (shouldBlock: boolean) => {
+    if (selectedIds.length === 0) return
+    const supabase = getSupabase()
+    
+    const { error } = await supabase.from('profiles')
+      .update({ is_blocked: shouldBlock })
+      .in('id', selectedIds)
+      
+    if (!error) {
+      setUsers(users.map(u => selectedIds.includes(u.id) ? { ...u, is_blocked: shouldBlock } : u))
+      showToast(`${selectedIds.length} usuários ${shouldBlock ? 'bloqueados' : 'desbloqueados'}!`, 'success')
+      setSelectedIds([])
+    } else {
+      showToast('Erro ao atualizar usuários: ' + error.message, 'error')
+    }
+  }
+
   const filteredUsers = users.filter(u => {
     if (search && !(u.name?.toLowerCase().includes(search.toLowerCase()) || u.email?.toLowerCase().includes(search.toLowerCase()))) return false
     if (statusFilter !== 'Todos os status') {
@@ -96,38 +149,76 @@ export default function AdminUsuarios() {
     return true
   })
 
+  const handleInviteUser = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!inviteEmail) return
+    
+    setInviting(true)
+    try {
+      const res = await fetch('/api/admin/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: inviteEmail })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Erro ao convidar')
+      
+      showToast('Convite enviado com sucesso para ' + inviteEmail, 'success')
+      setIsInviteModalOpen(false)
+      setInviteEmail('')
+      loadUsers()
+    } catch (err: any) {
+      showToast(err.message, 'error')
+    } finally {
+      setInviting(false)
+    }
+  }
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [search, statusFilter, countryFilter, planFilter])
+
+  const totalPages = Math.ceil(filteredUsers.length / pageSize)
+  const paginatedUsers = filteredUsers.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+
   // KPIs
   const total = users.length
+  const assinantes = users.filter(u => u.plan === 'Premium' || u.plan === 'Pro').length
+  const free = total - assinantes
   const blocked = users.filter(u => u.is_blocked).length
-  const premium = users.filter(u => u.plan === 'Premium').length
-  const pro = users.filter(u => u.plan === 'Pro').length
-  const free = total - premium - pro
 
   return (
     <>
-      <div className="adm-page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+      <div className="adm-page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '24px' }}>
         <div>
-          <h1 className="adm-page-title">Gerenciar Usuários</h1>
-          <p className="adm-page-sub">Verifique, bloqueie e gerencie os usuários do portal.</p>
+          <h1 className="adm-page-title" style={{ margin: '0 0 8px 0' }}>Gerenciar Usuários</h1>
+          <p className="adm-page-sub" style={{ margin: 0, color: 'var(--adm-text-muted)' }}>Verifique, bloqueie e gerencie os usuários do portal.</p>
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
           <button className="adm-btn adm-btn--outline" onClick={handleExport}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Exportar CSV
           </button>
-          <button className="adm-btn adm-btn--primary" onClick={() => alert('Convite em breve')}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <button className="adm-btn adm-btn--primary" onClick={() => setIsInviteModalOpen(true)}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Convidar Usuário
           </button>
         </div>
       </div>
 
-      <div className="adm-stats-grid" style={{ gridTemplateColumns: 'repeat(5,1fr)', marginBottom: '20px' }}>
-        <div className="adm-stat-card"><div><div className="adm-stat-val">{total}</div><div className="adm-stat-lbl">Total</div></div><div className="adm-stat-icon adm-stat-icon--green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div></div>
-        <div className="adm-stat-card"><div><div className="adm-stat-val" style={{ color: 'var(--adm-amber)' }}>{premium}</div><div className="adm-stat-lbl">Premium</div></div><div className="adm-stat-icon adm-stat-icon--amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div></div>
-        <div className="adm-stat-card"><div><div className="adm-stat-val" style={{ color: 'var(--adm-blue)' }}>{pro}</div><div className="adm-stat-lbl">Pro</div></div><div className="adm-stat-icon adm-stat-icon--blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div></div>
-        <div className="adm-stat-card"><div><div className="adm-stat-val">{free}</div><div className="adm-stat-lbl">Grátis</div></div><div className="adm-stat-icon adm-stat-icon--green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div></div>
-        <div className="adm-stat-card"><div><div className="adm-stat-val" style={{ color: 'var(--adm-red)' }}>{blocked}</div><div className="adm-stat-lbl">Bloqueados</div></div><div className="adm-stat-icon adm-stat-icon--red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div></div>
+      <div className="adm-stats-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)', marginBottom: '20px' }}>
+        <div className="adm-stat-card">
+          <div><div className="adm-stat-val">{total}</div><div className="adm-stat-lbl">Total</div></div>
+        </div>
+        <div className="adm-stat-card">
+          <div><div className="adm-stat-val" style={{ color: 'var(--adm-blue)' }}>{assinantes}</div><div className="adm-stat-lbl">Assinantes</div></div>
+        </div>
+        <div className="adm-stat-card">
+          <div><div className="adm-stat-val" style={{ color: 'var(--adm-green)' }}>{free}</div><div className="adm-stat-lbl">Grátis</div></div>
+        </div>
+        <div className="adm-stat-card">
+          <div><div className="adm-stat-val" style={{ color: 'var(--adm-red)' }}>{blocked}</div><div className="adm-stat-lbl">Bloqueados</div></div>
+        </div>
       </div>
 
       <div className="adm-card">
@@ -160,7 +251,11 @@ export default function AdminUsuarios() {
           <table className="adm-table">
             <thead>
               <tr>
-                <th style={{ width: '40px' }}><input type="checkbox" style={{ accentColor: 'var(--adm-accent)' }} /></th>
+                <th style={{ width: '40px' }}>
+                  <input type="checkbox" style={{ accentColor: 'var(--adm-accent)' }} 
+                         checked={paginatedUsers.length > 0 && selectedIds.length === paginatedUsers.length}
+                         onChange={toggleSelectAll} />
+                </th>
                 <th>Usuário</th>
                 <th>País</th>
                 <th>Plano</th>
@@ -174,11 +269,15 @@ export default function AdminUsuarios() {
             <tbody>
               {loading ? (
                 <tr><td colSpan={8} style={{ textAlign: 'center', padding: '20px' }}>Carregando...</td></tr>
-              ) : filteredUsers.map(user => {
+              ) : paginatedUsers.map(user => {
                 const plan = user.plan || 'Grátis'
                 return (
                   <tr key={user.id}>
-                    <td><input type="checkbox" style={{ accentColor: 'var(--adm-accent)' }} /></td>
+                    <td>
+                      <input type="checkbox" style={{ accentColor: 'var(--adm-accent)' }} 
+                             checked={selectedIds.includes(user.id)}
+                             onChange={() => toggleSelect(user.id)} />
+                    </td>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         {user.avatar_url ? (
@@ -189,7 +288,7 @@ export default function AdminUsuarios() {
                           </div>
                         )}
                         <div>
-                          <div style={{ fontWeight: 600 }}>{user.name || 'Sem nome'}</div>
+                          <div style={{ fontWeight: 600, cursor: 'pointer', color: 'var(--adm-accent)' }} onClick={() => setSelectedUserForDetails(user)}>{user.name || 'Sem nome'}</div>
                           <div style={{ fontSize: '0.8rem', color: 'var(--adm-text-muted)' }}>{user.email || user.phone_whatsapp || 'Sem contato'}</div>
                         </div>
                       </div>
@@ -232,7 +331,193 @@ export default function AdminUsuarios() {
             </tbody>
           </table>
         </div>
+        {/* PAGINATION FOOTER */}
+        <div style={{ padding: '16px 24px', borderTop: '1px solid var(--adm-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--adm-surface)', borderRadius: '0 0 var(--adm-r-xl) var(--adm-r-xl)' }}>
+            <div style={{ fontSize: '14px', color: 'var(--adm-text-secondary)' }}>
+              Mostrando de <strong style={{ color: 'var(--adm-text)' }}>{filteredUsers.length === 0 ? 0 : ((currentPage - 1) * pageSize) + 1}</strong> até <strong style={{ color: 'var(--adm-text)' }}>{Math.min(currentPage * pageSize, filteredUsers.length)}</strong> de <strong style={{ color: 'var(--adm-text)' }}>{filteredUsers.length}</strong> itens
+            </div>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <button 
+                className="adm-btn adm-btn--outline adm-btn--sm" 
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              >
+                Anterior
+              </button>
+              
+              {Array.from({ length: totalPages }).map((_, i) => {
+                if (totalPages > 7) {
+                  if (i !== 0 && i !== totalPages - 1 && Math.abs(currentPage - 1 - i) > 1) {
+                    if (Math.abs(currentPage - 1 - i) === 2) return <span key={i} style={{ padding: '0 8px', color: 'var(--adm-text-secondary)' }}>...</span>
+                    return null
+                  }
+                }
+                
+                return (
+                  <button 
+                    key={i} 
+                    className={`adm-btn adm-btn--sm ${currentPage === i + 1 ? 'adm-btn--primary' : 'adm-btn--outline'}`}
+                    style={{ width: '36px', height: '36px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                    onClick={() => setCurrentPage(i + 1)}
+                  >
+                    {i + 1}
+                  </button>
+                )
+              })}
+
+              <button 
+                className="adm-btn adm-btn--outline adm-btn--sm" 
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              >
+                Próxima
+              </button>
+            </div>
+          </div>
       </div>
+
+      {selectedIds.length > 0 && (
+        <div style={{
+          position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)',
+          background: 'var(--adm-surface)', border: '1px solid var(--adm-border)',
+          boxShadow: '0 10px 25px rgba(0,0,0,0.1)', padding: '12px 24px',
+          borderRadius: '100px', display: 'flex', alignItems: 'center', gap: '20px', zIndex: 1000
+        }}>
+          <div style={{ fontWeight: 600, color: 'var(--adm-accent)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            {selectedIds.length} selecionado{selectedIds.length > 1 ? 's' : ''}
+          </div>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', borderLeft: '1px solid var(--adm-border)', paddingLeft: '20px' }}>
+            <button className="adm-btn adm-btn--sm adm-btn--outline" onClick={() => setSelectedIds([])}>Cancelar</button>
+            <button className="adm-btn adm-btn--sm adm-btn--primary" style={{ background: 'var(--adm-red)', borderColor: 'var(--adm-red)' }} onClick={() => handleBulkBlock(true)}>Bloquear</button>
+            <button className="adm-btn adm-btn--sm adm-btn--primary" style={{ background: 'var(--adm-green)', borderColor: 'var(--adm-green)' }} onClick={() => handleBulkBlock(false)}>Desbloquear</button>
+          </div>
+        </div>
+      )}
+
+      {/* Invite Modal */}
+      {isInviteModalOpen && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: 'var(--adm-surface)', padding: '30px', borderRadius: '12px', width: '400px', maxWidth: '90%' }}>
+            <h2 style={{ margin: '0 0 15px 0' }}>Convidar Usuário</h2>
+            <p style={{ color: 'var(--adm-text-muted)', marginBottom: '20px', fontSize: '0.9rem' }}>Um e-mail será enviado com um link mágico para o usuário configurar sua conta e senha.</p>
+            
+            <form onSubmit={handleInviteUser}>
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, fontSize: '0.9rem' }}>E-mail do Usuário</label>
+                <input 
+                  type="email" 
+                  value={inviteEmail} 
+                  onChange={e => setInviteEmail(e.target.value)} 
+                  required 
+                  autoFocus
+                  style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--adm-border)', background: 'var(--adm-bg)', color: 'var(--adm-text)' }} 
+                  placeholder="exemplo@email.com"
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button type="button" className="adm-btn adm-btn--outline" onClick={() => setIsInviteModalOpen(false)}>Cancelar</button>
+                <button type="submit" className="adm-btn adm-btn--primary" disabled={inviting}>
+                  {inviting ? 'Enviando...' : 'Enviar Convite'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* User Details Modal */}
+      {selectedUserForDetails && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: 'var(--adm-surface)', padding: '30px', borderRadius: '12px', width: '500px', maxWidth: '90%', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ margin: 0 }}>Detalhes do Cadastro</h2>
+              <button style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--adm-text-muted)' }} onClick={() => setSelectedUserForDetails(null)}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="24" height="24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                 {selectedUserForDetails.avatar_url ? (
+                    <img src={selectedUserForDetails.avatar_url} alt="" style={{ width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'var(--adm-surface-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--adm-text-muted)', fontWeight: 'bold', fontSize: '24px' }}>
+                      {selectedUserForDetails.name ? selectedUserForDetails.name.charAt(0).toUpperCase() : '?'}
+                    </div>
+                  )}
+                  <div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{selectedUserForDetails.name || 'Sem nome'} {selectedUserForDetails.display_name && `(${selectedUserForDetails.display_name})`}</div>
+                    <div style={{ color: 'var(--adm-text-muted)' }}>Membro desde {new Date(selectedUserForDetails.created_at).toLocaleDateString()}</div>
+                  </div>
+              </div>
+              
+              <div style={{ background: 'var(--adm-bg)', padding: '15px', borderRadius: '8px', border: '1px solid var(--adm-border)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                  <div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--adm-text-muted)' }}>Email</div>
+                    <div style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {selectedUserForDetails.email || '-'}
+                      {selectedUserForDetails.email_verified && <span title="Email Verificado" style={{ color: 'var(--adm-green)', fontSize: '14px' }}>✓</span>}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--adm-text-muted)' }}>Telefone / WhatsApp</div>
+                    <div style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {selectedUserForDetails.phone_whatsapp || '-'}
+                      {selectedUserForDetails.whatsapp_verified && <span title="WhatsApp Verificado" style={{ color: 'var(--adm-green)', fontSize: '14px' }}>✓</span>}
+                    </div>
+                  </div>
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--adm-text-muted)' }}>Biografia (Sobre)</div>
+                    <div style={{ fontWeight: 500, fontSize: '0.9rem', color: selectedUserForDetails.bio ? 'inherit' : 'var(--adm-text-muted)' }}>
+                      {selectedUserForDetails.bio || 'Sem biografia informada.'}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--adm-text-muted)' }}>ID do Usuário</div>
+                    <div style={{ fontWeight: 500, fontSize: '0.8rem', wordBreak: 'break-all' }}>{selectedUserForDetails.id}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--adm-text-muted)' }}>Localização</div>
+                    <div style={{ fontWeight: 500 }}>
+                      {[selectedUserForDetails.city, selectedUserForDetails.state, selectedUserForDetails.country].filter(Boolean).join(', ') || '-'}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--adm-text-muted)' }}>Plano e Assinatura</div>
+                    <div style={{ fontWeight: 500 }}>
+                      {selectedUserForDetails.plan || 'Grátis'} 
+                      {selectedUserForDetails.subscription_status && ` (${selectedUserForDetails.subscription_status})`}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--adm-text-muted)' }}>Validade do Plano</div>
+                    <div style={{ fontWeight: 500 }}>
+                      {selectedUserForDetails.plan_expires_at ? new Date(selectedUserForDetails.plan_expires_at).toLocaleDateString() : 'Vitalício / Indeterminado'}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--adm-text-muted)' }}>Selo KYC (Identidade)</div>
+                    <div style={{ fontWeight: 500 }}>
+                      {selectedUserForDetails.verified ? <span style={{ color: 'var(--adm-green)' }}>Verificado</span> : <span style={{ color: 'var(--adm-text-muted)' }}>Não verificado</span>}
+                      {selectedUserForDetails.kyc_status && ` [${selectedUserForDetails.kyc_status}]`}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--adm-text-muted)' }}>Status da Conta</div>
+                    <div style={{ fontWeight: 500 }}>{selectedUserForDetails.is_blocked ? <span style={{ color: 'var(--adm-red)' }}>Bloqueado</span> : <span style={{ color: 'var(--adm-green)' }}>Ativo</span>}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+              <button className="adm-btn adm-btn--outline" onClick={() => setSelectedUserForDetails(null)}>Fechar Detalhes</button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

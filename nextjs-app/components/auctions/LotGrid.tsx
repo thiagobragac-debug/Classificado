@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { LotData } from './LotBiddingModal';
 import LotBiddingModal from './LotBiddingModal';
 
@@ -30,14 +31,16 @@ export default function LotGrid({ lots, isLive, userId }: LotGridProps) {
 
           return (
             <article key={lot.id} className="ad-card" style={{ display: 'flex', flexDirection: 'column' }}>
-              <div className="ad-card__image" style={{ position: 'relative' }}>
+              <div className="ad-card__image" style={{ position: 'relative', height: '200px' }}>
                 <div style={{ position: 'absolute', top: '1rem', left: '1rem', background: '#020617', color: '#fff', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.85rem', fontWeight: 700, zIndex: 10 }}>
                   LOTE {lot.lot_number}
                 </div>
-                <img 
-                  src={lot.image || 'https://via.placeholder.com/400x300?text=Sem+Foto'} 
-                  alt={lot.title} 
-                  style={{ width: '100%', height: '200px', objectFit: 'cover', filter: imgFilter }} 
+                <Image
+                  src={lot.image || '/assets/hero_farm.webp'}
+                  alt={`Foto do lote ${lot.lot_number}: ${lot.title}`}
+                  fill
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 280px"
+                  style={{ objectFit: 'cover', filter: imgFilter }}
                 />
               </div>
               

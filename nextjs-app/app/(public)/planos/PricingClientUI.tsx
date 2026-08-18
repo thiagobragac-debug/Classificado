@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
 import { useAuth } from '@/components/AuthProvider'
 import CheckoutModal from '@/components/ui/CheckoutModal'
+import { useConfirm } from '@/components/ui/ConfirmProvider'
 import styles from './page.module.css'
 
 export interface Plan {
@@ -13,6 +14,7 @@ export interface Plan {
   name_pt?: string
   description?: string
   price: number
+  promotional_price?: number | null
   currency: string
   max_ads: number
   max_photos: number
@@ -44,6 +46,7 @@ function FAQItem({ question, answer, id }: { question: string, answer: string, i
 }
 
 export default function PricingClientUI({ initialPlans }: { initialPlans: Plan[] }) {
+  const { confirm } = useConfirm()
   const router = useRouter()
   const searchParams = useSearchParams()
   const { session } = useAuth()
@@ -56,8 +59,15 @@ export default function PricingClientUI({ initialPlans }: { initialPlans: Plan[]
       if (session) {
         const sb = getSupabase()
         try {
-          const { data: profile } = await sb.from('profiles').select('plan_id').eq('id', session.user.id).single()
-          if (profile) setUserPlanId(profile.plan_id)
+          // profiles.plan_id (uuid) → plans.id: identifies which plan the user is subscribed to
+          const { data: profile } = await sb
+            .from('profiles')
+            .select('plan_id')
+            .eq('id', session.user.id)
+            .single()
+          if (profile?.plan_id) {
+            setUserPlanId(profile.plan_id)
+          }
         } catch (err) {
           console.error('Erro ao buscar plano do usuário:', err)
         }
@@ -77,14 +87,14 @@ export default function PricingClientUI({ initialPlans }: { initialPlans: Plan[]
     }
   }, [session, searchParams, initialPlans])
 
-  const handlePlanClick = (plan: Plan) => {
+  const handlePlanClick = async (plan: Plan) => {
     if (!session) {
       router.push(`/login?redirect=/planos&plan_id=${plan.id}`)
       return
     }
 
     if (plan.price <= 0) {
-      if (confirm('Tem certeza que deseja mudar para o plano Grátis?')) {
+      if (await confirm('Tem certeza que deseja mudar para o plano Grátis?')) {
         alert('Downgrade não implementado completamente nesta simulação.')
       }
     } else {
@@ -170,9 +180,22 @@ export default function PricingClientUI({ initialPlans }: { initialPlans: Plan[]
                   ) : (
                     <div className={styles.proPrice}>
                       <span className={styles.currency}>{plan.currency === 'BRL' ? 'R$' : plan.currency}</span>
-                      <span className={styles.amount}>
-                        {billingCycle === 'monthly' ? plan.price : (plan.price * 0.8).toFixed(2).replace('.', ',')}
-                      </span>
+                      
+                      {(plan.promotional_price ?? 0) > 0 ? (
+                        <>
+                          <span style={{ textDecoration: 'line-through', color: '#9ca3af', fontSize: '1.2rem', marginRight: '8px' }}>
+                            {billingCycle === 'monthly' ? plan.price : (plan.price * 0.8).toFixed(2).replace('.', ',')}
+                          </span>
+                          <span className={styles.amount} style={{ color: '#22c55e' }}>
+                            {billingCycle === 'monthly' ? Number(plan.promotional_price) : (Number(plan.promotional_price) * 0.8).toFixed(2).replace('.', ',')}
+                          </span>
+                        </>
+                      ) : (
+                        <span className={styles.amount}>
+                          {billingCycle === 'monthly' ? plan.price : (plan.price * 0.8).toFixed(2).replace('.', ',')}
+                        </span>
+                      )}
+                      
                       <span className={styles.period}>/mês</span>
                     </div>
                   )}
@@ -329,6 +352,7 @@ export default function PricingClientUI({ initialPlans }: { initialPlans: Plan[]
       {selectedPlan && (
         <CheckoutModal 
           plan={selectedPlan} 
+          billingCycle={billingCycle}
           onClose={() => setSelectedPlan(null)} 
         />
       )}

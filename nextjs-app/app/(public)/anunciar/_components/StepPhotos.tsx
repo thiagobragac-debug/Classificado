@@ -14,7 +14,7 @@ interface StepPhotosProps {
 }
 
 export function StepPhotos({ onPrev, isSubmitting }: StepPhotosProps) {
-  const { setValue, watch, formState: { errors } } = useFormContext<AnuncioFormValues>()
+  const { setValue, watch, getValues, formState: { errors } } = useFormContext<AnuncioFormValues>()
   const fileInputRef = useRef<HTMLInputElement>(null)
   
   const fotos = watch('fotos') || []
@@ -81,11 +81,10 @@ export function StepPhotos({ onPrev, isSubmitting }: StepPhotosProps) {
           const url = await uploadAdImage(compressed, 'draft')
           if (url) {
             // Get latest fotos from form state to avoid race conditions in loop
-            setValue('fotos', (prev: string[]) => {
-               const curr = prev || [];
-               if (curr.length < 6) return [...curr, url];
-               return curr;
-            }, { shouldValidate: true })
+            const prev = getValues('fotos') || [];
+            if (prev.length < 6) {
+               setValue('fotos', [...prev, url], { shouldValidate: true })
+            }
           }
         } catch (err: any) {
           showToast(`Erro ao fazer upload da imagem ${file.name}: ${err.message}`, 'error')
@@ -142,9 +141,13 @@ export function StepPhotos({ onPrev, isSubmitting }: StepPhotosProps) {
         </div>
       </div>
       
-      <div 
-        className={`${styles.photoUploadZone} ${isBusy ? styles.disabled : ''} ${isDragging ? styles.dragOver : ''}`} 
+      <div
+        className={`${styles.photoUploadZone} ${isBusy ? styles.disabled : ''} ${isDragging ? styles.dragOver : ''}`}
+        role="button"
+        tabIndex={0}
+        aria-label="Clique ou arraste fotos aqui"
         onClick={() => !isBusy && fileInputRef.current?.click()}
+        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && !isBusy && fileInputRef.current?.click()}
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
         onDrop={onDrop}

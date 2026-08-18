@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLang } from '@/lib/lang-context';
-import { CATEGORIES } from '@/lib/constants';
+import { useCategories } from '@/lib/categories-context';
 
 const POPULAR = {
   pt: ['nelore', 'angus', 'trator', 'fazenda', 'soja', 'milho', 'garrote', 'novilha', 'cavalo', 'suíno'],
@@ -24,6 +24,7 @@ const LOCATIONS = [
 export function SearchAutocomplete() {
   const router = useRouter();
   const { lang, t } = useLang();
+  const categories = useCategories();
   
   const [query, setQuery] = useState('');
   const [show, setShow] = useState(false);
@@ -57,7 +58,8 @@ export function SearchAutocomplete() {
   const norm = (str: string) => str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   const q = norm(query);
 
-  const matchedCats = q ? CATEGORIES.filter(c => norm(lang === 'es' ? c.name_es : c.name_pt).includes(q)) : [];
+  const activeCats = categories && categories.length > 0 ? categories : [];
+  const matchedCats = q ? activeCats.filter((c: any) => norm(lang === 'es' ? (c.name_es || c.name_pt) : c.name_pt).includes(q)) : [];
   const matchedLocs = q ? LOCATIONS.filter(l => norm(l.name).includes(q)) : [];
   const popular = (POPULAR[lang as 'pt' | 'es'] || POPULAR.pt).filter(p => p.includes(q) && p !== q).slice(0, 4);
 
@@ -107,9 +109,9 @@ export function SearchAutocomplete() {
           {matchedCats.length > 0 && (
             <div style={{ padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}>
               <div style={{ padding: '4px 16px', fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Categorias</div>
-              {matchedCats.map(c => (
+              {matchedCats.map((c: any) => (
                 <div key={c.id} onClick={() => handleSearch('', c.id)} style={{ padding: '8px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }} className="hover-bg-slate">
-                  <span style={{ fontSize: '0.9rem', color: '#0f172a' }}>{lang === 'es' ? c.name_es : c.name_pt}</span>
+                  <span style={{ fontSize: '0.9rem', color: '#0f172a' }}>{lang === 'es' ? (c.name_es || c.name_pt) : c.name_pt}</span>
                 </div>
               ))}
             </div>

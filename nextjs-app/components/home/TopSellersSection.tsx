@@ -21,8 +21,9 @@ export function TopSellersSection({ topSellers }: { topSellers: any[] }) {
           </Link>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem' }}>
-          {topSellers?.map((seller: any) => (
-            <div key={seller.id} className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', cursor: 'pointer' }}>
+          {topSellers?.map((seller: any, index: number) => (
+            <Link key={seller.id} href={`/vendedor/${seller.id}`} className="top-seller-card glass-card">
+              <div className="seller-rank">#{index + 1}</div>
               {seller.avatar_url ? (
                 <Image src={seller.avatar_url} alt={seller.name} width={56} height={56} style={{ borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
               ) : (
@@ -44,7 +45,7 @@ export function TopSellersSection({ topSellers }: { topSellers: any[] }) {
                   <span style={{ color: '#64748b' }}>{seller.active_ads || 0} anúncios ativos</span>
                 </div>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       </div>

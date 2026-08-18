@@ -1,5 +1,5 @@
 import { Suspense } from 'react';
-import { getServerAds, getServerPlatformStats, getServerTopSellers, getServerTestimonials } from '@/lib/supabase-server';
+import { getServerAds, getServerPlatformStats, getServerTopSellers, getServerTestimonials, getServerUpcomingEvents } from '@/lib/supabase-server';
 
 import { HeroSection } from '@/components/home/HeroSection';
 import { CategoriesSection } from '@/components/home/CategoriesSection';
@@ -9,22 +9,43 @@ import { TopSellersSection } from '@/components/home/TopSellersSection';
 import { MercosulSection } from '@/components/home/MercosulSection';
 import { RecentAdsSection } from '@/components/home/RecentAdsSection';
 import { CtaSection } from '@/components/home/CtaSection';
+import { EventsAuctionsSection } from '@/components/home/EventsAuctionsSection';
 import { AdBanner } from '@/components/AdBanner';
 import dynamic from 'next/dynamic';
+import { headers } from 'next/headers';
+
+// Nota: A página agora é dinâmica automaticamente (pois usamos headers() no código)
+// Não podemos exportar 'dynamic' aqui pois dá conflito de nome com a importação 'next/dynamic'
+
+function SectionSkeleton() {
+  return (
+    <div className="container skeleton-section-container">
+       <div className="skeleton-section-card" aria-hidden="true"></div>
+    </div>
+  );
+}
 
 const TestimonialsSection = dynamic(
   () => import('@/components/home/TestimonialsSection').then((mod) => mod.TestimonialsSection),
-  { ssr: true }
+  { ssr: true, loading: () => <SectionSkeleton /> }
 );
 
 // Funções de Wrapper para Suspense e Streaming
-async function FeaturedAdsWrapper() {
-  const featuredData = await getServerAds({ featured: true, limit: 12 });
-  return <FeaturedAdsSection featuredAds={featuredData.ads} />;
+// Wrapper genérico — recebe dados já prontos
+async function HeroWrapper() {
+  const stats = await getServerPlatformStats();
+  return <HeroSection stats={stats} />;
 }
 
-async function TopSellersWrapper() {
-  const topSellers = await getServerTopSellers();
+async function FeaturedAdsWrapper({ city, state, country }: { city?: string; state?: string; country?: string }) {
+  const { getServerFeaturedAds } = await import('@/lib/supabase-server');
+  const featuredAds = await getServerFeaturedAds(city, state, country, 4);
+  return <FeaturedAdsSection featuredAds={featuredAds} />;
+}
+
+async function TopSellersWrapper({ city, state, country }: { city?: string; state?: string; country?: string }) {
+  const { getServerTopSellers } = await import('@/lib/supabase-server');
+  const topSellers = await getServerTopSellers(city, state, country, 4);
   return <TopSellersSection topSellers={topSellers} />;
 }
 
@@ -33,28 +54,38 @@ async function TestimonialsWrapper() {
   return <TestimonialsSection testimonials={testimonials} />;
 }
 
-async function RecentAdsWrapper() {
-  const recentData = await getServerAds({ limit: 12 });
-  return <RecentAdsSection initialRecent={recentData.ads} initialHasMore={recentData.hasMore} />;
+async function RecentAdsWrapper({ city, state, country }: { city?: string; state?: string; country?: string }) {
+  const { getServerRecentAds } = await import('@/lib/supabase-server');
+  const recentData = await getServerRecentAds(city, state, country, 10);
+  return (
+    <RecentAdsSection 
+      initialRecent={recentData.ads} 
+      initialHasMore={recentData.hasMore} 
+      city={city} 
+      state={state} 
+      country={country} 
+    />
+  );
 }
 
-async function HeroWrapper() {
-  const stats = await getServerPlatformStats();
-  return <HeroSection stats={stats} />;
+async function EventsAuctionsWrapper({ city, state, country }: { city?: string; state?: string; country?: string }) {
+  const { getServerUpcomingEvents } = await import('@/lib/supabase-server');
+  const upcomingEvents = await getServerUpcomingEvents(city, state, country, 3);
+  return <EventsAuctionsSection events={upcomingEvents} />;
 }
 
 function HeroSkeleton() {
   return (
-    <section className="hero animate-pulse" aria-busy="true" role="status" aria-label="Carregando portal...">
+    <section className="hero skeleton-hero-wrapper" aria-busy="true" role="status" aria-label="Carregando portal...">
       <div className="container">
         <div className="hero-grid">
-          <div className="hero-left flex flex-col gap-6">
-            <div className="bg-gray-200 dark:bg-gray-800 rounded-lg w-4/5 h-16"></div>
-            <div className="bg-gray-200 dark:bg-gray-800 rounded-md w-3/5 h-6"></div>
-            <div className="bg-gray-200 dark:bg-gray-800 rounded-full w-full h-14 mt-4"></div>
+          <div className="hero-left skeleton-hero-left" aria-hidden="true">
+            <div className="skeleton-hero-title"></div>
+            <div className="skeleton-hero-subtitle"></div>
+            <div className="skeleton-hero-button"></div>
           </div>
-          <div className="hero-right">
-            <div className="bg-gray-200 dark:bg-gray-800 rounded-3xl w-full h-full min-h-[400px]"></div>
+          <div className="hero-right" aria-hidden="true">
+            <div className="skeleton-hero-right"></div>
           </div>
         </div>
       </div>
@@ -62,27 +93,27 @@ function HeroSkeleton() {
   );
 }
 
-// Skeleton para transições suaves
-function SectionSkeleton() {
-  return (
-    <div className="container py-16 animate-pulse" aria-busy="true" role="status" aria-label="Carregando seção...">
-       <div className="bg-gray-200 dark:bg-gray-800 rounded-2xl w-full aspect-[21/9] min-h-[300px]"></div>
-    </div>
-  );
-}
+// SectionSkeleton foi movido para o topo do arquivo
 
-export default function Home() {
+export default async function Home() {
+  // Lê os headers geo UMA VEZ para todos os wrappers
+  const headersList = await headers();
+  const city    = headersList.get('x-vercel-ip-city')           || undefined;
+  const state   = headersList.get('x-vercel-ip-country-region') || undefined;
+  const country = headersList.get('x-vercel-ip-country')        || undefined;
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://tauzeclass.com.br";
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
       {
         "@type": "WebSite",
         "name": "Tauze Class",
-        "url": "https://tauzeclass.com.br",
+        "url": siteUrl,
         "description": "O maior portal de classificados do agronegócio do Mercosul.",
         "potentialAction": {
           "@type": "SearchAction",
-          "target": "https://tauzeclass.com.br/listagem?busca={search_term_string}",
+          "target": `${siteUrl}/listagem?busca={search_term_string}`,
           "query-input": "required name=search_term_string"
         }
       },
@@ -90,36 +121,38 @@ export default function Home() {
         "@type": "ItemList",
         "name": "Categorias em Destaque",
         "itemListElement": [
-          { "@type": "ListItem", "position": 1, "name": "Bovinos", "url": "https://tauzeclass.com.br/listagem?categoria=bovinos" },
-          { "@type": "ListItem", "position": 2, "name": "Máquinas", "url": "https://tauzeclass.com.br/listagem?categoria=maquinas" },
-          { "@type": "ListItem", "position": 3, "name": "Imóveis", "url": "https://tauzeclass.com.br/listagem?categoria=imoveis" }
+          { "@type": "ListItem", "position": 1, "name": "Bovinos", "url": `${siteUrl}/listagem?categoria=bovinos` },
+          { "@type": "ListItem", "position": 2, "name": "Máquinas", "url": `${siteUrl}/listagem?categoria=maquinas` },
+          { "@type": "ListItem", "position": 3, "name": "Imóveis", "url": `${siteUrl}/listagem?categoria=imoveis` }
         ]
       }
     ]
   };
 
+  const safeJsonLd = JSON.stringify(jsonLd).replace(/</g, '\\u003c');
+
   return (
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd }}
       />
       <Suspense fallback={<HeroSkeleton />}>
         <HeroWrapper />
       </Suspense>
       
-      <div className="container"><AdBanner position="home_top" /></div>
+      <div className="container" style={{ minHeight: '120px' }}><AdBanner position="home_top" /></div>
       
       <CategoriesSection />
       
       <Suspense fallback={<SectionSkeleton />}>
-        <FeaturedAdsWrapper />
+        <FeaturedAdsWrapper city={city} state={state} country={country} />
       </Suspense>
       
       <TrustSection />
       
       <Suspense fallback={<SectionSkeleton />}>
-        <TopSellersWrapper />
+        <TopSellersWrapper city={city} state={state} country={country} />
       </Suspense>
       
       <Suspense fallback={<SectionSkeleton />}>
@@ -128,10 +161,14 @@ export default function Home() {
       
       <MercosulSection />
       
-      <div className="container"><AdBanner position="home_mid" /></div>
+      <div className="container" style={{ minHeight: '120px' }}><AdBanner position="home_mid" /></div>
       
       <Suspense fallback={<SectionSkeleton />}>
-        <RecentAdsWrapper />
+        <RecentAdsWrapper city={city} state={state} country={country} />
+      </Suspense>
+
+      <Suspense fallback={<SectionSkeleton />}>
+        <EventsAuctionsWrapper city={city} state={state} country={country} />
       </Suspense>
 
       <CtaSection />

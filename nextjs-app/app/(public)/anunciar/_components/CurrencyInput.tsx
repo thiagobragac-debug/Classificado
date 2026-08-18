@@ -5,14 +5,24 @@ import { Controller, useFormContext } from 'react-hook-form'
 import { NumericFormat } from 'react-number-format'
 import styles from '../page.module.css'
 
+const CURRENCY_PREFIXES: Record<string, string> = {
+  BRL: 'R$ ',
+  USD: 'US$ ',
+  ARS: 'AR$ ',
+  UYU: 'UY$ ',
+  PYG: 'Gs ',
+}
+
 interface CurrencyInputProps {
   name: string
+  currency?: string
   placeholder?: string
   className?: string
 }
 
-export function CurrencyInput({ name, placeholder = '0,00', className }: CurrencyInputProps) {
+export function CurrencyInput({ name, currency = 'BRL', placeholder = '0,00', className }: CurrencyInputProps) {
   const { control } = useFormContext()
+  const prefix = CURRENCY_PREFIXES[currency] ?? 'R$ '
 
   return (
     <Controller
@@ -27,7 +37,7 @@ export function CurrencyInput({ name, placeholder = '0,00', className }: Currenc
           }}
           thousandSeparator="."
           decimalSeparator=","
-          prefix="R$ "
+          prefix={prefix}
           decimalScale={2}
           fixedDecimalScale
           allowNegative={false}

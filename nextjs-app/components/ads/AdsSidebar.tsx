@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AdBanner } from '@/components/AdBanner';
 import { Category, COUNTRY_FLAGS } from './AdCard';
 import { useAdsFilter } from './AdsFilterContext';
@@ -11,7 +11,7 @@ const TRANSLATIONS = {
     allStates: 'Todos os Estados', allCities: 'Todas as Cidades',
     priceRange: 'Faixa de Preço', min: 'Mínimo', max: 'Máximo', upTo: 'Até',
     offerType: 'Tipo de Oferta', onlyFeatured: 'Apenas Destaques',
-    negotiable: 'Negociável', apply: 'Aplicar Filtros'
+    negotiable: 'Negociável', apply: 'Aplicar Filtros', closeFilters: 'Fechar filtros'
   },
   es: {
     filters: 'Filtros', clear: 'Limpiar', search: 'Buscar anuncios...',
@@ -20,7 +20,7 @@ const TRANSLATIONS = {
     allStates: 'Todos los Estados', allCities: 'Todas las Ciudades',
     priceRange: 'Rango de Precio', min: 'Mínimo', max: 'Máximo', upTo: 'Hasta',
     offerType: 'Tipo de Oferta', onlyFeatured: 'Solo Destacados',
-    negotiable: 'Negociable', apply: 'Aplicar Filtros'
+    negotiable: 'Negociable', apply: 'Aplicar Filtros', closeFilters: 'Cerrar filtros'
   }
 };
 
@@ -49,7 +49,32 @@ export default function AdsSidebar() {
 
   const t = TRANSLATIONS[lang as keyof typeof TRANSLATIONS] || TRANSLATIONS.pt;
 
-  return (
+  // Mobile FAB state
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const closeMobile = useCallback(() => setMobileOpen(false), []);
+
+  // Close on Escape key
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeMobile();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [mobileOpen, closeMobile]);
+
+  // Prevent body scroll when drawer is open
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [mobileOpen]);
+
+  const filterContent = (
     <>
       <div className="filter-header">
         <h2 className="filter-title">
@@ -88,7 +113,20 @@ export default function AdsSidebar() {
         <div className="location-group">
           <div className="location-select-wrapper">
             <select className="filter-select-clean" aria-label={t.allCountries}
-              value={pais} onChange={e => { setPais(e.target.value); setEstado(''); setCidade(''); applyFilters({ pais: e.target.value, estado: '', cidade: '' }); }}>
+              value={pais} onChange={e => { 
+                const val = e.target.value;
+                setPais(val); setEstado(''); setCidade('');
+                if (val) {
+                  applyFilters({ pais: val, estado: '', cidade: '' });
+                } else {
+                  // User chose "Todos os Países" — delete cookies so server doesn't re-inject geo
+                  try {
+                    document.cookie = 'user_geo_v1=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+                    localStorage.removeItem('user_loc_v8');
+                  } catch { /* ignore */ }
+                  applyFilters({ pais: '', estado: '', cidade: '' });
+                }
+              }}>
               <option value="">{t.allCountries}</option>
               {countries.map(c => <option key={c} value={c}>{COUNTRY_FLAGS[c] || '🌎'} {c}</option>)}
             </select>
@@ -148,6 +186,60 @@ export default function AdsSidebar() {
 
       {/* Ad Banner dinâmico da Sidebar */}
       <AdBanner position="listagem_sidebar" />
+    </>
+  );
+
+  return (
+    <>
+      {/* Desktop sidebar — always visible */}
+      <div className="ads-sidebar-desktop">
+        {filterContent}
+      </div>
+
+      {/* Mobile FAB (Floating Action Button) */}
+      <button
+        className="ads-sidebar-fab"
+        aria-label={t.filters}
+        aria-expanded={mobileOpen}
+        aria-controls="ads-sidebar-drawer"
+        onClick={() => setMobileOpen(prev => !prev)}
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+        {t.filters}
+        {hasFilters && <span className="ads-sidebar-fab-badge" aria-hidden="true" />}
+      </button>
+
+      {/* Mobile overlay — closes drawer when clicked outside */}
+      {mobileOpen && (
+        <div
+          className="ads-sidebar-overlay"
+          aria-hidden="true"
+          onClick={closeMobile}
+        />
+      )}
+
+      {/* Mobile drawer */}
+      <div
+        id="ads-sidebar-drawer"
+        className={`ads-sidebar-drawer${mobileOpen ? ' ads-sidebar-drawer--open' : ''}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label={t.filters}
+      >
+        <div className="ads-sidebar-drawer-header">
+          <span className="ads-sidebar-drawer-title">{t.filters}</span>
+          <button
+            className="ads-sidebar-drawer-close"
+            aria-label={t.closeFilters}
+            onClick={closeMobile}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div className="ads-sidebar-drawer-body">
+          {filterContent}
+        </div>
+      </div>
     </>
   );
 }

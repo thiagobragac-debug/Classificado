@@ -112,7 +112,7 @@ export function AdSidebar({ ad, adTitle, catName }: AdSidebarProps) {
         <div className="product-info-panel">
           
           {/* Meta top */}
-          <div className="product-meta-top" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', fontSize: '0.875rem' }}>
+          <div className="product-meta-top" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.875rem' }}>
             <span className="tag-status" style={{ background: 'var(--clr-surface-alt)', padding: '0.25rem 0.75rem', borderRadius: '1rem', fontWeight: 500 }}>
               {catName && `${ad.categories?.icon || '🗂️'} ${catName}`}
             </span>
@@ -122,14 +122,14 @@ export function AdSidebar({ ad, adTitle, catName }: AdSidebarProps) {
             </span>
           </div>
 
-          <h1 className="product-title" style={{ fontSize: '1.75rem', fontWeight: 700, lineHeight: 1.2, marginBottom: '1rem' }}>
+          <h1 className="product-title" style={{ fontSize: '1.75rem', fontWeight: 700, lineHeight: 1.2 }}>
             {adTitle}
           </h1>
 
           {/* Price */}
-          <div className="product-price" style={{ marginBottom: '1.5rem' }}>
+          <div className="product-price">
             {ad.price !== null ? (
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: '2.25rem', fontWeight: 800, color: 'var(--clr-primary, #16A34A)' }}>
                   {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: ad.currency || 'BRL', minimumFractionDigits: 0 }).format(ad.price)}
                 </span>
@@ -143,13 +143,13 @@ export function AdSidebar({ ad, adTitle, catName }: AdSidebarProps) {
 
           {/* Location */}
           {locationParts.length > 0 && (
-            <div className="ad-location-line" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--clr-text-muted)', marginBottom: '1.5rem' }}>
+            <div className="ad-location-line" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--clr-text-muted)' }}>
               📍 {locationParts.join(', ')}
             </div>
           )}
 
           {/* Seller card */}
-          <Link href={`/vendedor/${ad.user_id}`} className="seller-card-mini" style={{ display: 'flex', gap: '1rem', padding: '1rem', background: 'var(--clr-surface-alt)', borderRadius: '1rem', textDecoration: 'none', color: 'inherit', marginBottom: '1.5rem' }}>
+          <Link href={`/vendedor/${ad.user_id}`} className="seller-card-mini" style={{ display: 'flex', gap: '1rem', padding: '1rem', background: 'var(--clr-surface-alt)', borderRadius: '1rem', textDecoration: 'none', color: 'inherit' }}>
             <div className="seller-avatar-lg" style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--clr-primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', fontWeight: 700, overflow: 'hidden', flexShrink: 0 }}>
               {ad.profiles?.avatar_url ? (
                 <img src={ad.profiles.avatar_url} alt={sellerName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -163,12 +163,12 @@ export function AdSidebar({ ad, adTitle, catName }: AdSidebarProps) {
                 {ad.profiles?.verified && <CheckCircle className="w-4 h-4 text-green-600" />}
               </div>
               
-              <div className="seller-badges" style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
-                {ad.profiles?.email_verified && <span style={{ fontSize: '0.75rem', background: '#e0f2fe', color: '#0369a1', padding: '2px 6px', borderRadius: '4px' }}>✓ E-mail</span>}
-                {ad.profiles?.phone_verified && <span style={{ fontSize: '0.75rem', background: '#dcfce7', color: '#15803d', padding: '2px 6px', borderRadius: '4px' }}>✓ WhatsApp</span>}
-                {ad.profiles?.kyc_status === 'approved' && <span style={{ fontSize: '0.75rem', background: '#fef3c7', color: '#b45309', padding: '2px 6px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '2px' }}><ShieldCheck className="w-3 h-3"/> Identidade</span>}
+              <div className="seller-badges" style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
+                {ad.profiles?.email_verified && <span style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', background: '#e0f2fe', color: '#0369a1', padding: '4px 8px', borderRadius: '999px', display: 'flex', alignItems: 'center', gap: '4px' }}>✓ E-mail verificado</span>}
+                {ad.profiles?.phone_verified && <span style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', background: '#dcfce7', color: '#15803d', padding: '4px 8px', borderRadius: '999px', display: 'flex', alignItems: 'center', gap: '4px' }}>✓ Telefone verificado</span>}
+                {ad.profiles?.kyc_status === 'approved' && <span style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', background: 'linear-gradient(to right, #fef3c7, #fde68a)', color: '#92400e', padding: '4px 8px', borderRadius: '999px', display: 'flex', alignItems: 'center', gap: '4px' }}><ShieldCheck className="w-3 h-3"/> Identidade confirmada</span>}
               </div>
-              <div className="seller-member" style={{ fontSize: '0.8rem', color: 'var(--clr-text-muted)', marginTop: '0.5rem' }}>
+              <div className="seller-member" style={{ fontSize: '0.85rem', color: 'var(--clr-text-muted)', marginTop: '0.75rem' }}>
                 Membro desde {ad.profiles?.created_at ? memberSince(ad.profiles.created_at) : '—'}
               </div>
             </div>
@@ -203,7 +203,7 @@ export function AdSidebar({ ad, adTitle, catName }: AdSidebarProps) {
             {msgOpen && <AdMessageForm adId={ad.id} receiverId={ad.user_id} />}
 
             {/* Discreet actions */}
-            <div className="discreet-actions-row" style={{ display: 'flex', justifyContent: 'center', gap: '1.5rem', marginTop: '0.5rem', borderTop: '1px solid var(--clr-border)', paddingTop: '1rem' }}>
+            <div className="discreet-actions-row" style={{ display: 'flex', justifyContent: 'center', gap: '1.5rem', marginTop: '0.5rem', borderTop: 'none', borderBottom: 'none' }}>
               <button onClick={share} style={{ background: 'none', border: 'none', display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--clr-text-muted)', cursor: 'pointer', fontSize: '0.9rem' }}>
                 <Share2 className="w-4 h-4" /> {copied ? 'Copiado!' : 'Compartilhar'}
               </button>
@@ -218,7 +218,7 @@ export function AdSidebar({ ad, adTitle, catName }: AdSidebarProps) {
 
           <AdReportModal adId={ad.id} isOpen={reportOpen} onClose={() => setReportOpen(false)} />
 
-          <div className="security-tip-box" style={{ marginTop: '1.5rem', padding: '1rem', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '0.8rem', color: '#991b1b', fontSize: '0.875rem', lineHeight: 1.5 }}>
+          <div className="security-tip-box" style={{ padding: '1rem', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '0.8rem', color: '#991b1b', fontSize: '0.875rem', lineHeight: 1.5 }}>
             <strong>🔒 Dica de Segurança:</strong> Nunca faça depósitos antecipados sem ver o produto pessoalmente. Desconfie de preços muito abaixo do mercado.
           </div>
         </div>

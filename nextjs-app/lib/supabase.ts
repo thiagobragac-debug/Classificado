@@ -29,11 +29,17 @@ export async function getSession() {
 export async function getCurrentUser() {
   const session = await getSession();
   if (!session) return null;
-  const { data: profile } = await getSupabase()
+  const { data: profileRaw } = await getSupabase()
     .from('profiles')
-    .select('id, name, display_name, avatar_url, verified, plan, country, pais')
+    .select('id, name, display_name, avatar_url, verified, country, pais, user_secrets(plan)')
     .eq('id', session.user.id)
     .maybeSingle();
+
+  const profile = profileRaw ? {
+    ...profileRaw,
+    plan: Array.isArray(profileRaw.user_secrets) ? profileRaw.user_secrets[0]?.plan : profileRaw.user_secrets?.plan
+  } : null;
+
   return { ...session.user, profile };
 }
 
@@ -51,10 +57,11 @@ export async function signupWithEmail(email: string, password: string, name: str
   return data;
 }
 
-export async function loginWithGoogle() {
+export async function loginWithGoogle(redirectTo?: string) {
+  const path = redirectTo || '/painel';
   const { error } = await getSupabase().auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: (typeof window !== 'undefined' ? window.location.origin : '') + '/painel' }
+    options: { redirectTo: (typeof window !== 'undefined' ? window.location.origin : '') + path }
   });
   if (error) throw error;
 }
@@ -74,7 +81,7 @@ export async function logout() {
     localStorage.removeItem('tc_user_initials');
     localStorage.removeItem('tc_user_id');
   }
-  if (typeof window !== 'undefined') window.location.href = '/?logout=success';
+  if (typeof window !== 'undefined') window.location.href = '/';
 }
 
 // ─── ANÚNCIOS ─────────────────────────────────────────────────
@@ -94,14 +101,35 @@ export interface AdFilters {
   status?: string;
   user_id?: string | null;
   signal?: AbortSignal;
+  localize?: boolean;
 }
 
 export async function getAds({
   category, country, state, city, search, preco_min, preco_max,
-  featured, page, cursor, limit = 20, status = 'active', user_id, signal
+  featured, page, cursor, limit = 20, status = 'active', user_id, signal, localize
 }: AdFilters = {}) {
   const currentPage = cursor ? cursor : (page ? page : 1);
   const from = (currentPage - 1) * limit;
+  
+  if (localize) {
+    // Para paginação infinita da home (Recent Ads) com geolocalização
+    let rpcQ = getSupabase().rpc('get_localized_recent_ads', {
+      p_city: city || null,
+      p_state: state || null,
+      p_country: country || null,
+      p_limit: limit,
+      p_offset: from
+    }).select('id, title_pt, title_es, price, currency, status, featured, images, category_id, city, state, country, created_at, views_count, expires_at, profiles(name, avatar_url, verified, phone_whatsapp)');
+    
+    if (signal) rpcQ = rpcQ.abortSignal(signal);
+    const { data, error } = await rpcQ.limit(limit);
+    if (error) throw error;
+    
+    const rows = ((data as any[]) || []).slice(0, limit);
+    const hasMore = rows.length === limit;
+    const nextCursor = hasMore ? currentPage + 1 : null;
+    return { ads: rows, total: null, nextCursor, hasMore };
+  }
 
   let q = getSupabase()
     .from('ads')
@@ -140,19 +168,63 @@ export async function getAdById(id: string) {
   if (error) throw error;
   return data;
 }
-export async function createAd(payload: any) {
+// ─── Tipos do Payload de Anúncio ──────────────────────────────
+
+/** Campos permitidos ao criar/editar um anúncio via cliente */
+export interface AdPayload {
+  title_pt: string;
+  description: string;
+  category_id: string;
+  price: number | null;
+  currency: string;
+  price_unit_pt?: string | null;
+  country: string;
+  state: string;
+  city: string;
+  negotiable: boolean;
+  condition?: string | null;
+  // status: apenas 'draft' ou 'pending' — 'active' é definido pelo servidor após moderação
+  status: 'draft' | 'pending';
+  images: string[];
+}
+
+export async function createAd(payload: AdPayload) {
   const session = await getSession();
   if (!session) throw new Error('Not authenticated');
-  payload.user_id = session.user.id;
-  const { data, error } = await getSupabase().from('ads').insert([payload]).select().single();
+
+  // user_id é sempre sobrescrito com o da sessão — nunca pode vir do cliente
+  const safePayload: AdPayload & { user_id: string } = {
+    ...payload,
+    user_id: session.user.id,
+  };
+
+  if (safePayload.description) {
+    const DOMPurify = (await import('isomorphic-dompurify')).default;
+    safePayload.description = DOMPurify.sanitize(safePayload.description);
+  }
+
+  const { data, error } = await getSupabase().from('ads').insert([safePayload]).select().single();
   if (error) throw error;
   return data;
 }
 
-export async function updateAd(id: string, payload: any) {
+export async function updateAd(id: string, payload: AdPayload) {
   const session = await getSession();
   if (!session) throw new Error('Not authenticated');
-  const { data, error } = await getSupabase().from('ads').update(payload).eq('id', id).eq('user_id', session.user.id).select().single();
+
+  if (payload.description) {
+    const DOMPurify = (await import('isomorphic-dompurify')).default;
+    payload.description = DOMPurify.sanitize(payload.description);
+  }
+
+  // .eq('user_id', session.user.id) garante que o usuário só edita seus próprios anúncios
+  const { data, error } = await getSupabase()
+    .from('ads')
+    .update(payload)
+    .eq('id', id)
+    .eq('user_id', session.user.id)
+    .select()
+    .single();
   if (error) throw error;
   return data;
 }
@@ -343,7 +415,12 @@ export async function getBanners(position: string, userLoc: any = null) {
   for (const b of allBanners) {
     const type = b.target_type || 'global';
     const loc = norm(b.target_location);
-    if (type === 'city' && loc === locCity) cityB.push(b);
+    if (type === 'city') {
+      const parts = loc.split('-');
+      const targetCity = parts[0]?.trim() || '';
+      const targetState = parts[1]?.trim() || '';
+      if (targetCity === locCity && targetState === locState) cityB.push(b);
+    }
     else if (type === 'state' && loc === locState) stateB.push(b);
     else if (type === 'country' && loc === locCountry) countryB.push(b);
     else if (type === 'global') globalB.push(b);
@@ -411,15 +488,26 @@ export async function updateProfile(userId: string, updates: Record<string, any>
     if (error) throw error;
   }
   if (hasSecrets) {
-    const { error } = await getSupabase().from('profile_secrets').upsert(secretUpdates);
+    const { error } = await getSupabase().from('user_secrets').upsert(secretUpdates);
     if (error) throw error;
   }
 }
 
 export async function getProfile(userId: string) {
   const [profileResult, secretsResult] = await Promise.all([
-    getSupabase().from('profiles').select('*').eq('id', userId).maybeSingle(),
-    getSupabase().from('profile_secrets').select('*').eq('id', userId).maybeSingle(),
+    // Selecionar colunas específicas — sem select('*') que exporia campos sensíveis
+    getSupabase()
+      .from('profiles')
+      .select('id, name, display_name, avatar_url, phone_whatsapp, bio, city, state, country, verified, kyc_status, created_at')
+      .eq('id', userId)
+      .maybeSingle(),
+    // user_secrets: apenas dados que o próprio usuário precisa ver no painel
+    // NUNCA retornar: is_admin (client não deve saber), kyc_doc_url/kyc_selfie_url (URLs de storage privado)
+    getSupabase()
+      .from('user_secrets')
+      .select('plan, document_type, zip_code, street, number, complement, neighborhood')
+      .eq('id', userId)
+      .maybeSingle(),
   ]);
   if (profileResult.error) throw profileResult.error;
   const data: any = profileResult.data || {};
@@ -449,9 +537,10 @@ export async function getMyAds({ status = 'all', page = 1, limit = 12 } = {}): P
 export async function deleteAd(adId: string) {
   const session = await getSession();
   if (!session) throw new Error('Não autenticado');
+  // Soft-delete: preserva o registro para auditoria, enquanto o remove da listagem pública
   const { error } = await getSupabase()
     .from('ads')
-    .delete()
+    .update({ status: 'deleted', updated_at: new Date().toISOString() })
     .eq('id', adId)
     .eq('user_id', session.user.id);
   if (error) throw error;

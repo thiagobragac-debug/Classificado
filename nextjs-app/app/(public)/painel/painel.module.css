@@ -21,28 +21,22 @@
 
 /* Sidebar */
 .sidebar {
-  background: var(--clr-bg);
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
   border-radius: 1.25rem;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
   overflow: hidden;
   position: sticky;
   top: calc(var(--header-h, 70px) + 1.5rem);
 }
 
 .sidebarHeader {
-  background: linear-gradient(135deg, var(--clr-primary-mid), var(--clr-primary));
-  padding: 2rem 1.5rem 2.5rem;
+  background: linear-gradient(135deg, rgba(22, 163, 74, 0.95), rgba(21, 128, 61, 0.95));
+  padding: 2rem 1.5rem 1.75rem;
   text-align: center;
   position: relative;
-}
-
-.sidebarHeaderCurve {
-  position: absolute;
-  bottom: -1px;
-  left: 0;
-  right: 0;
-  height: 24px;
-  background: var(--clr-bg);
   border-radius: 1.25rem 1.25rem 0 0;
 }
 
@@ -258,9 +252,12 @@
 .emptyState {
   text-align: center;
   padding: 4rem 2rem;
-  background: var(--clr-bg);
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-radius: 1rem;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.8);
 }
 
 .emptyStateIcon {
@@ -289,16 +286,19 @@
 
 /* Card */
 .card {
-  background: var(--clr-bg);
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border-radius: 1rem;
-  box-shadow: var(--shadow-card);
-  border: 1px solid var(--clr-border-light);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.6);
   transition: var(--transition-base);
 }
 
 .card:hover {
-  box-shadow: var(--shadow-card-hover);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
   transform: translateY(-2px);
+  border-color: rgba(22, 163, 74, 0.3);
 }
 
 .adCard {
@@ -316,6 +316,7 @@
   overflow: hidden;
   background: var(--clr-surface-alt);
   flex-shrink: 0;
+  position: relative;
 }
 
 .adCardTitle {

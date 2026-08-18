@@ -125,11 +125,14 @@ export default function AdsBrowser({
             
             <div style={{ opacity: isPending ? 0.5 : 1, transition: 'opacity 0.2s', pointerEvents: isPending ? 'none' : 'auto' }}>
               {initialAds.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: 'var(--sp-16) var(--sp-8)', background: 'white', borderRadius: 'var(--r-xl)', border: '1px dashed var(--clr-border)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  <div style={{ width: '64px', height: '64px', background: 'var(--clr-bg-alt)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', marginBottom: 'var(--sp-4)', color: 'var(--clr-text-light)' }}>🔍</div>
-                  <h3 style={{ fontSize: 'var(--fs-lg)', fontWeight: 700, color: 'var(--clr-text)', marginBottom: 'var(--sp-2)' }}>Nenhum anúncio encontrado</h3>
-                  <p style={{ color: 'var(--clr-text-muted)', fontSize: 'var(--fs-sm)', maxWidth: '320px', marginBottom: 'var(--sp-6)' }}>Não encontramos resultados exatos para estes filtros. Tente expandir sua busca.</p>
-                  <button onClick={clearFilters} className="btn btn--outline">Limpar Filtros</button>
+                <div style={{ textAlign: 'center', padding: 'var(--sp-20) var(--sp-8)', background: 'var(--clr-surface)', borderRadius: 'var(--r-2xl)', border: '1px dashed var(--clr-border)', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: 'var(--shadow-sm)' }}>
+                  <div style={{ width: '80px', height: '80px', background: 'var(--clr-primary-pale)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2.5rem', marginBottom: 'var(--sp-6)', color: 'var(--clr-primary)', boxShadow: '0 0 0 10px rgba(34,197,94,0.05)' }}>🔍</div>
+                  <h3 style={{ fontSize: 'var(--fs-xl)', fontWeight: 800, color: 'var(--clr-text)', marginBottom: 'var(--sp-2)', letterSpacing: '-0.02em' }}>Nenhum anúncio encontrado</h3>
+                  <p style={{ color: 'var(--clr-text-muted)', fontSize: 'var(--fs-base)', maxWidth: '360px', marginBottom: 'var(--sp-8)', lineHeight: 1.6 }}>Não encontramos resultados exatos para estes filtros. Que tal ajustar as categorias ou remover o filtro de localização?</p>
+                  <button onClick={clearFilters} className="btn btn--primary" style={{ padding: '12px 32px' }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                    <span>Limpar Filtros e Tentar Novamente</span>
+                  </button>
                 </div>
               ) : (
                 <>

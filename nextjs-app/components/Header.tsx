@@ -27,39 +27,34 @@ function sanitizeCssColor(value: string | null): string | null {
   return null;
 }
 
-export default function Header() {
+export default function Header({ 
+  initialIsLoggedIn = false,
+  initialUserInitials = ''
+}: { 
+  initialIsLoggedIn?: boolean;
+  initialUserInitials?: string;
+} = {}) {
   const pathname = usePathname();
   const { lang, setLang, t } = useLang();
-  
-  if (pathname?.startsWith('/admin')) return null;
 
-  const [scrolled, setScrolled]       = useState(false);
-  const [mobileOpen, setMobileOpen]   = useState(false);
-  const [isLoggedIn, setIsLoggedIn]   = useState(false);
-  const [userInitials, setUserInitials] = useState('');
+  // ─── All hooks must be declared unconditionally before any early return ──
+  const [scrolled, setScrolled]         = useState(false);
+  const [mobileOpen, setMobileOpen]     = useState(false);
+  const [isLoggedIn, setIsLoggedIn]     = useState(initialIsLoggedIn);
+  const [userInitials, setUserInitials] = useState(initialUserInitials);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [userSession, setUserSession] = useState<any>(null);
-  const userMenuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const closeUserMenu = (e: MouseEvent) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
-        setUserMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', closeUserMenu);
-    return () => document.removeEventListener('mousedown', closeUserMenu);
-  }, []);
+  const [userSession, setUserSession]   = useState<any>(null);
+  const userMenuRef                     = useRef<HTMLDivElement>(null);
 
   // Logo e cor dinâmicos (buscados do admin / platform_settings)
-  const [logoUrl, setLogoUrl]         = useState<string | null>(null);
-  const logoMarkRef                   = useRef<HTMLDivElement>(null);
-  const dynStyleRef                   = useRef<HTMLStyleElement | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const logoMarkRef           = useRef<HTMLDivElement>(null);
+  const dynStyleRef           = useRef<HTMLStyleElement | null>(null);
 
   // ─── applyDynamicSettings ────────────────────────────────────────────────
   const applyDynamicSettings = () => {
-    const rawLogo    = localStorage.getItem('tc_logo_url');
-    const rawColor   = localStorage.getItem('tc_primary_color');
+    const rawLogo     = localStorage.getItem('tc_logo_url');
+    const rawColor    = localStorage.getItem('tc_primary_color');
     const safeLogoUrl = sanitizeLogoUrl(rawLogo);
 
     setLogoUrl(safeLogoUrl);
@@ -99,6 +94,16 @@ export default function Header() {
       console.error('[TC] syncPlatformSettings error:', err);
     }
   };
+
+  useEffect(() => {
+    const closeUserMenu = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', closeUserMenu);
+    return () => document.removeEventListener('mousedown', closeUserMenu);
+  }, []);
 
   useEffect(() => {
     // Autenticação
@@ -146,6 +151,10 @@ export default function Header() {
   // Fecha o menu mobile ao navegar
   useEffect(() => { setMobileOpen(false); }, [pathname]);
 
+  // ─── Early returns AFTER all hooks (Rules of Hooks) ─────────────────────
+  if (pathname?.startsWith('/admin')) return null;
+  if (pathname?.startsWith('/login')) return null;
+
   const isActive = (href: string) => pathname === href || pathname?.startsWith(href + '/');
 
   // ─── Estilo do logo-mark (imagem ou gradiente CSS) ───────────────────────
@@ -156,7 +165,6 @@ export default function Header() {
     backgroundPosition: 'center',
     backgroundColor: 'transparent',
   } : undefined;
-  if (pathname?.startsWith('/login')) return null;
 
   return (
     <>

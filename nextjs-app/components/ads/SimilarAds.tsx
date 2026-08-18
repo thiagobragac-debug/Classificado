@@ -13,63 +13,78 @@ interface SimilarAdsProps {
 }
 
 export async function SimilarAds({ currentAdId, categoryId, city, state }: SimilarAdsProps) {
-  let similarAds: any[] = [];
-  
   if (!categoryId) return null;
 
-  try {
-    const baseQuery = supabase
-      .from('ads')
-      .select('id, title_pt, price, currency, price_unit_pt, images, city, state, featured, category_id, created_at, profiles(id, name)')
-      .eq('status', 'active')
-      .neq('id', currentAdId)
-      .limit(10);
+  const MAX_ADS = 10;
+  const similarAds: any[] = [];
+  const seenIds = new Set<string>([currentAdId]);
 
-    // L1: Same category + city
+  const addAds = (ads: any[] | null) => {
+    if (!ads) return false;
+    for (const ad of ads) {
+      if (!seenIds.has(ad.id)) {
+        similarAds.push(ad);
+        seenIds.add(ad.id);
+      }
+      if (similarAds.length >= MAX_ADS) return true; // Full
+    }
+    return false; // Not full yet
+  };
+
+  const fields = 'id, title_pt, price, currency, price_unit_pt, images, city, state, featured, category_id, created_at, profiles!inner(id, name)';
+
+  try {
+    // Nível 1: Mesma Categoria + Cidade
     if (city) {
       const { data } = await supabase.from('ads')
-        .select('id, title_pt, price, currency, price_unit_pt, images, city, state, featured, category_id, created_at')
-        .eq('status', 'active').neq('id', currentAdId).eq('category_id', categoryId).eq('city', city).limit(10);
+        .select(fields)
+        .eq('status', 'active')
+        .neq('id', currentAdId)
+        .eq('category_id', categoryId)
+        .eq('city', city)
+        .limit(MAX_ADS);
       
-      if (data && data.length >= 4) {
-        similarAds = data;
-      }
+      if (addAds(data)) throw new Error('FULL'); // Short-circuit
     }
 
-    // L2: Same category + state
-    if (similarAds.length < 4 && state) {
+    // Nível 2: Mesma Categoria + Estado
+    if (state) {
       const { data } = await supabase.from('ads')
-        .select('id, title_pt, price, currency, price_unit_pt, images, city, state, featured, category_id, created_at')
-        .eq('status', 'active').neq('id', currentAdId).eq('category_id', categoryId).eq('state', state).limit(10);
+        .select(fields)
+        .eq('status', 'active')
+        .neq('id', currentAdId)
+        .eq('category_id', categoryId)
+        .eq('state', state)
+        .limit(MAX_ADS);
       
-      if (data && data.length >= 4) {
-        similarAds = data;
-      }
+      if (addAds(data)) throw new Error('FULL');
     }
 
-    // L3: Same category global
+    // Nível 3: Mesma Categoria global (País/Qualquer lugar)
+    const { data: dataCountry } = await supabase.from('ads')
+      .select(fields)
+      .eq('status', 'active')
+      .neq('id', currentAdId)
+      .eq('category_id', categoryId)
+      .limit(MAX_ADS);
+    
+    if (addAds(dataCountry)) throw new Error('FULL');
+
+    // Nível 4: Recentes global (Apenas se a categoria estiver muito vazia, < 4 anúncios)
     if (similarAds.length < 4) {
-      const { data } = await supabase.from('ads')
-        .select('id, title_pt, price, currency, price_unit_pt, images, city, state, featured, category_id, created_at')
-        .eq('status', 'active').neq('id', currentAdId).eq('category_id', categoryId).limit(10);
+      const { data: dataFallback } = await supabase.from('ads')
+        .select(fields)
+        .eq('status', 'active')
+        .neq('id', currentAdId)
+        .order('created_at', { ascending: false })
+        .limit(MAX_ADS);
       
-      if (data && data.length > 0) {
-        similarAds = data;
-      }
+      addAds(dataFallback);
     }
-
-    // L4: Any recent ads
-    if (similarAds.length === 0) {
-      const { data } = await supabase.from('ads')
-        .select('id, title_pt, price, currency, price_unit_pt, images, city, state, featured, category_id, created_at')
-        .eq('status', 'active').neq('id', currentAdId).order('created_at', { ascending: false }).limit(8);
-      
-      if (data) {
-        similarAds = data;
-      }
+  } catch (error: any) {
+    if (error.message !== 'FULL') {
+      console.error('Error fetching similar ads:', error);
     }
-  } catch (error) {
-    console.error('Error fetching similar ads:', error);
   }
 
   if (similarAds.length === 0) return null;

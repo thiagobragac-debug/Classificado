@@ -18,7 +18,7 @@ export function useAutoGeo(
   const [geoLevel, setGeoLevel] = useState<'city'|'state'|'country'|null>(null);
   const [geoReady, setGeoReady] = useState(false);
 
-  const hasSpecificManualLoc = !!(searchParams.get('pais') && (searchParams.get('estado') || searchParams.get('cidade')));
+  const hasSpecificManualLoc = !!(searchParams.get('pais') || searchParams.get('estado') || searchParams.get('cidade'));
 
   useEffect(() => {
     if (hasSpecificManualLoc) {
@@ -31,7 +31,7 @@ export function useAutoGeo(
     }
     if (geoAppliedRef.current) return;
 
-    if (initialGeo && (initialGeo.pais || initialGeo.estado || initialGeo.cidade)) {
+    if (initialGeo && (initialGeo.cidade || initialGeo.estado || initialGeo.pais)) {
       geoAppliedRef.current = true;
       if (initialGeo.cidade) {
         setGeoLabel(`Perto de você — ${initialGeo.cidade}`);
@@ -97,7 +97,12 @@ export function useAutoGeo(
     }
     else if (geoLevel === 'country') { 
       setPais(''); setEstado(''); setCidade(''); 
-      setGeoLevel(null); setGeoLabel(null); 
+      setGeoLevel(null); setGeoLabel(null);
+      // Delete the geo cookies so the server won't re-inject geo from cookie on next request
+      try {
+        document.cookie = 'user_geo_v1=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        localStorage.removeItem('user_loc_v8');
+      } catch { /* ignore */ }
       applyFilters({ pais: '', estado: '', cidade: '' });
     }
   }, [geoLevel, pais, estado, setPais, setEstado, setCidade, applyFilters]);

@@ -7,6 +7,70 @@
     
     
     
+    .inst-hero {
+      position: relative;
+      background-image: url('/assets/hero_farm.webp');
+      background-size: cover;
+      background-position: center;
+      padding: 6rem 0;
+      color: white;
+      text-align: center;
+      overflow: hidden;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      margin-top: -2rem; /* Pull up under header if needed */
+    }
+
+    .inst-hero::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: linear-gradient(135deg, rgba(22, 163, 74, 0.9) 0%, rgba(21, 128, 61, 0.95) 100%);
+      z-index: 1;
+    }
+
+    .inst-hero .container {
+      position: relative;
+      z-index: 2;
+    }
+
+    .inst-hero-title {
+      font-size: 3.5rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin: 1rem 0;
+      text-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .inst-hero-subtitle {
+      font-size: 1.25rem;
+      font-weight: 500;
+      opacity: 0.9;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .inst-hero .breadcrumb {
+      justify-content: center;
+      color: rgba(255,255,255,0.8);
+      margin-bottom: 1rem;
+    }
+    
+    .inst-hero .breadcrumb a {
+      color: white;
+      font-weight: 600;
+    }
+
+    @media (max-width: 768px) {
+      .inst-hero {
+        padding: 4rem 0;
+      }
+      .inst-hero-title {
+        font-size: 2.5rem;
+      }
+      .inst-hero-subtitle {
+        font-size: 1.1rem;
+      }
+    }
     
     .inst-layout {
       display: grid;
@@ -112,17 +176,19 @@
     }
 
     .inst-prose {
-      color: var(--clr-body);
-      line-height: 1.8;
-      font-size: 1.0625rem;
+      color: var(--clr-body, #374151);
+      line-height: 1.85;
+      font-size: 1.125rem;
+      letter-spacing: -0.01em;
     }
     
     .inst-prose h2 {
-      font-size: 1.75rem;
-      color: var(--clr-heading);
-      margin-top: 2.5rem;
-      margin-bottom: 1rem;
-      font-weight: 700;
+      font-size: 2rem;
+      color: var(--clr-heading, #111827);
+      margin-top: 3rem;
+      margin-bottom: 1.25rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
     }
     
     .inst-prose h2:first-child {
@@ -130,15 +196,16 @@
     }
     
     .inst-prose h3 {
-      font-size: 1.25rem;
-      color: var(--clr-heading);
-      margin-top: 2rem;
-      margin-bottom: 0.75rem;
-      font-weight: 600;
+      font-size: 1.35rem;
+      color: var(--clr-heading, #1f2937);
+      margin-top: 2.25rem;
+      margin-bottom: 1rem;
+      font-weight: 700;
     }
     
     .inst-prose p {
       margin-bottom: 1.5rem;
+      color: #4b5563;
     }
     
     .inst-prose ul {

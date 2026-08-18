@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import useSWR from 'swr';
 import { getMyFavorites, rpcToggleFav } from '@/lib/supabase';
+import { showToast } from '@/lib/toast';
 import styles from '../painel.module.css';
 
 function fMoney(price: number | null | undefined, currency = 'BRL') {
@@ -21,20 +22,13 @@ export function FavoritesTab({ userId }: { userId: string }) {
     getMyFavorites
   );
 
-  const [toastMsg, setToastMsg] = useState('');
-
-  const showToast = (msg: string) => {
-    setToastMsg(msg);
-    setTimeout(() => setToastMsg(''), 3000);
-  };
-
   const handleRemove = async (adId: string) => {
     try {
       // Optimistic update
       mutate(favs.filter((a: any) => a.id !== adId), false);
       await rpcToggleFav(adId);
       mutate();
-      
+
       // Sincroniza com o localStorage global (usado pelos cards na Home)
       try {
         const stored = localStorage.getItem('tc_favorites');
@@ -47,7 +41,7 @@ export function FavoritesTab({ userId }: { userId: string }) {
       } catch (e) {}
     } catch {
       mutate(); // Revert optimistic update
-      showToast('Ocorreu um erro ao remover o favorito.');
+      showToast('Ocorreu um erro ao remover o favorito.', 'error');
     }
   };
 
@@ -62,16 +56,16 @@ export function FavoritesTab({ userId }: { userId: string }) {
         </div>
         <div style={{ position: 'relative', width: '100%', maxWidth: 320 }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--clr-text-light)" strokeWidth="2.5" style={{ position: 'absolute', left: '1.2rem', top: '50%', transform: 'translateY(-50%)' }}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input 
-            value={search} 
-            onChange={e => setSearch(e.target.value)} 
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
             placeholder="Buscar favoritos..."
             className={styles.formInput}
             style={{ paddingLeft: '2.8rem', borderRadius: '2rem' }}
           />
         </div>
       </div>
-      
+
       {isLoading ? (
         <div className={styles.spinner} />
       ) : filtered.length === 0 ? (
@@ -93,9 +87,9 @@ export function FavoritesTab({ userId }: { userId: string }) {
               <div key={ad.id} className={styles.card} style={{ overflow: 'hidden' }}>
                 <div style={{ height: 140, background: 'var(--clr-surface-alt)', overflow: 'hidden', position: 'relative' }}>
                   {img && <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
-                  <button 
+                  <button
                     onClick={() => handleRemove(ad.id)}
-                    title="Remover dos favoritos"
+                    aria-label="Remover dos favoritos"
                     style={{ position: 'absolute', top: '.5rem', right: '.5rem', width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,.9)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--clr-error)' }}
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1.5"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
@@ -111,23 +105,6 @@ export function FavoritesTab({ userId }: { userId: string }) {
               </div>
             );
           })}
-        </div>
-      )}
-
-      {/* Toast Notification */}
-      {toastMsg && (
-        <div style={{
-          position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 9999,
-          background: 'var(--clr-error)', color: 'white', padding: '1rem 1.5rem',
-          borderRadius: '0.75rem', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.2)',
-          fontWeight: 600, animation: 'slideUp 0.3s ease-out forwards',
-          display: 'flex', alignItems: 'center', gap: '0.75rem'
-        }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          {toastMsg}
-          <style>{`
-            @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-          `}</style>
         </div>
       )}
     </div>

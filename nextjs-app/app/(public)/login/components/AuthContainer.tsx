@@ -24,6 +24,14 @@ export function AuthContainer() {
     } else if (searchParams.get('mode') === 'reset') {
       setAlertInfo({ msg: 'Você pode redefinir sua senha agora (implementação pendente na UI para token).', type: 'success' })
     }
+
+    if (searchParams.get('error') === 'blocked') {
+      setAlertInfo({ msg: 'Sua conta foi suspensa temporariamente. Entre em contato com o suporte para mais informações.', type: 'error' })
+      // Tentar limpar a sessão via cliente também, para segurança extra
+      import('@/lib/supabase').then(({ getSupabase }) => {
+        getSupabase().auth.signOut();
+      });
+    }
   }, [searchParams])
 
   const handleSetAlert = (msg: string, type: 'success' | 'error') => {

@@ -1,67 +1,135 @@
 import { notFound } from 'next/navigation';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import type { Metadata } from 'next';
+import { createClient, createAnonClient } from '@/lib/supabase-server';
 import LotGrid from '@/components/auctions/LotGrid';
 import { LotData } from '@/components/auctions/LotBiddingModal';
-import { SUPABASE_URL, SUPABASE_ANON } from '@/lib/supabase';
 
-export const revalidate = 0; // Prevent caching for live auction
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export const revalidate = 30; // ISR 30 segundos — balance entre frescor e caching
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  if (!UUID_REGEX.test(id)) return { title: 'Leilão não encontrado | Tauze Class' };
+
+  const sb = createAnonClient();
+  const { data } = await sb
+    .from('auction_events')
+    .select('title, cover, date, status')
+    .eq('id', id)
+    .single();
+
+  if (!data) return { title: 'Leilão não encontrado | Tauze Class' };
+
+  const coverUrl = data.cover
+    ? data.cover.startsWith('http')
+      ? data.cover
+      : `https://rfzuzuobwuanmbrcthqe.supabase.co/storage/v1/object/public/ads-images/${data.cover}`
+    : undefined;
+
+  const description = `Leilão em ${new Date(data.date).toLocaleDateString('pt-BR')} às ${new Date(data.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+
+  const isLive = data.status === 'live';
+  const ogTitle = isLive ? `AO VIVO: ${data.title}` : data.title;
+
+  return {
+    title: `${data.title} | Tauze Class`,
+    description,
+    alternates: { canonical: `https://tauzeclass.com.br/leiloes/${id}` },
+    openGraph: {
+      title: ogTitle,
+      description,
+      url: `https://tauzeclass.com.br/leiloes/${id}`,
+      type: 'website',
+      locale: 'pt_BR',
+      images: coverUrl
+        ? [{ url: coverUrl, width: 1200, height: 630, alt: data.title }]
+        : [],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: ogTitle,
+      description,
+      images: coverUrl ? [coverUrl] : [],
+    },
+  };
+}
+
+// Pré-renderizar os próximos 20 leilões agendados ou ao vivo
+export async function generateStaticParams() {
+  try {
+    const sb = createAnonClient();
+    const { data } = await sb
+      .from('auction_events')
+      .select('id')
+      .in('status', ['live', 'scheduled'])
+      .order('date', { ascending: true })
+      .limit(20);
+
+    return (data || []).map(ev => ({ id: ev.id }));
+  } catch {
+    return [];
+  }
+}
+
 
 export default async function AuctionPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const auctionId = params.id;
-  const cookieStore = await cookies();
-  
-  const supabase = createServerClient(
-    SUPABASE_URL,
-    SUPABASE_ANON,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
-        },
-      },
-    }
-  );
 
-  const { data: sessionData } = await supabase.auth.getSession();
-  const userId = sessionData.session?.user?.id;
+  // Validar formato UUID antes de qualquer query
+  if (!UUID_REGEX.test(auctionId)) {
+    notFound();
+  }
 
-  // Fetch the auction event
-  const { data: auction, error } = await supabase
-    .from('auction_events')
-    .select('*')
-    .eq('id', auctionId)
-    .single();
+  // Usar createClient para obter sessão do usuário (necessário para bids)
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const userId = user?.id;
+
+  // Buscar leilão e lotes em paralelo para melhor performance
+  const [
+    { data: auction, error },
+    { data: lots },
+  ] = await Promise.all([
+    supabase
+      .from('auction_events')
+      .select('id, title, date, cover, status, youtube, catalog')
+      .eq('id', auctionId)
+      .single(),
+    supabase
+      .from('auction_lots')
+      .select('id, lot_number, title, description, images, starting_bid, current_bid, status, auction_id')
+      .eq('auction_id', auctionId)
+      .order('lot_number', { ascending: true }),
+  ]);
 
   if (error || !auction) {
     notFound();
   }
 
-  // Fetch lots
-  const { data: lots } = await supabase
-    .from('auction_lots')
-    .select('*')
-    .eq('auction_id', auctionId)
-    .order('lot_number', { ascending: true });
-
   const isLive = auction.status === 'live';
   const isScheduled = auction.status === 'scheduled';
-  
-  // Extrai ID do YouTube
-  const isYoutube = auction.youtube && (auction.youtube.includes('youtube.com') || auction.youtube.includes('youtu.be'));
-  const ytMatch = isYoutube ? auction.youtube.match(/(?:v=|youtu\.be\/)([^&]+)/) : null;
+
+  // Extrai ID do YouTube com validação mais rigorosa
+  const isYoutube = auction.youtube &&
+    (auction.youtube.includes('youtube.com') || auction.youtube.includes('youtu.be'));
+  const ytMatch = isYoutube
+    ? auction.youtube.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/)
+    : null;
   const ytId = ytMatch ? ytMatch[1] : null;
 
   return (
     <>
-      <main className="container" style={{ paddingTop: 'calc(var(--header-h) + 2rem)', paddingBottom: '4rem' }}>
-        
+      <div className="container" style={{ paddingTop: 'calc(var(--header-h) + 2rem)', paddingBottom: '4rem' }}>
+
         {/* Banner/Header */}
         <div style={{ background: '#020617', padding: '2rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '3rem' }}>
-          
+
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
             <div>
               {isLive && (
@@ -80,7 +148,7 @@ export default async function AuctionPage(props: { params: Promise<{ id: string 
                 {new Date(auction.date).toLocaleDateString('pt-BR')} às {new Date(auction.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
               </p>
             </div>
-            
+
             {auction.catalog && (
               <a href={auction.catalog} target="_blank" rel="noopener noreferrer" className="btn btn--outline" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
                 <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" strokeWidth="2" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
@@ -89,21 +157,22 @@ export default async function AuctionPage(props: { params: Promise<{ id: string 
             )}
           </div>
 
-          {/* Player or Cover */}
+          {/* Player ou Capa */}
           {isLive && isYoutube && ytId ? (
             <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', borderRadius: '8px', background: '#000' }}>
-              <iframe 
+              <iframe
                 src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1`}
                 style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }}
                 allow="autoplay; encrypted-media"
                 allowFullScreen
+                title={`Leilão ao vivo: ${auction.title}`}
               ></iframe>
             </div>
           ) : (
             <div style={{ position: 'relative', height: '400px', borderRadius: '8px', overflow: 'hidden', background: '#0f172a' }}>
-              <img 
-                src={auction.cover || 'https://via.placeholder.com/1200x600'} 
-                alt="Capa do Leilão"
+              <img
+                src={auction.cover || '/assets/hero_farm.webp'}
+                alt={`Capa do leilão: ${auction.title}`}
                 style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'brightness(0.7)' }}
               />
               {isScheduled && (
@@ -116,25 +185,24 @@ export default async function AuctionPage(props: { params: Promise<{ id: string 
               )}
             </div>
           )}
-
         </div>
 
-        {/* Lots List */}
+        {/* Lista de Lotes */}
         <div>
           <h2 className="section-title">Catálogo de Lotes</h2>
-          <LotGrid lots={(lots as LotData[]) || []} isLive={isLive} userId={userId} />
+          <LotGrid lots={((lots || []) as unknown as LotData[])} isLive={isLive} userId={userId} />
         </div>
 
-        {/* Patrocine Action */}
+        {/* Patrocínio */}
         <div style={{ marginTop: '4rem', textAlign: 'center' }}>
-          <a href="/suporte?assunto=patrocinio" className="btn" style={{ 
-            display: 'block', 
-            width: '100%', 
-            background: 'var(--clr-primary)', 
-            color: 'white', 
-            fontSize: '2rem', 
-            fontWeight: 700, 
-            padding: '1.5rem', 
+          <a href="/suporte?assunto=patrocinio" className="btn" style={{
+            display: 'block',
+            width: '100%',
+            background: 'var(--clr-primary)',
+            color: 'white',
+            fontSize: '2rem',
+            fontWeight: 700,
+            padding: '1.5rem',
             borderRadius: '12px',
             textDecoration: 'none',
             boxShadow: '0 4px 6px -1px rgba(22, 163, 74, 0.2), 0 2px 4px -2px rgba(22, 163, 74, 0.2)'
@@ -142,8 +210,7 @@ export default async function AuctionPage(props: { params: Promise<{ id: string 
             Patrocine o Leilão
           </a>
         </div>
-
-      </main>
+      </div>
     </>
   );
 }

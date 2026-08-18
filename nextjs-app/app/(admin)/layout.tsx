@@ -1,45 +1,41 @@
 import React from 'react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { cookies } from 'next/headers'
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
-import './admin/admin.css'
+import { createClient } from '@/lib/supabase-server'
+import { ConfirmProvider } from '@/components/ui/ConfirmProvider'
+import './admin/admin-v2.css'
 
 export const metadata = {
   title: 'Admin - Tauze Class',
-  robots: 'noindex, nofollow'
+  robots: 'noindex, nofollow',
+  icons: {
+    icon: [{ url: '/api/favicon', type: 'image/png' }],
+    apple: '/icon-192.svg',
+    shortcut: '/api/favicon',
+  },
 }
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://rfzuzuobwuanmbrcthqe.supabase.co',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmenV6dW9id3Vhbm1icmN0aHFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwNzg1OTMsImV4cCI6MjA5ODY1NDU5M30.m-Mop7RgpVo730lwjcra1egF8p9APv6AGnW1YnFvOgY',
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll()
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, options)
-            })
-          } catch {
-            // Ignored in server component
-          }
-        },
-      },
-    }
-  )
+  // Usar createClient() centralizado — sem credenciais hardcoded
+  const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
-    redirect('/login')
+    redirect('/login?redirectTo=/admin')
   }
 
-  const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single()
-  if (!profile?.is_admin) {
+  // is_admin checado apenas server-side, nunca exposto ao cliente
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('name, user_secrets(is_admin)')
+    .eq('id', user.id)
+    .single()
+
+  const isAdmin = Array.isArray(profile?.user_secrets) 
+    ? profile?.user_secrets[0]?.is_admin 
+    : (profile?.user_secrets as any)?.is_admin;
+    
+  if (!isAdmin) {
     redirect('/')
   }
 
@@ -49,8 +45,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <meta name="robots" content="noindex, nofollow" />
       </head>
       <body className="antialiased" style={{ margin: 0, padding: 0 }}>
-        <div className="adm-layout">
-          {/* Sidebar */}
+        <ConfirmProvider>
+          <div className="adm-layout">
+            {/* Sidebar */}
           <aside className="adm-sidebar">
             <div className="adm-sidebar-logo">
               <div className="adm-logo-mark">TC</div>
@@ -102,6 +99,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
                 <span>Categorias</span>
               </Link>
+              <Link href="/admin/cupons" className="adm-nav-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+                <span>Cupons</span>
+              </Link>
               <Link href="/admin/assinaturas" className="adm-nav-item">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
                 <span>Assinaturas</span>
@@ -117,7 +118,17 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                   </svg>
                   <span>Configurações</span>
                 </Link>
-                <div className="adm-nav-label" style={{ marginTop: '2rem' }}>Página Inicial</div>
+                <div className="adm-nav-section">Página Inicial</div>
+                <Link href="/admin/paginas" className="adm-nav-item">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                    <polyline points="10 9 9 9 8 9"></polyline>
+                  </svg>
+                  <span>Páginas Inst.</span>
+                </Link>
                 <Link href="/admin/depoimentos" className="adm-nav-item">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
@@ -167,6 +178,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             </main>
           </div>
         </div>
+        </ConfirmProvider>
       </body>
     </html>
   )

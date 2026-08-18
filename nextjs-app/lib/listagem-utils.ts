@@ -5,18 +5,17 @@ import { cache } from 'react';
 export async function getGeoParams(params: { pais?: string; estado?: string; cidade?: string }) {
   let geoCookie = null;
   try {
-    // Next 14/15 backward compatible way without 'await' to avoid breaking Next 14 proxies
-    const cookieStore = cookies();
-    const c = ('get' in cookieStore && typeof cookieStore.get === 'function') ? cookieStore.get('user_geo_v1') : null;
+    const cookieStore = await cookies();
+    const c = cookieStore.get('user_geo_v1');
     if (c) geoCookie = JSON.parse(decodeURIComponent(c.value));
   } catch (error) {
     console.warn('[getGeoParams] Error parsing user_geo_v1 cookie:', error instanceof Error ? error.message : error);
   }
 
   const hasManualGeo = !!(params.pais || params.estado || params.cidade);
-  const pais = params.pais || (!hasManualGeo && geoCookie ? geoCookie.pais : null);
-  const estado = params.estado || (!hasManualGeo && geoCookie ? geoCookie.estado : null);
-  const cidade = params.cidade || (!hasManualGeo && geoCookie ? geoCookie.cidade : null);
+  const pais = params.pais || (!hasManualGeo ? (geoCookie?.pais ?? null) : null);
+  const estado = params.estado || (!hasManualGeo ? (geoCookie?.estado ?? null) : null);
+  const cidade = params.cidade || (!hasManualGeo ? (geoCookie?.cidade ?? null) : null);
 
   return {
     pais,

@@ -23,14 +23,15 @@ export function AdReportModal({ adId, isOpen, onClose }: AdReportModalProps) {
   const [reportReason, setReportReason] = useState('');
   const [reportSent, setReportSent] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
-        onClose();
+        handleClose();
       }
     };
-    
+
     if (isOpen) {
       document.body.style.overflow = 'hidden'; // Prevent background scrolling
       document.addEventListener('keydown', handleKeyDown);
@@ -42,22 +43,30 @@ export function AdReportModal({ adId, isOpen, onClose }: AdReportModalProps) {
       document.body.style.overflow = '';
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isOpen, onClose]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   const sendReport = async () => {
     if (!reportReason || !adId) return;
     setIsSending(true);
-    
+    setErrorMsg('');
+
     const sb = getSupabase();
     const { data: { session } } = await sb.auth.getSession();
-    
-    await sb.from('reports').insert({
+
+    const { error } = await sb.from('reports').insert({
       ad_id: adId,
       reporter_id: session?.user?.id ?? null,
       reason: reportReason,
       severity: 'low',
     });
-    
+
+    if (error) {
+      setErrorMsg('Erro ao enviar denúncia. Tente novamente.');
+      setIsSending(false);
+      return;
+    }
+
     setReportSent(true);
     setIsSending(false);
   };
@@ -65,14 +74,15 @@ export function AdReportModal({ adId, isOpen, onClose }: AdReportModalProps) {
   const handleClose = () => {
     setReportSent(false);
     setReportReason('');
+    setErrorMsg('');
     onClose();
   };
 
   if (!isOpen) return null;
 
   return (
-    <div 
-      className="report-modal-overlay" 
+    <div
+      className="report-modal-overlay"
       onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
       style={{
         position: 'fixed',
@@ -85,11 +95,11 @@ export function AdReportModal({ adId, isOpen, onClose }: AdReportModalProps) {
         padding: '1rem'
       }}
     >
-      <div 
-        className="report-modal-box" 
-        role="dialog" 
-        aria-modal="true" 
-        aria-label="Denunciar anúncio"
+      <div
+        className="report-modal-box"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="report-modal-title"
         style={{
           background: 'var(--clr-surface)',
           padding: '2rem',
@@ -100,7 +110,7 @@ export function AdReportModal({ adId, isOpen, onClose }: AdReportModalProps) {
           position: 'relative'
         }}
       >
-        <button 
+        <button
           onClick={handleClose}
           aria-label="Fechar"
           style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--clr-text-muted)' }}
@@ -121,10 +131,13 @@ export function AdReportModal({ adId, isOpen, onClose }: AdReportModalProps) {
           </div>
         ) : (
           <>
-            <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem' }}>
+            <h3
+              id="report-modal-title"
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem' }}
+            >
               <AlertTriangle className="w-6 h-6 text-amber-500" /> Denunciar Anúncio
             </h3>
-            
+
             <div className="report-reasons" style={{ display: 'grid', gap: '0.5rem', marginBottom: '1.5rem' }}>
               {REPORT_REASONS.map(reason => (
                 <button
@@ -146,19 +159,25 @@ export function AdReportModal({ adId, isOpen, onClose }: AdReportModalProps) {
                 </button>
               ))}
             </div>
-            
+
+            {errorMsg && (
+              <div style={{ marginBottom: '1rem', padding: '0.75rem', borderRadius: '0.5rem', fontSize: '0.85rem', background: '#fef2f2', color: '#991b1b' }}>
+                {errorMsg}
+              </div>
+            )}
+
             <div style={{ display: 'flex', gap: '1rem' }}>
-              <button 
-                className="btn btn-outline" 
-                style={{ flex: 1, padding: '0.8rem', borderRadius: '0.8rem' }} 
+              <button
+                className="btn btn-outline"
+                style={{ flex: 1, padding: '0.8rem', borderRadius: '0.8rem' }}
                 onClick={handleClose}
               >
                 Cancelar
               </button>
-              <button 
-                className="btn btn-primary" 
-                style={{ flex: 1, padding: '0.8rem', borderRadius: '0.8rem', opacity: (!reportReason || isSending) ? 0.6 : 1 }} 
-                onClick={sendReport} 
+              <button
+                className="btn btn-primary"
+                style={{ flex: 1, padding: '0.8rem', borderRadius: '0.8rem', opacity: (!reportReason || isSending) ? 0.6 : 1 }}
+                onClick={sendReport}
                 disabled={!reportReason || isSending}
               >
                 {isSending ? 'Enviando...' : 'Enviar Denúncia'}

@@ -1,52 +1,91 @@
 import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 import { createClient } from '@/lib/supabase-server';
 import PainelClient from './PainelClient';
 
 export default async function PainelPage() {
+  // Uma única chamada getUser() — o middleware já validou a autenticação
+  // e negou acesso a não autenticados. Aqui buscamos os dados do usuário
+  // para montar o painel sem chamada duplicada de auth.
   const supabase = await createClient();
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { user } } = await supabase.auth.getUser();
 
-  if (!session) {
-    redirect('/login');
-  }
-
-  // Fetch current user details
-  const { data: user } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', session.user.id)
-    .single();
-
+  // Defesa em profundidade: fallback caso o middleware seja bypassado
   if (!user) {
-    redirect('/login');
+    redirect('/login?error=no_user');
   }
 
-  // Merging supabase session user email with profile for the client
-  const fullUser = {
-    ...session.user,
-    profile: user
-  };
+  // --- Dynamic Expiration Check ---
+  // Ensure that if a plan has passed its plan_expires_at date, the user is downgraded.
+  // This prevents infinite access if gateways fail to send a cancellation webhook
+  // or if the user cancelled but their plan was set to remain active until period end.
+  await supabase.rpc('enforce_plan_expiration', { p_user_id: user.id });
 
-  // Fetch AdStats in parallel
-  const [activeCountRes, totalCountRes] = await Promise.all([
+  // Buscar perfil e secrets em paralelo com colunas específicas
+  const [{ data: profileData, error: profileError }, { data: secretsData }] = await Promise.all([
     supabase
-      .from('ads')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', session.user.id)
-      .eq('status', 'active'),
+      .from('profiles')
+      .select('id, name, display_name, avatar_url, phone_whatsapp, bio, city, state, country')
+      .eq('id', user.id)
+      .single(),
     supabase
-      .from('ads')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', session.user.id)
+      .from('user_secrets')
+      .select('plan') // apenas 'plan' — is_admin NÃO deve ser exposto ao cliente
+      .eq('id', user.id)
+      .maybeSingle()
   ]);
-  
-  const activeAds = activeCountRes.count || 0;
-  const totalCount = totalCountRes.count || 0;
-    
-  const adStats = {
-    total: totalCount || 0,
-    active: activeAds
+
+  let profile = profileData ? {
+    ...profileData,
+    plan: secretsData?.plan || 'free',
+    // is_admin propositalmente omitido — lógica de admin deve ser server-only
+  } : null;
+
+  if (!profile) {
+    // "Curar" contas sem perfil (pode acontecer em logins OAuth)
+    const { data: newProfileRaw, error: insertError } = await supabase
+      .from('profiles')
+      .insert({
+        id: user.id,
+        name: user.user_metadata?.name || user.email?.split('@')[0] || 'Usuário',
+        display_name: user.user_metadata?.display_name || user.email?.split('@')[0] || 'Usuário'
+      })
+      .select('id, name, display_name, avatar_url, phone_whatsapp, bio, city, state, country')
+      .single();
+
+    if (newProfileRaw) {
+      // O trigger no BD criará o user_secrets com plan='free'
+      profile = { ...newProfileRaw, plan: 'free' };
+    } else {
+      console.error('Erro ao auto-criar perfil:', insertError);
+      redirect('/login?error=profile_creation_failed');
+    }
+  }
+
+  // Filtro de segurança: apenas o necessário para o cliente
+  const fullUser = {
+    id: user.id,
+    email: user.email,
+    profile,
   };
 
-  return <PainelClient initialUser={fullUser} initialStats={adStats} />;
+  // Buscar stats via RPC consolidador
+  const { data: statsData, error: statsError } = await supabase
+    .rpc('get_user_ad_stats', { p_user_id: user.id });
+
+  let adStats = { total: 0, active: 0 };
+  if (!statsError && statsData && statsData.length > 0) {
+    adStats = {
+      total: statsData[0].total_ads || 0,
+      active: statsData[0].active_ads || 0,
+    };
+  }
+
+  // Suspense required: PainelClient uses useSearchParams() internally (detects ?subscribed=1).
+  // Without this, Next.js 14 App Router throws a build error.
+  return (
+    <Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', fontSize: '1rem', color: '#64748b' }}>Carregando painel...</div>}>
+      <PainelClient initialUser={fullUser} initialStats={adStats} />
+    </Suspense>
+  );
 }

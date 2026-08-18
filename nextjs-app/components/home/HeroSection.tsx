@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { CATEGORIES, POPULAR_TAGS, t as _t } from '@/lib/constants';
 import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
 import { HeroSearchBar } from './HeroSearchBar';
+import { getServerCategories } from '@/lib/supabase-server';
 
 const LOCATIONS = [
   { name: 'Brasil', flag: '🇧🇷', id: 'BR' },
@@ -20,6 +21,7 @@ export async function HeroSection({ stats }: { stats: any }) {
   const cookieStore = await cookies();
   const lang = (cookieStore.get('tc_lang')?.value || 'pt') as 'pt' | 'es';
   const t = (key: string) => _t(key, lang);
+  const categories = await getServerCategories();
 
   return (
     <section className="hero" aria-labelledby="hero-heading">

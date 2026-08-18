@@ -33,6 +33,9 @@ export async function generateMetadata({
   return {
     title: `${baseTitle}${location} | Tauze Class`,
     description: `Encontre os melhores ${baseTitle.toLowerCase()} na Tauze Class. O maior classificado premium agro.`,
+    alternates: {
+      canonical: `https://tauzeclass.com.br/listagem`,
+    }
   };
 }
 
@@ -40,13 +43,12 @@ import { Suspense } from 'react';
 
 function ListagemSkeleton() {
   return (
-    <div className="container" style={{ padding: '4rem 0' }}>
-      <div className="skeleton" style={{ width: '100%', height: '150px', borderRadius: 16, marginBottom: '2rem' }}></div>
-      <div style={{ display: 'grid', gridTemplateColumns: '250px 1fr', gap: '2rem' }}>
-        <div className="skeleton" style={{ width: '100%', height: '400px', borderRadius: 16 }}></div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
+    <div className="container skeleton-listagem-container" aria-busy="true" role="status" aria-label="Carregando listagem...">
+      <div className="skeleton-listagem-header" aria-hidden="true"></div>
+      <div className="skeleton-listagem-grid-outer">
+        <div className="skeleton-listagem-grid-inner">
            {[...Array(6)].map((_, i) => (
-             <div key={i} className="skeleton" style={{ width: '100%', height: '320px', borderRadius: 16 }}></div>
+             <div key={i} className="skeleton-listagem-card" aria-hidden="true"></div>
            ))}
         </div>
       </div>

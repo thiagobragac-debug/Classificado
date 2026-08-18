@@ -15,18 +15,19 @@ export default function ListagemError({
 }) {
   useEffect(() => {
     logError(error, { component: 'ListagemErrorBoundary' });
+    fetch('/api/test-error', { method: 'POST', body: error.stack || error.message });
   }, [error]);
 
   return (
-    <div className="container" style={{ padding: '6rem 0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', textAlign: 'center' }}>
-      <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>⚠️</div>
-      <h2 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '1rem', color: 'var(--clr-text)' }}>
+    <div className="container error-page-container">
+      <div className="error-page-icon">⚠️</div>
+      <h2 className="error-page-title">
         Algo deu errado ao carregar os anúncios!
       </h2>
-      <p style={{ color: 'var(--clr-text-muted)', marginBottom: '2rem', maxWidth: '500px' }}>
+      <p className="error-page-desc">
         Pode ter havido uma falha na conexão ou os filtros aplicados geraram um erro inesperado. Tente redefinir os filtros ou recarregar a página.
       </p>
-      <div style={{ display: 'flex', gap: '1rem' }}>
+      <div className="error-page-actions">
         <button
           onClick={() => reset()}
           className="btn btn--primary"

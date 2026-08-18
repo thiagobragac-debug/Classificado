@@ -2,9 +2,13 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import useSWR from 'swr';
-import { getMyAds, deleteAd, toggleAdStatus } from '@/lib/supabase';
+import { getMyAds, toggleAdStatus } from '@/lib/supabase';
+import { deleteAd } from '@/lib/supabase-panel';
+import { showToast } from '@/lib/toast';
 import { usePushNotifications } from './usePush';
+import { useConfirm } from '@/components/ui/ConfirmProvider';
 import styles from '../painel.module.css';
 
 const STATUS_LABELS: Record<string, { label: string; className: string }> = {
@@ -33,6 +37,7 @@ function fDate(iso: string) {
 }
 
 export function MyAdsTab({ userId }: { userId: string }) {
+  const { confirm } = useConfirm();
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState('all');
   const { subscribe, loading: pushLoading } = usePushNotifications();
@@ -49,12 +54,12 @@ export function MyAdsTab({ userId }: { userId: string }) {
   const totalPages = Math.ceil(total / 12);
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir este anúncio?')) return;
+    if (!(await confirm('Tem certeza que deseja excluir este anúncio?'))) return;
     try {
       await deleteAd(id);
       mutate(); // Refetch
     } catch {
-      alert('Erro ao excluir.');
+      showToast('Erro ao excluir.', 'error');
     }
   };
 
@@ -63,7 +68,7 @@ export function MyAdsTab({ userId }: { userId: string }) {
       await toggleAdStatus(id, status);
       mutate(); // Refetch
     } catch {
-      alert('Erro ao alterar status.');
+      showToast('Erro ao alterar status.', 'error');
     }
   };
 
@@ -127,7 +132,7 @@ export function MyAdsTab({ userId }: { userId: string }) {
                 {/* Imagem */}
                 <div className={styles.adCardImage}>
                   {img ? (
-                    <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <Image src={img} alt="" fill style={{ objectFit: 'cover' }} sizes="120px" />
                   ) : (
                     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" color="var(--clr-text-light)">

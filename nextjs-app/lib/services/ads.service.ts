@@ -45,7 +45,10 @@ export const adsSearchParamsSchema = z.object({
   seller_id: z.string().optional(),
   preco_min: z.coerce.number().optional(),
   preco_max: z.coerce.number().optional(),
-  busca: z.union([z.string(), z.array(z.string())]).transform(val => Array.isArray(val) ? val[0] : val).optional(),
+  busca: z.union([z.string(), z.array(z.string())])
+    .transform(val => Array.isArray(val) ? val[0] : val)
+    .transform(val => val?.trim().slice(0, 200)) // máximo 200 chars — previne sobrecarga do parser FTS
+    .optional(),
   ordem: z.enum(['recent', 'price_asc', 'price_desc', 'featured']).catch('recent'),
   destaque: z.enum(['true', 'false']).optional(),
   negociavel: z.enum(['true', 'false']).optional(),
@@ -88,7 +91,7 @@ export async function getAdsListagem(params: AdsSearchParams, geoContext: any) {
   if (params.seller_id) q = q.eq('user_id', params.seller_id);
   
   const pais = params.pais || geoContext.pais;
-  if (pais) q = q.ilike('country', pais);
+  if (pais && pais !== 'todos') q = q.ilike('country', pais);
   
   const estado = params.estado || geoContext.estado;
   if (estado) {

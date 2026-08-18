@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { updateProfile } from '@/lib/supabase';
 import { resendVerificationEmail, uploadKycDocument } from '@/lib/supabase-panel';
+import { showToast } from '@/lib/toast';
 import styles from '../painel.module.css';
 
 const profileSchema = z.object({
@@ -20,7 +21,7 @@ const profileSchema = z.object({
   neighborhood: z.string().optional(),
   city: z.string().optional(),
   state: z.string().optional(),
-  country: z.string().default('BR'),
+  country: z.string().optional(),
   bio: z.string().optional()
 });
 
@@ -31,6 +32,7 @@ export function ProfileTab({ user }: { user: any }) {
   const [docFile, setDocFile] = useState<File | null>(null);
   const [selfieFile, setSelfieFile] = useState<File | null>(null);
   const [kycLoading, setKycLoading] = useState(false);
+  const [kycStatus, setKycStatus] = useState<string | undefined>(user.profile?.kyc_status);
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -79,9 +81,9 @@ export function ProfileTab({ user }: { user: any }) {
     setSaving(true);
     try {
       await updateProfile(user.id, data);
-      alert('Perfil salvo com sucesso!');
+      showToast('Perfil salvo com sucesso!', 'success');
     } catch {
-      alert('Erro ao salvar perfil.');
+      showToast('Erro ao salvar perfil.', 'error');
     } finally {
       setSaving(false);
     }
@@ -91,24 +93,25 @@ export function ProfileTab({ user }: { user: any }) {
     if (!user.email) return;
     try {
       await resendVerificationEmail(user.email);
-      alert('E-mail de confirmação reenviado!');
+      showToast('E-mail de confirmação reenviado!', 'success');
     } catch {
-      alert('Erro ao reenviar e-mail.');
+      showToast('Erro ao reenviar e-mail.', 'error');
     }
   };
 
   const handleKycSubmit = async () => {
     if (!docFile || !selfieFile) {
-      alert('Selecione os dois arquivos antes de enviar.');
+      showToast('Selecione os dois arquivos antes de enviar.', 'warning');
       return;
     }
     setKycLoading(true);
     try {
       await uploadKycDocument(docFile, selfieFile);
-      alert('Documentos enviados para análise!');
+      showToast('Documentos enviados para análise!', 'success');
       if (user.profile) user.profile.kyc_status = 'pending';
+      setKycStatus('pending');
     } catch {
-      alert('Erro ao enviar documentos.');
+      showToast('Erro ao enviar documentos.', 'error');
     } finally {
       setKycLoading(false);
     }
@@ -221,14 +224,14 @@ export function ProfileTab({ user }: { user: any }) {
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '.25rem' }}>
                   <h3 style={{ fontWeight: 700, margin: 0, fontSize: '1rem' }}>E-mail</h3>
-                  {user.email ? (
+                  {user.email_confirmed_at ? (
                     <span className={`${styles.statusBadge} ${styles.statusActive}`}>Verificado</span>
                   ) : (
                     <span className={`${styles.statusBadge} ${styles.statusPending}`}>Pendente</span>
                   )}
                 </div>
                 <p style={{ color: 'var(--clr-text-muted)', fontSize: '.9rem', marginBottom: '1rem' }}>Verifique seu e-mail para receber notificações.</p>
-                {!user.email && (
+                {!user.email_confirmed_at && (
                   <button type="button" onClick={handleResendEmail} className={styles.secondaryButton} style={{ width: '100%' }}>
                     Reenviar e-mail
                   </button>
@@ -266,9 +269,9 @@ export function ProfileTab({ user }: { user: any }) {
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '.25rem' }}>
                   <h3 style={{ fontWeight: 700, margin: 0, fontSize: '1rem' }}>Identidade</h3>
-                  {(user.profile?.kyc_status === 'approved') ? (
+                  {(kycStatus === 'approved') ? (
                     <span className={`${styles.statusBadge} ${styles.statusActive}`}>Aprovado</span>
-                  ) : (user.profile?.kyc_status === 'pending') ? (
+                  ) : (kycStatus === 'pending') ? (
                     <span className={`${styles.statusBadge} ${styles.statusPending}`}>Em Análise</span>
                   ) : (
                     <span className={`${styles.statusBadge} ${styles.statusExpired}`}>Não Enviado</span>
@@ -276,7 +279,7 @@ export function ProfileTab({ user }: { user: any }) {
                 </div>
                 <p style={{ color: 'var(--clr-text-muted)', fontSize: '.9rem', marginBottom: '1rem' }}>Envie RG/CNH e selfie.</p>
                 
-                {(!user.profile?.kyc_status || !['pending', 'approved'].includes(user.profile?.kyc_status)) && (
+                {(!kycStatus || !['pending', 'approved'].includes(kycStatus)) && (
                   <>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '.75rem' }}>
                       <label style={{ display: 'flex', alignItems: 'center', gap: '.5rem', padding: '.75rem', border: '1.5px dashed var(--clr-border-light)', borderRadius: '.75rem', cursor: 'pointer', background: 'var(--clr-bg-alt)' }}>

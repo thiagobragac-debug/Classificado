@@ -18,9 +18,9 @@ const getCachedPlatformLogo = unstable_cache(
   async () => {
     try {
       const supabase = createClient(SUPABASE_URL, SUPABASE_ANON)
-      const { data } = await supabase.from('platform_settings').select('logo_url').single()
-      if (data?.logo_url && !data.logo_url.startsWith('javascript')) {
-        return data.logo_url
+      const { data } = await supabase.from('platform_settings').select('value').eq('key', 'tc_logo_url').single()
+      if (data?.value && !data.value.startsWith('javascript')) {
+        return data.value
       }
     } catch (error) {
       console.error('Failed to fetch platform logo:', error)

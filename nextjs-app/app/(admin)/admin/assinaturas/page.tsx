@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react'
 import { getSupabase } from '@/lib/supabase'
+import { showToast } from '@/lib/toast'
 
 export default function AdminAssinaturas() {
   const [subscriptions, setSubscriptions] = useState<any[]>([])
@@ -20,12 +21,21 @@ export default function AdminAssinaturas() {
     const supabase = getSupabase()
     const { data, error } = await supabase
       .from('subscriptions')
-      .select('*, profiles!user_id(name, email)')
+      .select('*, profiles!user_id(name, user_secrets(email))')
       .order('created_at', { ascending: false })
       .limit(100)
     
     if (!error && data) {
-      setSubscriptions(data)
+      const mapped = data.map((sub: any) => ({
+        ...sub,
+        profiles: sub.profiles ? {
+          ...sub.profiles,
+          email: Array.isArray(sub.profiles.user_secrets) 
+            ? sub.profiles.user_secrets[0]?.email 
+            : sub.profiles.user_secrets?.email
+        } : null
+      }))
+      setSubscriptions(mapped)
     }
     setLoading(false)
   }
@@ -35,9 +45,9 @@ export default function AdminAssinaturas() {
     const { error } = await supabase.from('subscriptions').update({ status: newStatus }).eq('id', id)
     if (!error) {
       setSubscriptions(subscriptions.map(s => s.id === id ? { ...s, status: newStatus } : s))
-      alert(`Status alterado para ${newStatus}`)
+      showToast(`Status alterado para ${newStatus}`, 'success')
     } else {
-      alert('Erro ao alterar status: ' + error.message)
+      showToast('Erro ao alterar status: ' + error.message, 'error')
     }
   }
 
@@ -63,26 +73,18 @@ export default function AdminAssinaturas() {
         <p className="adm-page-sub">Gerencie planos, pagamentos e receita recorrente do portal.</p>
       </div>
 
-      <div className="adm-stats-grid" style={{ gridTemplateColumns: 'repeat(5,1fr)', marginBottom: '20px' }}>
-        <div className="adm-stat-card">
-          <div><div className="adm-stat-val">R$ {mrr.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div><div className="adm-stat-lbl">MRR (Mensal)</div></div>
-          <div className="adm-stat-icon adm-stat-icon--green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
-        </div>
+      <div className="adm-stats-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)', marginBottom: '20px' }}>
         <div className="adm-stat-card">
           <div><div className="adm-stat-val">{total}</div><div className="adm-stat-lbl">Total</div></div>
-          <div className="adm-stat-icon adm-stat-icon--blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
         </div>
         <div className="adm-stat-card">
           <div><div className="adm-stat-val" style={{ color: 'var(--adm-green)' }}>{ativos}</div><div className="adm-stat-lbl">Ativas</div></div>
-          <div className="adm-stat-icon adm-stat-icon--green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
-        </div>
-        <div className="adm-stat-card">
-          <div><div className="adm-stat-val" style={{ color: 'var(--adm-amber)' }}>{atrasados}</div><div className="adm-stat-lbl">Atrasadas</div></div>
-          <div className="adm-stat-icon adm-stat-icon--amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
         </div>
         <div className="adm-stat-card">
           <div><div className="adm-stat-val" style={{ color: 'var(--adm-red)' }}>{cancelados}</div><div className="adm-stat-lbl">Canceladas</div></div>
-          <div className="adm-stat-icon adm-stat-icon--red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></div>
+        </div>
+        <div className="adm-stat-card">
+          <div><div className="adm-stat-val">R$ {mrr.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div><div className="adm-stat-lbl">Receita (MRR)</div></div>
         </div>
       </div>
 
@@ -136,13 +138,15 @@ export default function AdminAssinaturas() {
                     {!['active', 'overdue', 'canceled'].includes(sub.status) && <span className="adm-badge">{sub.status}</span>}
                   </td>
                   <td>{sub.next_billing_at ? new Date(sub.next_billing_at).toLocaleDateString() : '-'}</td>
-                  <td style={{ textAlign: 'right', display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
-                    {sub.status === 'active' && (
-                      <button className="adm-btn adm-btn--sm adm-btn--outline" style={{ color: 'var(--adm-red)', borderColor: 'var(--adm-red)' }} onClick={() => handleUpdateStatus(sub.id, 'canceled')}>Cancelar</button>
-                    )}
-                    {sub.status === 'canceled' && (
-                      <button className="adm-btn adm-btn--sm adm-btn--outline" onClick={() => handleUpdateStatus(sub.id, 'active')}>Reativar</button>
-                    )}
+                  <td style={{ textAlign: 'right' }}>
+                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
+                      {sub.status === 'active' && (
+                        <button className="adm-btn adm-btn--sm adm-btn--outline" style={{ color: 'var(--adm-red)', borderColor: 'var(--adm-red)' }} onClick={() => handleUpdateStatus(sub.id, 'canceled')}>Cancelar</button>
+                      )}
+                      {sub.status === 'canceled' && (
+                        <button className="adm-btn adm-btn--sm adm-btn--outline" onClick={() => handleUpdateStatus(sub.id, 'active')}>Reativar</button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

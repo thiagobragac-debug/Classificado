@@ -1,26 +1,37 @@
 'use client'
 
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { useFormContext, Controller } from 'react-hook-form'
 import styles from '../page.module.css'
 import RichTextEditor from '@/components/RichTextEditor'
 import { AnuncioFormValues } from './schema'
 import { CurrencyInput } from './CurrencyInput'
-
-// Fake categories for now, same as original data.js
-const CATEGORIES = [
-  { id: 'cat-bovinos', name: 'Bovinos' },
-  { id: 'cat-equinos', name: 'Equinos' },
-  { id: 'cat-suinos', name: 'Suínos' },
-  { id: 'cat-maquinas', name: 'Máquinas Agrícolas' }
-]
+import { getSupabase } from '@/lib/supabase'
 
 interface StepDataProps {
   onNext: () => void;
 }
 
 export function StepData({ onNext }: StepDataProps) {
-  const { register, control, trigger, formState: { errors } } = useFormContext<AnuncioFormValues>()
+  const { register, control, trigger, watch, formState: { errors } } = useFormContext<AnuncioFormValues>()
+  const moeda = watch('moeda') as string | undefined
+  const [categories, setCategories] = useState<any[]>([])
+
+  useEffect(() => {
+    async function loadCategories() {
+      const supabase = getSupabase()
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('active', true)
+        .order('sort_order', { ascending: true })
+        
+      if (!error && data) {
+        setCategories(data)
+      }
+    }
+    loadCategories()
+  }, [])
 
   const handleNext = async () => {
     // Validate only this step's fields
@@ -43,27 +54,28 @@ export function StepData({ onNext }: StepDataProps) {
           <p>Informações principais sobre o que você está anunciando</p>
         </div>
       </div>
-      
+
       <div className={styles.formGrid64}>
         <div>
-          <label className={styles.inputLabel}>Título do Anúncio <span>*</span></label>
-          <input 
-            type="text" 
-            className={styles.formInput} 
-            placeholder="Ex: Trator Massey Ferguson 2018" 
+          <label htmlFor="step-titulo" className={styles.inputLabel}>Título do Anúncio <span>*</span></label>
+          <input
+            id="step-titulo"
+            type="text"
+            className={styles.formInput}
+            placeholder="Ex: Trator Massey Ferguson 2018"
             {...register('titulo')}
           />
           {errors.titulo && <span className={styles.errorText}>{errors.titulo.message}</span>}
         </div>
         <div>
-          <label className={styles.inputLabel}>Categoria <span>*</span></label>
-          <select className={styles.formInput} {...register('categoria')}>
+          <label htmlFor="step-categoria" className={styles.inputLabel}>Categoria <span>*</span></label>
+          <select id="step-categoria" className={styles.formInput} {...register('categoria')}>
             <option value="">Selecione...</option>
-            {CATEGORIES.map(c => <option key={c.id} value={c.id.replace('cat-', '')}>{c.name}</option>)}
+            {categories.map(c => <option key={c.id} value={c.id}>{c.name_pt}</option>)}
           </select>
           {errors.categoria && <span className={styles.errorText}>{errors.categoria.message}</span>}
         </div>
-        
+
         <div className={styles.colFull}>
           <label className={styles.inputLabel}>Descrição <span>*</span></label>
           <Controller
@@ -75,13 +87,13 @@ export function StepData({ onNext }: StepDataProps) {
           />
           {errors.descricao && <span className={styles.errorText}>{errors.descricao.message}</span>}
         </div>
-        
+
         <div className={`${styles.colFull} ${styles.divider}`}>
           <h3 className={styles.sectionSubHeader}>Valores e Condições</h3>
           <div className={styles.formGrid4}>
             <div>
-              <label className={styles.inputLabel}>Moeda</label>
-              <select className={styles.formInput} {...register('moeda')}>
+              <label htmlFor="step-moeda" className={styles.inputLabel}>Moeda</label>
+              <select id="step-moeda" className={styles.formInput} {...register('moeda')}>
                 <option value="BRL">BRL — Real Brasileiro</option>
                 <option value="ARS">ARS — Peso Argentino</option>
                 <option value="UYU">UYU — Peso Uruguaio</option>
@@ -90,19 +102,19 @@ export function StepData({ onNext }: StepDataProps) {
             </div>
             <div>
               <div className={styles.switchContainer}>
-                <label className={styles.inputLabel}>Preço</label>
+                <label htmlFor="step-preco" className={styles.inputLabel}>Preço</label>
                 <label className={styles.negotiateToggleInline}>
                   <span>A negociar</span>
-                  <input type="checkbox" className={styles.toggleInput} {...register('aNegociar')} aria-label="Preço a negociar" />
+                  <input id="step-a-negociar" type="checkbox" className={styles.toggleInput} {...register('aNegociar')} aria-label="Preço a negociar" />
                   <div className={styles.toggleSwitchSm} aria-hidden="true"></div>
                 </label>
               </div>
-              <CurrencyInput name="preco" />
+              <CurrencyInput name="preco" currency={moeda || 'BRL'} />
               {errors.preco && <span className={styles.errorText}>{errors.preco.message}</span>}
             </div>
             <div>
-              <label className={styles.inputLabel}>Unidade (opc)</label>
-              <select className={styles.formInput} {...register('unidadePreco')}>
+              <label htmlFor="step-unidade" className={styles.inputLabel}>Unidade (opc)</label>
+              <select id="step-unidade" className={styles.formInput} {...register('unidadePreco')}>
                 <option value="">Nenhuma / Valor total</option>
                 <option value="por unidade">por unidade</option>
                 <option value="por kg">por kg</option>
@@ -113,8 +125,8 @@ export function StepData({ onNext }: StepDataProps) {
               </select>
             </div>
             <div>
-              <label className={styles.inputLabel}>Condição</label>
-              <select className={styles.formInput} {...register('condicao')}>
+              <label htmlFor="step-condicao" className={styles.inputLabel}>Condição</label>
+              <select id="step-condicao" className={styles.formInput} {...register('condicao')}>
                 <option value="">Não aplicável</option>
                 <option value="novo">Novo</option>
                 <option value="usado">Usado</option>
@@ -123,7 +135,7 @@ export function StepData({ onNext }: StepDataProps) {
           </div>
         </div>
       </div>
-      
+
       <div className={styles.wizardActions}>
         <button type="button" className="btn btn--accent btn--lg" onClick={handleNext}>Próximo Passo</button>
       </div>

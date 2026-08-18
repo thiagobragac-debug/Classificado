@@ -2,11 +2,15 @@
 
 import React, { useEffect, useState } from 'react'
 import { getSupabase } from '@/lib/supabase'
+import { showToast } from '@/lib/toast'
 
 export default function AdminCategorias() {
   const [categories, setCategories] = useState<any[]>([])
   const [adsCount, setAdsCount] = useState(0)
   const [loading, setLoading] = useState(true)
+
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 15
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -22,7 +26,7 @@ export default function AdminCategorias() {
     const supabase = getSupabase()
     
     // Load Categories
-    const { data, error } = await supabase.from('categories').select('*').order('sort_order', { ascending: true })
+    const { data, error } = await supabase.from('categories').select('*').order('sort_order', { ascending: true }).limit(1500)
     if (!error && data) {
       setCategories(data)
     }
@@ -35,7 +39,7 @@ export default function AdminCategorias() {
   }
 
   const handleSave = async () => {
-    if (!form.name_pt || !form.icon) return alert('Preencha nome e ícone')
+    if (!form.name_pt || !form.icon) return showToast('Preencha nome e ícone', 'error')
     
     const supabase = getSupabase()
     
@@ -55,9 +59,9 @@ export default function AdminCategorias() {
       if (!error) {
         setCategories(categories.map(c => c.id === editingId ? { ...c, ...form } : c))
         setIsModalOpen(false)
-        alert('Categoria atualizada!')
+        showToast('Categoria atualizada!', 'success')
       } else {
-        alert('Erro: ' + error.message)
+        showToast('Erro: ' + error.message, 'error')
       }
     } else {
       // Insert
@@ -67,9 +71,9 @@ export default function AdminCategorias() {
       if (!error) {
         setCategories([...categories, newCat])
         setIsModalOpen(false)
-        alert('Categoria criada!')
+        showToast('Categoria criada!', 'success')
       } else {
-        alert('Erro: ' + error.message)
+        showToast('Erro: ' + error.message, 'error')
       }
     }
   }
@@ -97,6 +101,9 @@ export default function AdminCategorias() {
   const total = categories.length
   const ativas = categories.filter(c => c.active).length
   const inativas = total - ativas
+
+  const totalPages = Math.ceil(categories.length / pageSize)
+  const paginatedCategories = categories.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
   return (
     <>
@@ -135,7 +142,7 @@ export default function AdminCategorias() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
         {loading ? (
           <div>Carregando...</div>
-        ) : categories.map(c => (
+        ) : paginatedCategories.map(c => (
           <div key={c.id} className="adm-card" style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', opacity: c.active ? 1 : 0.6 }}>
             <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: c.color + '20', color: c.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>
               {c.icon}
@@ -155,30 +162,87 @@ export default function AdminCategorias() {
           </div>
         ))}
       </div>
+      {/* PAGINATION FOOTER */}
+      <div style={{ padding: '16px 24px', borderTop: '1px solid var(--adm-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--adm-surface)', borderRadius: '0 0 var(--adm-r-xl) var(--adm-r-xl)' }}>
+          <div style={{ fontSize: '14px', color: 'var(--adm-text-secondary)' }}>
+            Mostrando de <strong style={{ color: 'var(--adm-text)' }}>{categories.length === 0 ? 0 : ((currentPage - 1) * pageSize) + 1}</strong> até <strong style={{ color: 'var(--adm-text)' }}>{Math.min(currentPage * pageSize, categories.length)}</strong> de <strong style={{ color: 'var(--adm-text)' }}>{categories.length}</strong> itens
+          </div>
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <button 
+              className="adm-btn adm-btn--outline adm-btn--sm" 
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+            >
+              Anterior
+            </button>
+            
+            {Array.from({ length: totalPages }).map((_, i) => {
+              if (totalPages > 7) {
+                if (i !== 0 && i !== totalPages - 1 && Math.abs(currentPage - 1 - i) > 1) {
+                  if (Math.abs(currentPage - 1 - i) === 2) return <span key={i} style={{ padding: '0 8px', color: 'var(--adm-text-secondary)' }}>...</span>
+                  return null
+                }
+              }
+              
+              return (
+                <button 
+                  key={i} 
+                  className={`adm-btn adm-btn--sm ${currentPage === i + 1 ? 'adm-btn--primary' : 'adm-btn--outline'}`}
+                  style={{ width: '36px', height: '36px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                  onClick={() => setCurrentPage(i + 1)}
+                >
+                  {i + 1}
+                </button>
+              )
+            })}
+
+            <button 
+              className="adm-btn adm-btn--outline adm-btn--sm" 
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+            >
+              Próxima
+            </button>
+          </div>
+        </div>
 
       {isModalOpen && (
         <div className="adm-overlay" style={{ display: 'flex' }} onClick={(e) => e.target === e.currentTarget && setIsModalOpen(false)}>
-          <div className="adm-modal" style={{ width: '400px' }}>
-            <h3 className="adm-modal-title">{editingId ? '✏️ Editar Categoria' : '➕ Nova Categoria'}</h3>
-            <div className="adm-field">
-              <label>Nome (Português)</label>
-              <input type="text" className="adm-input" value={form.name_pt} onChange={e => setForm({ ...form, name_pt: e.target.value })} />
+          <div className="adm-modal" style={{ maxWidth: '600px', width: '100%', padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            {/* 1. FIXED HEADER */}
+            <div style={{ padding: '28px 32px 20px', borderBottom: '1px solid var(--adm-border)' }}>
+              <h3 className="adm-modal-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--adm-accent-pale)', color: 'var(--adm-accent)', display: 'grid', placeItems: 'center' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                </div>
+                {editingId ? 'Editar Categoria' : 'Nova Categoria'}
+              </h3>
             </div>
-            <div className="adm-field">
-              <label>Nome (Espanhol)</label>
-              <input type="text" className="adm-input" value={form.name_es} onChange={e => setForm({ ...form, name_es: e.target.value })} />
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+
+            {/* 2. SCROLLABLE BODY */}
+            <div style={{ padding: '24px 32px', overflowY: 'auto', maxHeight: 'calc(90vh - 160px)' }}>
               <div className="adm-field">
-                <label>Ícone (Emoji)</label>
-                <input type="text" className="adm-input" maxLength={2} style={{ fontSize: '1.2rem', textAlign: 'center' }} value={form.icon} onChange={e => setForm({ ...form, icon: e.target.value })} />
+                <label>Nome (Português)</label>
+                <input type="text" className="adm-input" value={form.name_pt} onChange={e => setForm({ ...form, name_pt: e.target.value })} />
               </div>
               <div className="adm-field">
-                <label>Cor Principal</label>
-                <input type="color" className="adm-input" style={{ padding: '4px 8px', height: '38px', cursor: 'pointer', width: '100%' }} value={form.color} onChange={e => setForm({ ...form, color: e.target.value })} />
+                <label>Nome (Espanhol)</label>
+                <input type="text" className="adm-input" value={form.name_es} onChange={e => setForm({ ...form, name_es: e.target.value })} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="adm-field">
+                  <label>Ícone (Emoji)</label>
+                  <input type="text" className="adm-input" maxLength={2} style={{ fontSize: '1.2rem', textAlign: 'center' }} value={form.icon} onChange={e => setForm({ ...form, icon: e.target.value })} />
+                </div>
+                <div className="adm-field">
+                  <label>Cor Principal</label>
+                  <input type="color" className="adm-input" style={{ padding: '4px 8px', height: '38px', cursor: 'pointer', width: '100%' }} value={form.color} onChange={e => setForm({ ...form, color: e.target.value })} />
+                </div>
               </div>
             </div>
-            <div className="adm-modal-footer">
+
+            {/* 3. FIXED FOOTER */}
+            <div className="adm-modal-footer" style={{ margin: 0, padding: '20px 32px', borderTop: '1px solid var(--adm-border)', background: 'var(--adm-surface-2)', borderRadius: '0 0 var(--adm-r-xl) var(--adm-r-xl)' }}>
               <button className="adm-btn adm-btn--outline" onClick={() => setIsModalOpen(false)}>Cancelar</button>
               <button className="adm-btn adm-btn--primary" onClick={handleSave}>Salvar Categoria</button>
             </div>

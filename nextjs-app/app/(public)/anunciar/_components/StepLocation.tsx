@@ -66,20 +66,7 @@ export function StepLocation({ onNext, onPrev }: StepLocationProps) {
       setIsLocating(false)
     }
 
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(async pos => {
-        try {
-          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`)
-          const data = await res.json()
-          setLocationData(data.address.country, data.address.state, data.address.city || data.address.town)
-        } catch (e) {
-          console.warn("Could not fetch location via OSM", e)
-          setIsLocating(false)
-        }
-      }, () => {
-        setIsLocating(false)
-      })
-    } else {
+    const fetchViaIP = async () => {
       try {
         const res = await fetch('https://ipapi.co/json/')
         const data = await res.json()
@@ -88,6 +75,24 @@ export function StepLocation({ onNext, onPrev }: StepLocationProps) {
         console.warn("Could not fetch location via IP", e)
         setIsLocating(false)
       }
+    }
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(async pos => {
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`)
+          const data = await res.json()
+          setLocationData(data.address.country, data.address.state, data.address.city || data.address.town || data.address.village)
+        } catch (e) {
+          console.warn("Could not fetch location via OSM, falling back to IP", e)
+          fetchViaIP()
+        }
+      }, () => {
+        console.warn("Geolocation denied or failed, falling back to IP")
+        fetchViaIP()
+      })
+    } else {
+      fetchViaIP()
     }
   }
 
@@ -112,10 +117,10 @@ export function StepLocation({ onNext, onPrev }: StepLocationProps) {
             <p>Onde está o produto ou serviço anunciado?</p>
           </div>
         </div>
-        <button 
-          type="button" 
-          className={styles.btnOutline} 
-          style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }} 
+        <button
+          type="button"
+          className={styles.btnOutline}
+          style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
           onClick={fetchLocation}
           disabled={isLocating}
         >
@@ -123,11 +128,11 @@ export function StepLocation({ onNext, onPrev }: StepLocationProps) {
           {isLocating ? 'Buscando...' : 'Usar minha localização'}
         </button>
       </div>
-      
+
       <div className={styles.formGrid3}>
         <div>
-          <label className={styles.inputLabel}>País <span>*</span></label>
-          <select className={styles.formInput} {...register('pais')}>
+          <label htmlFor="step-pais" className={styles.inputLabel}>País <span>*</span></label>
+          <select id="step-pais" className={styles.formInput} {...register('pais')}>
             <option value="">Selecione...</option>
             <option value="Brasil">Brasil</option>
             <option value="Argentina">Argentina</option>
@@ -137,17 +142,17 @@ export function StepLocation({ onNext, onPrev }: StepLocationProps) {
           {errors.pais && <span className={styles.errorText}>{errors.pais.message}</span>}
         </div>
         <div>
-          <label className={styles.inputLabel}>Estado <span>*</span></label>
-          <input type="text" className={styles.formInput} placeholder="Ex: Mato Grosso do Sul" {...register('estado')} />
+          <label htmlFor="step-estado" className={styles.inputLabel}>Estado <span>*</span></label>
+          <input id="step-estado" type="text" className={styles.formInput} placeholder="Ex: Mato Grosso do Sul" {...register('estado')} />
           {errors.estado && <span className={styles.errorText}>{errors.estado.message}</span>}
         </div>
         <div>
-          <label className={styles.inputLabel}>Cidade <span>*</span></label>
-          <input type="text" className={styles.formInput} placeholder="Ex: Campo Grande" {...register('cidade')} />
+          <label htmlFor="step-cidade" className={styles.inputLabel}>Cidade <span>*</span></label>
+          <input id="step-cidade" type="text" className={styles.formInput} placeholder="Ex: Campo Grande" {...register('cidade')} />
           {errors.cidade && <span className={styles.errorText}>{errors.cidade.message}</span>}
         </div>
       </div>
-      
+
       <div className={styles.wizardActions}>
         <button type="button" className={`${styles.btnOutline} btn--lg`} onClick={onPrev} style={{ padding: '0.8rem 2rem' }}>Voltar</button>
         <button type="button" className="btn btn--accent btn--lg" onClick={handleNext}>Próximo Passo</button>

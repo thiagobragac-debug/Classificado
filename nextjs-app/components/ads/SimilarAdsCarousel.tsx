@@ -20,7 +20,7 @@ export function SimilarAdsCarousel({ ads }: { ads: any[] }) {
   if (!ads || ads.length === 0) return null;
 
   return (
-    <div className="similar-ads-section" style={{ marginTop: '3rem', paddingTop: '2rem', borderTop: '1px solid var(--clr-border)' }}>
+    <div className="similar-ads-section" style={{ marginTop: '2rem', borderTop: 'none', paddingTop: 0 }}>
       <div className="carousel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <h3 style={{ fontSize: '1.5rem', fontWeight: 700 }}>Anúncios Similares</h3>
         <div className="carousel-controls" style={{ display: 'flex', gap: '0.5rem' }}>
@@ -90,7 +90,7 @@ export function SimilarAdsCarousel({ ads }: { ads: any[] }) {
                   style={{ objectFit: 'cover' }} 
                 />
                 {ad.featured && (
-                  <div className="ad-card__category-badge" style={{ position: 'absolute', top: '0.5rem', left: '0.5rem', background: 'var(--clr-accent)', color: 'white', padding: '0.2rem 0.6rem', borderRadius: '1rem', fontSize: '0.75rem', fontWeight: 600, zIndex: 2 }}>
+                  <div className="ad-card__category-badge" style={{ position: 'absolute', top: '0.5rem', bottom: 'auto', left: '0.5rem', background: 'var(--clr-accent)', color: 'white', padding: '0.2rem 0.6rem', borderRadius: '1rem', fontSize: '0.75rem', fontWeight: 600, zIndex: 2 }}>
                     ⭐ Destaque
                   </div>
                 )}

@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
-
-const SUPABASE_URL  = 'https://rfzuzuobwuanmbrcthqe.supabase.co';
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmenV6dW9id3Vhbm1icmN0aHFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwNzg1OTMsImV4cCI6MjA5ODY1NDU5M30.m-Mop7RgpVo730lwjcra1egF8p9APv6AGnW1YnFvOgY';
+import { SUPABASE_URL, SUPABASE_ANON } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 

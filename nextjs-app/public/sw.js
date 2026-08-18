@@ -92,11 +92,15 @@ self.addEventListener('fetch', (e) => {
     e.respondWith(
       caches.match(e.request).then((cached) => {
         const fetchPromise = fetch(e.request).then((nr) => {
-          if (nr && nr.status === 200 && nr.type !== 'opaque') {
-            caches.open(CACHE_NAME).then((c) => c.put(e.request, nr.clone()));
+          if (nr && nr.status === 200 && nr.type !== 'opaque' && !nr.bodyUsed) {
+            try {
+              const resClone = nr.clone();
+              caches.open(CACHE_NAME).then((c) => c.put(e.request, resClone)).catch(() => {});
+            } catch (err) {}
           }
           return nr;
         }).catch(() => null);
+        
         return cached || fetchPromise;
       })
     );

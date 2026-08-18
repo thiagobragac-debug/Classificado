@@ -41,9 +41,13 @@ export function RegisterForm({ onSetAlert, onSuccess }: RegisterFormProps) {
         const sb = getSupabase()
         await sb.from('profiles').update({
           display_name: data.displayName,
-          document_number: data.doc,
           phone_whatsapp: data.phone,
           zip_code: data.cep
+        }).eq('id', authData.user.id)
+
+        await sb.from('user_secrets').update({
+          document_number: data.doc,
+          email: data.email
         }).eq('id', authData.user.id)
       }
 

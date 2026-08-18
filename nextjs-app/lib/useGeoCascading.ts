@@ -12,7 +12,7 @@ export function useGeoCascading(pais: string, estado: string, categoria?: string
     let q = sb.from('ads').select('country').neq('country', null);
     if (categoria) q = q.eq('category_id', categoria);
     
-    q.then(({ data }) => {
+    q.then(({ data }: { data: any[] | null }) => {
         if (!isActive) return;
         if (data) {
           const unique = Array.from(new Set(data.map(d => d.country)));
@@ -31,7 +31,7 @@ export function useGeoCascading(pais: string, estado: string, categoria?: string
     let q = sb.from('ads').select('state').eq('country', pais);
     if (categoria) q = q.eq('category_id', categoria);
     
-    q.then(({ data }) => {
+    q.then(({ data }: { data: any[] | null }) => {
         if (!isActive) return;
         if (data) {
           const unique = Array.from(new Set(data.map(d => d.state).filter(Boolean)));
@@ -50,7 +50,7 @@ export function useGeoCascading(pais: string, estado: string, categoria?: string
     let q = sb.from('ads').select('city').eq('country', pais).eq('state', estado);
     if (categoria) q = q.eq('category_id', categoria);
     
-    q.then(({ data }) => {
+    q.then(({ data }: { data: any[] | null }) => {
         if (!isActive) return;
         if (data) {
           const unique = Array.from(new Set(data.map(d => d.city).filter(Boolean)));

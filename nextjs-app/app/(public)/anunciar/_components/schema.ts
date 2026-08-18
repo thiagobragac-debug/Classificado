@@ -1,12 +1,9 @@
 import { z } from 'zod';
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-
 export const AnuncioSchema = z.object({
   titulo: z.string().min(5, 'O título deve ter no mínimo 5 caracteres').max(100, 'O título deve ter no máximo 100 caracteres'),
   categoria: z.string().min(1, 'A categoria é obrigatória'),
-  descricao: z.string().min(10, 'A descrição deve ter no mínimo 10 caracteres'),
+  descricao: z.string().min(10, 'A descrição deve ter no mínimo 10 caracteres').max(5000, 'A descrição deve ter no máximo 5000 caracteres'),
   moeda: z.string(),
   preco: z.string().nullable().optional(),
   aNegociar: z.boolean(),
@@ -20,18 +17,6 @@ export const AnuncioSchema = z.object({
 
 export type AnuncioFormValues = z.infer<typeof AnuncioSchema>;
 
-export interface InsertAdDTO {
-  title_pt: string;
-  description: string;
-  category_id: string;
-  price: number | null;
-  currency: string;
-  price_unit_pt: string | null;
-  country: string;
-  state: string;
-  city: string;
-  negotiable: boolean;
-  condition: string | null;
-  status: 'draft' | 'pending' | 'active' | 'paused';
-  images?: string[];
-}
+// Re-export AdPayload from supabase.ts para uso no wizard
+// status: apenas 'draft' | 'pending' — 'active' é definido pelo servidor após moderação
+export type { AdPayload as InsertAdDTO } from '@/lib/supabase';

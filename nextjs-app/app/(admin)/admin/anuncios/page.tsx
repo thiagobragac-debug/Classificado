@@ -1,7 +1,11 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
+import Link from 'next/link'
+import { Plus, Search, Filter, MoreVertical, Edit2, Trash2, Eye, ExternalLink } from 'lucide-react'
 import { getSupabase } from '@/lib/supabase'
+import { imageUrl } from '@/lib/storage'
+import { showToast } from '@/lib/toast'
 
 export default function AdminAnuncios() {
   const [ads, setAds] = useState<any[]>([])
@@ -12,6 +16,10 @@ export default function AdminAnuncios() {
   const [statusFilter, setStatusFilter] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
   const [countryFilter, setCountryFilter] = useState('')
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 15
 
   const [categories, setCategories] = useState<any[]>([])
 
@@ -27,7 +35,7 @@ export default function AdminAnuncios() {
       .from('ads')
       .select('*, profiles(name)')
       .order('created_at', { ascending: false })
-      .limit(100)
+      .limit(1500)
     
     if (!error && data) {
       setAds(data)
@@ -46,9 +54,44 @@ export default function AdminAnuncios() {
     const { error } = await supabase.from('ads').update({ status: newStatus }).eq('id', adId)
     if (!error) {
       setAds(ads.map(a => a.id === adId ? { ...a, status: newStatus } : a))
-      alert(`Anúncio atualizado para ${newStatus}!`)
+      showToast(`Anúncio atualizado para ${newStatus}!`, 'success')
     } else {
-      alert('Erro ao atualizar anúncio: ' + error.message)
+      showToast('Erro ao atualizar anúncio: ' + error.message, 'error')
+    }
+  }
+
+  const handleBulkStatusUpdate = async (newStatus: string) => {
+    if (selectedIds.length === 0) return
+    const supabase = getSupabase()
+    
+    // Update all selected ads in the database
+    const { error } = await supabase.from('ads')
+      .update({ status: newStatus })
+      .in('id', selectedIds)
+      
+    if (!error) {
+      // Update local state
+      setAds(ads.map(a => selectedIds.includes(a.id) ? { ...a, status: newStatus } : a))
+      showToast(`${selectedIds.length} anúncios atualizados para ${newStatus}!`, 'success')
+      setSelectedIds([]) // Clear selection after action
+    } else {
+      showToast('Erro ao atualizar anúncios: ' + error.message, 'error')
+    }
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === filteredAds.length) {
+      setSelectedIds([])
+    } else {
+      setSelectedIds(filteredAds.map(a => a.id))
+    }
+  }
+
+  const toggleSelect = (id: string) => {
+    if (selectedIds.includes(id)) {
+      setSelectedIds(selectedIds.filter(sid => sid !== id))
+    } else {
+      setSelectedIds([...selectedIds, id])
     }
   }
 
@@ -86,6 +129,15 @@ export default function AdminAnuncios() {
     return true
   })
 
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [search, statusFilter, categoryFilter, countryFilter])
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredAds.length / pageSize)
+  const paginatedAds = filteredAds.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+
   // KPIs
   const total = ads.length
   const ativos = ads.filter(a => a.status === 'active').length
@@ -103,10 +155,6 @@ export default function AdminAnuncios() {
           <button className="adm-btn adm-btn--outline" onClick={handleExport}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Exportar CSV
-          </button>
-          <button className="adm-btn adm-btn--primary" onClick={() => alert('Modal em breve')}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Novo Anúncio
           </button>
         </div>
       </div>
@@ -160,7 +208,14 @@ export default function AdminAnuncios() {
           <table className="adm-table">
             <thead>
               <tr>
-                <th style={{ width: '40px' }}><input type="checkbox" style={{ accentColor: 'var(--adm-accent)' }} /></th>
+                <th style={{ width: '40px' }}>
+                  <input 
+                    type="checkbox" 
+                    style={{ accentColor: 'var(--adm-accent)' }} 
+                    checked={filteredAds.length > 0 && selectedIds.length === filteredAds.length}
+                    onChange={toggleSelectAll}
+                  />
+                </th>
                 <th>Anúncio</th>
                 <th>Vendedor</th>
                 <th>Preço</th>
@@ -173,43 +228,130 @@ export default function AdminAnuncios() {
             <tbody>
               {loading ? (
                 <tr><td colSpan={8} style={{ textAlign: 'center', padding: '20px' }}>Carregando...</td></tr>
-              ) : filteredAds.map(ad => (
-                <tr key={ad.id}>
-                  <td><input type="checkbox" style={{ accentColor: 'var(--adm-accent)' }} /></td>
+              ) : paginatedAds.map(ad => (
+                <tr key={ad.id} style={{ background: selectedIds.includes(ad.id) ? 'var(--adm-surface-2)' : 'transparent' }}>
+                  <td>
+                    <input 
+                      type="checkbox" 
+                      style={{ accentColor: 'var(--adm-accent)' }} 
+                      checked={selectedIds.includes(ad.id)}
+                      onChange={() => toggleSelect(ad.id)}
+                    />
+                  </td>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <img src={(ad.images && ad.images.length > 0) ? ad.images[0] : 'https://placehold.co/100x100?text=Sem+Foto'} alt="" style={{ width: '48px', height: '48px', borderRadius: '8px', objectFit: 'cover' }} />
-                      <div style={{ fontWeight: 600, color: 'var(--adm-text)', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ad.title_pt}</div>
+                      <img src={imageUrl((ad.images && ad.images.length > 0) ? ad.images[0] : null, 'https://placehold.co/100x100?text=Sem+Foto')} alt="" style={{ width: '48px', height: '48px', borderRadius: '8px', objectFit: 'cover' }} />
+                      <Link href={`/anuncio/${ad.id}`} target="_blank" style={{ fontWeight: 600, color: 'var(--adm-text)', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'none' }} title="Visualizar Anúncio">
+                        {ad.title_pt}
+                      </Link>
                     </div>
                   </td>
-                  <td>{ad.profiles?.name || 'Desconhecido'}</td>
-                  <td><strong>{ad.currency} {Number(ad.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></td>
-                  <td>{ad.country || '-'}</td>
-                  <td>
+                  <td style={{ whiteSpace: 'nowrap', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis' }} title={ad.profiles?.name || 'Desconhecido'}>
+                    {ad.profiles?.name || 'Desconhecido'}
+                  </td>
+                  <td style={{ whiteSpace: 'nowrap' }}><strong>{ad.currency} {Number(ad.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></td>
+                  <td style={{ whiteSpace: 'nowrap' }}>{ad.country || '-'}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>
                     {ad.status === 'active' && <span className="adm-badge adm-badge--green">Ativo</span>}
                     {ad.status === 'pending' && <span className="adm-badge adm-badge--amber">Pendente</span>}
                     {ad.status === 'rejected' && <span className="adm-badge adm-badge--red">Rejeitado</span>}
                     {ad.status === 'paused' && <span className="adm-badge" style={{ background: 'var(--adm-surface-3)' }}>Pausado</span>}
                     {!['active', 'pending', 'rejected', 'paused'].includes(ad.status) && <span className="adm-badge">{ad.status}</span>}
                   </td>
-                  <td>{new Date(ad.created_at).toLocaleDateString()}</td>
-                  <td style={{ textAlign: 'center', display: 'flex', gap: '4px', justifyContent: 'center' }}>
-                    {ad.status !== 'active' && (
-                      <button className="adm-btn adm-btn--sm adm-btn--outline" style={{ color: 'var(--adm-green)', borderColor: 'var(--adm-green)' }} onClick={() => handleStatusUpdate(ad.id, 'active')}>Aprovar</button>
-                    )}
-                    {ad.status !== 'rejected' && (
-                      <button className="adm-btn adm-btn--sm adm-btn--outline" style={{ color: 'var(--adm-red)', borderColor: 'var(--adm-red)' }} onClick={() => handleStatusUpdate(ad.id, 'rejected')}>Rejeitar</button>
-                    )}
-                    {ad.status === 'active' && (
-                      <button className="adm-btn adm-btn--sm adm-btn--outline" onClick={() => handleStatusUpdate(ad.id, 'paused')}>Pausar</button>
-                    )}
+                  <td style={{ whiteSpace: 'nowrap' }}>{new Date(ad.created_at).toLocaleDateString()}</td>
+                  <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                      {ad.status !== 'active' && (
+                        <button className="adm-btn adm-btn--sm adm-btn--outline" style={{ color: 'var(--adm-green)', borderColor: 'var(--adm-green)' }} onClick={() => handleStatusUpdate(ad.id, 'active')} title="Aprovar">Aprovar</button>
+                      )}
+                      {ad.status !== 'rejected' && (
+                        <button className="adm-btn adm-btn--sm adm-btn--outline" style={{ color: 'var(--adm-red)', borderColor: 'var(--adm-red)' }} onClick={() => handleStatusUpdate(ad.id, 'rejected')} title="Rejeitar">Rejeitar</button>
+                      )}
+                      {ad.status === 'active' && (
+                        <button className="adm-btn adm-btn--sm adm-btn--outline" onClick={() => handleStatusUpdate(ad.id, 'paused')} title="Pausar">Pausar</button>
+                      )}
+                      <Link href={`/anuncio/${ad.id}`} target="_blank" className="adm-btn adm-btn--sm adm-btn--outline" style={{ display: 'grid', placeItems: 'center', padding: '0 8px' }} title="Visualizar Anúncio na Loja">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+
+        {/* PAGINATION FOOTER */}
+        <div style={{ padding: '16px 24px', borderTop: '1px solid var(--adm-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--adm-surface)', borderRadius: '0 0 var(--adm-r-xl) var(--adm-r-xl)' }}>
+            <div style={{ fontSize: '14px', color: 'var(--adm-text-secondary)' }}>
+              Mostrando de <strong style={{ color: 'var(--adm-text)' }}>{filteredAds.length === 0 ? 0 : ((currentPage - 1) * pageSize) + 1}</strong> até <strong style={{ color: 'var(--adm-text)' }}>{Math.min(currentPage * pageSize, filteredAds.length)}</strong> de <strong style={{ color: 'var(--adm-text)' }}>{filteredAds.length}</strong> anúncios
+            </div>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <button 
+                className="adm-btn adm-btn--outline adm-btn--sm" 
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              >
+                Anterior
+              </button>
+              
+              {Array.from({ length: totalPages }).map((_, i) => {
+                // Show max 5 page buttons to avoid overflow
+                if (totalPages > 7) {
+                  if (i !== 0 && i !== totalPages - 1 && Math.abs(currentPage - 1 - i) > 1) {
+                    if (Math.abs(currentPage - 1 - i) === 2) return <span key={i} style={{ padding: '0 8px', color: 'var(--adm-text-secondary)' }}>...</span>
+                    return null
+                  }
+                }
+                
+                return (
+                  <button 
+                    key={i} 
+                    className={`adm-btn adm-btn--sm ${currentPage === i + 1 ? 'adm-btn--primary' : 'adm-btn--outline'}`}
+                    style={{ width: '36px', height: '36px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                    onClick={() => setCurrentPage(i + 1)}
+                  >
+                    {i + 1}
+                  </button>
+                )
+              })}
+
+              <button 
+                className="adm-btn adm-btn--outline adm-btn--sm" 
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              >
+                Próxima
+              </button>
+            </div>
+          </div>
       </div>
+
+      {selectedIds.length > 0 && (
+        <div style={{
+          position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)',
+          background: 'var(--adm-surface)', border: '1px solid var(--adm-border)',
+          boxShadow: '0 10px 25px rgba(0,0,0,0.1)', padding: '12px 24px',
+          borderRadius: '100px', display: 'flex', alignItems: 'center', gap: '20px', zIndex: 1000
+        }}>
+          <div style={{ fontWeight: 600, color: 'var(--adm-accent)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            {selectedIds.length} selecionado{selectedIds.length > 1 ? 's' : ''}
+          </div>
+          
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', borderLeft: '1px solid var(--adm-border)', paddingLeft: '20px' }}>
+            <button className="adm-btn adm-btn--sm adm-btn--outline" onClick={() => setSelectedIds([])}>
+              Cancelar
+            </button>
+            <button className="adm-btn adm-btn--sm adm-btn--primary" style={{ background: 'var(--adm-green)', borderColor: 'var(--adm-green)' }} onClick={() => handleBulkStatusUpdate('active')}>
+              Aprovar Todos
+            </button>
+            <button className="adm-btn adm-btn--sm adm-btn--primary" style={{ background: 'var(--adm-red)', borderColor: 'var(--adm-red)' }} onClick={() => handleBulkStatusUpdate('rejected')}>
+              Rejeitar Todos
+            </button>
+          </div>
+        </div>
+      )}
     </>
   )
 }

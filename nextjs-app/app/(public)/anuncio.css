@@ -1,0 +1,98 @@
+.product-grid {
+  display: grid;
+  gap: 2rem;
+  grid-template-columns: 1fr 400px;
+}
+
+@media (max-width: 991px) {
+  .product-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+.sticky-cta-mobile {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .sticky-cta-mobile {
+    display: block;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    padding: 1rem 1.25rem;
+    box-shadow: 0 -10px 25px -5px rgba(0,0,0,0.1);
+    z-index: 1000;
+    border-top: 1px solid rgba(0,0,0,0.05);
+  }
+  
+  .ad-mobile-cta-price-label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--clr-text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  
+  .ad-mobile-cta-price-value {
+    display: block;
+    font-size: 1.25rem;
+    color: var(--clr-primary);
+  }
+  
+  .ad-mobile-cta-button {
+    border-radius: 9999px;
+    padding: 0.75rem 1.5rem;
+    font-weight: 600;
+    box-shadow: 0 4px 14px 0 rgba(22, 163, 74, 0.39);
+    transition: all 0.2s ease;
+  }
+  .ad-mobile-cta-button:active {
+    transform: scale(0.95);
+  }
+  
+  /* Prevent content from being hidden behind the sticky footer */
+  body {
+    padding-bottom: 80px !important;
+  }
+}
+
+/* Airbnb Style Gallery */
+.gallery-airbnb-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  grid-template-rows: repeat(2, 250px);
+  gap: 8px;
+  border-radius: 1rem;
+  overflow: hidden;
+  position: relative;
+}
+
+.gallery-grid-item:hover {
+  opacity: 0.95;
+}
+
+.gallery-grid-item img {
+  transition: transform 0.3s ease;
+}
+.gallery-grid-item:hover img {
+  transform: scale(1.02);
+}
+
+.gallery-mobile-carousel {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .gallery-airbnb-grid {
+    display: none !important;
+  }
+  .gallery-mobile-carousel {
+    display: block !important;
+  }
+}

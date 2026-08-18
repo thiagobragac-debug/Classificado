@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import useSWR from 'swr';
-import { getMyMessages, sendMessage } from '@/lib/supabase';
+import { getMyMessages, sendMessage, getSupabase } from '@/lib/supabase';
+import { showToast } from '@/lib/toast';
 import styles from '../painel.module.css';
 
 function fDate(iso: string) {
@@ -23,10 +24,46 @@ export function MessagesTab({ userId }: { userId: string }) {
   const [sending, setSending] = useState(false);
 
   const { data: messages = [], isLoading, mutate } = useSWR(
-    'myMessages', 
-    getMyMessages,
-    { refreshInterval: 10000 } // Poll for new messages every 10s
+    userId ? ['myMessages', userId] : null,
+    () => getMyMessages()
   );
+
+  // Supabase Realtime subscription — replaces 10s polling
+  useEffect(() => {
+    if (!userId) return;
+
+    const channel = getSupabase()
+      .channel(`messages_user_${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'messages',
+          filter: `receiver_id=eq.${userId}`,
+        },
+        () => {
+          mutate();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `sender_id=eq.${userId}`,
+        },
+        () => {
+          mutate();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      getSupabase().removeChannel(channel);
+    };
+  }, [userId, mutate]);
 
   const conversations = useMemo(() => {
     const convs: Record<string, any> = {};
@@ -63,7 +100,7 @@ export function MessagesTab({ userId }: { userId: string }) {
       mutate(); // Trigger a refetch
       setInputMsg('');
     } catch {
-      alert('Erro ao enviar mensagem');
+      showToast('Erro ao enviar mensagem.', 'error');
     } finally {
       setSending(false);
     }

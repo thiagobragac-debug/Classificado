@@ -39,11 +39,10 @@ export async function pauseAd(adId: string, currentStatus: string) {
 }
 
 export async function updateProfile(profileData: Record<string, any>) {
+  const { updateProfile: updateProfileCore } = await import('./supabase');
   const session = await getSession();
   if (!session) throw new Error('Não autenticado');
-  const { error } = await getSupabase()
-    .from('profiles').update(profileData).eq('id', session.user.id);
-  if (error) throw error;
+  await updateProfileCore(session.user.id, profileData);
 }
 
 export async function getMyBilling(): Promise<any[]> {
@@ -88,20 +87,41 @@ export async function resendVerificationEmail(email: string) {
 export async function uploadKycDocument(docFile: File, selfieFile: File) {
   const session = await getSession();
   if (!session) throw new Error('Não autenticado');
-  
+
+  // ─── Validação de arquivo — servidor-side ────────────────────
+  const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+
+  for (const file of [docFile, selfieFile]) {
+    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+      throw new Error(`Tipo de arquivo não permitido: ${file.type}. Use JPEG, PNG, WebP ou PDF.`);
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      throw new Error(`Arquivo muito grande: ${file.name}. Máximo permitido: 10 MB.`);
+    }
+  }
+
   const uid = session.user.id;
-  
-  // Funcao helper para upload
+
+  // Funcão helper para upload
   const up = async (file: File, path: string) => {
-    const { error } = await getSupabase().storage.from('kyc-docs').upload(path, file, { upsert: true });
-    if (error) throw error;
+    // upsert: false — não sobrescreve documentos existentes (prevè adulteração)
+    const { error } = await getSupabase().storage.from('kyc-docs').upload(path, file, { upsert: false });
+    if (error) {
+      // Se já existe, fazer upload com timestamp para nova versão
+      const ext = file.name.split('.').pop() || 'jpg';
+      const versionedPath = `${uid}/${path.split('/').pop()?.split('.')[0]}_${Date.now()}.${ext}`;
+      const { error: retryError } = await getSupabase().storage.from('kyc-docs').upload(versionedPath, file, { upsert: false });
+      if (retryError) throw retryError;
+      return versionedPath;
+    }
     return path;
   };
-  
+
   const docPath = await up(docFile, `${uid}/doc.jpg`);
   const selfiePath = await up(selfieFile, `${uid}/selfie.jpg`);
-  
-  // Update Profile
+
+  // Atualizar perfil (apenas status KYC — sem expor URLs de storage ao cliente)
   await updateProfile({
     kyc_status: 'pending',
     kyc_doc_url: docPath,

@@ -32,7 +32,13 @@ export default function ActiveFiltersList({ categories, initialGeo }: { categori
       list.push({ key: 'geoLabel', label: geoLabel, action: advanceGeoLevel, isGeo: true });
     } else if (pais || estado || cidade) {
       const manualLabel = cidade || estado || pais;
-      list.push({ key: 'manualGeo', label: manualLabel as string, action: () => { setPais(''); setEstado(''); setCidade(''); }, isGeo: true });
+      list.push({ key: 'manualGeo', label: manualLabel as string, action: () => { 
+        try {
+          document.cookie = 'user_geo_v1=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+          localStorage.removeItem('user_loc_v8');
+        } catch { /* ignore */ }
+        applyFilters({ pais: '', estado: '', cidade: '' }); 
+      }, isGeo: true });
     }
 
     if (precoMin && precoMax) list.push({ key: 'preco', label: `R$${precoMin} - R$${precoMax}`, action: () => { setPrice('', ''); }});
@@ -49,7 +55,7 @@ export default function ActiveFiltersList({ categories, initialGeo }: { categori
   if (activeBadges.length === 0) return null;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)', marginBottom: 'var(--sp-6)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)', marginBottom: 'var(--sp-6)', position: 'sticky', top: 'calc(var(--header-h) + var(--sp-4))', zIndex: 10, background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(8px)', padding: '8px 0', borderBottom: '1px solid var(--clr-border-light)' }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--sp-2)', alignItems: 'center' }}>
         <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--clr-text-muted)', fontWeight: 600 }}>FILTROS ATIVOS:</span>
         {activeBadges.map(b => (

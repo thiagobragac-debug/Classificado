@@ -1,11 +1,13 @@
 import Link from 'next/link';
 import { cookies } from 'next/headers';
-import { CATEGORIES, CAT_COLORS, CAT_SVG_PATHS, t as _t } from '@/lib/constants';
+import { CAT_COLORS, CAT_SVG_PATHS, t as _t } from '@/lib/constants';
+import { getServerCategories } from '@/lib/supabase-server';
 
 export async function CategoriesSection() {
   const cookieStore = await cookies();
   const lang = (cookieStore.get('tc_lang')?.value || 'pt') as 'pt' | 'es';
   const t = (key: string) => _t(key, lang);
+  const categories = await getServerCategories();
 
   return (
     <section className="section categories-section" id="categorias" aria-labelledby="cat-heading">
@@ -24,9 +26,19 @@ export async function CategoriesSection() {
           </Link>
         </div>
         <div className="cat-grid" id="cat-grid" role="list" aria-label="Categorias de anúncios">
-          {CATEGORIES.map((cat) => {
-            const colors = CAT_COLORS[cat.id] || { bg: '#F8FAFC', clr: '#475569' };
-            const svgPath = CAT_SVG_PATHS[cat.icon] || CAT_SVG_PATHS.more;
+          {categories.map((cat) => {
+            // Check if it's a known SVG icon name, otherwise treat as an emoji/text icon
+            const isSvg = !!CAT_SVG_PATHS[cat.icon];
+            const svgPath = isSvg ? CAT_SVG_PATHS[cat.icon] : null;
+            
+            // Use custom color from DB, or fallback to constants, or a default gray
+            let colors = { bg: '#F8FAFC', clr: '#475569' };
+            if (cat.color) {
+              colors = { bg: cat.color + '20', clr: cat.color };
+            } else if (CAT_COLORS[cat.id]) {
+              colors = CAT_COLORS[cat.id];
+            }
+
             return (
               <Link
                 key={cat.id}
@@ -35,13 +47,17 @@ export async function CategoriesSection() {
                 role="listitem"
                 style={{ borderColor: 'transparent' }}
               >
-                <div className="cat-icon" style={{ background: colors.bg }}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke={colors.clr} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
-                    dangerouslySetInnerHTML={{ __html: svgPath }}
-                  />
+                <div className="cat-icon" style={{ background: colors.bg, color: colors.clr, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: isSvg ? 'inherit' : '1.5rem' }}>
+                  {isSvg ? (
+                    <svg viewBox="0 0 24 24" fill="none" stroke={colors.clr} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ width: '100%', height: '100%' }}
+                      dangerouslySetInnerHTML={{ __html: svgPath as string }}
+                    />
+                  ) : (
+                    <span style={{ lineHeight: 1 }}>{cat.icon}</span>
+                  )}
                 </div>
-                <span className="cat-name">{lang === 'es' ? cat.name_es : cat.name_pt}</span>
-                <span className="cat-count">{cat.count.toLocaleString('pt-BR')}</span>
+                <span className="cat-name">{lang === 'es' ? (cat.name_es || cat.name_pt) : cat.name_pt}</span>
+                {cat.count !== undefined && <span className="cat-count">{cat.count.toLocaleString('pt-BR')}</span>}
               </Link>
             );
           })}

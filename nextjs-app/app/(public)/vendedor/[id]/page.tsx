@@ -15,7 +15,7 @@ type Props = {
 // Next.js React cache dedups this call per request
 const getProfile = cache(async (id: string) => {
   const sb = createAnonClient();
-  const { data } = await sb.from('profiles').select('name, display_name').eq('id', id).single();
+  const { data } = await sb.from('profiles').select('name, display_name, created_at, verified').eq('id', id).single();
   return data;
 });
 
@@ -28,12 +28,22 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
   const sellerName = profile.display_name || profile.name || 'Vendedor';
 
   return {
-    title: `Produtos de ${sellerName} | Classificados`,
-    description: `Confira os anúncios e avaliações de ${sellerName}.`,
+    title: `Produtos de ${sellerName} | Tauze Class`,
+    description: `Confira os anúncios e avaliações de ${sellerName} no maior classificado agro do Mercosul.`,
+    alternates: { canonical: `https://tauzeclass.com.br/vendedor/${params.id}` },
     openGraph: {
-      title: `${sellerName} - Classificados`,
-      description: `Veja os produtos de ${sellerName}.`,
-    }
+      title: `${sellerName} — Classificados Agro | Tauze Class`,
+      description: `Veja os produtos de ${sellerName} e confira sua reputação.`,
+      url: `https://tauzeclass.com.br/vendedor/${params.id}`,
+      type: 'profile',
+      locale: 'pt_BR',
+      images: [{ url: 'https://tauzeclass.com.br/assets/og-home.jpg', width: 1200, height: 630, alt: `${sellerName} | Tauze Class` }],
+    },
+    twitter: {
+      card: 'summary',
+      title: `${sellerName} — Tauze Class`,
+      description: `Confira os anúncios de ${sellerName}.`,
+    },
   };
 }
 
@@ -41,9 +51,14 @@ export default async function VendedorPage(props: Props) {
   const params = await props.params;
   const searchParams = await props.searchParams;
 
-  const geoContext = await getGeoParams({});
   const sp = { ...searchParams, seller_id: params.id };
   const parsedParams = adsSearchParamsSchema.parse(sp);
+
+  const geoContext = await getGeoParams({
+    pais: parsedParams.pais,
+    estado: parsedParams.estado,
+    cidade: parsedParams.cidade
+  });
   
   const sb = createAnonClient();
 
@@ -101,11 +116,13 @@ async function SellerContent({ sellerId, sellerName, parsedParams, geoContext }:
   const [
     { ads, total, nextCursor },
     categories,
-    { data: statsData }
+    { data: statsData },
+    profile,
   ] = await Promise.all([
     getAdsListagem(parsedParams, geoContext),
     getAllCategories(),
-    sb.rpc('get_seller_stats', { p_seller_id: sellerId })
+    sb.rpc('get_seller_stats', { p_seller_id: sellerId }),
+    getProfile(sellerId), // cached — sem custo extra de rede
   ]);
 
   const stats = statsData && statsData.length > 0 ? statsData[0] : { total_reviews: 0, avg_rating: 0 };
@@ -113,7 +130,7 @@ async function SellerContent({ sellerId, sellerName, parsedParams, geoContext }:
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'ProfilePage',
-    dateCreated: new Date().toISOString(),
+    dateCreated: profile?.created_at ?? new Date().toISOString(),
     mainEntity: {
       '@type': 'Person',
       name: sellerName,
@@ -125,15 +142,26 @@ async function SellerContent({ sellerId, sellerName, parsedParams, geoContext }:
     }
   };
 
+  const safeJsonLd = JSON.stringify(jsonLd)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026');
+
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd }} />
       <div style={{ marginTop: '-80px', position: 'relative', zIndex: 10 }}>
-        <SellerProfileHeader sellerId={sellerId} sellerName={sellerName} stats={stats} />
+        <SellerProfileHeader
+          sellerId={sellerId}
+          sellerName={sellerName}
+          stats={{ ...stats, verified: profile?.verified ?? false }}
+          sellerCreatedAt={profile?.created_at ?? null}
+        />
       </div>
       <AdsBrowser 
         initialAds={ads}
         initialTotal={total}
+        initialGeo={geoContext}
         categories={categories}
         nextCursor={nextCursor}
         sellerId={sellerId} 

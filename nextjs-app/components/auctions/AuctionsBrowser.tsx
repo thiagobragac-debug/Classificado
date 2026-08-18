@@ -4,7 +4,9 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useDebouncedCallback } from 'use-debounce';
 import { useLang } from '@/lib/lang-context';
+import { showToast } from '@/lib/toast';
 import Countdown from './Countdown';
 import styles from '@/app/(public)/leiloes/leiloes.module.css';
 
@@ -12,7 +14,7 @@ export interface AuctionEvent {
   id: string;
   title: string;
   date: string;
-  status: 'live' | 'scheduled' | 'closed' | string;
+  status: 'live' | 'scheduled' | 'closed' | 'active' | 'draft';
   youtube: string | null;
   cover: string | null;
   catalog: string | null;
@@ -26,6 +28,11 @@ export default function AuctionsBrowser({ events }: { events: AuctionEvent[] }) 
   // Local state for inputs to allow typing before submitting
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
   const [monthFilter, setMonthFilter] = useState(searchParams.get('month') || '');
+
+  // Debounced search — fires 400ms after last keystroke
+  const debouncedSearch = useDebouncedCallback((value: string) => {
+    handleFilterChange('q', value);
+  }, 400);
 
   const handleFilterChange = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -84,7 +91,7 @@ export default function AuctionsBrowser({ events }: { events: AuctionEvent[] }) 
                     {getEventState(heroEvent).isLive ? <><span className="live-indicator"></span> Transmissão Ao Vivo</> : 'Evento Agendado'}
                   </div>
                 </div>
-                <h1 className={styles.heroTitle}>{heroEvent.title}</h1>
+                <h2 className={styles.heroTitle}>{heroEvent.title}</h2>
                 <p className={styles.heroDesc}>Acompanhe os melhores lotes e dê seu lance em tempo real.</p>
                 <div className={styles.heroActions}>
                   <Link href={`/leiloes/${heroEvent.id}`} className="btn btn--outline" style={{ color: 'white', borderColor: 'rgba(255,255,255,0.3)' }}>Acessar Leilão Completo</Link>
@@ -108,7 +115,7 @@ export default function AuctionsBrowser({ events }: { events: AuctionEvent[] }) 
         </section>
       )}
 
-    <main className="container" style={{ paddingTop: heroEvent ? '3rem' : 'calc(var(--header-h) + 3rem)', paddingBottom: '3rem' }}>
+    <main className="container" style={{ paddingTop: heroEvent ? '1.5rem' : 'calc(var(--header-h) + 2rem)', paddingBottom: '3rem' }}>
       <div className={styles.filtersRow}>
         <div>
           <h1 className="section-title">Próximos Leilões</h1>
@@ -118,39 +125,48 @@ export default function AuctionsBrowser({ events }: { events: AuctionEvent[] }) 
           
           <div className={styles.searchInputWrapper}>
             <svg className={styles.searchIcon} viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            <input 
-              type="text" 
-              placeholder="Buscar por raça, fazenda, nome..." 
-              className="form-input premium-filter" 
+            <label htmlFor="search-auctions" className="sr-only">Buscar leilões</label>
+            <input
+              id="search-auctions"
+              type="text"
+              placeholder="Buscar por raça, fazenda, nome..."
+              className="form-input premium-filter"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onBlur={() => handleFilterChange('q', searchQuery)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                debouncedSearch(e.target.value);
+              }}
               onKeyDown={(e) => e.key === 'Enter' && handleFilterChange('q', searchQuery)}
               style={{ paddingLeft: '2.5rem' }}
             />
           </div>
             
-          <div className={styles.filterSelectWrapper}>
-            <input 
-              type="month" 
-              className="form-input premium-filter" 
-              style={{ paddingRight: '1.2rem', cursor: 'text' }}
+          <div className={styles.filterSelectWrapper} style={{ minWidth: '155px', width: '155px', flex: '0 0 155px' }}>
+            <label htmlFor="filter-date" className="sr-only">Filtrar por data</label>
+            <input
+              id="filter-date"
+              type="date"
+              className="form-input premium-filter"
               value={monthFilter}
               onChange={(e) => {
                 setMonthFilter(e.target.value);
                 handleFilterChange('month', e.target.value);
               }}
+              style={{ paddingLeft: '1.2rem', paddingRight: '1.2rem', cursor: 'pointer' }}
             />
           </div>
   
-          <div className={styles.filterSelectWrapper}>
-            <select 
-              className="form-input premium-filter" 
-              value={searchParams.get('status') || 'todos'}
-              onChange={(e) => handleFilterChange('status', e.target.value === 'todos' ? '' : e.target.value)}
+          <div className={styles.filterSelectWrapper} style={{ minWidth: '150px', width: '150px', flex: '0 0 150px' }}>
+            <label htmlFor="filter-status" className="sr-only">Filtrar por status</label>
+            <select
+              id="filter-status"
+              className="form-input premium-filter"
+              value={searchParams.get('status') || 'active'}
+              onChange={(e) => handleFilterChange('status', e.target.value === 'active' ? '' : e.target.value)}
+              style={{ paddingLeft: '1.2rem', paddingRight: '2.5rem', appearance: 'none' }}
             >
-              <option value="todos">Todos os status</option>
               <option value="active">Ativos</option>
+              <option value="todos">Todos os status</option>
               <option value="closed">Encerrados</option>
             </select>
             <svg className={styles.selectIcon} viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
@@ -192,11 +208,12 @@ export default function AuctionsBrowser({ events }: { events: AuctionEvent[] }) 
                 <div style={{ background: stripeColor, height: '4px', width: '100%' }}></div>
                 <div className={styles.adCardImgWrapper}>
                   <div className={styles.adCardBadge} style={{ background: statusBg }}>
+                    {isLive && <span className={styles.pulseDot} style={{ background: '#fff' }}></span>}
+                    {isScheduled && <span className={styles.pulseDot} style={{ background: '#4ade80' }}></span>}
                     {statusText}
-                    {isLive && <span className={styles.pulseDot}></span>}
                   </div>
                   <Image 
-                    src={ev.cover || 'https://via.placeholder.com/600x400'} 
+                    src={ev.cover || '/assets/hero_farm.webp'} 
                     alt={ev.title} 
                     fill
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
@@ -206,9 +223,9 @@ export default function AuctionsBrowser({ events }: { events: AuctionEvent[] }) 
                 </div>
                 
                 <div className={styles.cardBody}>
-                  <div className={styles.cardMeta}>
-                    <span>Data: {formattedDate}</span>
-                    <span>Hora: {formattedTime}</span>
+                  <div className={styles.cardMeta} style={{ fontSize: '0.85rem' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> {formattedDate}</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--clr-text)', fontWeight: 800 }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg> {formattedTime}</span>
                   </div>
                   <h3 className={styles.cardTitle}>
                     {ev.title}
@@ -228,12 +245,13 @@ export default function AuctionsBrowser({ events }: { events: AuctionEvent[] }) 
                           if (typeof Notification !== 'undefined') {
                             if (Notification.permission === 'default') {
                               Notification.requestPermission().then(p => {
-                                if (p === 'granted') alert('Lembrete ativado!');
+                                if (p === 'granted') showToast('Lembrete ativado!', 'success');
+                                else showToast('Permissão de notificação negada.', 'warning');
                               });
                             } else if (Notification.permission === 'granted') {
-                              alert('Lembrete já está ativado para este evento!');
+                              showToast('Lembrete já está ativado para este evento!', 'info');
                             } else {
-                              alert('Você bloqueou as notificações.');
+                              showToast('Você bloqueou as notificações. Habilite nas configurações do navegador.', 'warning');
                             }
                           }
                         }}

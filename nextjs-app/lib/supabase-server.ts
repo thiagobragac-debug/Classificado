@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { cache } from 'react';
 import { SUPABASE_URL, SUPABASE_ANON } from './supabase';
 
 export function createAnonClient() {
@@ -41,12 +42,12 @@ export async function createClient() {
   );
 }
 
-// Server version of getAds
+// Server version of getAds — usa createAnonClient para dados públicos (cache eficiente)
 export async function getServerAds({
   category, country, state, city, search, preco_min, preco_max,
   featured, page, cursor, limit = 20, status = 'active', user_id
 }: any = {}) {
-  const supabase = await createClient();
+  const supabase = createAnonClient();
   const currentPage = cursor ? cursor : (page ? page : 1);
   const from = (currentPage - 1) * limit;
 
@@ -78,26 +79,156 @@ export async function getServerAds({
 }
 
 // Server version of fetchPlatformStats
-export async function getServerPlatformStats() {
+export const getServerPlatformStats = cache(async () => {
   const supabase = createAnonClient();
-  const { count: adsCount } = await supabase.from('ads').select('*', { count: 'exact', head: true }).eq('status', 'active');
-  const { count: usersCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('verified', true);
+
+  // All 5 count queries run in parallel
+  const today = new Date().toISOString();
+  const [adsResult, usersResult, bovinosResult, maquinasResult, auctionsResult] = await Promise.all([
+    supabase.from('ads').select('*', { count: 'exact', head: true }).eq('status', 'active'),
+    supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('verified', true),
+    supabase.from('ads').select('*', { count: 'exact', head: true }).eq('status', 'active').eq('category_id', 'bovinos'),
+    supabase.from('ads').select('*', { count: 'exact', head: true }).eq('status', 'active').eq('category_id', 'maquinas'),
+    supabase.from('auction_events').select('*', { count: 'exact', head: true }).neq('status', 'draft').gte('date', today),
+  ]);
+
   return {
-    active_ads: adsCount || 0,
-    cities_covered: 120, // Mocked as per original
-    countries_covered: 4,
-    verified_sellers: usersCount || 0,
+    total_ads:      adsResult.count      || 0,
+    total_sellers:  usersResult.count    || 0,
+    total_bovinos:  bovinosResult.count  || 0,
+    total_machines: maquinasResult.count || 0,
+    total_auctions: auctionsResult.count || 0,
+    total_cities:   120,
+    total_countries: 4,
   };
-}
+});
 
-export async function getServerTopSellers() {
+export const getServerFeaturedAds = cache(async (city?: string, state?: string, country?: string, limit: number = 4) => {
   const supabase = createAnonClient();
-  const { data } = await supabase.from('top_sellers_view').select('*');
-  return data || [];
-}
+  const { data, error } = await supabase
+    .rpc('get_localized_featured_ads', { 
+      p_city: city || null, 
+      p_state: state || null, 
+      p_country: country || null, 
+      p_limit: limit 
+    })
+    .select('id, title_pt, title_es, price, currency, status, featured, images, category_id, city, state, country, created_at, views_count, expires_at, profiles(name, avatar_url, verified, phone_whatsapp)');
+    
+  if (error) {
+    console.error("Error fetching localized featured ads", error);
+    return [] as any[];
+  }
+  return (data as any[]) || [];
+});
 
-export async function getServerTestimonials() {
+export const getServerRecentAds = cache(async (city?: string, state?: string, country?: string, limit: number = 10) => {
+  const supabase = createAnonClient();
+  const { data, error } = await supabase
+    .rpc('get_localized_recent_ads', { 
+      p_city: city || null, 
+      p_state: state || null, 
+      p_country: country || null, 
+      p_limit: limit,
+      p_offset: 0
+    })
+    .select('id, title_pt, title_es, price, currency, status, featured, images, category_id, city, state, country, created_at, views_count, expires_at, profiles(name, avatar_url, verified, phone_whatsapp)')
+    .limit(limit);
+    
+  if (error) {
+    console.error("Error fetching localized recent ads", error);
+    return { ads: [], hasMore: false };
+  }
+
+  const rows = ((data as any[]) || []).slice(0, limit);
+  const hasMore = rows.length === limit;
+  return { ads: rows, hasMore };
+});
+
+export const getServerTopSellers = cache(async (city?: string, state?: string, country?: string, limit: number = 4) => {
+  const supabase = createAnonClient();
+  const { data, error } = await supabase
+    .rpc('get_localized_top_sellers', {
+      p_city: city || null,
+      p_state: state || null,
+      p_country: country || null,
+      p_limit: limit
+    });
+    
+  if (error) {
+    console.error("Error fetching localized top sellers", error);
+    return [];
+  }
+  return data || [];
+});
+
+export const getServerTestimonials = cache(async () => {
   const supabase = createAnonClient();
   const { data } = await supabase.from('testimonials').select('*').order('created_at', { ascending: false });
+  return data || [];
+});
+
+export async function getServerUpcomingEvents(city?: string, state?: string, country?: string, limit: number = 4) {
+  const supabase = createAnonClient();
+  const today = new Date().toISOString();
+  
+  // Buscar leilões
+  const { data: auctionsData } = await supabase
+    .from('auction_events')
+    .select('id, title, date, cover, status, youtube, catalog')
+    .in('status', ['live', 'scheduled'])
+    .gte('date', today)
+    .order('date', { ascending: true })
+    .limit(limit);
+
+  // Buscar feiras/eventos
+  const { data: eventosData } = await supabase
+    .from('eventos')
+    .select('id, title, date, image, location_str, link')
+    .limit(limit);
+
+  // Normalizar e mesclar
+  const normalizedAuctions = (auctionsData || []).map(a => ({
+    id: a.id,
+    title: a.title,
+    date: a.date,
+    cover: a.cover,
+    location: undefined,
+    status: a.status,
+    youtube: a.youtube,
+    catalog: a.catalog,
+    type: 'auction'
+  }));
+
+  const normalizedEventos = (eventosData || []).map(e => ({
+    id: e.id,
+    title: e.title,
+    date: e.date, // pode ser string "30 ago - 7 set 2026"
+    cover: e.image,
+    location: e.location_str,
+    link: e.link,
+    type: 'evento'
+  }));
+
+  const merged = [...normalizedAuctions, ...normalizedEventos];
+
+  // Ordenar (os eventos podem ter strings de data, vamos tentar ordenar)
+  merged.sort((a, b) => {
+    const timeA = new Date(a.date).getTime();
+    const timeB = new Date(b.date).getTime();
+    const validA = !isNaN(timeA) ? timeA : Date.now() + 86400000; // joga pro final se inválido
+    const validB = !isNaN(timeB) ? timeB : Date.now() + 86400000;
+    return validA - validB;
+  });
+
+  return merged.slice(0, limit);
+}
+
+export async function getServerCategories() {
+  const supabase = createAnonClient();
+  const { data } = await supabase
+    .from('categories')
+    .select('*')
+    .eq('active', true)
+    .order('sort_order', { ascending: true });
   return data || [];
 }

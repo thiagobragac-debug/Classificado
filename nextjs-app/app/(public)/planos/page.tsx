@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { Suspense } from 'react'
 import { SUPABASE_URL, SUPABASE_ANON } from '@/lib/supabase'
 import PricingClientUI, { Plan } from './PricingClientUI'
 
@@ -54,6 +54,10 @@ export default async function PlanosPage() {
   }
 
   return (
-    <PricingClientUI initialPlans={plans} />
+    // Suspense required: PricingClientUI uses useSearchParams() internally.
+    // Without this boundary, Next.js 14 would throw an error and disable ISR (revalidate=3600).
+    <Suspense fallback={<div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', color: '#64748b' }}>Carregando planos...</div>}>
+      <PricingClientUI initialPlans={plans} />
+    </Suspense>
   )
 }

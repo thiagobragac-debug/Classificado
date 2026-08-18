@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CATEGORIES } from '@/lib/constants';
+import { useCategories } from '@/lib/categories-context';
 import { useLang } from '@/lib/lang-context';
 
 export function CommandPalette() {
@@ -13,6 +13,7 @@ export function CommandPalette() {
   const inputRef = useRef<HTMLInputElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   const { lang, t } = useLang();
+  const categories = useCategories();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -72,7 +73,7 @@ export function CommandPalette() {
   const norm = (str: string) => str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   const q = norm(search);
 
-  const matchedCats = q ? CATEGORIES.filter(c => norm(lang === 'es' ? c.name_es : c.name_pt).includes(q)) : CATEGORIES.slice(0, 5);
+  const matchedCats = q ? categories.filter(c => norm(lang === 'es' ? (c.name_es || c.name_pt) : c.name_pt).includes(q)) : categories.slice(0, 5);
 
   const navigateTo = (url: string) => {
     setOpen(false);
@@ -154,7 +155,7 @@ export function CommandPalette() {
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                 >
                   <div style={{ fontSize: '1.5rem' }}>{cat.icon}</div>
-                  <div style={{ fontWeight: 500, color: 'var(--clr-text)' }}>{lang === 'es' ? cat.name_es : cat.name_pt}</div>
+                  <div style={{ fontWeight: 500, color: 'var(--clr-text)' }}>{lang === 'es' ? (cat.name_es || cat.name_pt) : cat.name_pt}</div>
                 </div>
               ))}
 
