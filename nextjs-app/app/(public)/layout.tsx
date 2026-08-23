@@ -64,11 +64,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const cookieStore = await cookies();
   const tcLang = (cookieStore.get('tc_lang')?.value || 'pt') as 'pt' | 'es';
 
-  // Ler nonce gerado pelo middleware para usar nos scripts inline
+  // Ler nonce gerado pelo proxy para usar nos scripts inline
   const headersList = await headers();
   const nonce = headersList.get('x-nonce') || '';
 
-  // Uma única chamada getUser() aproveitando a sessão já validada pelo middleware
+  // Uma única chamada getUser() aproveitando a sessão já validada pelo proxy
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const isLogged = !!user;

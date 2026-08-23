@@ -4,13 +4,13 @@ import { createClient } from '@/lib/supabase-server';
 import PainelClient from './PainelClient';
 
 export default async function PainelPage() {
-  // Uma única chamada getUser() — o middleware já validou a autenticação
+  // Uma única chamada getUser() — o proxy já validou a autenticação
   // e negou acesso a não autenticados. Aqui buscamos os dados do usuário
   // para montar o painel sem chamada duplicada de auth.
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Defesa em profundidade: fallback caso o middleware seja bypassado
+  // Defesa em profundidade: fallback caso o proxy seja bypassado
   if (!user) {
     redirect('/login?error=no_user');
   }

@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next';
+import { SECURITY_HEADERS } from './lib/security-headers';
 
 const nextConfig: NextConfig = {
   turbopack: {
@@ -24,18 +25,11 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        // Headers estáticos para todos os paths
-        // O Content-Security-Policy dinâmico (com nonce) é aplicado pelo middleware
+        // Baseline para todos os paths, inclusive os assets estáticos que o
+        // matcher do proxy exclui. O Content-Security-Policy dinâmico (com
+        // nonce por requisição) é aplicado por cima pelo proxy.ts.
         source: '/(.*)',
-        headers: [
-          { key: 'X-Content-Type-Options', value: 'nosniff' },
-          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-          { key: 'X-Frame-Options', value: 'DENY' },
-          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
-          // X-XSS-Protection: 0 é o valor recomendado moderno (o valor 1 pode criar vulnerabilidades)
-          { key: 'X-XSS-Protection', value: '0' },
-          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(self), payment=(), usb=(), bluetooth=()' },
-        ],
+        headers: [...SECURITY_HEADERS],
       },
 
       {
