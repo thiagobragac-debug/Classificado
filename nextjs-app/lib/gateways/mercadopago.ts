@@ -49,46 +49,51 @@ export function mercadoPagoAdapter(accessToken: string): GatewayAdapter {
     },
     
     async validateWebhook(body, headers, secret) {
-      const sigHeader = headers['x-signature']
-      
-      // If no signature header AND no secret configured, allow through (development/test mode)
-      if (!sigHeader && !secret) {
-        console.warn('[MP Webhook] No x-signature header and no secret configured — allowing through in test mode')
-      } else if (!sigHeader) {
-        throw new Error('Missing MP x-signature header')
-      }
-      
-      // Parse signature parts only if header present
-      const parts: Record<string, string> = {}
-      if (sigHeader) {
-        sigHeader.split(',').forEach(part => {
-          const eqIdx = part.indexOf('=')
-          if (eqIdx > -1) parts[part.slice(0, eqIdx).trim()] = part.slice(eqIdx + 1).trim()
-        })
-      }
-      
-      const payloadObj = JSON.parse(body)
-      const dataId = payloadObj.data?.id
-      if (!dataId) throw new Error('Missing data.id in MP webhook')
-      
+      // Fail-closed único, sem branch de "modo teste": antes havia um bloco
+      // que só dava console.warn quando faltavam header E secret ao mesmo
+      // tempo, sugerindo um bypass — mas duas linhas depois um segundo
+      // `if (!secret) throw` incondicional já pegava esse mesmo caso, então
+      // nunca existiu bypass de verdade (provado em
+      // lib/gateways/webhooks.test.ts). Removido por confundir a leitura.
       if (!secret) {
         throw new Error('Mercado Pago webhook secret not configured. Rejecting webhook.')
       }
 
-      if (secret && sigHeader) {
-        // O ts entra no payload assinado, então é confiável — mas sem checar a
-        // idade, uma requisição válida capturada pode ser reenviada sempre.
-        if (!timestampRecente(parts.ts)) {
-          throw new Error('MP webhook timestamp outside tolerance (replay)')
-        }
+      const sigHeader = headers['x-signature']
+      if (!sigHeader) throw new Error('Missing MP x-signature header')
 
-        const payloadToSign = `id:${dataId};request-date:${parts.ts};`
-        const expectedSig = crypto.createHmac('sha256', secret).update(payloadToSign).digest('hex')
-        if (!assinaturaConfere(expectedSig, parts.v1)) {
-          throw new Error('Invalid MP signature')
-        }
+      const parts: Record<string, string> = {}
+      sigHeader.split(',').forEach(part => {
+        const eqIdx = part.indexOf('=')
+        if (eqIdx > -1) parts[part.slice(0, eqIdx).trim()] = part.slice(eqIdx + 1).trim()
+      })
+
+      const payloadObj = JSON.parse(body)
+      const dataId = payloadObj.data?.id
+      if (!dataId) throw new Error('Missing data.id in MP webhook')
+
+      // O ts entra no payload assinado, então é confiável — mas sem checar a
+      // idade, uma requisição válida capturada pode ser reenviada sempre.
+      if (!timestampRecente(parts.ts)) {
+        throw new Error('MP webhook timestamp outside tolerance (replay)')
       }
-      
+
+      // BUG CRÍTICO CORRIGIDO: o manifesto assinado documentado pelo Mercado
+      // Pago tem TRÊS componentes — id, request-id (do header x-request-id) e
+      // ts —, nessa ordem, com data.id normalizado para minúsculas. O código
+      // anterior omitia request-id por completo e usava o nome de campo
+      // "request-date" (que não existe na doc) em vez de "request-id". Duas
+      // divergências já bastam para o HMAC nunca bater; havia três. O ID usado
+      // para CONSULTAR a API (fetch abaixo) continua no formato original — só
+      // o usado dentro do manifesto assinado é normalizado, como a doc pede.
+      const dataIdLower = String(dataId).toLowerCase()
+      const requestId = headers['x-request-id'] || ''
+      const payloadToSign = `id:${dataIdLower};request-id:${requestId};ts:${parts.ts};`
+      const expectedSig = crypto.createHmac('sha256', secret).update(payloadToSign).digest('hex')
+      if (!assinaturaConfere(expectedSig, parts.v1)) {
+        throw new Error('Invalid MP signature')
+      }
+
       let type: WebhookEvent['type'] = 'unknown'
 
       // MP sends webhooks for multiple event types: 'subscription_preapproval', 'payment', etc.
@@ -107,7 +112,15 @@ export function mercadoPagoAdapter(accessToken: string): GatewayAdapter {
           externalReference = preapproval.external_reference
           payerEmail = preapproval.payer_email
           
-          if (preapproval.status === 'cancelled') type = 'subscription.cancelled'
+          // BUG CRÍTICO CORRIGIDO: a doc do Preapproval API usa a grafia
+          // americana 'canceled' (um L) como valor do campo status — não
+          // 'cancelled' (dois L). Com a grafia errada, uma assinatura
+          // cancelada por qualquer motivo fora do nosso painel (inadimplência,
+          // fraude, ou o usuário cancelando direto no app do Mercado Pago)
+          // nunca era reconhecida aqui: type ficava 'unknown', o webhook route
+          // respondia {handled:false} sem tocar em nada, e o usuário mantinha
+          // acesso premium mesmo com a assinatura já cancelada no gateway.
+          if (preapproval.status === 'canceled') type = 'subscription.cancelled'
           else if (preapproval.status === 'authorized') type = 'subscription.activated'
           else if (preapproval.status === 'pending') type = 'unknown'
         } else {
@@ -162,7 +175,9 @@ export function mercadoPagoAdapter(accessToken: string): GatewayAdapter {
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ status: 'cancelled' })
+        // 'canceled' (um L) é o valor documentado pela API — ver o comentário
+        // equivalente em validateWebhook.
+        body: JSON.stringify({ status: 'canceled' })
       })
       
       if (!response.ok) {
