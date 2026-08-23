@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, getSettings } from '@/lib/supabase-admin'
+import { resolverIpConfiavel } from '@/lib/ip-utils'
 import {
   selectGateway,
   stripeAdapter,
@@ -211,7 +212,11 @@ export async function POST(req: Request) {
       billingAddress,
       gatewayToken,
       doc: billingData?.doc,
-      phone: billingData?.phone
+      phone: billingData?.phone,
+      // A Asaas marca `remoteIp` como obrigatório na criação de assinatura por
+      // cartão (achado de auditoria contra a doc oficial). Os demais gateways
+      // ignoram este campo.
+      ip: resolverIpConfiavel(req.headers),
     }
 
     // --- 100% OFF Bypass (Local Checkout) ---

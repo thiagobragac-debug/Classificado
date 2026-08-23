@@ -57,6 +57,10 @@ export interface PaymentData {
   gatewayToken?: string;
   doc?: string;
   phone?: string
+  // IP do cliente que está pagando — a Asaas marca `remoteIp` como campo
+  // obrigatório na criação de assinatura por cartão. Populado em
+  // app/api/checkout/route.ts via lib/ip-utils.ts; os demais gateways ignoram.
+  ip?: string
 }
 
 export interface GatewayAdapter {
