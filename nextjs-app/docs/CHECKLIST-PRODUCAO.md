@@ -50,6 +50,56 @@ que a linha em `subscriptions` vira `active`.
 
 ---
 
+## 💳 Auditoria completa dos 4 gateways — 2026-08-23
+
+Revisão de `lib/gateways/{stripe,mercadopago,pagarme,asaas}.ts` linha a linha
+contra a documentação oficial de cada gateway (não memória de treinamento —
+cada achado foi verificado abrindo a página real da doc). 19 achados, 18
+confirmados por duas verificações independentes cada. **Todos os corrigíveis
+sem acesso a dashboard de terceiro foram corrigidos e têm teste.**
+
+### ✅ Corrigidos
+
+| Gateway | Achado | Severidade | Efeito antes da correção |
+|---|---|---|---|
+| Stripe | `price_data.product_data` não existe na Subscriptions API (só em Checkout Sessions); faltava `product`, obrigatório | crítica | **Toda criação de assinatura Stripe falhava** |
+| Stripe | `invoice.subscription` descontinuado na versão "basil" (2025-03-31); sem `Stripe-Version` fixo, a conta usa a versão atual | crítica | Webhook nunca encontrava a assinatura, mesmo com pagamento aprovado |
+| Mercado Pago | Manifesto do webhook sem `request-id`, com nome de campo errado, sem normalizar para minúsculas | crítica | **HMAC nunca bateria**, mesmo com o secret certo |
+| Mercado Pago | Grafia `'cancelled'` (2 L) em vez de `'canceled'` (1 L, valor real da API) | crítica | Cancelamento fora do painel nunca era reconhecido — usuário mantinha acesso premium |
+| Pagar.me | `charge.paid`/`charge.payment_failed` liam `event.data.subscription`, campo que o objeto Charge não tem (só o Invoice aninhado tem) | crítica | Ativação/renovação via `charge.*` sempre ignorada |
+| Asaas | Campo `remoteIp` (obrigatório no schema oficial) nunca enviado | crítica | Toda criação de assinatura seria rejeitada |
+| Stripe | `invoice.payment_action_required` (SCA/3DS em renovação) não tratado | alta | Assinatura presa aguardando autenticação ficava "active" indefinidamente |
+| Asaas | `PAYMENT_REJECTED` não existe na API; faltavam os eventos reais de recusa de cartão | alta | Recusa de cobrança recorrente não derrubava o plano do usuário |
+| Asaas | Header `User-Agent` obrigatório (contas criadas após 13/06/2024) nunca enviado | alta | Toda chamada podia falhar dependendo da data de criação da conta |
+| Asaas | Dedupe de cliente invertido — a doc diz que a Asaas permite CPF duplicado e recomenda buscar antes de criar | alta | Cliente duplicado a cada tentativa de checkout fora da janela de 15s |
+| Stripe | `Idempotency-Key` só na Subscription, não no Customer | média | Falha de rede podia impedir retry (PaymentMethod já anexado) |
+| Pagar.me | Cancelamento enviava `cancel_pending` como query string; o campo documentado é `cancel_pending_invoices`, no body | média | Parâmetro void — comportamento sempre foi o default, nunca o que o código tentava mandar |
+| Pagar.me | `createSubscription` sem `Idempotency-Key` | média | Retry após timeout podia cobrar duas vezes |
+| Asaas | URL de sandbox (`sandbox.asaas.com/api/v3`) não é a documentada (`api-sandbox.asaas.com/v3`) | média | Host não-documentado, pode ser desativado sem aviso |
+| Mercado Pago | Branch de "modo teste sem secret" — código morto que sugeria um bypass inexistente | baixa | Nenhum (comportamento real já era fail-closed, comentário enganoso) |
+| Stripe | Branch de `checkout.session.completed` — nunca disparado (nenhuma Checkout Session é criada) | baixa | Nenhum, código morto documentado |
+| Pagar.me | Variável `docType` calculada e nunca usada | baixa | Nenhum |
+
+Validado: 113 testes unitários (67 → 113 nesta rodada), `tsc`/build limpos.
+Commits `3ce05e2`, `fae78d4`, `5cd19c2`, `71d60c6`, `aeeb330`.
+
+### ⚠️ Registrado, não corrigido — precisa de verificação com dashboard real
+
+**Esquema de assinatura do webhook do Pagar.me não foi encontrado em nenhuma
+página oficial atual.** O código usa `x-hub-signature` + HMAC-SHA256 sobre o
+corpo — mas busca extensiva na documentação (visão geral de webhooks, exemplo
+de payload, página de autenticação) não confirmou esse mecanismo. Os únicos
+métodos de segurança de webhook documentados pela Pagar.me são IP allowlist e
+um campo opcional de senha no cadastro do webhook — nenhuma menção a HMAC.
+
+**Antes de preencher `pagarme_webhook_secret` em produção**, confirme o
+mecanismo real com um webhook de teste (RequestBin, ou o simulador do próprio
+dashboard do Pagar.me) e ajuste `lib/gateways/pagarme.ts:validateWebhook` de
+acordo — sem essa confirmação, o secret pode ficar configurado e ainda assim
+rejeitar 100% dos webhooks legítimos, um segundo modo de falha silenciosa.
+
+---
+
 ## 🟠 Segurança — antes de abrir ao público
 
 ### 2. CAPTCHA no Supabase Auth (correção do que este item dizia antes)
