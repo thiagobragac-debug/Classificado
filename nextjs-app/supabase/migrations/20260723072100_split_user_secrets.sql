@@ -55,14 +55,17 @@ CREATE TRIGGER on_profile_created_secret
 ALTER TABLE public.user_secrets ENABLE ROW LEVEL SECURITY;
 
 -- Somente o próprio usuário ou admin pode ler seus secrets
-CREATE POLICY "Users can view their own secrets" 
-ON public.user_secrets FOR SELECT 
+DROP POLICY IF EXISTS "Users can view their own secrets" ON public.user_secrets;
+CREATE POLICY "Users can view their own secrets"
+ON public.user_secrets FOR SELECT
 USING (auth.uid() = id);
 
--- Somente admin ou sistema atualizam secrets (e.g., is_blocked, plan). 
--- O próprio usuário pode atualizar (dependendo das regras), mas restrito aos seus
-CREATE POLICY "Users can update their own non-critical secrets" 
-ON public.user_secrets FOR UPDATE 
+-- Restringe a LINHA ao próprio usuário. Atenção: RLS não filtra COLUNAS — a
+-- trava de is_admin / is_blocked / plan / plan_id / stripe_customer_id vem do
+-- trigger criado em 20260822120000_user_secrets_privilege_guard.sql.
+DROP POLICY IF EXISTS "Users can update their own non-critical secrets" ON public.user_secrets;
+CREATE POLICY "Users can update their own non-critical secrets"
+ON public.user_secrets FOR UPDATE
 USING (auth.uid() = id);
 
 -- 5. Remover colunas sensíveis da tabela profiles
