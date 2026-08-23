@@ -72,7 +72,11 @@ export default function ReviewModal({ sellerId, onClose }: { sellerId: string; o
       });
 
       if (error) {
+        // 23505 = unique_violation (par seller_id/reviewer_id repetido).
+        // seller_reviews_nao_autoavaliar = CHECK que impede autoavaliação.
+        // Ambos em supabase/migrations/20260823090000_guard_seller_reviews.sql
         if (error.message.includes('duplicate')) throw new Error('Você já avaliou este vendedor.');
+        if (error.message.includes('seller_reviews_nao_autoavaliar')) throw new Error('Você não pode avaliar a si mesmo.');
         throw error;
       }
 
