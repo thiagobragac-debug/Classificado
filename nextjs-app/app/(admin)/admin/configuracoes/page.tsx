@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useEffect, useState, useCallback } from 'react'
-import { getSupabase } from '@/lib/supabase'
 import { showToast } from '@/lib/toast'
 
 /* ─── Mapeamento correto de chaves (UI → banco) ─────────────────── */
@@ -67,23 +66,30 @@ function PasswordField({
   value,
   onChange,
   placeholder,
+  jaConfigurado,
 }: {
   label: string
   hint?: string
   value: string
   onChange: (v: string) => void
   placeholder?: string
+  // Segredo já gravado no banco. O valor não é enviado ao navegador, então o
+  // campo aparece vazio — sem este aviso pareceria configuração perdida.
+  jaConfigurado?: boolean
 }) {
   const [show, setShow] = useState(false)
+  const dica = jaConfigurado
+    ? `${hint ? hint + ' ' : ''}Já configurado — deixe em branco para manter, ou digite um valor novo para substituir.`
+    : hint
   return (
-    <FieldGroup label={label} hint={hint}>
+    <FieldGroup label={label} hint={dica}>
       <div className="cfg-password-wrap">
         <input
           type={show ? 'text' : 'password'}
           className="adm-input cfg-password-input"
           value={value}
           onChange={e => onChange(e.target.value)}
-          placeholder={placeholder || '••••••••••••••••••••••'}
+          placeholder={jaConfigurado ? '•••••••• (mantém o valor atual)' : placeholder || '••••••••••••••••••••••'}
           autoComplete="off"
         />
         <button
@@ -117,19 +123,28 @@ export default function AdminConfiguracoes() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [logoPreviewError, setLogoPreviewError] = useState(false)
+  const [chavesSecretas, setChavesSecretas] = useState<Set<string>>(new Set())
+  const [secretasPreenchidas, setSecretasPreenchidas] = useState<Set<string>>(new Set())
 
   useEffect(() => { loadSettings() }, [])
 
+  // Leitura e escrita passam por /api/admin/settings. Antes o painel falava
+  // direto com o PostgREST usando a anon key, e como o admin autenticado
+  // enxerga as chaves secretas, stripe_secret_key, mp_access_token e
+  // pagarme_api_key vinham parar no navegador a cada abertura da tela.
+  // A rota devolve os segredos em branco e informa apenas quais estão
+  // preenchidos; campo em branco no salvamento significa "não mexi".
   async function loadSettings() {
     setLoading(true)
-    const supabase = getSupabase()
-    const { data, error } = await supabase.from('platform_settings').select('*')
-    if (!error && data) {
-      const obj: Settings = {}
-      data.forEach((item: { key: string; value: string }) => { obj[item.key] = item.value })
-      setSettings(obj)
-    } else if (error) {
-      showToast('Erro ao carregar configurações: ' + error.message, 'error')
+    try {
+      const res = await fetch('/api/admin/settings')
+      const payload = await res.json()
+      if (!res.ok) throw new Error(payload.error || 'Falha ao carregar')
+      setSettings(payload.settings)
+      setChavesSecretas(new Set<string>(payload.chavesSecretas))
+      setSecretasPreenchidas(new Set<string>(payload.secretasPreenchidas))
+    } catch (err) {
+      showToast('Erro ao carregar configurações: ' + (err as Error).message, 'error')
     }
     setLoading(false)
   }
@@ -137,22 +152,19 @@ export default function AdminConfiguracoes() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
-    const supabase = getSupabase()
-
-    const updates = Object.entries(settings).map(([key, value]) => ({
-      key,
-      value: value ?? '',
-      updated_at: new Date().toISOString(),
-    }))
-
-    const { error } = await supabase
-      .from('platform_settings')
-      .upsert(updates, { onConflict: 'key' })
-
-    if (!error) {
+    try {
+      const res = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ settings }),
+      })
+      const payload = await res.json()
+      if (!res.ok) throw new Error(payload.error || 'Falha ao salvar')
       showToast('Configurações salvas com sucesso!', 'success')
-    } else {
-      showToast('Erro ao salvar: ' + error.message, 'error')
+      // Recarrega para refletir quais segredos passaram a estar preenchidos.
+      await loadSettings()
+    } catch (err) {
+      showToast('Erro ao salvar: ' + (err as Error).message, 'error')
     }
     setSaving(false)
   }
@@ -167,6 +179,11 @@ export default function AdminConfiguracoes() {
 
   const getBool = (key: string) => settings[key] === '1' || settings[key] === 'true'
   const get = (key: string, fallback = '') => settings[key] ?? fallback
+
+  // Segredo nunca chega ao cliente: o servidor informa apenas se está gravado.
+  // Para os demais campos, basta o valor em si.
+  const estaPreenchido = (key: string) =>
+    chavesSecretas.has(key) ? secretasPreenchidas.has(key) : !!get(key)
 
   const logoUrl = get('tc_logo_url')
   const primaryColor = get('primary_color', '#16A34A')
@@ -581,7 +598,7 @@ export default function AdminConfiguracoes() {
                       <span>Stripe</span>
                       <span className="cfg-gateway-badge cfg-gateway-badge--stripe">stripe</span>
                       <div style={{ flex: 1 }} />
-                      {get('stripe_secret_key') ? (
+                      {estaPreenchido('stripe_secret_key') ? (
                         <span className="cfg-gateway-status cfg-gateway-status--ok">🟢 Configurado</span>
                       ) : (
                         <span className="cfg-gateway-status cfg-gateway-status--missing">🔴 Não configurado</span>
@@ -599,6 +616,7 @@ export default function AdminConfiguracoes() {
                       hint="Nunca compartilhe — usada somente no servidor."
                       value={get('stripe_secret_key')}
                       onChange={v => set('stripe_secret_key', v)}
+                      jaConfigurado={estaPreenchido('stripe_secret_key')}
                       placeholder="sk_test_..."
                     />
                     <PasswordField
@@ -606,6 +624,7 @@ export default function AdminConfiguracoes() {
                       hint="Gerado no painel do Stripe em Webhooks."
                       value={get('stripe_webhook_secret')}
                       onChange={v => set('stripe_webhook_secret', v)}
+                      jaConfigurado={estaPreenchido('stripe_webhook_secret')}
                       placeholder="whsec_..."
                     />
                   </div>
@@ -616,7 +635,7 @@ export default function AdminConfiguracoes() {
                       <span>Mercado Pago</span>
                       <span className="cfg-gateway-badge cfg-gateway-badge--mp">mercadopago</span>
                       <div style={{ flex: 1 }} />
-                      {get('mp_access_token') ? (
+                      {estaPreenchido('mp_access_token') ? (
                         <span className="cfg-gateway-status cfg-gateway-status--ok">🟢 Configurado</span>
                       ) : (
                         <span className="cfg-gateway-status cfg-gateway-status--missing">🔴 Não configurado</span>
@@ -634,6 +653,7 @@ export default function AdminConfiguracoes() {
                       hint="Chave privada — nunca exponha no front-end."
                       value={get('mp_access_token')}
                       onChange={v => set('mp_access_token', v)}
+                      jaConfigurado={estaPreenchido('mp_access_token')}
                       placeholder="TEST-xxxxxx..."
                     />
                     <PasswordField
@@ -641,6 +661,7 @@ export default function AdminConfiguracoes() {
                       hint="Mercado Pago Dashboard → Suas Integrações → Configuração de Notificações → Chave secreta"
                       value={get('mp_webhook_secret')}
                       onChange={v => set('mp_webhook_secret', v)}
+                      jaConfigurado={estaPreenchido('mp_webhook_secret')}
                       placeholder=""
                     />
                   </div>
@@ -651,7 +672,7 @@ export default function AdminConfiguracoes() {
                       <span>Pagar.me</span>
                       <span className="cfg-gateway-badge cfg-gateway-badge--pagarme">pagar.me</span>
                       <div style={{ flex: 1 }} />
-                      {get('pagarme_api_key') ? (
+                      {estaPreenchido('pagarme_api_key') ? (
                         <span className="cfg-gateway-status cfg-gateway-status--ok">🟢 Configurado</span>
                       ) : (
                         <span className="cfg-gateway-status cfg-gateway-status--missing">🔴 Não configurado</span>
@@ -662,6 +683,7 @@ export default function AdminConfiguracoes() {
                       label="API Key (sk_...)"
                       value={get('pagarme_api_key')}
                       onChange={v => set('pagarme_api_key', v)}
+                      jaConfigurado={estaPreenchido('pagarme_api_key')}
                       placeholder="sk_test_..."
                     />
                     <PasswordField
@@ -675,6 +697,7 @@ export default function AdminConfiguracoes() {
                       hint="Em: painel.pagar.me → Configurações → Webhooks → Secret"
                       value={get('pagarme_webhook_secret')}
                       onChange={v => set('pagarme_webhook_secret', v)}
+                      jaConfigurado={estaPreenchido('pagarme_webhook_secret')}
                       placeholder=""
                     />
                   </div>
@@ -685,7 +708,7 @@ export default function AdminConfiguracoes() {
                       <span>Asaas</span>
                       <span className="cfg-gateway-badge" style={{ background: '#0047FF22', color: '#0047FF' }}>asaas</span>
                       <div style={{ flex: 1 }} />
-                      {get('asaas_api_key') ? (
+                      {estaPreenchido('asaas_api_key') ? (
                         <span className="cfg-gateway-status cfg-gateway-status--ok">🟢 Configurado</span>
                       ) : (
                         <span className="cfg-gateway-status cfg-gateway-status--missing">🔴 Não configurado</span>
@@ -707,6 +730,7 @@ export default function AdminConfiguracoes() {
                       hint="Dashboard Asaas → Minha Conta → Chaves de API"
                       value={get('asaas_api_key')}
                       onChange={v => set('asaas_api_key', v)}
+                      jaConfigurado={estaPreenchido('asaas_api_key')}
                       placeholder=""
                     />
                     <PasswordField
@@ -714,6 +738,7 @@ export default function AdminConfiguracoes() {
                       hint="Token estático para validar notificações recebidas do Asaas"
                       value={get('asaas_webhook_token')}
                       onChange={v => set('asaas_webhook_token', v)}
+                      jaConfigurado={estaPreenchido('asaas_webhook_token')}
                       placeholder=""
                     />
                   </div>
