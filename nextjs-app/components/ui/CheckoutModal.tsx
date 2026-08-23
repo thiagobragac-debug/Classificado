@@ -11,25 +11,16 @@ import { initMercadoPago, CardPayment } from '@mercadopago/sdk-react'
 
 type PaymentMethod = 'pix' | 'boleto' | 'card'
 
-const formatCardNumber = (value: string) => {
-  const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '')
-  const matches = v.match(/\d{4,16}/g)
-  const match = matches && matches[0] || ''
-  const parts = []
-  for (let i = 0, len = match.length; i < len; i += 4) {
-    parts.push(match.substring(i, i + 4))
-  }
-  if (parts.length) return parts.join(' ')
-  return value
-}
-
-const formatCardExp = (value: string) => {
-  const v = value.replace(/\D/g, '')
-  if (v.length >= 3) {
-    return `${v.slice(0, 2)}/${v.slice(2, 4)}`
-  }
-  return v
-}
+// Gateways que tokenizam o cartão no browser. Só eles podem receber pagamento
+// por cartão: os dados vão do navegador direto para o gateway, dentro de um
+// iframe do próprio provedor, e o nosso servidor nunca vê número nem CVV.
+//
+// Pagar.me e Asaas ficaram de fora de propósito. Havia aqui um formulário
+// próprio que coletava número, validade e CVV em <input> comum e mandava tudo
+// para /api/checkout — o que colocaria a aplicação inteira no escopo PCI-DSS
+// SAQ-D. Para reativá-los é preciso tokenizar antes de sair do browser
+// (Pagar.me tem endpoint público de tokens com a pk_; Asaas, hoje, não).
+const TOKENIZED_GATEWAYS = ['stripe', 'mercadopago']
 
 export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose }: { plan: any, billingCycle?: 'monthly' | 'annual', onClose: () => void }) {
   const { session } = useAuth()
@@ -53,12 +44,6 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
   const [neighborhood, setNeighborhood] = useState('')
   const [city, setCity] = useState('')
   const [state, setState] = useState('')
-
-  // Credit Card Data (Asaas/Pagarme)
-  const [cardNumber, setCardNumber] = useState('')
-  const [cardHolder, setCardHolder] = useState('')
-  const [cardExp, setCardExp] = useState('') // MM/YY
-  const [cardCvv, setCardCvv] = useState('')
 
   // Coupons
   const [couponCode, setCouponCode] = useState('')
@@ -208,38 +193,19 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
     }
   }
 
-  // Handle native form submission (PIX, Boleto, Asaas, Pagarme)
+  // Submissão para os métodos que não têm UI própria do gateway (PIX, Boleto).
+  // Cartão em Stripe/Mercado Pago é enviado pelos componentes deles, que
+  // devolvem um token — nenhum dado de cartão passa por aqui.
   const handleNativeCheckout = () => {
-    if (paymentMethod === 'card') {
-      if (gatewayConfig?.gateway === 'stripe' || gatewayConfig?.gateway === 'mercadopago') {
-        // UI handled by Elements/Brick
-        return
-      }
-      
-      // Asaas or Pagar.me custom card logic
-      if (!cardNumber || !cardHolder || !cardExp || !cardCvv) {
-        setError('Preencha todos os campos do cartão.')
-        return
-      }
-      const [expMonth, expYear] = cardExp.split('/')
-      if (!expMonth || !expYear) {
-        setError('Validade do cartão inválida. Use MM/AA.')
-        return
-      }
-      
-      handleServerCheckout({
-        creditCard: {
-          number: cardNumber.replace(/\D/g, ''),
-          holderName: cardHolder,
-          expMonth,
-          expYear: expYear.length === 2 ? `20${expYear}` : expYear,
-          cvv: cardCvv
-        }
-      })
-    } else {
-      // PIX / Boleto
-      handleServerCheckout({})
+    if (paymentMethod === 'card' && !TOKENIZED_GATEWAYS.includes(gatewayConfig?.gateway || '')) {
+      setError('Pagamento por cartão indisponível para este gateway. Fale com o suporte.')
+      return
     }
+    if (paymentMethod === 'card') {
+      // UI conduzida pelo Elements (Stripe) ou pelo Brick (Mercado Pago)
+      return
+    }
+    handleServerCheckout({})
   }
 
   const METHOD_LABELS: Record<PaymentMethod, string> = {
@@ -459,27 +425,12 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
                 </div>
               )}
 
-              {paymentMethod === 'card' && (gatewayConfig?.gateway === 'asaas' || gatewayConfig?.gateway === 'pagarme') && (
-                <div style={{ background: '#f8fafc', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '10px', padding: '1.5rem', marginBottom: '1.5rem' }}>
-                  <p style={{ fontWeight: 700, color: '#0f172a', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>💳 Dados do Cartão de Crédito</p>
-                  <div style={{ marginBottom: '1rem' }}>
-                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>Número do Cartão</label>
-                    <input type="text" placeholder="0000 0000 0000 0000" value={cardNumber} onChange={e => setCardNumber(formatCardNumber(e.target.value))} maxLength={19} style={{ width: '100%', padding: '12px', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box' }} />
-                  </div>
-                  <div style={{ marginBottom: '1rem' }}>
-                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>Nome Impresso no Cartão</label>
-                    <input type="text" placeholder="JOAO A SILVA" value={cardHolder} onChange={e => setCardHolder(e.target.value.toUpperCase())} style={{ width: '100%', padding: '12px', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box' }} />
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>Validade (MM/AA)</label>
-                      <input type="text" placeholder="12/29" value={cardExp} onChange={e => setCardExp(formatCardExp(e.target.value))} maxLength={5} style={{ width: '100%', padding: '12px', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box' }} />
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>CVV</label>
-                      <input type="text" placeholder="123" value={cardCvv} onChange={e => setCardCvv(e.target.value)} maxLength={4} style={{ width: '100%', padding: '12px', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box' }} />
-                    </div>
-                  </div>
+              {paymentMethod === 'card' && gatewayConfig && !TOKENIZED_GATEWAYS.includes(gatewayConfig.gateway) && (
+                <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '10px', padding: '1.25rem', marginBottom: '1.5rem' }}>
+                  <p style={{ fontWeight: 700, color: '#92400e', marginBottom: '0.5rem' }}>Cartão indisponível no momento</p>
+                  <p style={{ fontSize: '0.875rem', color: '#78350f', margin: 0 }}>
+                    O meio de pagamento configurado não aceita cartão por aqui. Fale com o suporte para concluir a assinatura.
+                  </p>
                 </div>
               )}
 

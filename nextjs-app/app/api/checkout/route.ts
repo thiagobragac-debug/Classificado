@@ -22,6 +22,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'checkoutId é obrigatório' }, { status: 400 })
     }
 
+    // Dados de cartão em claro não entram mais aqui. O CheckoutModal deixou de
+    // coletá-los; esta guarda cobre cliente em cache, integração de terceiro ou
+    // requisição forjada. Receber PAN/CVV colocaria a aplicação no escopo
+    // PCI-DSS SAQ-D — cartão só entra tokenizado, via `gatewayToken`.
+    if (creditCard) {
+      console.warn('[checkout] payload com creditCard recusado — cartao deve vir tokenizado')
+      return NextResponse.json(
+        { error: 'Dados de cartão não são aceitos neste endpoint. Use o formulário do gateway, que devolve um token.' },
+        { status: 400 }
+      )
+    }
+
     // --- Auth ---
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
