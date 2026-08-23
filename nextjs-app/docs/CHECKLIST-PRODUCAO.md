@@ -101,10 +101,11 @@ Para revisar ou reaplicar: `node scripts/aplicar-limites-buckets.mjs`
 
 ## 🟡 Recomendado
 
-### 4. DSN do Sentry
+### 4. DSN do Sentry + regras de alerta
 
 O SDK está instalado e instrumentado, mas **inerte** sem DSN — sem ele, erro em
-produção só vai para o console: sem alerta, sem agrupamento.
+produção só vai para o console: sem alerta, sem agrupamento. Isto exige criar
+conta e projeto no Sentry, então não é algo que eu consiga fazer por você.
 
 ```
 SENTRY_DSN=https://...              # servidor
@@ -113,6 +114,20 @@ NEXT_PUBLIC_SENTRY_DSN=https://...  # browser (público por natureza)
 
 Já configurado no código: `sendDefaultPii: false`, replays desligados (o painel
 exibe CPF, endereço e documentos) e amostragem de 10% em produção.
+
+**Depois de criar o DSN, configure ao menos duas regras de alerta** (Sentry →
+Alerts → Create Alert Rule) — sem regra, os erros só ficam acumulados no
+dashboard e ninguém é avisado:
+
+1. **Issue novo** → notificar imediatamente (e-mail ou Slack) quando qualquer
+   erro nunca visto antes aparecer.
+2. **Regressão** → notificar quando um erro marcado como resolvido voltar a
+   ocorrer.
+
+Opcional, mas recomendado dado que este app processa pagamento: uma terceira
+regra específica para erros em `/api/webhooks/payments` e `/api/checkout`,
+com notificação mais agressiva (ex: a cada ocorrência, não agrupado) — é
+exatamente a rota cujo silêncio custou o bloqueador do item 1 desta lista.
 
 ### 5. `NEXT_PUBLIC_SITE_URL`
 
@@ -159,12 +174,41 @@ estado atual, não protege nada. Trabalho acontece só em
 versão corrigida; trocar o editor é decisão de produto, não urgência de
 segurança. As 6 de severidade alta foram resolvidas com Next 16.3.2.
 
+### 11. Funções de banco sem migration versionada
+
+`place_bid_atomic`, `toggle_favorite_atomic`, `get_localized_recent_ads`,
+`get_localized_featured_ads`, `get_localized_top_sellers`, `get_seller_stats`,
+`enforce_plan_expiration`, `increment_ad_view_safe`, `get_api_daily_stats` —
+todas usadas em produção, verificado via `.rpc()` que existem, mas **nenhuma
+tem migration correspondente**. Foram criadas direto no SQL Editor do
+dashboard em algum momento, fora do controle de versão.
+
+Consequências reais, não teóricas:
+
+- Recriar o banco a partir das migrations (ambiente novo, disaster recovery,
+  staging) deixaria essas funções ausentes — o app quebraria com "function
+  does not exist" em lances de leilão, favoritos e toda a home.
+- Ninguém revisa mudança nelas em PR; não há histórico de quem alterou o quê.
+
+**Eu não tenho como escrever a migration retroativa** sem ver o código-fonte
+atual de cada função — o PostgREST não expõe `pg_proc` e eu não tenho um
+Personal Access Token para consultar pela Management API. Requer alguém com
+acesso ao SQL Editor rodar, para cada função:
+
+```sql
+select pg_get_functiondef(oid) from pg_proc where proname = 'place_bid_atomic';
+```
+
+...e colar o resultado numa migration nova. Uma vez com o texto em mãos, eu
+consigo revisar a lógica e apontar problemas, se houver.
+
 ---
 
 ## Migrations
 
-15 arquivos em `supabase/migrations/`. As 6 criadas na revisão foram aplicadas
-e validadas em produção:
+16 arquivos em `supabase/migrations/`. As 7 criadas nesta revisão foram
+aplicadas e validadas em produção — exceto a última, que ainda depende de você
+aplicar:
 
 | Migration | O que faz | Validado |
 |---|---|---|
@@ -174,9 +218,29 @@ e validadas em produção:
 | `20260822120300` | cota de anúncios do plano | P0001 no 4º ativo |
 | `20260822120400` | trava `verified` / `kyc_status` | 42501 nas 2 tentativas |
 | `20260822120500` | rate limit com janela no Postgres | 30x 200 + 5x 429 |
+| `20260823090000` | impede autoavaliação e nota duplicada em `seller_reviews` | ⏳ aguardando aplicação |
 
-Todas idempotentes (`create or replace`, `drop ... if exists`) — podem ser
-reexecutadas sem efeito colateral.
+Todas idempotentes (`create or replace`, `drop ... if exists`, ou `DO $$ IF NOT
+EXISTS` para `ALTER TABLE`) — podem ser reexecutadas sem efeito colateral.
+
+---
+
+## Qualidade e CI
+
+Adicionado nesta revisão, junto das correções:
+
+- **`npm test`** — 67 testes unitários (Vitest) cobrindo a lógica que já
+  causou bug real nesta base: resolução de IP (o próprio spoofing corrigido em
+  `6b3c275`), comparação de assinatura de webhook, sanitização de HTML,
+  seleção de gateway, permissões de API key.
+- **`.github/workflows/ci.yml`** — typecheck, testes e build em cada push/PR
+  para `main`. Lint roda mas não bloqueia (228 erros preexistentes, ver item
+  10 — bloquear hoje travaria todo PR por dívida técnica alheia a ele).
+
+O que isso **não** cobre: rotas de API contra Supabase real, RLS, migrations.
+Esses continuam sendo os scripts manuais rodados nesta sessão (arquivos de
+`scratchpad`, não versionados) — exigem credencial de serviço que não faz
+sentido existir em CI público.
 
 ---
 
