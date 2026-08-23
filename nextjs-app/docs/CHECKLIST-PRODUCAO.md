@@ -222,11 +222,25 @@ INSERT direto). Não era explorável hoje só porque o bug de schema acima fazia
 a função falhar antes de chegar no INSERT — confirmado gravando 0 lances num
 leilão de teste isolado.
 
-**Corrigido em `20260823140000_fix_bid_and_favorite_functions.sql`** — schema
-realinhado, identidade derivada de `auth.uid()` internamente, `EXECUTE`
-revogado de `anon`. Testado com `BEGIN; ... ROLLBACK;` contra produção via
-Management API antes de qualquer aplicação real (HTTP 201, sem erro; rollback
-confirmado — as funções em produção seguem com a assinatura antiga).
+**Corrigido e APLICADO em produção em 2026-08-23** —
+`20260823140000_fix_bid_and_favorite_functions.sql`: schema realinhado,
+identidade derivada de `auth.uid()` internamente, `EXECUTE` revogado de
+`anon`. Testado com `BEGIN; ... ROLLBACK;` antes da aplicação real; depois de
+aplicar, validado ponta a ponta contra produção com leilão/usuários
+descartáveis:
+
+```
+anon sem sessao (place_bid_atomic)         -> 42501 permission denied
+anon sem sessao (toggle_favorite_atomic)   -> 42501 permission denied
+vendedor no proprio leilao                 -> rejeitado
+lance abaixo do min_increment (105 < 110)  -> rejeitado
+lance legitimo (150)                       -> aceito, current_bid atualizado
+lance gravado com o user_id correto        -> sim (nao forjavel)
+lance abaixo do novo minimo (155 < 160)    -> rejeitado
+favoritar / desfavoritar                   -> atômico, ida e volta, user_id correto
+```
+
+Resíduo de teste: 0 usuários, 0 anúncios, 0 leilões.
 
 **`toggle_favorite_atomic` também estava quebrada**, mas mascarada: tinha
 `p_ad_id text` comparado contra uma coluna `uuid` sem cast — erro
@@ -252,19 +266,15 @@ o mesmo padrão de parâmetro de identidade não verificado contra `auth.uid()`,
 mas sem exploração real: a primeira é leitura pública, a segunda só antecipa
 um downgrade que já aconteceria de qualquer forma quando o plano vence.
 
-**Ainda pendente — decisão sua**: as migrations `20260823140000` e
-`20260823141500` estão escritas, versionadas no commit, e testadas via
-dry-run contra produção, mas **não aplicadas de verdade ainda**. Aplicar do
-jeito de sempre (SQL Editor / `psql`) ou autorizar que eu aplique agora via a
-mesma Management API que já usei para o dry-run — sua escolha.
+Ambas as migrations (`20260823140000` e `20260823141500`) foram aplicadas em
+produção via Management API e validadas — ver detalhe acima.
 
 ---
 
 ## Migrations
 
-18 arquivos em `supabase/migrations/`. As 7 primeiras criadas nesta revisão
-foram aplicadas e validadas em produção; as 2 últimas estão escritas, testadas
-via dry-run, mas aguardando aplicação (item 11):
+18 arquivos em `supabase/migrations/`. Todas as 9 criadas nesta revisão foram
+aplicadas e validadas em produção:
 
 | Migration | O que faz | Validado |
 |---|---|---|
@@ -275,8 +285,8 @@ via dry-run, mas aguardando aplicação (item 11):
 | `20260822120400` | trava `verified` / `kyc_status` | 42501 nas 2 tentativas |
 | `20260822120500` | rate limit com janela no Postgres | 30x 200 + 5x 429 |
 | `20260823090000` | impede autoavaliação e nota duplicada em `seller_reviews` | 23514 e 23505 nas 2 tentativas |
-| `20260823140000` | conserta `place_bid_atomic` e `toggle_favorite_atomic` | ⏳ dry-run OK, aguardando aplicação |
-| `20260823141500` | versiona as 6 funções RPC restantes (sem mudança de lógica) | ⏳ dry-run OK, aguardando aplicação |
+| `20260823140000` | conserta `place_bid_atomic` e `toggle_favorite_atomic` | 11 asserções, ver item 11 |
+| `20260823141500` | versiona as 6 funções RPC restantes (sem mudança de lógica) | aplicada, sem comportamento alterado |
 
 Todas idempotentes (`create or replace`, `drop ... if exists`, ou `DO $$ IF NOT
 EXISTS` para `ALTER TABLE`) — podem ser reexecutadas sem efeito colateral.
