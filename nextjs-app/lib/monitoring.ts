@@ -1,13 +1,25 @@
 /**
  * Sistema de Monitoramento Centralizado — Tauze Class
  *
- * Integração pronta para Sentry. Para ativar em produção:
- *   1. npm install @sentry/nextjs
- *   2. npx @sentry/wizard@latest -i nextjs
- *   3. Descomentar as linhas Sentry abaixo e remover os console.*
+ * O Sentry está instalado e instrumentado (instrumentation.ts e
+ * instrumentation-client.ts). Ele só é ativado quando há DSN configurado:
+ *
+ *   SENTRY_DSN=...              (servidor)
+ *   NEXT_PUBLIC_SENTRY_DSN=...  (browser)
+ *
+ * Sem DSN o comportamento é o mesmo de antes — apenas os console.*. Com DSN,
+ * os erros também chegam ao Sentry, sem nenhuma mudança nos chamadores.
  */
 
-// import * as Sentry from '@sentry/nextjs';
+import { SENTRY_DSN_SERVIDOR, SENTRY_DSN_CLIENTE, sentryHabilitado } from '@/sentry.config';
+
+// Envio best-effort: uma falha ao reportar erro não pode virar um segundo erro
+// e derrubar o fluxo que estava apenas logando.
+function enviarAoSentry(acao: (sentry: typeof import('@sentry/nextjs')) => void) {
+  const dsn = typeof window === 'undefined' ? SENTRY_DSN_SERVIDOR : SENTRY_DSN_CLIENTE;
+  if (!sentryHabilitado(dsn)) return;
+  import('@sentry/nextjs').then(acao).catch(() => {});
+}
 
 interface ErrorContext {
   userId?: string;
@@ -54,8 +66,7 @@ export function logError(error: Error | unknown, context?: ErrorContext) {
     // Stdout capturado pelo CloudWatch / Datadog Agent / Vercel Logs
     console.error(JSON.stringify(payload));
 
-    // Sentry — descomentar após instalar @sentry/nextjs:
-    // Sentry.captureException(error, { extra: context });
+    enviarAoSentry(s => s.captureException(error, { extra: context }));
   } else {
     const msg = payload.error?.message || payload.message || 'Unknown error';
     console.error(`[🔴 ERROR]`, msg, context ? `\n[Context]` : '', context || '');
@@ -67,7 +78,7 @@ export function logWarn(message: string, context?: Record<string, unknown>) {
 
   if (process.env.NODE_ENV === 'production') {
     console.warn(JSON.stringify(payload));
-    // Sentry.captureMessage(message, { level: 'warning', extra: context });
+    enviarAoSentry(s => s.captureMessage(message, { level: 'warning', extra: context }));
   } else {
     console.warn(`[🟡 WARN]`, message, context || '');
   }
