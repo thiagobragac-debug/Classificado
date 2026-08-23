@@ -18,6 +18,7 @@ export function pagarmeAdapter(apiKey: string): GatewayAdapter {
       const intervalCount = 1
       const docClean = paymentData.doc ? paymentData.doc.replace(/\D/g, '') : ''
       const docType = docClean.length === 14 ? 'CNPJ' : 'CPF'
+      const customerType = docType === 'CNPJ' ? 'company' : 'individual'
       let phoneClean = (paymentData.phone || '11999999999').replace(/\D/g, '')
       if (phoneClean.length === 10) {
         phoneClean = phoneClean.slice(0, 2) + '9' + phoneClean.slice(2)
@@ -38,7 +39,7 @@ export function pagarmeAdapter(apiKey: string): GatewayAdapter {
         customer: {
           name: user.name || paymentData.creditCard.holderName,
           email: user.email,
-          type: docClean.length === 14 ? 'company' : 'individual',
+          type: customerType,
           document: docClean,
           phones: {
             mobile_phone: {
@@ -69,7 +70,13 @@ export function pagarmeAdapter(apiKey: string): GatewayAdapter {
         method: 'POST',
         headers: {
           'Authorization': basicAuth,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          // Doc de idempotência do Pagar.me v5 confirma suporte a este header.
+          // Sem ele, uma falha de rede após o Pagar.me já ter criado a
+          // assinatura (mas antes da resposta chegar aqui) faria um retry
+          // criar uma SEGUNDA assinatura de cartão para o mesmo cliente,
+          // cobrando-o duas vezes.
+          'Idempotency-Key': `pagarme-sub-${subscriptionId}`,
         },
         body: JSON.stringify(body)
       })
@@ -89,9 +96,21 @@ export function pagarmeAdapter(apiKey: string): GatewayAdapter {
     },
     
     async validateWebhook(body, headers, secret) {
+      // NÃO CONFIRMADO CONTRA A DOC ATUAL — revisar antes de configurar
+      // pagarme_webhook_secret em produção. Busca extensiva na documentação
+      // oficial do Pagar.me v5 (visão geral de webhooks, exemplo de payload,
+      // página de autenticação) não encontrou nenhuma menção a um header
+      // 'x-hub-signature' nem a HMAC-SHA256 sobre o corpo — os mecanismos de
+      // segurança documentados são IP allowlist (para chamadas AO Pagar.me,
+      // não deste endpoint) e um campo opcional de senha/autenticação na tela
+      // de cadastro do webhook no dashboard. Hoje isso fica encoberto porque
+      // pagarme_webhook_secret está vazio (fail-closed abaixo rejeita tudo).
+      // Antes de preencher esse secret em produção, confirmar com um webhook
+      // real (RequestBin ou o simulador do próprio dashboard) qual mecanismo
+      // o Pagar.me de fato envia, e ajustar esta função de acordo.
       const sigHeader = headers['x-hub-signature']
       if (!sigHeader) throw new Error('Missing Pagar.me signature')
-      
+
       if (!secret) {
         throw new Error('Pagar.me webhook secret not configured. Rejecting webhook.')
       }
@@ -101,45 +120,61 @@ export function pagarmeAdapter(apiKey: string): GatewayAdapter {
       if (!assinaturaConfere(expectedSig, hashOnly)) {
         throw new Error('Invalid Pagar.me signature')
       }
-      
+
       const event = JSON.parse(body)
       let type: WebhookEvent['type'] = 'unknown'
+      const dataObj = event.data || {}
 
-      // Pagar.me v5 real event names (verified against official docs):
-      // - First payment activation: 'charge.paid' or 'invoice.paid' (NOT 'subscription.created'!
-      //   subscription.created fires even before payment, so it means 'pending' not 'active')
-      // - Renewal: same events — 'charge.paid' / 'invoice.paid' on subsequent billing cycles
-      // - Cancellation: 'subscription.canceled' (one 'l' — Pagar.me spelling)
-      // - Failure: 'charge.payment_failed' / 'invoice.payment_failed'
+      // BUG CRÍTICO CORRIGIDO: para eventos charge.* (event.data = objeto
+      // Cobrança), a doc oficial confirma que Charge NÃO tem campo
+      // 'subscription' nem 'subscription_id' — só o objeto Fatura (Invoice,
+      // em event.data.invoice) tem 'subscription'. A condição antiga
+      // (`event.data?.subscription`) era sempre falsa para charge.*, então
+      // ativação/renovação via esse evento nunca era reconhecida e caía
+      // silenciosamente em 'unknown'. Só invoice.paid/invoice.payment_failed
+      // funcionavam, porque ali event.data já É o Invoice.
+      const subscriptionRef = dataObj.subscription || dataObj.invoice?.subscription
+
+      // Pagar.me v5 real event names (nomes já verificados contra a doc
+      // oficial nesta sessão — só o ESQUEMA DE ASSINATURA acima é que não foi):
+      // - Ativação/renovação: 'charge.paid' ou 'invoice.paid'
+      // - Cancelamento: 'subscription.canceled' (uma L — grafia americana do Pagar.me)
+      // - Falha: 'charge.payment_failed' / 'invoice.payment_failed'
       if (event.type === 'charge.paid' || event.type === 'invoice.paid') {
-        if (event.data?.subscription || event.data?.subscription_id) {
-          type = 'subscription.activated'
-        }
+        if (subscriptionRef) type = 'subscription.activated'
       }
       // Note: webhook handler converts 'activated' to 'renewed' for already-active subscriptions
       if (event.type === 'subscription.canceled') type = 'subscription.cancelled'
       if (event.type === 'charge.payment_failed' || event.type === 'invoice.payment_failed') {
-        if (event.data?.subscription || event.data?.subscription_id) type = 'payment.failed'
+        if (subscriptionRef) type = 'payment.failed'
       }
-      
+
       return {
         type,
         eventId: event.id,
-        gatewaySubscriptionId: event.data?.subscription?.id || event.data?.id,
-        gatewayCustomerId: event.data?.customer?.id || event.data?.subscription?.customer?.id,
-        userEmail: event.data?.customer?.email || event.data?.subscription?.customer?.email,
+        gatewaySubscriptionId: subscriptionRef?.id || dataObj.id,
+        gatewayCustomerId: dataObj.customer?.id || subscriptionRef?.customer?.id,
+        userEmail: dataObj.customer?.email || subscriptionRef?.customer?.email,
         // Pagar.me v5: metadata is on the charge/invoice object, not on the subscription directly
-        externalReference: event.data?.metadata?.subscription_id || event.data?.subscription?.metadata?.subscription_id,
+        externalReference: dataObj.metadata?.subscription_id || subscriptionRef?.metadata?.subscription_id,
         raw: event
       }
     },
-    
+
     async cancelSubscription(gatewaySubscriptionId) {
-      const response = await fetch(`https://api.pagar.me/core/v5/subscriptions/${gatewaySubscriptionId}?cancel_pending=true`, {
+      const response = await fetch(`https://api.pagar.me/core/v5/subscriptions/${gatewaySubscriptionId}`, {
         method: 'DELETE',
-        headers: { 'Authorization': basicAuth }
+        headers: { 'Authorization': basicAuth, 'Content-Type': 'application/json' },
+        // BUG CORRIGIDO: o nome documentado é 'cancel_pending_invoices', e vai
+        // no CORPO da requisição DELETE — não '?cancel_pending=true' na
+        // query string. APIs REST costumam ignorar parâmetro de query
+        // desconhecido em silêncio, então a chamada antiga "funcionava"
+        // (DELETE retornava 200) mas nunca controlava de fato esse
+        // comportamento — o resultado real dependia só do valor default
+        // (true) que a própria Pagar.me já usa quando o campo não é enviado.
+        body: JSON.stringify({ cancel_pending_invoices: true }),
       })
-      
+
       if (!response.ok) {
         throw new Error(`Pagar.me cancel error: ${await response.text()}`)
       }
