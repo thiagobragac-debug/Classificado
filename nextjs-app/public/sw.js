@@ -12,7 +12,7 @@
 //  todo HTML — inclusive /painel e /admin, já renderizados com os dados da
 //  sessão. Agora esses caminhos passam direto, sem cache.
 
-const VERSION = 'v3';
+const VERSION = 'v4';
 const STATIC_CACHE = `tc-static-${VERSION}`;
 const OFFLINE_URL = '/_offline.html';
 
@@ -60,6 +60,24 @@ function isBypass(url, request) {
   );
 }
 
+// Guarda no cache sem deixar rejeição solta. cache.put() falha para respostas
+// parciais (206) e para alguns esquemas de URL, e uma promise rejeitada aqui
+// sobe como erro do service worker no DevTools.
+function guardarNoCache(request, response) {
+  const copy = response.clone();
+  caches
+    .open(STATIC_CACHE)
+    .then((cache) => cache.put(request, copy))
+    .catch(() => {});
+}
+
+// respondWith() exige uma Response. Devolver undefined — o que acontecia
+// quando o cache não tinha nada E a rede caía — vira "Failed to convert value
+// to 'Response'". Este 504 sintético fecha esses caminhos.
+function respostaOffline() {
+  return new Response('', { status: 504, statusText: 'Offline' });
+}
+
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   if (request.method !== 'GET') return;
@@ -73,17 +91,15 @@ self.addEventListener('fetch', (event) => {
   // Build do Next.js: nomes com hash, conteúdo imutável — cache-first é seguro.
   if (url.pathname.startsWith('/_next/static/')) {
     event.respondWith(
-      caches.match(request).then(
-        (hit) =>
-          hit ||
-          fetch(request).then((res) => {
-            if (res.ok) {
-              const copy = res.clone();
-              caches.open(STATIC_CACHE).then((c) => c.put(request, copy));
-            }
+      caches.match(request).then((hit) => {
+        if (hit) return hit;
+        return fetch(request)
+          .then((res) => {
+            if (res.ok) guardarNoCache(request, res);
             return res;
           })
-      )
+          .catch(() => respostaOffline());
+      })
     );
     return;
   }
@@ -91,23 +107,24 @@ self.addEventListener('fetch', (event) => {
   // Navegação: sempre rede. Se cair, mostra a tela offline. Não guardamos o
   // HTML — no App Router ele já vem renderizado com o estado do usuário.
   if (request.mode === 'navigate') {
-    event.respondWith(fetch(request).catch(() => caches.match(OFFLINE_URL)));
+    event.respondWith(
+      fetch(request).catch(() =>
+        caches.match(OFFLINE_URL).then((offline) => offline || respostaOffline())
+      )
+    );
     return;
   }
 
   // Demais estáticos de /public (imagens, ícones): cache-first com atualização.
   event.respondWith(
     caches.match(request).then((hit) => {
-      const network = fetch(request)
+      if (hit) return hit;
+      return fetch(request)
         .then((res) => {
-          if (res.ok && res.type === 'basic') {
-            const copy = res.clone();
-            caches.open(STATIC_CACHE).then((c) => c.put(request, copy));
-          }
+          if (res.ok && res.type === 'basic') guardarNoCache(request, res);
           return res;
         })
-        .catch(() => hit);
-      return hit || network;
+        .catch(() => respostaOffline());
     })
   );
 });
