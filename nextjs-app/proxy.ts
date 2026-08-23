@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { SUPABASE_URL, SUPABASE_ANON } from '@/lib/supabase';
 import { SECURITY_HEADERS } from '@/lib/security-headers';
 import { Ratelimit } from '@upstash/ratelimit';
@@ -18,11 +19,44 @@ if (redisUrl && redisToken) {
     analytics: false,
   });
 } else if (process.env.NODE_ENV === 'production') {
-  // Falha aberta de propósito (derrubar o login inteiro seria pior), mas sem
-  // Redis o /login fica sem proteção contra força bruta. Não passar calado.
-  console.warn(
-    '[proxy] UPSTASH_REDIS_REST_URL/TOKEN ausentes — rate limiting DESATIVADO em /login e /auth.'
+  console.info(
+    '[proxy] Upstash não configurado — rate limiting de /login e /auth usando a janela no Postgres.'
   );
+}
+
+// Fallback no banco, para quando não há Redis. Antes disso, a ausência do
+// Upstash simplesmente desligava o rate limiting: o objeto Ratelimit não era
+// criado e o bloco virava no-op, deixando /login sem proteção contra força
+// bruta. Contador em memória não serviria — em serverless cada instância teria
+// o próprio, e bastaria ao atacante cair em instâncias diferentes.
+// Ver supabase/migrations/20260822120500_rate_limit_no_banco.sql
+const LIMITE_TENTATIVAS = 30;
+const JANELA_SEGUNDOS = 60;
+
+async function dentroDoLimite(chave: string): Promise<boolean> {
+  if (ratelimit) {
+    const { success } = await ratelimit.limit(chave);
+    return success;
+  }
+
+  try {
+    const db = createSupabaseClient(SUPABASE_URL, SUPABASE_ANON, { auth: { persistSession: false } });
+    const { data, error } = await db.rpc('check_rate_limit', {
+      p_bucket: chave,
+      p_limit: LIMITE_TENTATIVAS,
+      p_window_seconds: JANELA_SEGUNDOS,
+    });
+    if (error) {
+      // Falha aberta: uma indisponibilidade do banco não pode trancar o login
+      // de todo mundo. Mas não pode passar calado.
+      console.error('[proxy] check_rate_limit falhou, liberando a requisição:', error.message);
+      return true;
+    }
+    return data !== false;
+  } catch (e) {
+    console.error('[proxy] check_rate_limit indisponível, liberando a requisição:', (e as Error).message);
+    return true;
+  }
 }
 
 // ─── Host do Supabase (usado no CSP) ───────────────────────────
@@ -155,11 +189,14 @@ export async function proxy(request: NextRequest) {
 
   // ─── Rate Limiting rotas críticas ────────────────────────────
   if (pathname.startsWith('/login') || pathname.startsWith('/auth')) {
-    if (ratelimit) {
-      const { success } = await ratelimit.limit(`ratelimit_${ip}`);
-      if (!success) {
-        return new NextResponse('Too Many Requests', { status: 429 });
-      }
+    if (!(await dentroDoLimite(`login_${ip}`))) {
+      return applySecurityHeaders(
+        new NextResponse('Too Many Requests', {
+          status: 429,
+          headers: { 'Retry-After': String(JANELA_SEGUNDOS) },
+        }),
+        csp
+      );
     }
   }
 
