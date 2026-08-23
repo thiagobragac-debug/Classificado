@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+defaults:
+  run:
+    working-directory: nextjs-app
+
+jobs:
+  ci:
+    name: typecheck, testes, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: nextjs-app/package-lock.json
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Testes unitários
+        run: npm test
+
+      # 228 erros preexistentes na base (majoritariamente no-explicit-any) —
+      # cobertos em docs/CHECKLIST-PRODUCAO.md, não em escopo desta correção.
+      # Roda e reporta, mas não derruba o CI enquanto essa dívida não for paga.
+      - name: Lint (informativo — não bloqueia)
+        run: npm run lint
+        continue-on-error: true
+
+      # O build lê NEXT_PUBLIC_SUPABASE_URL/ANON_KEY em tempo de build (client
+      # criado no module scope de alguns componentes). Não precisam ser reais —
+      # só sintaticamente válidos — e não devem ser os do projeto de produção.
+      - name: Build
+        run: npx next build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+          NEXT_PUBLIC_ANON_KEY: ci-placeholder-anon-key
+          NEXT_PUBLIC_SUPABASE_STORAGE_URL: https://ci-placeholder.supabase.co/storage/v1
+          NEXT_PUBLIC_BASE_URL: http://localhost:3000
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+          NEXT_PUBLIC_VAPID_KEY: ci-placeholder
+          SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-service-role-key
