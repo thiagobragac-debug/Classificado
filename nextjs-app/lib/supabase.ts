@@ -236,14 +236,14 @@ export async function uploadAdImage(file: File, folder = 'draft'): Promise<strin
   const ext = file.name.split('.').pop();
   const fileName = `${folder}/${session.user.id}/${Date.now()}_${Math.random().toString(36).substring(2)}.${ext}`;
   
-  const { data, error } = await getSupabase().storage.from('ads-images').upload(fileName, file, {
+  const { data, error } = await getSupabase().storage.from('ad-images').upload(fileName, file, {
     cacheControl: '31536000',
     upsert: false
   });
   
   if (error) throw error;
   
-  const { data: { publicUrl } } = getSupabase().storage.from('ads-images').getPublicUrl(fileName);
+  const { data: { publicUrl } } = getSupabase().storage.from('ad-images').getPublicUrl(fileName);
   return publicUrl;
 }
 

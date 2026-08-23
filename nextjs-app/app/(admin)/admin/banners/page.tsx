@@ -59,11 +59,11 @@ export default function AdminBanners() {
     const ext = file.name.split('.').pop()
     const fileName = `banner_${Date.now()}_${Math.random().toString(36).substring(2,7)}.${ext}`
     
-    const { error } = await supabase.storage.from('ads-images').upload(fileName, file)
+    const { error } = await supabase.storage.from('ad-images').upload(fileName, file)
     if (error) {
       showToast('Erro no upload: ' + error.message, 'error')
     } else {
-      const { data: { publicUrl } } = supabase.storage.from('ads-images').getPublicUrl(fileName)
+      const { data: { publicUrl } } = supabase.storage.from('ad-images').getPublicUrl(fileName)
       setForm(prev => ({ ...prev, image_url: publicUrl }))
       showToast('Imagem carregada com sucesso!', 'success')
     }

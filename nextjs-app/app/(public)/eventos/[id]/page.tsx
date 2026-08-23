@@ -29,7 +29,7 @@ export async function generateMetadata({
   const coverUrl = data.cover
     ? data.cover.startsWith('http')
       ? data.cover
-      : `https://rfzuzuobwuanmbrcthqe.supabase.co/storage/v1/object/public/ads-images/${data.cover}`
+      : `https://rfzuzuobwuanmbrcthqe.supabase.co/storage/v1/object/public/ad-images/${data.cover}`
     : undefined;
 
   const description = `Evento em ${new Date(data.date).toLocaleDateString('pt-BR')}`;
@@ -124,7 +124,7 @@ export default async function EventDetailPage({
         {event.cover && (
           <div style={{ position: 'relative', width: '100%', height: '400px', backgroundColor: '#f1f5f9', borderRadius: '1rem', overflow: 'hidden', marginBottom: '2rem' }}>
             <Image
-              src={event.cover.startsWith('http') ? event.cover : `https://rfzuzuobwuanmbrcthqe.supabase.co/storage/v1/object/public/ads-images/${event.cover}`}
+              src={event.cover.startsWith('http') ? event.cover : `https://rfzuzuobwuanmbrcthqe.supabase.co/storage/v1/object/public/ad-images/${event.cover}`}
               alt={event.title}
               fill
               style={{ objectFit: 'cover' }}

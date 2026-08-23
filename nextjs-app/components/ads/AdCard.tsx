@@ -11,7 +11,7 @@ export const COUNTRY_FLAGS: Record<string, string> = {
   'Equador': '🇪🇨', 'Estados Unidos': '🇺🇸', 'Portugal': '🇵🇹'
 };
 
-const IMG_BASE = 'https://rfzuzuobwuanmbrcthqe.supabase.co/storage/v1/object/public/ads-images/';
+const IMG_BASE = 'https://rfzuzuobwuanmbrcthqe.supabase.co/storage/v1/object/public/ad-images/';
 
 function fmtPrice(price: number, currency = 'BRL', lang = 'pt') {
   return new Intl.NumberFormat(lang === 'es' ? 'es-AR' : 'pt-BR', {

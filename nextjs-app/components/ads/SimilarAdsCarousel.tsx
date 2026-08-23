@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
 
 const FALLBACK_IMG = '/assets/hero_farm.webp';
-const SB_STORAGE = 'https://rfzuzuobwuanmbrcthqe.supabase.co/storage/v1/object/public/ads-images/';
+const SB_STORAGE = 'https://rfzuzuobwuanmbrcthqe.supabase.co/storage/v1/object/public/ad-images/';
 
 function imageUrl(path: string): string {
   if (!path) return FALLBACK_IMG;

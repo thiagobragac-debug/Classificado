@@ -14,7 +14,7 @@ import '../../anuncio.css';
 
 // Sem singleton de módulo — cliente criado por-request dentro das funções
 const FALLBACK_IMG = '/assets/hero_farm.webp';
-const SB_STORAGE = 'https://rfzuzuobwuanmbrcthqe.supabase.co/storage/v1/object/public/ads-images/';
+const SB_STORAGE = 'https://rfzuzuobwuanmbrcthqe.supabase.co/storage/v1/object/public/ad-images/';
 
 // Regex de validação de UUID v4
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

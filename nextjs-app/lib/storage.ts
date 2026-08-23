@@ -1,6 +1,6 @@
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 
-export const STORAGE_BASE = `${SUPABASE_URL}/storage/v1/object/public/ads-images/`;
+export const STORAGE_BASE = `${SUPABASE_URL}/storage/v1/object/public/ad-images/`;
 
 export function imageUrl(path: string | null | undefined, fallback = '/assets/hero_farm.webp'): string {
   if (!path) return fallback;

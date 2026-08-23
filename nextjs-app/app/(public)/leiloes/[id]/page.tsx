@@ -28,7 +28,7 @@ export async function generateMetadata({
   const coverUrl = data.cover
     ? data.cover.startsWith('http')
       ? data.cover
-      : `https://rfzuzuobwuanmbrcthqe.supabase.co/storage/v1/object/public/ads-images/${data.cover}`
+      : `https://rfzuzuobwuanmbrcthqe.supabase.co/storage/v1/object/public/ad-images/${data.cover}`
     : undefined;
 
   const description = `Leilão em ${new Date(data.date).toLocaleDateString('pt-BR')} às ${new Date(data.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;

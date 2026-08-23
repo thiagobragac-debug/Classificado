@@ -148,7 +148,7 @@ export default async function EventosPage({
         image: ev.cover
           ? ev.cover.startsWith('http')
             ? ev.cover
-            : `https://rfzuzuobwuanmbrcthqe.supabase.co/storage/v1/object/public/ads-images/${ev.cover}`
+            : `https://rfzuzuobwuanmbrcthqe.supabase.co/storage/v1/object/public/ad-images/${ev.cover}`
           : 'https://tauzeclass.com.br/assets/hero_farm.webp',
         organizer: ORGANIZER,
       };
