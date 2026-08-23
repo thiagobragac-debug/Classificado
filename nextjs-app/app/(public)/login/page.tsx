@@ -8,7 +8,7 @@ import { LangToggle } from './components/LangToggle'
 import './page.module.css'
 
 export const metadata = {
-  title: 'Login - Tauze Class',
+  title: 'Login',
   description: 'Acesse sua conta para anunciar no agronegócio do Brasil e Mercosul.',
 }
 

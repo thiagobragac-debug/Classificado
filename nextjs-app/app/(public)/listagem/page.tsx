@@ -31,7 +31,7 @@ export async function generateMetadata({
   }
 
   return {
-    title: `${baseTitle}${location} | Tauze Class`,
+    title: `${baseTitle}${location}`,
     description: `Encontre os melhores ${baseTitle.toLowerCase()} na Tauze Class. O maior classificado premium agro.`,
     alternates: {
       canonical: `https://tauzeclass.com.br/listagem`,

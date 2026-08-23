@@ -14,7 +14,7 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  if (!UUID_REGEX.test(id)) return { title: 'Evento não encontrado | Tauze Class' };
+  if (!UUID_REGEX.test(id)) return { title: 'Evento não encontrado' };
 
   const sb = createAnonClient();
   const { data } = await sb
@@ -24,7 +24,7 @@ export async function generateMetadata({
     .neq('status', 'draft')
     .single();
 
-  if (!data) return { title: 'Evento não encontrado | Tauze Class' };
+  if (!data) return { title: 'Evento não encontrado' };
 
   const coverUrl = data.cover
     ? data.cover.startsWith('http')
@@ -35,7 +35,7 @@ export async function generateMetadata({
   const description = `Evento em ${new Date(data.date).toLocaleDateString('pt-BR')}`;
 
   return {
-    title: `${data.title} | Tauze Class`,
+    title: data.title,
     description,
     alternates: { canonical: `https://tauzeclass.com.br/eventos/${id}` },
     openGraph: {

@@ -55,7 +55,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const plainDescription = (ad.description || '').replace(/<[^>]*>/g, '').substring(0, 160);
 
   return {
-    title: `${title} | Tauze Class`,
+    title: title,
     description: plainDescription || `Veja detalhes do anúncio ${title}`,
     alternates: {
       canonical: `https://tauzeclass.com.br/anuncio/${id}`,

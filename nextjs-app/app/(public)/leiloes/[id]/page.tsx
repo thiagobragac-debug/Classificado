@@ -14,7 +14,7 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  if (!UUID_REGEX.test(id)) return { title: 'Leilão não encontrado | Tauze Class' };
+  if (!UUID_REGEX.test(id)) return { title: 'Leilão não encontrado' };
 
   const sb = createAnonClient();
   const { data } = await sb
@@ -23,7 +23,7 @@ export async function generateMetadata({
     .eq('id', id)
     .single();
 
-  if (!data) return { title: 'Leilão não encontrado | Tauze Class' };
+  if (!data) return { title: 'Leilão não encontrado' };
 
   const coverUrl = data.cover
     ? data.cover.startsWith('http')
@@ -37,7 +37,7 @@ export async function generateMetadata({
   const ogTitle = isLive ? `AO VIVO: ${data.title}` : data.title;
 
   return {
-    title: `${data.title} | Tauze Class`,
+    title: data.title,
     description,
     alternates: { canonical: `https://tauzeclass.com.br/leiloes/${id}` },
     openGraph: {

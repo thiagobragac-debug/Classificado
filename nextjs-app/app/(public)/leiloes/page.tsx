@@ -3,7 +3,7 @@ import AuctionsBrowser from '@/components/auctions/AuctionsBrowser';
 import { createAnonClient } from '@/lib/supabase-server';
 
 export const metadata = {
-  title: 'Leilões Virtuais | Tauze Class',
+  title: 'Leilões Virtuais',
   description: 'Acompanhe os próximos leilões virtuais de animais, máquinas e imóveis rurais. Dê seus lances e faça ótimos negócios no Mercosul.',
   alternates: { canonical: 'https://tauzeclass.com.br/leiloes' },
   openGraph: {

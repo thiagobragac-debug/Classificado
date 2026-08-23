@@ -7,7 +7,7 @@ import Link from 'next/link'
 export const revalidate = 3600; // ISR — página de eventos raramente muda
 
 export const metadata = {
-  title: 'Agenda de Eventos | Tauze Class',
+  title: 'Agenda de Eventos',
   description: 'Encontre feiras, exposições e congressos do Agronegócio no Mercosul. Agenda completa de eventos rurais no Brasil, Argentina, Paraguai e Uruguai.',
   alternates: { canonical: 'https://tauzeclass.com.br/eventos' },
   openGraph: {

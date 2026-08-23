@@ -28,7 +28,7 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
   const sellerName = profile.display_name || profile.name || 'Vendedor';
 
   return {
-    title: `Produtos de ${sellerName} | Tauze Class`,
+    title: `Produtos de ${sellerName}`,
     description: `Confira os anúncios e avaliações de ${sellerName} no maior classificado agro do Mercosul.`,
     alternates: { canonical: `https://tauzeclass.com.br/vendedor/${params.id}` },
     openGraph: {
