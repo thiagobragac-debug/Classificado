@@ -33,6 +33,35 @@ if (redisUrl && redisToken) {
 const LIMITE_TENTATIVAS = 30;
 const JANELA_SEGUNDOS = 60;
 
+// Identifica a origem da requisição para o rate limit.
+//
+// `x-forwarded-for` é enviado pelo cliente. A implementação anterior pegava o
+// PRIMEIRO item da lista, que é justamente a parte que o atacante controla:
+// bastava rotacionar o header a cada requisição para nunca ser limitado.
+// Verificado — 40 de 40 requisições passaram trocando o header.
+//
+// Ordem de preferência:
+//   1. x-vercel-forwarded-for — a plataforma sobrescreve, o cliente não forja
+//   2. x-real-ip              — idem, quando há proxy que o defina
+//   3. último item do x-forwarded-for — cada proxy ANEXA o IP de quem se
+//      conectou a ele, então o final da lista é o que o proxy mais próximo
+//      realmente observou; o começo é texto livre do cliente
+function resolverIpConfiavel(request: NextRequest): string {
+  const vercel = request.headers.get('x-vercel-forwarded-for')?.trim();
+  if (vercel) return vercel.split(',').pop()!.trim();
+
+  const real = request.headers.get('x-real-ip')?.trim();
+  if (real) return real;
+
+  const encaminhado = request.headers.get('x-forwarded-for');
+  if (encaminhado) {
+    const ultimo = encaminhado.split(',').pop()?.trim();
+    if (ultimo) return ultimo;
+  }
+
+  return '127.0.0.1';
+}
+
 async function dentroDoLimite(chave: string): Promise<boolean> {
   if (ratelimit) {
     const { success } = await ratelimit.limit(chave);
@@ -182,10 +211,7 @@ export async function proxy(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
   const csp = buildCsp(nonce);
 
-  const ip =
-    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    request.headers.get('x-real-ip') ||
-    '127.0.0.1';
+  const ip = resolverIpConfiavel(request);
 
   // ─── Rate Limiting rotas críticas ────────────────────────────
   if (pathname.startsWith('/login') || pathname.startsWith('/auth')) {
