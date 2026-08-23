@@ -207,8 +207,7 @@ consigo revisar a lógica e apontar problemas, se houver.
 ## Migrations
 
 16 arquivos em `supabase/migrations/`. As 7 criadas nesta revisão foram
-aplicadas e validadas em produção — exceto a última, que ainda depende de você
-aplicar:
+aplicadas e validadas em produção:
 
 | Migration | O que faz | Validado |
 |---|---|---|
@@ -218,7 +217,7 @@ aplicar:
 | `20260822120300` | cota de anúncios do plano | P0001 no 4º ativo |
 | `20260822120400` | trava `verified` / `kyc_status` | 42501 nas 2 tentativas |
 | `20260822120500` | rate limit com janela no Postgres | 30x 200 + 5x 429 |
-| `20260823090000` | impede autoavaliação e nota duplicada em `seller_reviews` | ⏳ aguardando aplicação |
+| `20260823090000` | impede autoavaliação e nota duplicada em `seller_reviews` | 23514 e 23505 nas 2 tentativas |
 
 Todas idempotentes (`create or replace`, `drop ... if exists`, ou `DO $$ IF NOT
 EXISTS` para `ALTER TABLE`) — podem ser reexecutadas sem efeito colateral.
