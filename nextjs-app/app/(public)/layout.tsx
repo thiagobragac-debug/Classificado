@@ -129,11 +129,16 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           dangerouslySetInnerHTML={{
             __html: `
               if ('serviceWorker' in navigator) {
-                window.addEventListener('load', function() {
+                var registrarSW = function() {
                   navigator.serviceWorker.register('/sw.js')
                     .then(function(r) { console.log('[SW] Registrado:', r.scope); })
                     .catch(function(e) { console.warn('[SW] Falha:', e); });
-                });
+                };
+                // strategy="afterInteractive" pode executar DEPOIS do evento
+                // load. Nesse caso o listener nunca dispararia e o service
+                // worker jamais era registrado — era o que acontecia aqui.
+                if (document.readyState === 'complete') registrarSW();
+                else window.addEventListener('load', registrarSW);
               }
             `
           }}

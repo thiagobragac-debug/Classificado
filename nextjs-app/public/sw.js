@@ -1,116 +1,121 @@
-const CACHE_NAME = 'tc-static-v205';
+// ============================================================================
+//  Tauze Class — Service Worker
+// ============================================================================
+//
+//  Reescrito em 2026-08-22. A versão anterior era do site vanilla aposentado:
+//  precacheava /index.html, /listagem.html, /js/main.js, /css/style.css e mais
+//  16 URLs que hoje respondem 404 — 20 de 24 entradas. Sobreviviam a instalação
+//  só porque cada cache.add() tinha .catch(), mas o resultado era uma rajada de
+//  requisições falhas a cada install e praticamente nada de útil em cache.
+//
+//  Além disso ele interceptava /api/ e guardava as respostas GET, e cacheava
+//  todo HTML — inclusive /painel e /admin, já renderizados com os dados da
+//  sessão. Agora esses caminhos passam direto, sem cache.
 
-const ASSETS_TO_CACHE = [
-  '/', '/index.html', '/listagem.html', '/anuncio.html', '/login.html',
-  '/painel.html', '/anunciar.html', '/leiloes.html', '/_offline.html',
-  '/css/style.css', '/css/listagem.css', '/css/anuncio.css', '/css/eventos.css',
-  '/js/supabase.js', '/js/data.js', '/js/ui_constants.js', '/js/main.js',
-  '/js/home.js', '/js/filters.js', '/js/search_autocomplete.js',
-  '/js/eventos.js', '/js/error-monitor.js', '/manifest.json',
-  '/assets/hero_farm.webp', '/assets/hero_farm.png',
+const VERSION = 'v3';
+const STATIC_CACHE = `tc-static-${VERSION}`;
+const OFFLINE_URL = '/_offline.html';
+
+// Só o que existe de fato em /public.
+const PRECACHE = [
+  OFFLINE_URL,
+  '/manifest.json',
+  '/icon-192.svg',
+  '/icon-512.svg',
 ];
 
-self.addEventListener('install', (e) => {
+self.addEventListener('install', (event) => {
   self.skipWaiting();
-  e.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) =>
-        // Cache individual por asset: um 404 não aborta os demais
-        Promise.all(
-          ASSETS_TO_CACHE.map(url =>
-            cache.add(url).catch(() => console.warn('[SW] Falha ao cachear:', url))
-          )
+  event.waitUntil(
+    caches.open(STATIC_CACHE).then((cache) =>
+      Promise.all(
+        PRECACHE.map((url) =>
+          cache.add(url).catch(() => console.warn('[SW] precache falhou:', url))
         )
       )
+    )
   );
 });
 
-self.addEventListener('activate', (e) => {
-  e.waitUntil(
-    caches.keys()
-      .then(keys => Promise.all(keys.map(k => k !== CACHE_NAME ? caches.delete(k) : null)))
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches
+      .keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== STATIC_CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
 
-self.addEventListener('fetch', (e) => {
-  const url = e.request.url;
-  
-  // 1. DADOS DINÂMICOS (Modo Offline Agrícola para Anúncios e Imagens do Supabase)
-  if (url.includes('supabase.co') || url.includes('/api/') ||
-      url.includes('ipapi.co') || url.includes('freeipapi.com') ||
-      url.includes('nominatim.openstreetmap.org')) {
-    
-    // Só cacheamos requisições de leitura (GET)
-    if (e.request.method === 'GET') {
-      e.respondWith(
-        fetch(e.request).then(response => {
-          // Salva uma cópia no cache dinâmico se a rede funcionar (Modo Offline)
-          if (response.status === 200) {
-            const resClone = response.clone();
-            caches.open('tc-dynamic-v1').then(cache => {
-              cache.put(e.request, resClone);
-            });
-          }
-          return response;
-        }).catch(() => {
-          // Falhou (Offline na Fazenda) -> Tenta pegar do cache dinâmico!
-          return caches.match(e.request);
-        })
-      );
-    } else {
-      // POST, PUT, DELETE (Inserir anúncio, enviar msg) -> Tenta rede normal
-      e.respondWith(fetch(e.request));
-    }
+// Caminhos que o SW nunca deve tocar: respostas dependentes de sessão ou de
+// dados vivos. Servir qualquer uma delas do cache mostra estado errado.
+function isBypass(url, request) {
+  return (
+    url.pathname.startsWith('/api/') ||
+    url.pathname.startsWith('/auth/') ||
+    url.pathname.startsWith('/painel') ||
+    url.pathname.startsWith('/admin') ||
+    // Payloads RSC de navegação client-side do App Router
+    url.searchParams.has('_rsc') ||
+    request.headers.get('RSC') === '1'
+  );
+}
+
+self.addEventListener('fetch', (event) => {
+  const request = event.request;
+  if (request.method !== 'GET') return;
+
+  const url = new URL(request.url);
+  // Terceiros (Supabase, gateways, CDNs) seguem direto para a rede: eles têm
+  // as próprias regras de cache e podem carregar dados de sessão.
+  if (url.origin !== self.location.origin) return;
+  if (isBypass(url, request)) return;
+
+  // Build do Next.js: nomes com hash, conteúdo imutável — cache-first é seguro.
+  if (url.pathname.startsWith('/_next/static/')) {
+    event.respondWith(
+      caches.match(request).then(
+        (hit) =>
+          hit ||
+          fetch(request).then((res) => {
+            if (res.ok) {
+              const copy = res.clone();
+              caches.open(STATIC_CACHE).then((c) => c.put(request, copy));
+            }
+            return res;
+          })
+      )
+    );
     return;
   }
 
-  // 2. ARQUIVOS ESTÁTICOS E HTML
-  const isHtml = e.request.headers.get('accept')?.includes('text/html');
-
-  if (isHtml) {
-    // HTML: Network First (Sempre tenta pegar a versão mais nova do servidor)
-    e.respondWith(
-      fetch(e.request).then((nr) => {
-        if (nr && nr.status === 200) {
-          const resClone = nr.clone();
-          caches.open(CACHE_NAME).then((c) => c.put(e.request, resClone));
-        }
-        return nr;
-      }).catch(() => {
-        // Se a rede falhar, retorna o HTML em cache ou a tela _offline.html
-        return caches.match(e.request).then((cachedResponse) => {
-          if (cachedResponse) {
-            return cachedResponse;
-          }
-          return caches.match('/_offline.html');
-        });
-      })
-    );
-  } else {
-    // JS, CSS, Imagens: stale-while-revalidate (serve cache rápido + atualiza silenciosamente)
-    e.respondWith(
-      caches.match(e.request).then((cached) => {
-        const fetchPromise = fetch(e.request).then((nr) => {
-          if (nr && nr.status === 200 && nr.type !== 'opaque' && !nr.bodyUsed) {
-            try {
-              const resClone = nr.clone();
-              caches.open(CACHE_NAME).then((c) => c.put(e.request, resClone)).catch(() => {});
-            } catch (err) {}
-          }
-          return nr;
-        }).catch(() => null);
-        
-        return cached || fetchPromise;
-      })
-    );
+  // Navegação: sempre rede. Se cair, mostra a tela offline. Não guardamos o
+  // HTML — no App Router ele já vem renderizado com o estado do usuário.
+  if (request.mode === 'navigate') {
+    event.respondWith(fetch(request).catch(() => caches.match(OFFLINE_URL)));
+    return;
   }
+
+  // Demais estáticos de /public (imagens, ícones): cache-first com atualização.
+  event.respondWith(
+    caches.match(request).then((hit) => {
+      const network = fetch(request)
+        .then((res) => {
+          if (res.ok && res.type === 'basic') {
+            const copy = res.clone();
+            caches.open(STATIC_CACHE).then((c) => c.put(request, copy));
+          }
+          return res;
+        })
+        .catch(() => hit);
+      return hit || network;
+    })
+  );
 });
 
 // ─── PUSH NOTIFICATIONS ──────────────────────────────────────────────
-self.addEventListener('push', function(event) {
+self.addEventListener('push', function (event) {
   let data = { title: 'Tauze Class', body: 'Você tem uma nova notificação!' };
-  
+
   try {
     if (event.data) {
       data = event.data.json();
@@ -127,24 +132,15 @@ self.addEventListener('push', function(event) {
     data: {
       dateOfArrival: Date.now(),
       primaryKey: 1,
-      url: data.url || '/'
-    }
+      url: data.url || '/',
+    },
   };
 
-  event.waitUntil(
-    self.registration.showNotification(data.title, options)
-  );
+  event.waitUntil(self.registration.showNotification(data.title, options));
 });
 
-self.addEventListener('notificationclick', function(event) {
+self.addEventListener('notificationclick', function (event) {
   event.notification.close();
-  if (event.notification.data && event.notification.data.url) {
-    event.waitUntil(
-      clients.openWindow(event.notification.data.url)
-    );
-  } else {
-    event.waitUntil(
-      clients.openWindow('/')
-    );
-  }
+  const target = (event.notification.data && event.notification.data.url) || '/';
+  event.waitUntil(clients.openWindow(target));
 });
