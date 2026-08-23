@@ -51,10 +51,14 @@ begin
     end if;
   end if;
 
+  -- O cast é obrigatório: plans.id é uuid, mas user_secrets.plan_id foi criado
+  -- como text em 20260723072100_split_user_secrets.sql. Sem ele o join estoura
+  -- com "operator does not exist: uuid = text" e, como o trigger aborta, a
+  -- publicação de qualquer anúncio para de funcionar.
   select p.max_ads
     into v_max
     from public.user_secrets us
-    left join public.plans p on p.id = us.plan_id
+    left join public.plans p on p.id::text = us.plan_id
    where us.id = new.user_id;
 
   -- Sem plano associado — hoje o caso de todos os usuários — vale o gratuito.
