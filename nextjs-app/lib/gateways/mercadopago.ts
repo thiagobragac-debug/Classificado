@@ -1,5 +1,6 @@
 import crypto from 'crypto'
 import { GatewayAdapter, WebhookEvent } from './types'
+import { assinaturaConfere, timestampRecente } from './signature'
 
 export function mercadoPagoAdapter(accessToken: string): GatewayAdapter {
   return {
@@ -75,9 +76,15 @@ export function mercadoPagoAdapter(accessToken: string): GatewayAdapter {
       }
 
       if (secret && sigHeader) {
+        // O ts entra no payload assinado, então é confiável — mas sem checar a
+        // idade, uma requisição válida capturada pode ser reenviada sempre.
+        if (!timestampRecente(parts.ts)) {
+          throw new Error('MP webhook timestamp outside tolerance (replay)')
+        }
+
         const payloadToSign = `id:${dataId};request-date:${parts.ts};`
         const expectedSig = crypto.createHmac('sha256', secret).update(payloadToSign).digest('hex')
-        if (expectedSig !== parts.v1) {
+        if (!assinaturaConfere(expectedSig, parts.v1)) {
           throw new Error('Invalid MP signature')
         }
       }

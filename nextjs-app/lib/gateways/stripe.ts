@@ -1,5 +1,6 @@
 import crypto from 'crypto'
 import { GatewayAdapter, WebhookEvent } from './types'
+import { assinaturaConfere, timestampRecente } from './signature'
 
 export function stripeAdapter(secretKey: string): GatewayAdapter {
   return {
@@ -80,9 +81,16 @@ export function stripeAdapter(secretKey: string): GatewayAdapter {
         throw new Error('Stripe webhook secret not configured. Rejecting webhook.')
       }
       
+      // O timestamp faz parte do payload assinado, então não pode ser forjado
+      // sem o secret — mas uma requisição legítima capturada continuaria válida
+      // para sempre se ninguém checasse a idade dela.
+      if (!timestampRecente(parts.t)) {
+        throw new Error('Stripe webhook timestamp outside tolerance (replay)')
+      }
+
       const payload = `${parts.t}.${body}`
       const expectedSig = crypto.createHmac('sha256', secret).update(payload).digest('hex')
-      if (expectedSig !== parts.v1) {
+      if (!assinaturaConfere(expectedSig, parts.v1)) {
         throw new Error('Invalid Stripe signature')
       }
       

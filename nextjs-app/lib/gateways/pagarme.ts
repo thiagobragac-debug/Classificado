@@ -1,5 +1,6 @@
 import crypto from 'crypto'
 import { GatewayAdapter, WebhookEvent } from './types'
+import { assinaturaConfere } from './signature'
 
 export function pagarmeAdapter(apiKey: string): GatewayAdapter {
   const basicAuth = `Basic ${Buffer.from(apiKey + ':').toString('base64')}`
@@ -97,7 +98,7 @@ export function pagarmeAdapter(apiKey: string): GatewayAdapter {
 
       const expectedSig = crypto.createHmac('sha256', secret).update(body).digest('hex')
       const hashOnly = sigHeader.replace('sha256=', '')
-      if (hashOnly !== expectedSig) {
+      if (!assinaturaConfere(expectedSig, hashOnly)) {
         throw new Error('Invalid Pagar.me signature')
       }
       
