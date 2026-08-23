@@ -1,4 +1,5 @@
 import { GatewayAdapter, WebhookEvent } from './types'
+import { assinaturaConfere } from './signature'
 
 export function asaasAdapter(apiKey: string, environment: 'sandbox' | 'production'): GatewayAdapter {
   const baseUrl = environment === 'sandbox' 
@@ -119,12 +120,16 @@ export function asaasAdapter(apiKey: string, environment: 'sandbox' | 'productio
     
     async validateWebhook(body, headers, secret) {
       const token = headers['asaas-access-token']
-      
+
       if (!secret) {
         throw new Error('Asaas webhook token not configured. Rejecting webhook.')
       }
 
-      if (!token || token !== secret) {
+      // Token estático (não é HMAC), mas a comparação continua sujeita a timing
+      // attack como qualquer igualdade de segredo — mesma classe de correção
+      // já aplicada em stripe/mercadopago/pagarme.ts nesta sessão. `!==` fazia
+      // essa comparação parar no primeiro byte diferente.
+      if (!assinaturaConfere(secret, token)) {
         throw new Error('Invalid Asaas access token')
       }
       
