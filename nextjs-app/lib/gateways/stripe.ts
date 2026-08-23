@@ -13,17 +13,27 @@ export function stripeAdapter(secretKey: string): GatewayAdapter {
       // 1. Get PaymentMethod ID (from Stripe Elements confirmSetup)
       const pmId = paymentData.gatewayToken
 
-
       // 2. Create Customer
+      // Idempotency-Key em toda chamada de criação, não só na última do fluxo
+      // (achado de auditoria contra a doc de idempotência da Stripe): sem ela,
+      // uma conexão que cai entre a Stripe criar o Customer e a resposta
+      // chegar aqui faria o app tentar de novo e falhar, porque o PaymentMethod
+      // já ficou anexado ao Customer da tentativa anterior.
+      const custIdempotencyKey = `stripe_cust_${subscriptionId}`
+
       const custParams = new URLSearchParams()
       if (user.email) custParams.append('email', user.email)
       custParams.append('name', user.name || 'User')
       custParams.append('payment_method', pmId)
       custParams.append('invoice_settings[default_payment_method]', pmId)
-      
+
       const custRes = await fetch('https://api.stripe.com/v1/customers', {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${secretKey}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+        headers: {
+          'Authorization': `Bearer ${secretKey}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Idempotency-Key': custIdempotencyKey,
+        },
         body: custParams.toString()
       })
       if (!custRes.ok) {
@@ -31,15 +41,46 @@ export function stripeAdapter(secretKey: string): GatewayAdapter {
       }
       const customer = await custRes.json()
 
-      // 3. Create Subscription
+      // 3. Create a Product for this subscription's price_data.
+      //
+      // BUG CRÍTICO CORRIGIDO: o código enviava
+      // items[0][price_data][product_data][name], mas price_data.product_data
+      // não existe na API de Subscriptions — só em Checkout Sessions. O único
+      // campo que a Subscriptions API aceita ali é price_data.product
+      // (obrigatório), o ID de um Product já existente. Sem ele, TODO
+      // POST /v1/subscriptions falhava por parâmetro obrigatório ausente —
+      // nenhuma assinatura via Stripe conseguia ser criada.
+      //
+      // Um Product não pode ser pré-criado por plano porque o preço final
+      // varia por checkout (cupom de desconto é aplicado em
+      // app/api/checkout/route.ts antes de chegar aqui) — então criamos um
+      // Product dedicado por assinatura, com o mesmo Idempotency-Key do
+      // checkout para não duplicar em caso de retry.
+      const prodParams = new URLSearchParams()
+      prodParams.append('name', plan.name)
+      const prodRes = await fetch('https://api.stripe.com/v1/products', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${secretKey}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Idempotency-Key': `stripe_prod_${subscriptionId}`,
+        },
+        body: prodParams.toString()
+      })
+      if (!prodRes.ok) {
+        throw new Error(`Stripe erro ao criar produto: ${await prodRes.text()}`)
+      }
+      const product = await prodRes.json()
+
+      // 4. Create Subscription
       const subParams = new URLSearchParams()
       subParams.append('customer', customer.id)
       subParams.append('items[0][price_data][currency]', 'brl')
-      subParams.append('items[0][price_data][product_data][name]', plan.name)
+      subParams.append('items[0][price_data][product]', product.id)
       subParams.append('items[0][price_data][recurring][interval]', plan.billingCycle === 'annual' ? 'year' : 'month')
       const priceInCents = Math.round(plan.price * 100)
       subParams.append('items[0][price_data][unit_amount]', priceInCents.toString())
-      
+
       subParams.append('metadata[user_id]', user.id)
       subParams.append('metadata[plan_id]', plan.id)
       subParams.append('metadata[billing_cycle]', plan.billingCycle)
@@ -57,13 +98,13 @@ export function stripeAdapter(secretKey: string): GatewayAdapter {
         },
         body: subParams.toString()
       })
-      
+
       if (!response.ok) {
         throw new Error(`Stripe erro na assinatura: ${await response.text()}`)
       }
-      
+
       const subscription = await response.json()
-      
+
       return { checkoutUrl: '', sessionId: subscription.id, gatewaySubscriptionId: subscription.id, gatewayCustomerId: customer.id }
     },
     
@@ -98,7 +139,11 @@ export function stripeAdapter(secretKey: string): GatewayAdapter {
       // Declare obj early — needed inside if/else branches (e.g., billing_reason check)
       const obj = event.data?.object || {}
       let type: WebhookEvent['type'] = 'unknown'
-      
+
+      // checkout.session.completed nunca é disparado por este código: em
+      // lugar nenhum é criada uma Checkout Session (o fluxo é Setup Intent +
+      // Subscription direto). Mantido por segurança caso um fluxo futuro
+      // passe a usar Checkout, mas hoje é inalcançável.
       if (event.type === 'checkout.session.completed') {
         type = 'subscription.activated'
       } else if (event.type === 'invoice.payment_succeeded') {
@@ -114,20 +159,39 @@ export function stripeAdapter(secretKey: string): GatewayAdapter {
         type = 'subscription.cancelled'
       } else if (event.type === 'invoice.payment_failed') {
         type = 'payment.failed'
+      } else if (event.type === 'invoice.payment_action_required') {
+        // Fatura recorrente presa aguardando autenticação adicional do
+        // portador do cartão (SCA/3D Secure) — reaproveita 'payment.failed'
+        // porque é o tipo mais próximo que o schema atual de subscriptions
+        // reconhece (marca status='past_due' em app/api/webhooks/payments/
+        // route.ts). Isso evita que a assinatura fique 'active' indefinidamente
+        // enquanto a Stripe espera uma autenticação que nunca chega. Avisar o
+        // cliente por e-mail com o link de autenticação
+        // (obj.hosted_invoice_url) é melhoria futura — exige infraestrutura de
+        // e-mail que este código ainda não tem.
+        type = 'payment.failed'
       }
-      
-      // For checkout.session.completed, subscription ID is in obj.subscription
-      // For invoice events, it's in obj.subscription
-      // For customer.subscription.deleted, it's obj.id (the subscription itself)
-      const gatewaySubscriptionId = obj.subscription || obj.id
-      
+
+      // BUG CRÍTICO CORRIGIDO: a partir da versão de API "basil" (2025-03-31)
+      // da Stripe, o campo invoice.subscription foi descontinuado — o ID da
+      // assinatura passou para invoice.parent.subscription_details.subscription
+      // (só quando invoice.parent.type === 'subscription_details'). Como
+      // nenhuma chamada aqui fixa Stripe-Version, a conta usa a versão padrão
+      // (atual, pós-basil), então obj.subscription é sempre undefined para
+      // eventos de invoice — o fallback para obj.id pegava o ID da FATURA
+      // (in_xxx) em vez da ASSINATURA (sub_xxx), e a busca em
+      // app/api/webhooks/payments/route.ts nunca encontrava a assinatura.
+      const subscriptionDetails = obj.parent?.type === 'subscription_details' ? obj.parent.subscription_details : null
+      const gatewaySubscriptionId = subscriptionDetails?.subscription || obj.subscription || obj.id
+      const invoiceMetadata = subscriptionDetails?.metadata || obj.metadata
+
       return {
         type,
         eventId: event.id,
         gatewaySubscriptionId,
         gatewayCustomerId: obj.customer,
         userEmail: obj.customer_email || obj.customer_details?.email,
-        externalReference: obj.client_reference_id || obj.metadata?.subscription_id || obj.metadata?.user_id,
+        externalReference: obj.client_reference_id || invoiceMetadata?.subscription_id || invoiceMetadata?.user_id,
         raw: event
       }
     },
