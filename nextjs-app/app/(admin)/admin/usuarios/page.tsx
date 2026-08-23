@@ -77,15 +77,23 @@ export default function AdminUsuarios() {
     }
   }
 
+  // profiles.verified é coluna privilegiada (migration 20260822120400): o
+  // update direto do browser não passa mais. A rota confere is_admin no
+  // servidor antes de escrever com service_role.
   const handleVerifyToggle = async (userId: string, currentStatus: boolean) => {
-    const supabase = getSupabase()
     const newStatus = !currentStatus
-    const { error } = await supabase.from('profiles').update({ verified: newStatus }).eq('id', userId)
-    if (!error) {
+    try {
+      const res = await fetch('/api/admin/verify-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, verified: newStatus }),
+      })
+      const payload = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(payload.error || 'Falha ao atualizar')
       setUsers(users.map(u => u.id === userId ? { ...u, verified: newStatus } : u))
       showToast(`Usuário marcado como ${newStatus ? 'Verificado' : 'Não Verificado'}!`, 'success')
-    } else {
-      showToast('Erro ao alterar selo de verificação: ' + error.message, 'error')
+    } catch (err) {
+      showToast('Erro ao alterar selo de verificação: ' + (err as Error).message, 'error')
     }
   }
 

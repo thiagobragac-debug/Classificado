@@ -62,6 +62,31 @@ export default function VerificacoesPage() {
 
   // Modal de documentos
   const [docModal, setDocModal] = useState<any | null>(null)
+  // O banco guarda o PATH do objeto no bucket privado kyc-docs, não uma URL.
+  // Antes o modal usava o valor cru em <img src>, que vinha de getPublicUrl()
+  // sobre bucket privado e sempre respondia 403 — nenhum documento aparecia.
+  const [docUrls, setDocUrls] = useState<Record<string, string | null> | null>(null)
+  const [docUrlsError, setDocUrlsError] = useState('')
+
+  // Pede ao servidor URLs assinadas de vida curta (5 min). O admin é
+  // autenticado lá, e os paths saem do próprio registro — não do cliente.
+  const abrirDocumentos = async (req: any) => {
+    setDocModal(req)
+    setDocUrls(null)
+    setDocUrlsError('')
+    try {
+      const res = await fetch('/api/admin/kyc-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId: req.id }),
+      })
+      const payload = await res.json()
+      if (!res.ok) throw new Error(payload.error || 'Falha ao carregar documentos')
+      setDocUrls(payload.urls)
+    } catch (err) {
+      setDocUrlsError((err as Error).message)
+    }
+  }
   // Lightbox de imagem individual
   const [lightbox, setLightbox] = useState<string | null>(null)
 
@@ -98,12 +123,28 @@ export default function VerificacoesPage() {
 
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
+  // profiles.verified e kyc_status viraram colunas privilegiadas (migration
+  // 20260822120400) — só o service_role escreve nelas, pelo mesmo motivo que
+  // impedia o usuário de se autoverificar. A rota confere is_admin no servidor.
+  const aplicarVerificacao = async (userId: string, verified: boolean, requestId?: string, reason?: string) => {
+    const res = await fetch('/api/admin/verify-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, verified, requestId, reason }),
+    })
+    const payload = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(payload.error || 'Falha ao atualizar verificação')
+  }
+
   const handleApprove = async (reqId: string, userId: string, name: string) => {
     if (!(await confirm(`Aprovar e conceder selo verde para "${name}"?`))) return
-    const supabase = getSupabase()
-    await supabase.from('verification_requests').update({ status: 'approved' }).eq('id', reqId)
-    await supabase.from('profiles').update({ verified: true, kyc_status: 'approved' }).eq('id', userId)
-    showToast('Selo concedido com sucesso!', 'success')
+    try {
+      await aplicarVerificacao(userId, true, reqId)
+      showToast('Selo concedido com sucesso!', 'success')
+    } catch (err) {
+      showToast('Erro ao conceder selo: ' + (err as Error).message, 'error')
+      return
+    }
     setDocModal(null)
     loadRequests()
     loadCounts()
@@ -215,7 +256,7 @@ export default function VerificacoesPage() {
                         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                           {/* Ver documentos — sempre visível */}
                           <button
-                            onClick={() => setDocModal(req)}
+                            onClick={() => abrirDocumentos(req)}
                             style={{
                               padding: '6px 14px', fontSize: '0.82rem',
                               border: '1px solid var(--adm-border)', borderRadius: '6px',
@@ -336,12 +377,23 @@ export default function VerificacoesPage() {
                 )}
               </div>
 
+              {docUrlsError && (
+                <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', borderRadius: '8px', padding: '10px 14px', marginBottom: '16px', fontSize: '0.85rem' }}>
+                  ⚠️ {docUrlsError}
+                </div>
+              )}
+              {!docUrls && !docUrlsError && (
+                <div style={{ color: 'var(--adm-text-muted)', fontSize: '0.85rem', marginBottom: '16px' }}>
+                  Gerando links seguros dos documentos…
+                </div>
+              )}
+
               {/* Docs grid */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
                 {[
-                  { label: 'CNH / RG — Frente', url: docModal.document_front },
-                  { label: 'CNH / RG — Verso',  url: docModal.document_back },
-                  { label: 'Selfie c/ Documento', url: docModal.selfie },
+                  { label: 'CNH / RG — Frente', url: docUrls?.document_front ?? '' },
+                  { label: 'CNH / RG — Verso',  url: docUrls?.document_back ?? '' },
+                  { label: 'Selfie c/ Documento', url: docUrls?.selfie ?? '' },
                 ].map(({ label, url }) => (
                   <div key={label}>
                     <p style={{ margin: '0 0 8px', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--adm-text-muted)' }}>{label}</p>

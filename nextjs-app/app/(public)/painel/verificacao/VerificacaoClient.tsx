@@ -57,23 +57,17 @@ export default function VerificacaoClient() {
     setLoading(false)
   }
 
-  const handleSimulateGovBr = async () => {
-    // Simula o redirecionamento OAuth e sucesso imediato (Mock)
-    setLoading(true)
-    showToast('Redirecionando para o Gov.br...', 'info')
-    
-    setTimeout(async () => {
-      const supabase = getSupabase()
-      const { data: { session } } = await supabase.auth.getSession()
-      
-      if (session) {
-        // Atualiza para verificado = true
-        await supabase.from('profiles').update({ verified: true }).eq('id', session.user.id)
-        setUser({ ...user, verified: true })
-        showToast('Selo de Autenticidade concedido via Gov.br!', 'success')
-      }
-      setLoading(false)
-    }, 1500)
+  // A integração com o Gov.br não existe. O que havia aqui era um setTimeout
+  // seguido de `update profiles set verified = true` no próprio usuário — ou
+  // seja, qualquer pessoa logada clicava no botão e saía com o selo, que é o
+  // sinal de confiança que os compradores usam para decidir com quem negociar.
+  //
+  // Enquanto o OAuth do Gov.br não for realmente implementado, o botão aponta
+  // para o fluxo que existe de verdade: o envio manual de documentos, revisado
+  // por um humano no painel administrativo.
+  const handleGovBrIndisponivel = () => {
+    showToast('Integração com o Gov.br ainda não disponível. Use o envio de documentos abaixo.', 'info')
+    setShowManual(true)
   }
 
   const handleManualSubmit = async (e: React.FormEvent) => {
@@ -93,24 +87,31 @@ export default function VerificacaoClient() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) throw new Error('Não autenticado')
 
+      // Grava o PATH, não uma URL. O bucket é privado de propósito — documento
+      // de identidade e selfie não podem ficar acessíveis por URL adivinhável.
+      // O painel admin pede uma URL assinada de vida curta em /api/admin/kyc-url.
+      //
+      // Antes isto usava o bucket 'kyc-documents' e guardava getPublicUrl(),
+      // que num bucket privado sempre responde 403: nenhum documento chegava a
+      // ser visível para o admin. O bucket correto é 'kyc-docs', o mesmo que o
+      // fluxo do ProfileTab já utilizava.
       const uploadFile = async (file: File, suffix: string) => {
-        const ext = file.name.split('.').pop()
+        const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '')
         const path = `${session.user.id}/${Date.now()}_${suffix}.${ext}`
-        const { error } = await supabase.storage.from('kyc-documents').upload(path, file)
+        const { error } = await supabase.storage.from('kyc-docs').upload(path, file)
         if (error) throw error
-        const { data: { publicUrl } } = supabase.storage.from('kyc-documents').getPublicUrl(path)
-        return publicUrl
+        return path
       }
 
-      const frontUrl = await uploadFile(docFront, 'front')
-      const backUrl = await uploadFile(docBack, 'back')
-      const selfieUrl = await uploadFile(selfie, 'selfie')
+      const frontPath = await uploadFile(docFront, 'front')
+      const backPath = await uploadFile(docBack, 'back')
+      const selfiePath = await uploadFile(selfie, 'selfie')
 
       const { error } = await supabase.from('verification_requests').insert({
         user_id: session.user.id,
-        document_front: frontUrl,
-        document_back: backUrl,
-        selfie: selfieUrl,
+        document_front: frontPath,
+        document_back: backPath,
+        selfie: selfiePath,
         status: 'pending',
         cpf_cnpj: cpfCnpj.replace(/\D/g, ''),
         type: docType,
@@ -154,14 +155,14 @@ export default function VerificacaoClient() {
             <div>
               <h3 style={{ margin: '0 0 8px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-                Gov.br (Automático)
+                Gov.br <span style={{ fontSize: '0.8rem', fontWeight: 500, color: '#94a3b8' }}>(em breve)</span>
               </h3>
               <p style={{ color: '#64748b', margin: 0, fontSize: '0.95rem' }}>
-                Conecte sua conta Ouro ou Prata do Gov.br e obtenha o selo instantaneamente. Grátis e seguro.
+                A verificação automática por conta Ouro ou Prata do Gov.br ainda está em desenvolvimento. Por enquanto, use o envio de documentos.
               </p>
             </div>
             <button 
-              onClick={handleSimulateGovBr}
+              onClick={handleGovBrIndisponivel}
               style={{ background: '#2563eb', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
             >
               Entrar com gov.br
