@@ -52,16 +52,28 @@ export default function AdminUsuarios() {
     setLoading(false)
   }
 
+  // is_blocked é coluna privilegiada: só o service_role escreve nela, e o
+  // bloqueio precisa banir o usuário no Auth para derrubar a sessão ativa.
+  // Por isso passa pela rota de servidor em vez do client do browser.
+  const setBlocked = async (userIds: string[], blocked: boolean) => {
+    const res = await fetch('/api/admin/block-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userIds, blocked }),
+    })
+    const payload = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(payload.error || 'Falha ao alterar status')
+    return payload
+  }
+
   const handleBlockToggle = async (userId: string, currentStatus: boolean) => {
-    const supabase = getSupabase()
     const newStatus = !currentStatus
-    const { error } = await supabase.from('user_secrets').update({ is_blocked: newStatus }).eq('id', userId)
-    if (!error) {
+    try {
+      await setBlocked([userId], newStatus)
       setUsers(users.map(u => u.id === userId ? { ...u, is_blocked: newStatus } : u))
-      // Aqui a gente pode chamar a lib do toast, mas como nao temos, uso um alert customizado ou confio no layout
       showToast(`Usuário ${newStatus ? 'bloqueado' : 'desbloqueado'} com sucesso!`, 'success')
-    } else {
-      showToast('Erro ao alterar status: ' + error.message, 'error')
+    } catch (err) {
+      showToast('Erro ao alterar status: ' + (err as Error).message, 'error')
     }
   }
 
@@ -119,18 +131,15 @@ export default function AdminUsuarios() {
 
   const handleBulkBlock = async (shouldBlock: boolean) => {
     if (selectedIds.length === 0) return
-    const supabase = getSupabase()
-    
-    const { error } = await supabase.from('profiles')
-      .update({ is_blocked: shouldBlock })
-      .in('id', selectedIds)
-      
-    if (!error) {
+    // Escrevia em profiles.is_blocked — coluna removida pela migration
+    // 20260723072100_split_user_secrets.sql, ou seja, não bloqueava ninguém.
+    try {
+      await setBlocked(selectedIds, shouldBlock)
       setUsers(users.map(u => selectedIds.includes(u.id) ? { ...u, is_blocked: shouldBlock } : u))
       showToast(`${selectedIds.length} usuários ${shouldBlock ? 'bloqueados' : 'desbloqueados'}!`, 'success')
       setSelectedIds([])
-    } else {
-      showToast('Erro ao atualizar usuários: ' + error.message, 'error')
+    } catch (err) {
+      showToast('Erro ao atualizar usuários: ' + (err as Error).message, 'error')
     }
   }
 
