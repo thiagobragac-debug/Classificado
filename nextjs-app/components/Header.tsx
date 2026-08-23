@@ -78,7 +78,6 @@ export default function Header({
     try {
       const sb = getSupabase();
       const { data, error } = await sb.from('platform_settings').select('*');
-      console.log('[TC] platform_settings fetch:', { count: data?.length, error });
       if (!error && data && data.length > 0) {
         let changed = false;
         data.forEach((s: { key: string; value: string }) => {
@@ -87,7 +86,6 @@ export default function Header({
             changed = true;
           }
         });
-        console.log('[TC] settings changed:', changed, '| tc_logo_url exists:', !!localStorage.getItem('tc_logo_url'));
         if (changed) applyDynamicSettings();
       }
     } catch (err) {
