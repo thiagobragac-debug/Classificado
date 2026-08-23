@@ -254,9 +254,9 @@ export async function rpcToggleFav(adId: string) {
   if (!session) return false;
   
   try {
-    const { data, error } = await getSupabase().rpc('toggle_favorite_atomic', {
-      p_user_id: session.user.id, p_ad_id: adId
-    });
+    // A função deriva o usuário de auth.uid() internamente — nunca aceita
+    // p_user_id do cliente. Ver supabase/migrations/20260823140000.
+    const { data, error } = await getSupabase().rpc('toggle_favorite_atomic', { p_ad_id: adId });
     if (!error) return data;
   } catch (e) {}
 
@@ -388,8 +388,10 @@ export async function placeBid(auctionId: string, amount: number | string) {
     : amount;
   const numAmount = Number(sanitized);
   if (!isFinite(numAmount) || numAmount <= 0) throw new Error('Valor do lance inválido.');
+  // A função deriva o usuário de auth.uid() internamente — nunca aceita
+  // p_user_id do cliente. Ver supabase/migrations/20260823140000.
   const { data, error } = await getSupabase().rpc('place_bid_atomic', {
-    p_auction_id: auctionId, p_user_id: session.user.id, p_amount: numAmount
+    p_auction_id: auctionId, p_amount: numAmount
   });
   if (error) throw error;
   if (!data?.success) throw new Error(data?.error || 'Erro ao processar lance.');
