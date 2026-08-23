@@ -39,10 +39,24 @@ type GeoResult = {
   country:   string | null;   // nome PT: "Brasil"
 };
 
+// x-forwarded-for é enviado pelo cliente e só é confiável atrás de um proxy
+// que o reescreva. O valor entra concatenado na URL dos provedores de geo
+// (`https://ipwho.is/${ip}`), então precisa ser um IP de verdade — caso
+// contrário dá para injetar path na requisição que o servidor faz.
+const IPV4 = /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/;
+const IPV6 = /^[0-9a-fA-F:]{2,45}$/;
+
+function isValidIp(ip: string): boolean {
+  return IPV4.test(ip) || IPV6.test(ip);
+}
+
 export async function GET(request: NextRequest) {
   const forwarded = request.headers.get('x-forwarded-for');
   const realIp    = request.headers.get('x-real-ip');
-  const ip = forwarded?.split(',')[0].trim() ?? realIp ?? '127.0.0.1';
+  const candidate = forwarded?.split(',')[0].trim() || realIp || '127.0.0.1';
+  // Valor malformado é tratado como local: consulta o provedor sem IP na URL,
+  // que devolve a geo do próprio servidor, em vez de propagar lixo.
+  const ip = isValidIp(candidate) ? candidate : '127.0.0.1';
   const local = isLocalIp(ip);
 
   const HEADERS = { 'Cache-Control': 'private, max-age=3600' };
