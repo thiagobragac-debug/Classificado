@@ -27,13 +27,13 @@ export async function GET(request: NextRequest) {
   const apiKey = auth.apiKey
 
   if (!hasPermission(apiKey, 'read_users')) {
-    logRequest({ apiKey, request, statusCode: 403, durationMs: Date.now() - startTime, supabase: supabase as any })
+    logRequest({ apiKey, request, statusCode: 403, durationMs: Date.now() - startTime })
     return apiError('Forbidden: this key does not have read_users permission', 403)
   }
 
-  const rateLimit = await checkRateLimit(apiKey, supabase as any)
+  const rateLimit = await checkRateLimit(apiKey)
   if (!rateLimit.allowed) {
-    logRequest({ apiKey, request, statusCode: 429, durationMs: Date.now() - startTime, supabase: supabase as any })
+    logRequest({ apiKey, request, statusCode: 429, durationMs: Date.now() - startTime })
     return apiError(`Rate limit exceeded. Retry after: ${rateLimit.resetAt}`, 429, { retry_after: rateLimit.resetAt })
   }
 
@@ -66,11 +66,11 @@ export async function GET(request: NextRequest) {
   const durationMs = Date.now() - startTime
 
   if (error) {
-    logRequest({ apiKey, request, statusCode: 500, durationMs, supabase: supabase as any })
+    logRequest({ apiKey, request, statusCode: 500, durationMs })
     return apiError('Internal server error', 500)
   }
 
-  logRequest({ apiKey, request, statusCode: 200, durationMs, supabase: supabase as any })
+  logRequest({ apiKey, request, statusCode: 200, durationMs })
 
   const totalPages = count ? Math.ceil(count / limit) : 1
   return Response.json(

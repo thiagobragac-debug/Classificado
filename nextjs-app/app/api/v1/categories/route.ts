@@ -30,14 +30,14 @@ export async function GET(request: NextRequest) {
 
   // 2. Check permission
   if (!hasPermission(apiKey, 'read_ads')) {
-    logRequest({ apiKey, request, statusCode: 403, durationMs: Date.now() - startTime, supabase: supabase as any })
+    logRequest({ apiKey, request, statusCode: 403, durationMs: Date.now() - startTime })
     return apiError('Forbidden: this key does not have read_ads permission', 403)
   }
 
   // 3. Rate limit
-  const rateLimit = await checkRateLimit(apiKey, supabase as any)
+  const rateLimit = await checkRateLimit(apiKey)
   if (!rateLimit.allowed) {
-    logRequest({ apiKey, request, statusCode: 429, durationMs: Date.now() - startTime, supabase: supabase as any })
+    logRequest({ apiKey, request, statusCode: 429, durationMs: Date.now() - startTime })
     return apiError(
       `Rate limit exceeded. Limit: ${apiKey.rate_limit} req/min. Retry after: ${rateLimit.resetAt}`,
       429,
@@ -55,12 +55,12 @@ export async function GET(request: NextRequest) {
   const durationMs = Date.now() - startTime
 
   if (error) {
-    logRequest({ apiKey, request, statusCode: 500, durationMs, supabase: supabase as any })
+    logRequest({ apiKey, request, statusCode: 500, durationMs })
     return apiError('Internal server error', 500)
   }
 
   // 5. Log (fire-and-forget)
-  logRequest({ apiKey, request, statusCode: 200, durationMs, supabase: supabase as any })
+  logRequest({ apiKey, request, statusCode: 200, durationMs })
 
   return Response.json(
     {

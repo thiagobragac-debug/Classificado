@@ -85,12 +85,16 @@ export function hasPermission(apiKey: ApiKey, required: string): boolean {
 // Strategy: Uses Upstash Redis when configured (UPSTASH_REDIS_REST_URL +
 // UPSTASH_REDIS_REST_TOKEN in .env.local) for horizontal scale.
 // Falls back automatically to DB-based sliding window — no config needed.
+// O client é criado aqui dentro, com service_role: api_request_logs e api_keys
+// não são acessíveis pela anon key. As rotas passavam o próprio client anon
+// (mascarado por `as any`), então o fallback de rate limit lia zero registros
+// e o last_used_at nunca era gravado.
 export async function checkRateLimit(
-  apiKey: ApiKey,
-  supabase: ReturnType<typeof getServiceClient>
+  apiKey: ApiKey
 ): Promise<{ allowed: boolean; remaining: number; resetAt: string }> {
   const limit = apiKey.rate_limit || 100
   const resetAt = new Date(Date.now() + 60 * 1000).toISOString()
+  const supabase = getServiceClient()
 
   // ── Upstash Redis path ────────────────────────────────────────────────────
   const redisUrl   = process.env.UPSTASH_REDIS_REST_URL
@@ -138,9 +142,12 @@ export function logRequest(params: {
   request: NextRequest
   statusCode: number
   durationMs: number
-  supabase: ReturnType<typeof getServiceClient>
 }): void {
-  const { apiKey, request, statusCode, durationMs, supabase } = params
+  const { apiKey, request, statusCode, durationMs } = params
+  // service_role: a anon key não tem policy de INSERT em api_request_logs nem
+  // de UPDATE em api_keys — os dois writes abaixo falhavam em silêncio, porque
+  // o .catch() de fire-and-forget engole o erro.
+  const supabase = getServiceClient()
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
              || request.headers.get('x-real-ip')
              || '0.0.0.0'

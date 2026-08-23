@@ -9,6 +9,7 @@ import {
   apiError,
   corsHeaders,
   rateLimitHeaders,
+  getServiceClient,
 } from '@/lib/api-auth'
 
 export async function OPTIONS() {
@@ -25,13 +26,13 @@ export async function GET(request: NextRequest) {
   const apiKey = auth.apiKey
 
   if (!hasPermission(apiKey, 'read_ads')) {
-    logRequest({ apiKey, request, statusCode: 403, durationMs: Date.now() - startTime, supabase: supabase as any })
+    logRequest({ apiKey, request, statusCode: 403, durationMs: Date.now() - startTime })
     return apiError('Forbidden: this key does not have read_ads permission', 403)
   }
 
-  const rateLimit = await checkRateLimit(apiKey, supabase as any)
+  const rateLimit = await checkRateLimit(apiKey)
   if (!rateLimit.allowed) {
-    logRequest({ apiKey, request, statusCode: 429, durationMs: Date.now() - startTime, supabase: supabase as any })
+    logRequest({ apiKey, request, statusCode: 429, durationMs: Date.now() - startTime })
     return apiError(`Rate limit exceeded. Retry after: ${rateLimit.resetAt}`, 429, { retry_after: rateLimit.resetAt })
   }
 
@@ -68,11 +69,11 @@ export async function GET(request: NextRequest) {
   const durationMs = Date.now() - startTime
 
   if (error) {
-    logRequest({ apiKey, request, statusCode: 500, durationMs, supabase: supabase as any })
+    logRequest({ apiKey, request, statusCode: 500, durationMs })
     return apiError('Internal server error', 500)
   }
 
-  logRequest({ apiKey, request, statusCode: 200, durationMs, supabase: supabase as any })
+  logRequest({ apiKey, request, statusCode: 200, durationMs })
 
   const totalPages = count ? Math.ceil(count / limit) : 1
   return Response.json(
@@ -84,20 +85,29 @@ export async function GET(request: NextRequest) {
 // ─── POST /api/v1/ads ─────────────────────────────────────────────────────────
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, { auth: { persistSession: false } })
+  // Escrita usa service_role. A anon key não tem policy de INSERT em `ads`
+  // (a policy exige auth.uid() = user_id, e aqui não há sessão de usuário),
+  // então este insert falhava por RLS. A alternativa seria uma policy
+  // `WITH CHECK (true)`, mas ela valeria para qualquer visitante do site —
+  // a anon key está no bundle do browser. Ver
+  // supabase/migrations/20260724_api_rls_fixes.sql.
+  //
+  // A autorização é da camada de aplicação: API key válida, permissão
+  // write_ads, rate limit e o payload em allowlist montado abaixo.
+  const supabase = getServiceClient()
 
   const auth = await authenticateApiKey(request)
   if (!auth.ok || !auth.apiKey) return apiError(auth.error!, auth.status!)
   const apiKey = auth.apiKey
 
   if (!hasPermission(apiKey, 'write_ads')) {
-    logRequest({ apiKey, request, statusCode: 403, durationMs: Date.now() - startTime, supabase: supabase as any })
+    logRequest({ apiKey, request, statusCode: 403, durationMs: Date.now() - startTime })
     return apiError('Forbidden: this key does not have write_ads permission', 403)
   }
 
-  const rateLimit = await checkRateLimit(apiKey, supabase as any)
+  const rateLimit = await checkRateLimit(apiKey)
   if (!rateLimit.allowed) {
-    logRequest({ apiKey, request, statusCode: 429, durationMs: Date.now() - startTime, supabase: supabase as any })
+    logRequest({ apiKey, request, statusCode: 429, durationMs: Date.now() - startTime })
     return apiError(`Rate limit exceeded. Retry after: ${rateLimit.resetAt}`, 429, { retry_after: rateLimit.resetAt })
   }
 
@@ -171,11 +181,11 @@ export async function POST(request: NextRequest) {
                   : error.code === '23514' ? 'Validation constraint failed'
                   : 'Failed to create ad'
     const safeStatus = error.code?.startsWith('23') ? 400 : 500
-    logRequest({ apiKey, request, statusCode: safeStatus, durationMs, supabase: supabase as any })
+    logRequest({ apiKey, request, statusCode: safeStatus, durationMs })
     return apiError(safeMsg, safeStatus)
   }
 
-  logRequest({ apiKey, request, statusCode: 201, durationMs, supabase: supabase as any })
+  logRequest({ apiKey, request, statusCode: 201, durationMs })
 
   return Response.json(
     { data, message: 'Ad created successfully' },
