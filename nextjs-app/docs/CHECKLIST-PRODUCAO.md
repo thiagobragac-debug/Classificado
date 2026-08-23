@@ -66,30 +66,36 @@ de login.
 **Dashboard → Authentication → Attack Protection** — habilitar CAPTCHA
 (hCaptcha ou Turnstile). Exige também passar o token no cliente.
 
-### 3. Limites nos buckets de storage
+### 3. ✅ Limites nos buckets de storage — APLICADO em 2026-08-22
 
-Verificado — cinco sem limite algum:
+Estado final:
 
-| Bucket | Estado |
-|---|---|
-| `ad-images` | sem limite, qualquer tipo |
-| `ad-videos` | sem limite, qualquer tipo |
-| `profile-banners` | sem limite, qualquer tipo |
-| `kyc-docs` | sem limite, qualquer tipo |
-| `kyc-documents` | sem limite (bucket órfão, ver item 7) |
-| `site-assets` | ✅ 5 MB, png/jpeg/webp |
+| Bucket | Público | Limite | Tipos aceitos |
+|---|---|---|---|
+| `ad-images` | sim | 5 MB | png, jpeg, webp |
+| `ad-videos` | sim | 50 MB | mp4, webm |
+| `profile-banners` | sim | 5 MB | png, jpeg, webp |
+| `kyc-docs` | não | 10 MB | png, jpeg, webp, pdf |
+| `site-assets` | sim | 5 MB | png, jpeg, webp |
 
-Qualquer usuário autenticado pode enviar arquivo de qualquer tipo e tamanho
-para buckets públicos. A validação existente é client-side e se contorna com
-chamada direta à API usando a anon key, que é pública.
+Antes, os cinco aceitavam qualquer arquivo de qualquer tamanho. A validação que
+existia era client-side e se contornava com chamada direta à API usando a anon
+key, que é pública.
 
-**Não esvazia nada:** no Supabase esses limites valem apenas para uploads
-**novos**. Arquivo já armazenado continua intacto e acessível.
+Verificado após aplicar:
 
-```bash
-node scripts/aplicar-limites-buckets.mjs            # mostra o que mudaria
-node scripts/aplicar-limites-buckets.mjs --aplicar  # aplica
 ```
+PNG válido em ad-images  -> aceito
+HTML em ad-images        -> RECUSADO (mime type text/html is not supported)
+SVG em ad-images         -> RECUSADO
+PNG de 6 MB              -> RECUSADO
+PDF em kyc-docs          -> aceito
+```
+
+Conteúdo preexistente conferido e intacto; o logo continua servindo 200.
+
+Para revisar ou reaplicar: `node scripts/aplicar-limites-buckets.mjs`
+(dry-run) ou `--aplicar`.
 
 ---
 
@@ -126,10 +132,14 @@ latência e poupa conexão do banco — não é necessário.
 
 ## 🔵 Limpeza
 
-### 7. Remover o bucket `kyc-documents`
+### 7. ✅ Bucket `kyc-documents` removido em 2026-08-22
 
-Órfão desde a unificação do fluxo KYC. Verificado: **0 objetos**. O fluxo todo
-usa `kyc-docs`.
+Órfão desde a unificação do fluxo KYC. Antes de remover: 0 objetos na raiz e
+nas subpastas, 0 linhas de `verification_requests` apontando para ele, nenhuma
+referência funcional no código. O fluxo todo usa `kyc-docs`.
+
+`app/api/admin/kyc-url/route.ts` ainda cita o nome ao interpretar URLs legadas
+— é parser defensivo, não uso do bucket, e pode ficar.
 
 ### 8. Um usuário acima da cota
 
