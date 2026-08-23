@@ -52,7 +52,7 @@ que a linha em `subscriptions` vira `active`.
 
 ## 🟠 Segurança — antes de abrir ao público
 
-### 2. Rate limit e CAPTCHA no Supabase Auth
+### 2. CAPTCHA no Supabase Auth (correção do que este item dizia antes)
 
 O login **não passa pelo nosso servidor**: `lib/supabase.ts` usa
 `createBrowserClient`, então `signInWithPassword()` posta direto do navegador
@@ -60,11 +60,38 @@ para `<projeto>.supabase.co/auth/v1/token`. O rate limit do `proxy.ts` cobre o
 carregamento da página `/login` e as rotas `/auth/*` que rodam aqui — não é a
 barreira contra força bruta de senha.
 
-**Dashboard → Authentication → Rate Limits** — reduzir o limite de tentativas
-de login.
+**Lido o config real de Auth via Management API (2026-08-23)** — a config atual
+tem `rate_limit_email_sent`, `rate_limit_sms_sent`, `rate_limit_otp`,
+`rate_limit_verify`, `rate_limit_token_refresh`, `rate_limit_anonymous_users`,
+`rate_limit_web3`. **Não existe nenhum rate limit dedicado a tentativa de
+login com senha** — essa lista inteira é sobre e-mail/SMS/OTP/token, não sobre
+`POST /auth/v1/token?grant_type=password`. Ou seja: a recomendação anterior de
+"reduzir o limite de tentativas de login" não tinha onde ser aplicada — não
+existe esse botão nesta API. Correção do meu próprio item.
 
-**Dashboard → Authentication → Attack Protection** — habilitar CAPTCHA
-(hCaptcha ou Turnstile). Exige também passar o token no cliente.
+**A defesa real contra força bruta de senha no Supabase é CAPTCHA**, não rate
+limit numérico. Estado atual, confirmado:
+
+```
+security_captcha_enabled  = false
+security_captcha_provider = hcaptcha
+security_captcha_secret   = null
+```
+
+Para ligar:
+
+1. Criar conta em [hCaptcha](https://hcaptcha.com) ou usar **Cloudflare
+   Turnstile** (gratuito, sem "resolver quebra-cabeça" na maioria dos casos) —
+   conta de terceiro, não é algo que eu resolvo por você.
+2. Copiar site key + secret key.
+3. Me avisar — com o PAT eu ligo `security_captcha_enabled=true` e configuro o
+   `security_captcha_secret` via Management API.
+4. **Isto também exige mudança de código** que ainda não fiz: o widget de
+   CAPTCHA precisa aparecer em `LoginForm.tsx`/`RegisterForm.tsx` e o token
+   gerado por ele precisa ser passado em `signInWithPassword({ options: {
+   captchaToken } })` / `signUp({ options: { captchaToken } })` — sem isso,
+   ligar o CAPTCHA no servidor sem o cliente enviar o token trava o login para
+   todo mundo. Avise quando tiver as chaves que eu faço os dois lados juntos.
 
 ### 3. ✅ Limites nos buckets de storage — APLICADO em 2026-08-22
 
@@ -174,40 +201,70 @@ estado atual, não protege nada. Trabalho acontece só em
 versão corrigida; trocar o editor é decisão de produto, não urgência de
 segurança. As 6 de severidade alta foram resolvidas com Next 16.3.2.
 
-### 11. Funções de banco sem migration versionada
+### 11. ✅ Funções de banco versionadas e revisadas — 2026-08-23
 
-`place_bid_atomic`, `toggle_favorite_atomic`, `get_localized_recent_ads`,
+Resolvido assim que o PAT ficou disponível. Capturei o código-fonte real de
+produção via Management API (`pg_get_functiondef`) e revisei cada uma.
+
+**Achado grave — `place_bid_atomic` estava 100% quebrada em produção.** A
+função ainda comparava `status != 'active'`, mas o enum `auction_status` só
+aceita `scheduled|live|ended|canceled` — nunca existiu `'active'`. **Todo
+lance em todo leilão falhava**, sempre, sem exceção. `placeBid()` não tem
+fallback — o usuário só via "Erro ao processar lance." A feature "Leilões Ao
+Vivo" estava fora do ar e, pelo visto, ninguém tinha notado ou reportado.
+
+A mesma função (e `toggle_favorite_atomic`) também confiava num `p_user_id`
+vindo do cliente em vez de derivar de `auth.uid()`, sendo `SECURITY DEFINER`
+com `EXECUTE` liberado para `anon` — confirmado via
+`information_schema.routine_privileges`. Isso contorna a própria RLS das
+tabelas (`auction_bids`/`favorites` já exigem `auth.uid() = user_id` num
+INSERT direto). Não era explorável hoje só porque o bug de schema acima fazia
+a função falhar antes de chegar no INSERT — confirmado gravando 0 lances num
+leilão de teste isolado.
+
+**Corrigido em `20260823140000_fix_bid_and_favorite_functions.sql`** — schema
+realinhado, identidade derivada de `auth.uid()` internamente, `EXECUTE`
+revogado de `anon`. Testado com `BEGIN; ... ROLLBACK;` contra produção via
+Management API antes de qualquer aplicação real (HTTP 201, sem erro; rollback
+confirmado — as funções em produção seguem com a assinatura antiga).
+
+**`toggle_favorite_atomic` também estava quebrada**, mas mascarada: tinha
+`p_ad_id text` comparado contra uma coluna `uuid` sem cast — erro
+`operator does not exist: uuid = text` em toda chamada. Só não virou incidente
+visível porque `rpcToggleFav()` tem um `catch` com fallback que refaz a
+operação via INSERT/DELETE direto. Favoritar segue funcionando hoje, só sem a
+atomicidade que a função deveria garantir.
+
+**`get_api_daily_stats` não existe** — a função real chama-se `get_api_stats`,
+com formato bem diferente (totais agregados, não série diária). A página
+`/admin/api-keys/usage` já tem fallback que calcula tudo no cliente quando a
+RPC falha (confirmado lendo o código) — painel admin, sem tráfego de API real
+hoje. Não corrigido: implementar de verdade seria escrever uma função nova, não
+um bug fix.
+
+As 6 restantes (`get_localized_recent_ads` — 2 overloads —,
 `get_localized_featured_ads`, `get_localized_top_sellers`, `get_seller_stats`,
-`enforce_plan_expiration`, `increment_ad_view_safe`, `get_api_daily_stats` —
-todas usadas em produção, verificado via `.rpc()` que existem, mas **nenhuma
-tem migration correspondente**. Foram criadas direto no SQL Editor do
-dashboard em algum momento, fora do controle de versão.
+`enforce_plan_expiration`) foram lidas e **nenhum defeito funcional
+encontrado**; versionadas como estão em
+`20260823141500_versionar_funcoes_rpc_restantes.sql` (puro backfill, sem
+mudança de comportamento). `get_seller_stats` e `enforce_plan_expiration` têm
+o mesmo padrão de parâmetro de identidade não verificado contra `auth.uid()`,
+mas sem exploração real: a primeira é leitura pública, a segunda só antecipa
+um downgrade que já aconteceria de qualquer forma quando o plano vence.
 
-Consequências reais, não teóricas:
-
-- Recriar o banco a partir das migrations (ambiente novo, disaster recovery,
-  staging) deixaria essas funções ausentes — o app quebraria com "function
-  does not exist" em lances de leilão, favoritos e toda a home.
-- Ninguém revisa mudança nelas em PR; não há histórico de quem alterou o quê.
-
-**Eu não tenho como escrever a migration retroativa** sem ver o código-fonte
-atual de cada função — o PostgREST não expõe `pg_proc` e eu não tenho um
-Personal Access Token para consultar pela Management API. Requer alguém com
-acesso ao SQL Editor rodar, para cada função:
-
-```sql
-select pg_get_functiondef(oid) from pg_proc where proname = 'place_bid_atomic';
-```
-
-...e colar o resultado numa migration nova. Uma vez com o texto em mãos, eu
-consigo revisar a lógica e apontar problemas, se houver.
+**Ainda pendente — decisão sua**: as migrations `20260823140000` e
+`20260823141500` estão escritas, versionadas no commit, e testadas via
+dry-run contra produção, mas **não aplicadas de verdade ainda**. Aplicar do
+jeito de sempre (SQL Editor / `psql`) ou autorizar que eu aplique agora via a
+mesma Management API que já usei para o dry-run — sua escolha.
 
 ---
 
 ## Migrations
 
-16 arquivos em `supabase/migrations/`. As 7 criadas nesta revisão foram
-aplicadas e validadas em produção:
+18 arquivos em `supabase/migrations/`. As 7 primeiras criadas nesta revisão
+foram aplicadas e validadas em produção; as 2 últimas estão escritas, testadas
+via dry-run, mas aguardando aplicação (item 11):
 
 | Migration | O que faz | Validado |
 |---|---|---|
@@ -218,6 +275,8 @@ aplicadas e validadas em produção:
 | `20260822120400` | trava `verified` / `kyc_status` | 42501 nas 2 tentativas |
 | `20260822120500` | rate limit com janela no Postgres | 30x 200 + 5x 429 |
 | `20260823090000` | impede autoavaliação e nota duplicada em `seller_reviews` | 23514 e 23505 nas 2 tentativas |
+| `20260823140000` | conserta `place_bid_atomic` e `toggle_favorite_atomic` | ⏳ dry-run OK, aguardando aplicação |
+| `20260823141500` | versiona as 6 funções RPC restantes (sem mudança de lógica) | ⏳ dry-run OK, aguardando aplicação |
 
 Todas idempotentes (`create or replace`, `drop ... if exists`, ou `DO $$ IF NOT
 EXISTS` para `ALTER TABLE`) — podem ser reexecutadas sem efeito colateral.
