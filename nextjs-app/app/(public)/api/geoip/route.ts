@@ -9,6 +9,7 @@
  * 3. ipapi.co    — fallback final (~500-1000ms quando disponível)
  */
 import { NextResponse, type NextRequest } from 'next/server';
+import { resolverIpConfiavel, isValidIp, isLocalIp } from '@/lib/ip-utils';
 
 const COUNTRY_MAP: Record<string, string> = {
   BR: 'Brasil', UY: 'Uruguai', AR: 'Argentina',
@@ -24,14 +25,6 @@ function normalizeCountry(code: string): string {
   return COUNTRY_MAP[code?.toUpperCase()] ?? code;
 }
 
-function isLocalIp(ip: string) {
-  return !ip || ip === '127.0.0.1' || ip === '::1'
-    || ip.startsWith('192.168.') || ip.startsWith('10.')
-    || ip.startsWith('172.16.') || ip.startsWith('172.17.')
-    || ip.startsWith('172.18.') || ip.startsWith('172.19.')
-    || ip.startsWith('172.2') || ip.startsWith('172.3');
-}
-
 type GeoResult = {
   city:      string | null;
   state:     string | null;   // nome completo: "Minas Gerais"
@@ -39,23 +32,16 @@ type GeoResult = {
   country:   string | null;   // nome PT: "Brasil"
 };
 
-// x-forwarded-for é enviado pelo cliente e só é confiável atrás de um proxy
-// que o reescreva. O valor entra concatenado na URL dos provedores de geo
-// (`https://ipwho.is/${ip}`), então precisa ser um IP de verdade — caso
-// contrário dá para injetar path na requisição que o servidor faz.
-const IPV4 = /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/;
-const IPV6 = /^[0-9a-fA-F:]{2,45}$/;
-
-function isValidIp(ip: string): boolean {
-  return IPV4.test(ip) || IPV6.test(ip);
-}
-
 export async function GET(request: NextRequest) {
-  const forwarded = request.headers.get('x-forwarded-for');
-  const realIp    = request.headers.get('x-real-ip');
-  const candidate = forwarded?.split(',')[0].trim() || realIp || '127.0.0.1';
-  // Valor malformado é tratado como local: consulta o provedor sem IP na URL,
-  // que devolve a geo do próprio servidor, em vez de propagar lixo.
+  // resolverIpConfiavel/isValidIp vivem em lib/ip-utils.ts (testadas em
+  // lib/ip-utils.test.ts). Esta rota usava `forwarded?.split(',')[0]` — o
+  // primeiro item do x-forwarded-for, que é a parte que o cliente controla.
+  // Aqui isso não abria brecha de autorização (a rota só devolve geo, não
+  // decide acesso), mas produzia geolocalização errada sempre que havia mais
+  // de um proxy no caminho. O valor entra concatenado na URL dos provedores
+  // de geo (`https://ipwho.is/${ip}`), então também precisa ser um IP válido
+  // — caso contrário dá para injetar path na requisição que o servidor faz.
+  const candidate = resolverIpConfiavel(request.headers);
   const ip = isValidIp(candidate) ? candidate : '127.0.0.1';
   const local = isLocalIp(ip);
 
