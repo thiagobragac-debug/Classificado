@@ -200,6 +200,7 @@ export default function Header({
               {isLoggedIn ? (
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '16px' }}>
                   <Link href="/painel#messages" title="Minhas Mensagens"
+                    onClick={() => window.dispatchEvent(new CustomEvent('painel:switchtab', { detail: 'messages' }))}
                     style={{
                       position: 'relative', cursor: 'pointer', display: 'flex', alignItems: 'center',
                       justifyContent: 'center', width: 42, height: 42, borderRadius: '50%',
@@ -246,19 +247,19 @@ export default function Header({
                             {userSession?.user?.email || 'Usuário Premium'}
                           </span>
                         </div>
-                        <Link href="/painel" onClick={() => setUserMenuOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', color: 'var(--clr-text)', textDecoration: 'none', fontSize: '0.92rem', borderRadius: 10, fontWeight: 600 }}>
+                        <Link href="/painel" onClick={() => { setUserMenuOpen(false); window.dispatchEvent(new CustomEvent('painel:switchtab', { detail: 'ads' })) }} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', color: 'var(--clr-text)', textDecoration: 'none', fontSize: '0.92rem', borderRadius: 10, fontWeight: 600 }}>
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.8 }}><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
                           <span>Meu Painel</span>
                         </Link>
-                        <Link href="/painel#ads" onClick={() => setUserMenuOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', color: 'var(--clr-text)', textDecoration: 'none', fontSize: '0.92rem', borderRadius: 10, fontWeight: 600 }}>
+                        <Link href="/painel#ads" onClick={() => { setUserMenuOpen(false); window.dispatchEvent(new CustomEvent('painel:switchtab', { detail: 'ads' })) }} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', color: 'var(--clr-text)', textDecoration: 'none', fontSize: '0.92rem', borderRadius: 10, fontWeight: 600 }}>
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.8 }}><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
                           <span>Meus Anúncios</span>
                         </Link>
-                        <Link href="/painel#messages" onClick={() => setUserMenuOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', color: 'var(--clr-text)', textDecoration: 'none', fontSize: '0.92rem', borderRadius: 10, fontWeight: 600 }}>
+                        <Link href="/painel#messages" onClick={() => { setUserMenuOpen(false); window.dispatchEvent(new CustomEvent('painel:switchtab', { detail: 'messages' })) }} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', color: 'var(--clr-text)', textDecoration: 'none', fontSize: '0.92rem', borderRadius: 10, fontWeight: 600 }}>
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.8 }}><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
                           <span>Minhas Mensagens</span>
                         </Link>
-                        <Link href="/painel#billing" onClick={() => setUserMenuOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', color: 'var(--clr-text)', textDecoration: 'none', fontSize: '0.92rem', borderRadius: 10, fontWeight: 600 }}>
+                        <Link href="/painel#billing" onClick={() => { setUserMenuOpen(false); window.dispatchEvent(new CustomEvent('painel:switchtab', { detail: 'billing' })) }} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', color: 'var(--clr-text)', textDecoration: 'none', fontSize: '0.92rem', borderRadius: 10, fontWeight: 600 }}>
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.8 }}><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
                           <span>Minha Assinatura</span>
                         </Link>

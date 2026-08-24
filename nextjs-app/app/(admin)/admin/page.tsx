@@ -20,30 +20,35 @@ export default function AdminDashboard() {
 
   async function loadRealStats() {
     const supabase = getSupabase()
-    
-    // Total Ads
-    const { count: adsCount } = await supabase.from('ads').select('*', { count: 'exact', head: true })
-    
-    // Active Users (Verified or just total)
-    const { count: activeUsers } = await supabase.from('profiles').select('*', { count: 'exact', head: true })
-    
-    // Pending Auth (KYC pending)
-    const { count: pendingAuth } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('kyc_status', 'pending')
-    
-    // Open Reports (assuming reports table exists, else fallback to 0)
-    const { count: reports } = await supabase.from('reports').select('*', { count: 'exact', head: true }).eq('status', 'open').catch(() => ({ count: 0 }))
-    
-    // New Today (Ads created today)
+
+    // BUG CORRIGIDO: supabase.from(...).select(...) não tem método .catch()
+    // (não é uma Promise nativa, é um PostgrestBuilder — thenable, mas sem
+    // catch/finally). A chamada `.catch(() => ({count: 0}))` lançava
+    // TypeError síncrono ("...catch is not a function") ANTES mesmo de
+    // awaitar a consulta de denúncias, o que abortava loadRealStats inteira
+    // com uma promise rejeitada — como o setStats(...) só roda no final da
+    // função, NENHUM dos 5 valores (mesmo os já buscados com sucesso antes
+    // dessa linha) chegava a ser aplicado. Resultado real: o dashboard
+    // ficava travado nos zeros iniciais para sempre, não importa quantos
+    // usuários/anúncios existissem. Cada consulta agora trata seu próprio
+    // erro (tabela 'reports' pode nem existir ainda) sem derrubar as demais.
+    const [adsRes, usersRes, pendingRes, reportsRes] = await Promise.all([
+      supabase.from('ads').select('*', { count: 'exact', head: true }),
+      supabase.from('profiles').select('*', { count: 'exact', head: true }),
+      supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('kyc_status', 'pending'),
+      supabase.from('reports').select('*', { count: 'exact', head: true }).eq('status', 'open'),
+    ])
+
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    const { count: newToday } = await supabase.from('ads').select('*', { count: 'exact', head: true }).gte('created_at', today.toISOString())
+    const newTodayRes = await supabase.from('ads').select('*', { count: 'exact', head: true }).gte('created_at', today.toISOString())
 
     setStats({
-      adsCount: adsCount || 0,
-      newToday: newToday || 0,
-      activeUsers: activeUsers || 0,
-      pendingAuth: pendingAuth || 0,
-      reports: reports || 0,
+      adsCount: adsRes.count || 0,
+      newToday: newTodayRes.count || 0,
+      activeUsers: usersRes.count || 0,
+      pendingAuth: pendingRes.count || 0,
+      reports: reportsRes.error ? 0 : (reportsRes.count || 0),
       revenue: 0 // Keep 0 for now until payment integration is done
     })
   }

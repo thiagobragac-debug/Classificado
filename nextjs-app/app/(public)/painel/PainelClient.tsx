@@ -20,12 +20,42 @@ export default function PainelClient({ initialUser, initialStats }: { initialUse
   const [subscriptionSuccess, setSubscriptionSuccess] = useState(false)
   const [checkoutCancelled, setCheckoutCancelled] = useState(false)
 
-  // Lazy initializer: roda apenas no cliente, nunca no SSR — evita hydration mismatch
-  const [activeTab, setActiveTab] = useState<Tab>(() => {
-    if (typeof window === 'undefined') return 'ads';
-    const hash = window.location.hash.replace('#', '') as Tab;
-    return validTabs.includes(hash) ? hash : 'ads';
-  });
+  // Sempre nasce em 'ads', igual ao servidor (fragmentos de URL nunca chegam
+  // ao servidor, então ele não tem como saber qual aba a URL pedia). A
+  // versão anterior lia window.location.hash direto no useState — parecia
+  // funcionar, mas causava hydration mismatch toda vez que alguém abria
+  // /painel#messages (ou qualquer link com hash) direto: o servidor
+  // renderizava 'ads', o cliente já nascia em outra aba, e o React
+  // descartava a árvore inteira pra regenerar do zero (visível como
+  // "Hydration failed" no console, sem nenhum erro visual óbvio pro
+  // usuário — mas gastando um render inteiro à toa).
+  const [activeTab, setActiveTab] = useState<Tab>('ads');
+
+  // Lê a hash da URL uma vez ao montar, pra abrir já na aba certa quando a
+  // própria URL pedir uma (link externo, bookmark, F5) — sem quebrar a
+  // hidratação, por isso é useEffect e não o useState acima.
+  useEffect(() => {
+    const hash = window.location.hash.replace('#', '') as Tab
+    if (validTabs.includes(hash)) setActiveTab(hash)
+  }, [])
+
+  // Troca de aba pedida de FORA deste componente — hoje só o Header, nos
+  // links "Minhas Mensagens"/"Meus Anúncios"/"Assinatura e Faturas". Esses
+  // links usam next/link para /painel#hash: como a rota não muda (já
+  // estamos em /painel), o React não remonta este componente, então o
+  // useEffect acima nunca roda de novo. 'hashchange' não ajuda (o next/link
+  // não dispara esse evento nativo) e nem dá pra confiar em
+  // history.pushState/Navigation API — o Header dispara este evento próprio
+  // no onClick como sinal direto, sem depender de nenhum mecanismo interno
+  // do framework.
+  useEffect(() => {
+    const onSwitchTab = (e: Event) => {
+      const tab = (e as CustomEvent<Tab>).detail
+      if (validTabs.includes(tab)) setActiveTab(tab)
+    }
+    window.addEventListener('painel:switchtab', onSwitchTab)
+    return () => window.removeEventListener('painel:switchtab', onSwitchTab)
+  }, [])
 
   // Show success banner if redirected from checkout
   useEffect(() => {
