@@ -9,6 +9,44 @@ diretamente. Reconfira antes do go-live.
 
 ---
 
+## 🧪 Teste completo do site — 2026-08-24
+
+Pedido: navegar o site inteiro como usuário comum e como admin (não só ler
+código). Metodologia: usuário descartável criado via Admin Auth API,
+navegador real contra `npm run dev` local apontando pro banco de produção,
+tudo removido e a limpeza confirmada por leitura independente ao final.
+
+**Como usuário:** login, criação de anúncio (moderação esconde corretamente
+o anúncio pendente da listagem pública), favoritar, mensagem para vendedor
+— todos funcionaram. Achado e corrigido: troca de aba no `/painel` pelos
+links do Header não funcionava (ver commit `384dba0`).
+
+**Como admin** (precisou de `user_secrets.is_admin = true` — note que existe
+também um `profiles.is_admin`, mas é esse OUTRO que realmente controla o
+acesso a `/admin`, conferido em `app/(admin)/layout.tsx`; os dois campos
+existirem em tabelas diferentes com o mesmo nome é uma armadilha fácil de
+cair, vale unificar ou pelo menos documentar num comentário no schema).
+Dashboard, Anúncios (aprovação testada de verdade), Usuários (proteção
+"admin não pode bloquear a si mesmo" confirmada), Denúncias e Verificações
+— todos carregaram com dados reais. Achado e corrigido: dashboard sempre
+mostrava zero em tudo (ver commit `384dba0`).
+
+**Não testado nesta rodada:** leilões com lances ao vivo (não há lotes
+cadastrados no leilão agendado atual — precisa de dados de teste
+específicos para lances), e as seções administrativas de Banners, Planos,
+Categorias, Cupons, Páginas Institucionais e Depoimentos (carregamento não
+verificado, sem indício de problema, apenas não chegou a ser clicado).
+
+**Nota para reproduzir localmente:** o site registra um Service Worker
+(`tc-static-v4`) que cacheia os bundles JS agressivamente — depois de
+qualquer alteração de código, é preciso desregistrar o SW e limpar o cache
+do navegador (`caches.keys()` + `.delete()`) antes de recarregar, senão o
+browser continua rodando a versão antiga mesmo com o servidor já
+recompilado. Isso não é um bug do site, é comportamento esperado de PWA,
+mas custou bastante tempo de investigação nesta sessão até ficar claro.
+
+---
+
 ## 🔴 Bloqueador
 
 ### 0. Access token do Mercado Pago está inválido — 2026-08-24
