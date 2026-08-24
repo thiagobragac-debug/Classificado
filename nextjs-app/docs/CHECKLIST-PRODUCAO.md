@@ -98,6 +98,31 @@ dashboard do Pagar.me) e ajuste `lib/gateways/pagarme.ts:validateWebhook` de
 acordo — sem essa confirmação, o secret pode ficar configurado e ainda assim
 rejeitar 100% dos webhooks legítimos, um segundo modo de falha silenciosa.
 
+### ✅ Validado ponta a ponta contra API real de sandbox
+
+Além dos 113 testes com fetch mockado, dois gateways já tiveram
+`createSubscription`/`cancelSubscription` executados de verdade — código
+real e não modificado, importado num arquivo de teste transitório (apagado
+logo depois, nunca commitado):
+
+- **Asaas** (2026-08-23) — `createSubscription` com cartão de teste e IP
+  real: criou assinatura (`sub_4mx499w78e9tpyww`) e cliente
+  (`cus_000008837337`); `cancelSubscription` confirmado via GET
+  independente (`status: INACTIVE`, `deleted: true`).
+- **Stripe** (2026-08-24) — publishable key fornecida pelo usuário conferida
+  como idêntica à já salva em produção e autenticada com sucesso na API real
+  (chamada de controle com chave inválida confirmou que o erro recebido era
+  de regra de negócio, não de autenticação). Em seguida, `createSubscription`
+  completo com PaymentMethod real (token de teste oficial `tok_visa`):
+  assinatura criada e confirmada `status: active` via GET independente,
+  valor/moeda conferidos (`2990` centavos, `brl`). `cancelSubscription`
+  confirmado via GET independente (`cancel_at_period_end: true`). Limpeza
+  (cancelamento imediato) verificada via listagem de assinaturas canceladas.
+
+Mercado Pago e Pagar.me seguem apenas no nível 2 (código correto contra a
+doc oficial + auto-consistente nos testes mockados) — sem chave de sandbox
+fornecida ainda para repetir esse teste.
+
 ---
 
 ## 🔧 Validação do pipeline admin → runtime — 2026-08-24
