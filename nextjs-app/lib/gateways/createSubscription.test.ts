@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { stripeAdapter } from './stripe';
 import { asaasAdapter } from './asaas';
+import { pagarmeAdapter } from './pagarme';
 import type { GatewayPlan, GatewayUser, PaymentData } from './types';
 
 // Testa a FORMA da requisição que cada adapter monta para criar uma
@@ -155,5 +156,113 @@ describe('asaasAdapter.createSubscription — forma da requisição', () => {
     }
     expect(urls[0]).toContain('https://api-sandbox.asaas.com/v3');
     expect(urls[0]).not.toContain('sandbox.asaas.com/api/v3');
+  });
+
+  // Achado desta sessão: app/api/checkout/route.ts rejeita com 400 qualquer
+  // requisição com creditCard em claro (proteção de escopo PCI), mas o
+  // createSubscription acima SEMPRE exigia paymentData.creditCard — ou seja,
+  // uma assinatura Asaas por cartão nunca completava pela rota real, com
+  // qualquer chave. Confirmado ao vivo contra o sandbox real em 2026-08-24.
+  // tokenizeCard (chamado só por app/api/checkout/tokenize-card, a única
+  // exceção ao guard de PCI) isola a única janela em que o cartão em claro
+  // toca o servidor, e devolve um creditCardToken que substitui creditCard
+  // por completo na criação da assinatura.
+  it('tokenizeCard: busca/cria customer e devolve creditCardToken, sem persistir nada', async () => {
+    const chamadas: { url: string; body?: string }[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: any) => {
+      chamadas.push({ url, body: init?.body });
+      if (url.includes('externalReference=')) return { ok: true, json: async () => ({ data: [{ id: 'cus_tok' }] }) };
+      if (url.includes('/creditCard/tokenizeCreditCard')) {
+        return { ok: true, json: async () => ({ creditCardToken: 'tok_abc123' }) };
+      }
+      throw new Error('URL inesperada: ' + url);
+    }));
+
+    const adapter = asaasAdapter('ak_test', 'sandbox');
+    const tokenResult = await adapter.tokenizeCard!(
+      USER,
+      { number: '4444444444444444', holderName: 'Teste', expMonth: '12', expYear: '2030', cvv: '123' },
+      { cep: '01310-100', street: 'Av. Paulista', number: '1000', neighborhood: 'Bela Vista', city: 'São Paulo', state: 'SP' },
+      '12345678909',
+      '11999999999',
+      '203.0.113.9'
+    );
+
+    expect(tokenResult).toBe('tok_abc123');
+    const chamadaTokenize = chamadas.find((c) => c.url.includes('/tokenizeCreditCard'));
+    const parsed = JSON.parse(chamadaTokenize!.body!);
+    expect(parsed.customer).toBe('cus_tok');
+    expect(parsed.remoteIp).toBe('203.0.113.9');
+    expect(parsed.creditCard.number).toBe('4444444444444444');
+  });
+
+  it('createSubscription com gatewayToken: usa creditCardToken, nunca reenvia creditCard/creditCardHolderInfo', async () => {
+    let bodySubscription = '';
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: any) => {
+      if (url.includes('externalReference=')) return { ok: true, json: async () => ({ data: [{ id: 'cus_tok' }] }) };
+      if (url.includes('/subscriptions')) {
+        bodySubscription = init.body;
+        return { ok: true, json: async () => ({ id: 'sub_tok' }) };
+      }
+      throw new Error('URL inesperada: ' + url);
+    }));
+
+    const adapter = asaasAdapter('ak_test', 'sandbox');
+    const tokenPaymentData: PaymentData = { method: 'card', gatewayToken: 'tok_abc123', ip: '203.0.113.9' };
+    const result = await adapter.createSubscription(PLAN, USER, tokenPaymentData, 'checkout_8');
+
+    expect(result.gatewaySubscriptionId).toBe('sub_tok');
+    expect(result.gatewayCustomerId).toBe('cus_tok');
+    const parsed = JSON.parse(bodySubscription);
+    expect(parsed.creditCardToken).toBe('tok_abc123');
+    expect(parsed.creditCard).toBeUndefined();
+    expect(parsed.creditCardHolderInfo).toBeUndefined();
+    expect(parsed.remoteIp).toBe('203.0.113.9');
+  });
+});
+
+describe('pagarmeAdapter.createSubscription — caminho com card_token', () => {
+  // Diferente da Asaas, a tokenização da Pagar.me usa a public_key (nunca a
+  // secret_key) e pode ser chamada direto do navegador — não precisa de rota
+  // de proxy no nosso servidor. Este teste cobre só o lado do adapter: dado
+  // um card_token já gerado no cliente, a assinatura é criada sem reenviar
+  // os dados crus do cartão, mas o billing_address continua obrigatório (a
+  // doc confirma que endereço não é tokenizado).
+  it('usa card.card_token e mantém billing_address, sem enviar número/cvv em claro', async () => {
+    let bodySubscription = '';
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: any) => {
+      if (url.includes('/subscriptions')) {
+        bodySubscription = init.body;
+        return { ok: true, json: async () => ({ id: 'sub_pm_tok', customer: { id: 'cus_pm_tok' } }) };
+      }
+      throw new Error('URL inesperada: ' + url);
+    }));
+
+    const adapter = pagarmeAdapter('sk_test_fake');
+    const tokenPaymentData: PaymentData = {
+      method: 'card',
+      gatewayToken: 'token_zVw7rqvHEPH8XlbE',
+      billingAddress: { cep: '01310-100', street: 'Av. Paulista', number: '1000', neighborhood: 'Bela Vista', city: 'São Paulo', state: 'SP' },
+      doc: '12345678909',
+      phone: '11999999999',
+    };
+    const result = await adapter.createSubscription(PLAN, USER, tokenPaymentData, 'checkout_9');
+
+    expect(result.gatewaySubscriptionId).toBe('sub_pm_tok');
+    const parsed = JSON.parse(bodySubscription);
+    expect(parsed.card.card_token).toBe('token_zVw7rqvHEPH8XlbE');
+    expect(parsed.card.number).toBeUndefined();
+    expect(parsed.card.cvv).toBeUndefined();
+    expect(parsed.card.billing_address.city).toBe('São Paulo');
+  });
+
+  it('sem creditCard nem gatewayToken, rejeita antes de chamar a rede', async () => {
+    const adapter = pagarmeAdapter('sk_test_fake');
+    const semCartao: PaymentData = {
+      method: 'card',
+      billingAddress: { cep: '01310-100', street: 'Av. Paulista', number: '1000', neighborhood: 'Bela Vista', city: 'São Paulo', state: 'SP' },
+      doc: '12345678909',
+    };
+    await expect(adapter.createSubscription(PLAN, USER, semCartao, 'checkout_10')).rejects.toThrow('cartão de crédito ou token');
   });
 });

@@ -479,6 +479,125 @@ Validado: `tsc --noEmit`, `vitest run` (113/113), `next build`. Commit
 
 ---
 
+## 🔴 Achado crítico — Asaas e Pagar.me nunca conseguiam concluir assinatura por cartão pela rota real (corrigido p/ Asaas, Pagar.me sem chave p/ validar)
+
+Chave de sandbox da Asaas fornecida pelo usuário em 2026-08-24. Validação
+"por trás da tela" (sem reativar UI de cartão) pedida explicitamente,
+seguindo a mesma metodologia já usada para Stripe: adapter isolado → rotas
+reais → limpeza verificada.
+
+**Nível 1 (adapter isolado, sem tocar produção):** `asaasAdapter.
+createSubscription` com a chave nova criou assinatura real
+(`sub_f8i2xn1wb4ule9tt`) e cliente (`cus_000008840891`) no sandbox;
+`cancelSubscription` confirmado via GET independente (`status: INACTIVE`,
+`deleted: true`). Cliente também apagado do sandbox depois. Chave salva em
+`platform_settings.asaas_api_key`/`asaas_environment` (sem alterar
+`gateway_nacional_padrao`, que continua `mercadopago` — nenhum usuário real
+seria afetado só por isso).
+
+**Achado crítico ao tentar validar no Nível 2 (rota real `/api/checkout`):**
+essa rota rejeita com 400 qualquer requisição com `creditCard` em claro no
+corpo (guard de escopo PCI-DSS — cartão só deveria entrar tokenizado via
+`gatewayToken`). Só que `lib/gateways/asaas.ts` E `lib/gateways/pagarme.ts`
+— as duas gateways nacionais de "checkout transparente" — exigiam
+incondicionalmente `paymentData.creditCard` em claro; nenhum dos dois usava
+`gatewayToken`. Resultado: **uma assinatura por cartão via Asaas ou
+Pagar.me nunca podia ser concluída pela rota real**, com qualquer chave —
+o próprio guard bloqueava antes de chegar no gateway. Confirmado ao vivo,
+com usuário BR descartável, login real, `gateway_nacional_padrao`
+temporariamente trocado para `asaas` e revertido na hora: `/api/checkout`
+devolveu 500 `"Asaas: Checkout transparente requer cartão de crédito,
+CPF/CNPJ e endereço de cobrança."` mesmo com endereço e CPF enviados —
+porque só faltava o cartão, que a própria rota já havia recusado receber em
+claro. Rollback automático confirmado (nenhuma linha ficou em
+`subscriptions`).
+
+Esse achado não apareceu na auditoria dos 18 achados anteriores porque
+aquela revisão olhou cada adapter isoladamente contra a doc do próprio
+gateway, não a interação com o guard anti-PCI da rota de checkout.
+
+**Investigação da causa raiz revelou que os dois gateways NÃO são iguais:**
+
+- **Pagar.me**: a tokenização (`POST /core/v5/tokens`) autentica só com a
+  `public_key`, no parâmetro de query `appId` — nunca a `secret_key`. Pode
+  (e deveria) ser chamada **direto do navegador**, exatamente como Stripe
+  Elements/MP Bricks já fazem hoje. Não é um problema de escopo PCI — só
+  faltava o adapter aceitar um token no lugar do cartão.
+- **Asaas**: a tokenização (`POST /creditCard/tokenizeCreditCard`) exige a
+  `access_token` **secreta** no header — não existe chave pública
+  equivalente. Não há como tokenizar sem o cartão em claro passar por um
+  servidor que conhece o segredo.
+
+**Corrigido nesta sessão:**
+
+1. `lib/gateways/asaas.ts` — `createSubscription` agora aceita
+   `paymentData.gatewayToken` como alternativa a `creditCard`: quando
+   presente, envia `creditCardToken` (substituindo `creditCard`+
+   `creditCardHolderInfo` por completo, confirmado contra a doc oficial).
+   Nova função `tokenizeCard` (parte da interface `GatewayAdapter`,
+   `lib/gateways/types.ts`) resolve o customer (reaproveitando a lógica de
+   busca por `externalReference`/`cpfCnpj` já existente, extraída para
+   `findOrCreateCustomer`) e chama `tokenizeCreditCard`, devolvendo só o
+   token — nunca persiste o cartão.
+2. **Nova rota `app/api/checkout/tokenize-card/route.ts`** — a ÚNICA rota
+   em que dado de cartão em claro chega ao nosso servidor, e só porque a
+   Asaas não deixa alternativa. Autenticada por Bearer token (mesmo padrão
+   de `/api/checkout`), resolve o gateway pela mesma regra nacional/
+   internacional, e só funciona para gateways com `tokenizeCard`
+   implementado (hoje, só Asaas — Stripe/Mercado Pago/Pagar.me devolvem 400
+   de propósito, para não normalizar cartão em claro chegando aqui para
+   gateways que não precisam disso). O cartão vive só na memória da
+   requisição.
+3. `lib/gateways/pagarme.ts` — mesma mudança de aceitar `gatewayToken`
+   (campo `card_token`, confirmado contra a doc oficial do objeto
+   `credit_card`), mas **sem** rota de proxy — a tokenização deveria ser
+   feita direto no cliente com a `public_key` (`pagarme_pub_key`, já
+   corretamente salva em `platform_settings` desde a validação do pipeline
+   admin → runtime). `billing_address` continua obrigatório mesmo com
+   token (a doc confirma que o endereço do cartão nunca é tokenizado).
+4. 4 novos testes unitários (113 → 117): tokenizeCard da Asaas,
+   createSubscription da Asaas só com token, createSubscription do
+   Pagar.me com `card_token`, e a rejeição sem cartão nem token.
+
+**Validado ponta a ponta contra o sandbox real da Asaas, duas vezes:**
+
+- **Nível adapter:** `tokenizeCard` → `creditCardToken` real → 
+  `createSubscription` usando **só o token** (sem `creditCard`) → assinatura
+  real criada (`sub_9sk3zk6lv3cjaowk`) → cancelada → confirmada via GET
+  independente → cliente apagado.
+- **Nível rota real** (mesmo protocolo do achado: usuário BR descartável,
+  `gateway_nacional_padrao` trocado para `asaas` e revertido na hora):
+  `POST /api/checkout/tokenize-card` devolveu um token real (`200`) → 
+  `POST /api/checkout` com **só esse token** (nenhum dado de cartão)
+  devolveu `200`, `gateway: "asaas"`, e gravou uma linha real em
+  `subscriptions` com `gateway_subscription_id`/`gateway_customer_id`
+  reais. Tudo limpo depois: linha de teste apagada, assinatura e cliente
+  apagados no sandbox da Asaas, usuário de teste apagado,
+  `gateway_nacional_padrao` revertido para `mercadopago` (confirmado).
+
+**Pagar.me**: código corrigido do mesmo jeito e testado nos 4 novos testes
+mockados, mas **sem chave de sandbox fornecida ainda** para repetir a
+validação ao vivo — mesmo status dos outros achados da auditoria de
+gateways que dependem de credencial de terceiro. Falta também, como tarefa
+de produto (não deste achado): decidir quando/se vale a pena o front-end
+chamar a tokenização da Pagar.me direto do navegador (ela é segura por
+design e não expande escopo PCI, ao contrário da Asaas).
+
+**Pendência explícita de compliance, decidida pelo usuário:** ativar o
+proxy de tokenização da Asaas em produção (ou seja, apontar
+`gateway_nacional_padrao`/permitir Asaas de fato para usuários reais) segue
+precisando de assessoria jurídica/compliance antes — o código passa a
+tocar em dado de cartão em claro no nosso servidor por uma fração de
+segundo (nunca persistido), o que pode mudar o enquadramento de escopo PCI
+(provavelmente SAQ-A-EP em vez de SAQ-A). Nada disso foi ativado por
+padrão: `gateway_nacional_padrao` continua `mercadopago`, e não há UI
+alguma chamando a nova rota — ela só existe no backend, pronta para quando
+essa decisão for tomada.
+
+Validado: `tsc --noEmit`, `vitest run` (117/117), `next build`.
+
+---
+
 ## 🟠 Segurança — antes de abrir ao público
 
 ### 2. CAPTCHA no Supabase Auth (correção do que este item dizia antes)

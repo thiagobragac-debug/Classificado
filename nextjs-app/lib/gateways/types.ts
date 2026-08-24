@@ -73,4 +73,19 @@ export interface GatewayAdapter {
   ): Promise<CreateSubscriptionResult>
   validateWebhook(body: string, headers: Record<string, string>, secret: string): Promise<WebhookEvent>
   cancelSubscription(gatewaySubscriptionId: string): Promise<void>
+  // Só a Asaas implementa: a tokenização dela (POST /creditCard/tokenizeCreditCard)
+  // exige a access_token secreta no header, então não pode ser chamada do
+  // navegador como a da Stripe/Mercado Pago/Pagar.me (essas usam chave pública e
+  // tokenizam direto no cliente). Esta função existe para isolar a ÚNICA janela
+  // em que dado de cartão em claro precisa passar pelo nosso servidor: recebe o
+  // cartão, chama a Asaas, devolve o creditCardToken, e não persiste nada — ver
+  // app/api/checkout/tokenize-card/route.ts.
+  tokenizeCard?(
+    user: GatewayUser,
+    creditCard: CreditCardData,
+    billingAddress: BillingAddress,
+    doc: string,
+    phone: string | undefined,
+    ip: string
+  ): Promise<string>
 }

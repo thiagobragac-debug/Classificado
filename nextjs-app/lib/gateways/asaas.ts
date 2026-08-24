@@ -1,4 +1,4 @@
-import { GatewayAdapter, WebhookEvent } from './types'
+import { BillingAddress, CreditCardData, GatewayAdapter, GatewayUser, WebhookEvent } from './types'
 import { assinaturaConfere } from './signature'
 
 export function asaasAdapter(apiKey: string, environment: 'sandbox' | 'production'): GatewayAdapter {
@@ -19,65 +19,126 @@ export function asaasAdapter(apiKey: string, environment: 'sandbox' | 'productio
     'User-Agent': 'TauzeClass/1.0 (+https://tauzeclass.com.br)',
   }
 
+  // Buscar cliente existente antes de criar.
+  //
+  // BUG CRÍTICO CORRIGIDO: a ordem era criar primeiro e só buscar se a
+  // criação retornasse 400/409. A doc oficial ("Criando um cliente")
+  // afirma o oposto — a Asaas PERMITE clientes duplicados, e o fluxo
+  // recomendado é buscar antes de criar. Na prática, repetir POST
+  // /customers para o mesmo CPF tende a responder 200 com um id NOVO, não
+  // um erro — então o branch de fallback quase nunca era alcançado para o
+  // caso em que foi escrito, e cada nova tentativa de checkout fora da
+  // janela de lock de 15s (app/api/checkout/route.ts) criava um cliente
+  // Asaas duplicado.
+  //
+  // Compartilhada entre createSubscription e tokenizeCard: o token de cartão
+  // da Asaas é amarrado a um customer ("armazenado por cliente, não pode ser
+  // usado em transações de outros clientes"), então os dois fluxos precisam
+  // resolver para o MESMO customerId de um mesmo usuário.
+  async function findOrCreateCustomer(user: GatewayUser, docClean: string): Promise<string> {
+    const findByRefRes = await fetch(`${baseUrl}/customers?externalReference=${encodeURIComponent(user.id)}&limit=1`, { headers })
+    if (findByRefRes.ok) {
+      const findByRefData = await findByRefRes.json()
+      const found = findByRefData.data?.[0]?.id
+      if (found) return found
+    }
+
+    const findByDocRes = await fetch(`${baseUrl}/customers?cpfCnpj=${docClean}&limit=1`, { headers })
+    if (findByDocRes.ok) {
+      const findByDocData = await findByDocRes.json()
+      const found = findByDocData.data?.[0]?.id
+      if (found) return found
+    }
+
+    const customerRes = await fetch(`${baseUrl}/customers`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        name: user.name || 'User',
+        email: user.email,
+        cpfCnpj: docClean,
+        externalReference: user.id
+      })
+    })
+    if (!customerRes.ok) {
+      throw new Error(`Asaas customer error: ${await customerRes.text()}`)
+    }
+    const customerData = await customerRes.json()
+    return customerData.id
+  }
+
   return {
     name: 'asaas',
+
+    // Isola a ÚNICA chamada em que dado de cartão em claro passa pelo nosso
+    // servidor (ver comentário em GatewayAdapter.tokenizeCard, types.ts). O
+    // token devolvido pela Asaas substitui creditCard+creditCardHolderInfo
+    // inteiros na criação da assinatura (abaixo) — nada disso é persistido
+    // aqui, só repassado.
+    async tokenizeCard(user, creditCard, billingAddress, doc, phone, ip) {
+      const docClean = doc.replace(/\D/g, '')
+      if (docClean.length !== 11 && docClean.length !== 14) {
+        throw new Error('Asaas: CPF/CNPJ inválido para o cliente.')
+      }
+
+      const customerId = await findOrCreateCustomer(user, docClean)
+
+      let phoneClean = (phone || '11999999999').replace(/\D/g, '')
+      if (phoneClean.length === 10) phoneClean = phoneClean.slice(0, 2) + '9' + phoneClean.slice(2)
+      if (phoneClean.length < 10) phoneClean = '11999999999'
+
+      const tokenRes = await fetch(`${baseUrl}/creditCard/tokenizeCreditCard`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          customer: customerId,
+          creditCard: {
+            holderName: creditCard.holderName,
+            number: creditCard.number,
+            expiryMonth: creditCard.expMonth,
+            expiryYear: creditCard.expYear,
+            ccv: creditCard.cvv,
+          },
+          creditCardHolderInfo: {
+            name: user.name || creditCard.holderName,
+            email: user.email,
+            cpfCnpj: docClean,
+            postalCode: billingAddress.cep.replace(/\D/g, ''),
+            addressNumber: billingAddress.number,
+            phone: phoneClean,
+          },
+          remoteIp: ip,
+        }),
+      })
+      if (!tokenRes.ok) {
+        throw new Error(`Asaas erro na tokenização: ${await tokenRes.text()}`)
+      }
+      const tokenData = await tokenRes.json()
+      return tokenData.creditCardToken
+    },
+
     async createSubscription(plan, user, paymentData, subscriptionId) {
-      if (paymentData.method !== 'card' || !paymentData.creditCard || !paymentData.billingAddress || !paymentData.doc) {
+      if (paymentData.method !== 'card') {
+        throw new Error('Asaas: Checkout transparente requer cartão de crédito, CPF/CNPJ e endereço de cobrança.')
+      }
+      if (!paymentData.gatewayToken && (!paymentData.creditCard || !paymentData.billingAddress || !paymentData.doc)) {
         throw new Error('Asaas: Checkout transparente requer cartão de crédito, CPF/CNPJ e endereço de cobrança.')
       }
       if (!paymentData.ip) {
         throw new Error('Asaas: IP do cliente é obrigatório (remoteIp).')
       }
 
-      const docClean = paymentData.doc.replace(/\D/g, '')
-      if (docClean.length !== 11 && docClean.length !== 14) {
+      // Resolve o customer em ambos os caminhos. No caminho com token, o
+      // tokenizeCard acima já resolveu (achou ou criou) um customer para este
+      // MESMO user.id — a busca por externalReference abaixo encontra esse
+      // customer de novo, sem duplicar. Passar docClean='' é seguro aqui: só
+      // seria usado se a busca por externalReference falhasse, o que não deve
+      // acontecer para um customer que a própria tokenização acabou de tocar.
+      const docClean = paymentData.doc ? paymentData.doc.replace(/\D/g, '') : ''
+      if (!paymentData.gatewayToken && docClean.length !== 11 && docClean.length !== 14) {
         throw new Error('Asaas: CPF/CNPJ inválido para o cliente.')
       }
-
-      // 1. Buscar cliente existente antes de criar.
-      //
-      // BUG CRÍTICO CORRIGIDO: a ordem era criar primeiro e só buscar se a
-      // criação retornasse 400/409. A doc oficial ("Criando um cliente")
-      // afirma o oposto — a Asaas PERMITE clientes duplicados, e o fluxo
-      // recomendado é buscar antes de criar. Na prática, repetir POST
-      // /customers para o mesmo CPF tende a responder 200 com um id NOVO, não
-      // um erro — então o branch de fallback quase nunca era alcançado para o
-      // caso em que foi escrito, e cada nova tentativa de checkout fora da
-      // janela de lock de 15s (app/api/checkout/route.ts) criava um cliente
-      // Asaas duplicado.
-      let customerId: string | undefined
-
-      const findByRefRes = await fetch(`${baseUrl}/customers?externalReference=${encodeURIComponent(user.id)}&limit=1`, { headers })
-      if (findByRefRes.ok) {
-        const findByRefData = await findByRefRes.json()
-        customerId = findByRefData.data?.[0]?.id
-      }
-
-      if (!customerId) {
-        const findByDocRes = await fetch(`${baseUrl}/customers?cpfCnpj=${docClean}&limit=1`, { headers })
-        if (findByDocRes.ok) {
-          const findByDocData = await findByDocRes.json()
-          customerId = findByDocData.data?.[0]?.id
-        }
-      }
-
-      if (!customerId) {
-        const customerRes = await fetch(`${baseUrl}/customers`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            name: user.name || 'User',
-            email: user.email,
-            cpfCnpj: docClean,
-            externalReference: user.id
-          })
-        })
-        if (!customerRes.ok) {
-          throw new Error(`Asaas customer error: ${await customerRes.text()}`)
-        }
-        const customerData = await customerRes.json()
-        customerId = customerData.id
-      }
+      const customerId = await findOrCreateCustomer(user, docClean)
 
       // 2. Create Subscription with Transparent Checkout
       const value = plan.price
@@ -94,6 +155,30 @@ export function asaasAdapter(apiKey: string, environment: 'sandbox' | 'productio
       if (phoneClean.length === 10) phoneClean = phoneClean.slice(0, 2) + '9' + phoneClean.slice(2)
       if (phoneClean.length < 10) phoneClean = '11999999999'
 
+      // creditCardToken substitui creditCard+creditCardHolderInfo por completo
+      // (confirmado na doc: "se sua integração já usa tokenização, é
+      // recomendado informar apenas o creditCardToken, sem reenviar os dados
+      // completos do cartão") — remoteIp continua obrigatório nos dois casos.
+      const cardFields = paymentData.gatewayToken
+        ? { creditCardToken: paymentData.gatewayToken }
+        : {
+            creditCard: {
+              holderName: paymentData.creditCard!.holderName,
+              number: paymentData.creditCard!.number,
+              expiryMonth: paymentData.creditCard!.expMonth,
+              expiryYear: paymentData.creditCard!.expYear,
+              ccv: paymentData.creditCard!.cvv
+            },
+            creditCardHolderInfo: {
+              name: user.name || paymentData.creditCard!.holderName,
+              email: user.email,
+              cpfCnpj: docClean,
+              postalCode: paymentData.billingAddress!.cep.replace(/\D/g, ''),
+              addressNumber: paymentData.billingAddress!.number,
+              phone: phoneClean
+            }
+          }
+
       const subRes = await fetch(`${baseUrl}/subscriptions`, {
         method: 'POST',
         headers,
@@ -109,21 +194,7 @@ export function asaasAdapter(apiKey: string, environment: 'sandbox' | 'productio
           // oficial de POST /v3/subscriptions com cartão — sem ele, a Asaas
           // rejeitava toda criação de assinatura por cartão.
           remoteIp: paymentData.ip,
-          creditCard: {
-            holderName: paymentData.creditCard.holderName,
-            number: paymentData.creditCard.number,
-            expiryMonth: paymentData.creditCard.expMonth,
-            expiryYear: paymentData.creditCard.expYear,
-            ccv: paymentData.creditCard.cvv
-          },
-          creditCardHolderInfo: {
-            name: user.name || paymentData.creditCard.holderName,
-            email: user.email,
-            cpfCnpj: docClean,
-            postalCode: paymentData.billingAddress.cep.replace(/\D/g, ''),
-            addressNumber: paymentData.billingAddress.number,
-            phone: phoneClean
-          }
+          ...cardFields,
         })
       })
 

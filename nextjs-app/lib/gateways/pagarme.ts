@@ -8,12 +8,23 @@ export function pagarmeAdapter(apiKey: string): GatewayAdapter {
   return {
     name: 'pagarme',
     async createSubscription(plan, user, paymentData, subscriptionId) {
-      if (paymentData.method !== 'card' || !paymentData.creditCard || !paymentData.billingAddress || !paymentData.doc) {
-        throw new Error('Pagar.me: Checkout transparente requer cartão de crédito, CPF/CNPJ e endereço.')
+      // Diferente da Asaas: a tokenização da Pagar.me (POST /core/v5/tokens)
+      // autentica só com a public_key, no parâmetro de query `appId` — nunca a
+      // secret_key. Por isso pode (e deve) ser chamada DIRETO DO NAVEGADOR,
+      // como já é feito com Stripe Elements/MP Bricks; não existe aqui o
+      // problema que forçou o proxy de tokenização da Asaas
+      // (app/api/checkout/tokenize-card). O card em claro não precisa passar
+      // pelo nosso servidor — só falta o cliente chamar essa tokenização e
+      // mandar o `id` (ex.: "token_xxx") resultante como gatewayToken.
+      if (paymentData.method !== 'card' || !paymentData.billingAddress || !paymentData.doc) {
+        throw new Error('Pagar.me: Checkout transparente requer CPF/CNPJ, endereço, e cartão de crédito ou token.')
+      }
+      if (!paymentData.gatewayToken && !paymentData.creditCard) {
+        throw new Error('Pagar.me: Checkout transparente requer CPF/CNPJ, endereço, e cartão de crédito ou token.')
       }
 
       const price = plan.price
-        
+
       const interval = plan.billingCycle === 'annual' ? 'year' : 'month'
       const intervalCount = 1
       const docClean = paymentData.doc ? paymentData.doc.replace(/\D/g, '') : ''
@@ -25,7 +36,33 @@ export function pagarmeAdapter(apiKey: string): GatewayAdapter {
       } else if (phoneClean.length < 10) {
         phoneClean = '11999999999' // safe fallback for testing
       }
-        
+
+      // O billing address do cartão NUNCA é tokenizado pela Pagar.me ("a
+      // entidade de billing address do cartão não é tokenizada") — precisa ser
+      // enviado aqui de novo mesmo usando card_token.
+      const billingAddress = {
+        line_1: `${paymentData.billingAddress.number}, ${paymentData.billingAddress.street}, ${paymentData.billingAddress.neighborhood}`,
+        zip_code: paymentData.billingAddress.cep.replace(/\D/g, ''),
+        city: paymentData.billingAddress.city,
+        state: paymentData.billingAddress.state,
+        country: 'BR'
+      }
+
+      // card_token (gerado por POST /core/v5/tokens no navegador, com a
+      // public_key) substitui os dados crus do cartão — nome exato do campo
+      // confirmado na doc oficial ("Propriedades do objeto credit_card"):
+      // card / card_id / card_token / network_token são mutuamente exclusivos.
+      const card = paymentData.gatewayToken
+        ? { card_token: paymentData.gatewayToken, billing_address: billingAddress }
+        : {
+            number: paymentData.creditCard!.number,
+            holder_name: paymentData.creditCard!.holderName,
+            exp_month: parseInt(paymentData.creditCard!.expMonth, 10),
+            exp_year: parseInt(paymentData.creditCard!.expYear, 10),
+            cvv: paymentData.creditCard!.cvv,
+            billing_address: billingAddress
+          }
+
       const body = {
         payment_method: 'credit_card',
         interval,
@@ -37,7 +74,7 @@ export function pagarmeAdapter(apiKey: string): GatewayAdapter {
           pricing_scheme: { price: Math.round(price * 100) }
         }],
         customer: {
-          name: user.name || paymentData.creditCard.holderName,
+          name: user.name || paymentData.creditCard?.holderName,
           email: user.email,
           type: customerType,
           document: docClean,
@@ -49,20 +86,7 @@ export function pagarmeAdapter(apiKey: string): GatewayAdapter {
             }
           }
         },
-        card: {
-          number: paymentData.creditCard.number,
-          holder_name: paymentData.creditCard.holderName,
-          exp_month: parseInt(paymentData.creditCard.expMonth, 10),
-          exp_year: parseInt(paymentData.creditCard.expYear, 10),
-          cvv: paymentData.creditCard.cvv,
-          billing_address: {
-            line_1: `${paymentData.billingAddress.number}, ${paymentData.billingAddress.street}, ${paymentData.billingAddress.neighborhood}`,
-            zip_code: paymentData.billingAddress.cep.replace(/\D/g, ''),
-            city: paymentData.billingAddress.city,
-            state: paymentData.billingAddress.state,
-            country: 'BR'
-          }
-        },
+        card,
         metadata: { user_id: user.id, subscription_id: subscriptionId }
       }
 
