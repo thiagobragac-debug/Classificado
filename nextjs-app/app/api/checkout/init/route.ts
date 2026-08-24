@@ -30,7 +30,16 @@ export async function POST(req: Request) {
 
     if (gatewayName === 'stripe') {
       const secretKey = settings['stripe_secret_key']
-      publicKey = settings['stripe_public_key'] || ''
+      // BUG CORRIGIDO: a página de admin (app/(admin)/admin/configuracoes)
+      // salva a chave publicável em 'stripe_pub_key' — era essa a linha
+      // que já existia preenchida em produção. Esta rota lia
+      // 'stripe_public_key', um nome diferente, sempre undefined. Resultado:
+      // secretKey vinha certo mas publicKey ficava sempre vazio, e a
+      // condição abaixo devolvia 503 em toda tentativa de checkout via
+      // Stripe — mesmo com as duas chaves corretamente configuradas no
+      // admin. Mercado Pago (mp_public_key) e Pagar.me (pagarme_pub_key) não
+      // tinham essa divergência entre o nome salvo e o nome lido.
+      publicKey = settings['stripe_pub_key'] || ''
       if (!secretKey || !publicKey) {
         return NextResponse.json({ error: 'Stripe keys not configuradas.' }, { status: 503 })
       }

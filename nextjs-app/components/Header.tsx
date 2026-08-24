@@ -54,7 +54,12 @@ export default function Header({
   // ─── applyDynamicSettings ────────────────────────────────────────────────
   const applyDynamicSettings = () => {
     const rawLogo     = localStorage.getItem('tc_logo_url');
-    const rawColor    = localStorage.getItem('tc_primary_color');
+    // BUG CORRIGIDO: o admin (app/(admin)/admin/configuracoes) salva e o
+    // syncPlatformSettings abaixo espelha no localStorage sob a chave
+    // 'primary_color' (nome da linha em platform_settings), nunca
+    // 'tc_primary_color'. Com o nome errado aqui, rawColor era sempre null e
+    // a cor primária definida no admin nunca era aplicada ao site.
+    const rawColor    = localStorage.getItem('primary_color');
     const safeLogoUrl = sanitizeLogoUrl(rawLogo);
 
     setLogoUrl(safeLogoUrl);
