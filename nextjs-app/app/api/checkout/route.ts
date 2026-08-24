@@ -199,6 +199,13 @@ export async function POST(req: Request) {
       billing_cycle: cycle,
       status: 'pending',
       current_period_start: new Date().toISOString(),
+      // BUG CORRIGIDO: 'price' nunca era gravado em lugar nenhum desta rota —
+      // toda assinatura ficava com price NULL para sempre, mesmo cobrando de
+      // verdade no gateway. Resultado real: admin/assinaturas sempre mostrava
+      // "R$ 0,00" de valor e de MRR, não importa quantas assinaturas pagas
+      // existissem. finalPrice já está calculado (com cupom aplicado) antes
+      // deste insert, então é só gravar o valor exato que será cobrado.
+      price: finalPrice,
     }).select('id').single()
 
     if (insertError) {

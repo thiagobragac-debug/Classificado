@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { getSupabase } from '@/lib/supabase'
 import { showToast } from '@/lib/toast'
 
 export default function AdminUsuarios() {
@@ -30,26 +29,24 @@ export default function AdminUsuarios() {
     loadUsers()
   }, [])
 
+  // BUG CORRIGIDO: esta função consultava user_secrets direto do browser
+  // (getSupabase(), sujeito a RLS). A policy de user_secrets só libera
+  // auth.uid() = id, então o join `user_secrets(is_blocked, plan, email)`
+  // vinha `null` para todo mundo que não fosse o próprio admin logado.
+  // Resultado real: "Assinantes" sempre mostrava 0, o badge de plano nunca
+  // aparecia e o filtro Pro/Premium sempre devolvia lista vazia — mesmo com
+  // assinaturas pagas de verdade no banco. Mesmo motivo pelo qual
+  // /api/admin/block-user já existe como rota de servidor em vez de escrita
+  // direta do browser; /api/admin/users aplica o mesmo padrão para leitura.
   async function loadUsers() {
     setLoading(true)
-    const supabase = getSupabase()
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*, user_secrets(is_blocked, plan, email), ads(count)')
-      .order('created_at', { ascending: false })
-      .limit(1500)
-    
-    if (!error && data) {
-      const mapped = data.map((u: any) => ({
-        ...u,
-        is_blocked: Array.isArray(u.user_secrets) ? u.user_secrets[0]?.is_blocked : u.user_secrets?.is_blocked,
-        plan: Array.isArray(u.user_secrets) ? u.user_secrets[0]?.plan : u.user_secrets?.plan,
-        email: Array.isArray(u.user_secrets) ? u.user_secrets[0]?.email : u.user_secrets?.email,
-        ads_count: Array.isArray(u.ads) ? u.ads[0]?.count : (u.ads?.count || 0)
-      }))
-      setUsers(mapped)
+    try {
+      const res = await fetch('/api/admin/users')
+      const payload = await res.json()
+      if (res.ok) setUsers(payload.users || [])
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   // is_blocked é coluna privilegiada: só o service_role escreve nela, e o

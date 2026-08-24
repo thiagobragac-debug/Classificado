@@ -218,7 +218,7 @@ export const FOOTER_LINKS = {
     ],
     company: [
       { label: 'Sobre Nós',         href: '/institucional#sobre'              },
-      { label: 'Planos Premium',    href: '/painel#assinatura'                },
+      { label: 'Planos Premium',    href: '/painel#billing'                },
       { label: 'Trabalhe Conosco',  href: '/institucional#trabalhe-conosco'   },
       { label: 'Imprensa',          href: '/institucional#imprensa'           },
       { label: 'API para Parceiros',href: '/institucional#api'                },
@@ -242,7 +242,7 @@ export const FOOTER_LINKS = {
     ],
     company: [
       { label: 'Sobre Nosotros',           href: '/institucional#sobre'            },
-      { label: 'Planes Premium',           href: '/painel#assinatura'              },
+      { label: 'Planes Premium',           href: '/painel#billing'              },
       { label: 'Trabaja con Nosotros',     href: '/institucional#trabalhe-conosco' },
       { label: 'Prensa',                   href: '/institucional#imprensa'         },
       { label: 'API para Socios',          href: '/institucional#api'              },
