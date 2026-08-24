@@ -142,18 +142,26 @@ export async function POST(req: Request) {
         .eq('is_active', true)
         .single()
 
-      if (
-        couponData && 
+      const valido = !!couponData &&
         (!couponData.valid_until || new Date(couponData.valid_until) >= new Date()) &&
         (!couponData.max_uses || couponData.usage_count < couponData.max_uses)
-      ) {
-        if (couponData.discount_type === 'percentage') {
-          finalPrice = finalPrice * (1 - couponData.discount_value / 100)
-        } else {
-          finalPrice = Math.max(0, finalPrice - couponData.discount_value)
-        }
-        appliedCoupon = couponData
+
+      // BUG CORRIGIDO: quando o cupom deixava de ser válido bem entre o
+      // usuário aplicá-lo (checagem client-side em CheckoutModal) e o envio
+      // do pagamento — ex.: outra pessoa esgotou o último uso nesse
+      // intervalo —, esta rota simplesmente ignorava o cupom em silêncio e
+      // cobrava o preço cheio, sem avisar. O usuário via "cupom aplicado"
+      // na tela e era cobrado o valor sem desconto, sem nenhum erro.
+      if (!valido) {
+        return NextResponse.json({ error: 'Cupom inválido, expirado ou com limite de usos esgotado.' }, { status: 400 })
       }
+
+      if (couponData.discount_type === 'percentage') {
+        finalPrice = finalPrice * (1 - couponData.discount_value / 100)
+      } else {
+        finalPrice = Math.max(0, finalPrice - couponData.discount_value)
+      }
+      appliedCoupon = couponData
     }
 
     const gatewayPlan: GatewayPlan = {

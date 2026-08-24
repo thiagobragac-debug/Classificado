@@ -161,13 +161,20 @@ export default function AdminCupons() {
                       ) : 'Sem validade'}
                     </td>
                     <td>
-                      {c.is_active && !expired && !maxReached ? <span className="adm-badge adm-badge--green">Ativo</span> : 
+                      {c.is_active && !expired && !maxReached ? <span className="adm-badge adm-badge--green">Ativo</span> :
                        <span className="adm-badge adm-badge--amber">Inativo</span>}
                     </td>
                     <td style={{ textAlign: 'center' }}>
                       <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                        {/* BUG CORRIGIDO: o rótulo do botão olhava só a coluna
+                            is_active bruta, enquanto o badge de Status ao
+                            lado já considera expirado/esgotado. Um cupom
+                            com is_active=true mas esgotado mostrava
+                            "Inativo" no badge e "Desativar" no botão ao
+                            mesmo tempo — contraditório para quem está lendo
+                            a linha. Agora os dois usam a mesma condição. */}
                         <button className="adm-btn adm-btn--sm adm-btn--outline" onClick={() => handleToggleActive(c.id, c.is_active)}>
-                          {c.is_active ? 'Desativar' : 'Ativar'}
+                          {c.is_active && !expired && !maxReached ? 'Desativar' : 'Ativar'}
                         </button>
                         <button className="adm-btn adm-btn--sm adm-btn--outline" style={{ color: 'var(--adm-red)', borderColor: 'var(--adm-red)' }} onClick={() => handleDelete(c.id)}>Excluir</button>
                       </div>
