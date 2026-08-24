@@ -254,6 +254,9 @@ describe('pagarmeAdapter.createSubscription — caminho com card_token', () => {
     expect(parsed.card.number).toBeUndefined();
     expect(parsed.card.cvv).toBeUndefined();
     expect(parsed.card.billing_address.city).toBe('São Paulo');
+    // Achado de verificação contra a doc oficial: document_type aparece
+    // pareado com document em todo exemplo funcional da doc — faltava.
+    expect(parsed.customer.document_type).toBe('CPF');
   });
 
   it('sem creditCard nem gatewayToken, rejeita antes de chamar a rede', async () => {

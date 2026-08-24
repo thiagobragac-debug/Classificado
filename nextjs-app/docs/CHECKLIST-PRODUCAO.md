@@ -583,6 +583,70 @@ de produto (não deste achado): decidir quando/se vale a pena o front-end
 chamar a tokenização da Pagar.me direto do navegador (ela é segura por
 design e não expande escopo PCI, ao contrário da Asaas).
 
+### Verificação de `lib/gateways/pagarme.ts` contra a doc oficial atual (2026-08-24)
+
+Pedido explícito do usuário: sem chave de sandbox do Pagar.me ainda, "seguir
+sem Pagar.me, só garantir que está implementado conforme a documentação
+disponível". 7 verificações independentes, cada uma abrindo as páginas reais
+de docs.pagar.me (não memória de treinamento):
+
+| # | Tópico | Resultado |
+|---|---|---|
+| 1 | `card` no nível raiz do body (não aninhado em `credit_card`) | ✅ bate |
+| 2 | `customer.type`/`document`/`phones.mobile_phone` | ✅ bate |
+| 3 | `card.card_token` (nome e aninhamento) | ✅ bate |
+| 4 | `DELETE /subscriptions/{id}` + `cancel_pending_invoices` no body | ✅ bate |
+| 5 | Header `Idempotency-Key` | ⚠️ parcial |
+| 6 | Assinatura/HMAC de webhook (`x-hub-signature`) | 🔴 **sem base documental** |
+| 7 | Nomes de evento de webhook | ⚠️ parcial (2 faltando) |
+
+**Corrigido:**
+
+- **`customer.document_type`** — a doc pareia esse campo com `document` em
+  todo exemplo funcional (`document_type: "CPF"` junto de `document:
+  "12345678901234"`); opcional no schema, mas o código já calculava o valor
+  (`docType`) só para decidir `customer.type` e descartava — agora envia.
+- **Comentário do `Idempotency-Key`** suavizado: a doc confirma o header como
+  mecanismo *geral* da API (chave expira 24h em produção, requisição
+  concorrente com a mesma chave devolve 409), mas as páginas de referência do
+  próprio endpoint de criar assinatura não o listam como parâmetro — o
+  comentário antigo afirmava uma confirmação que a doc não dá por escrito.
+- **2 eventos de webhook faltando**: `charge.refunded` e `invoice.canceled`
+  existem na lista oficial de eventos e antes caíam em `unknown` — uma
+  assinatura estornada ou com fatura cancelada ficava presa em `active` para
+  sempre. Mapeados para `payment.failed` (mesmo tratamento conservador já
+  usado para recusa de cobrança — marca `past_due`, só derruba o plano se o
+  período pago já tiver terminado).
+- 3 novos testes (117 → 119).
+
+**🔴 Achado que não foi corrigido de propósito — precisa de decisão, não de
+código:** a verificação de assinatura de webhook do Pagar.me
+(`x-hub-signature` + HMAC-SHA256) **não tem NENHUMA base na documentação
+oficial atual**. Varredura extensiva (visão geral de webhooks, lista de
+eventos, exemplo de payload, criar/listar/obter webhook, segurança, IP
+allowlist) não encontrou menção a assinatura criptográfica nem a esse
+header em lugar nenhum — os únicos mecanismos documentados (Basic Auth, IP
+allowlist) autenticam chamadas **à** API do Pagar.me, não notificações que
+o Pagar.me **envia** para nós. Existe um campo de "senha" opcional no
+cadastro do webhook no dashboard, mas só mencionado num artigo de suporte de
+terceiros, fora da doc oficial — semântica exata desconhecida.
+
+Isso não é uma correção que dá para simplesmente aplicar: trocar por outro
+mecanismo às cegas seria substituir uma suposição não confirmada por outra.
+**Antes de preencher `pagarme_webhook_secret` em produção**, é preciso
+descobrir o mecanismo real — abrir um webhook de teste no dashboard do
+Pagar.me e inspecionar os headers que chegam de verdade, ou perguntar ao
+suporte deles. Do jeito que o código está hoje, preencher esse secret faria
+a tela de admin mostrar "🟢 configurado" enquanto a função **rejeitaria
+100% dos webhooks reais** (o Pagar.me quase certamente nunca manda
+`x-hub-signature`) — uma falsa sensação de segurança pior do que deixar
+vazio. Hoje o campo está vazio, então o fail-closed já rejeita tudo de
+qualquer forma; sem efeito prático ainda, mas o comentário no código foi
+reforçado para deixar isso inequívoco antes que alguém preencha o secret
+achando que ativa a validação.
+
+Validado: `tsc --noEmit`, `vitest run` (119/119), `next build`.
+
 **Pendência explícita de compliance, decidida pelo usuário:** ativar o
 proxy de tokenização da Asaas em produção (ou seja, apontar
 `gateway_nacional_padrao`/permitir Asaas de fato para usuários reais) segue

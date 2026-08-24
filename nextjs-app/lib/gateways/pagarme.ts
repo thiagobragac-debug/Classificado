@@ -78,6 +78,15 @@ export function pagarmeAdapter(apiKey: string): GatewayAdapter {
           email: user.email,
           type: customerType,
           document: docClean,
+          // Achado de verificação contra a doc oficial (2026-08-24):
+          // document_type não é obrigatório no schema, mas aparece PAREADO
+          // com document em todo exemplo funcional da doc de criar
+          // assinatura — faltava aqui mesmo já tendo o valor calculado
+          // (docType) para decidir customerType. Sem ele, a checagem
+          // antifraude da primeira cobrança da assinatura (que a doc de
+          // erros menciona exigir dados completos do cliente) corre com
+          // menos informação do que o esperado pela API.
+          document_type: docType,
           phones: {
             mobile_phone: {
               country_code: '55',
@@ -95,11 +104,17 @@ export function pagarmeAdapter(apiKey: string): GatewayAdapter {
         headers: {
           'Authorization': basicAuth,
           'Content-Type': 'application/json',
-          // Doc de idempotência do Pagar.me v5 confirma suporte a este header.
-          // Sem ele, uma falha de rede após o Pagar.me já ter criado a
-          // assinatura (mas antes da resposta chegar aqui) faria um retry
-          // criar uma SEGUNDA assinatura de cartão para o mesmo cliente,
-          // cobrando-o duas vezes.
+          // CORRIGIDO (verificação contra a doc oficial, 2026-08-24): o
+          // comentário aqui afirmava que "a doc confirma suporte a este
+          // header" neste endpoint especificamente — não é bem isso. A doc
+          // de idempotência (docs.pagar.me/docs/o-que-é) documenta
+          // "Idempotency-Key" como mecanismo GERAL da API (chave expira 24h
+          // em produção, 5min em sandbox; requisição concorrente com a
+          // mesma chave devolve 409), mas as páginas de referência OpenAPI
+          // do próprio endpoint de criar assinatura não listam esse header
+          // como parâmetro. Mantido por ser uma proteção razoável e de baixo
+          // risco (evita cobrar duas vezes num retry de rede), só não é
+          // "confirmado por escrito" para /subscriptions especificamente.
           'Idempotency-Key': `pagarme-sub-${subscriptionId}`,
         },
         body: JSON.stringify(body)
@@ -120,18 +135,27 @@ export function pagarmeAdapter(apiKey: string): GatewayAdapter {
     },
     
     async validateWebhook(body, headers, secret) {
-      // NÃO CONFIRMADO CONTRA A DOC ATUAL — revisar antes de configurar
-      // pagarme_webhook_secret em produção. Busca extensiva na documentação
-      // oficial do Pagar.me v5 (visão geral de webhooks, exemplo de payload,
-      // página de autenticação) não encontrou nenhuma menção a um header
-      // 'x-hub-signature' nem a HMAC-SHA256 sobre o corpo — os mecanismos de
-      // segurança documentados são IP allowlist (para chamadas AO Pagar.me,
-      // não deste endpoint) e um campo opcional de senha/autenticação na tela
-      // de cadastro do webhook no dashboard. Hoje isso fica encoberto porque
-      // pagarme_webhook_secret está vazio (fail-closed abaixo rejeita tudo).
-      // Antes de preencher esse secret em produção, confirmar com um webhook
-      // real (RequestBin ou o simulador do próprio dashboard) qual mecanismo
-      // o Pagar.me de fato envia, e ajustar esta função de acordo.
+      // ⚠️ CONFIRMADO SEM BASE DOCUMENTAL (varredura extensiva em 2026-08-24
+      // contra docs.pagar.me: visão geral de webhooks, eventos, exemplo de
+      // payload, criar/listar/obter webhook, segurança, IP allowlist) —
+      // NENHUMA página oficial do Pagar.me v5 documenta HMAC, assinatura
+      // criptográfica, ou um header 'x-hub-signature' para webhooks. Os
+      // únicos mecanismos de segurança documentados (Basic Auth, IP
+      // allowlist) são para chamadas DE ENTRADA feitas À API do Pagar.me —
+      // sentido inverso do que esta função precisa validar (uma notificação
+      // que o Pagar.me ENVIA para nós). Existe um campo opcional de "senha"
+      // na tela de cadastro do webhook no dashboard (mencionado só em um
+      // artigo de suporte de terceiros, fora da doc oficial) cuja semântica
+      // exata (Basic Auth na URL? outra coisa?) não está confirmada.
+      //
+      // NÃO PREENCHER pagarme_webhook_secret em produção até resolver isso
+      // de verdade (inspecionar os headers de um webhook real de teste no
+      // dashboard, ou perguntar ao suporte do Pagar.me) — do jeito que essa
+      // função está, preencher o secret faz a UI mostrar "configurado" mas
+      // REJEITA 100% dos webhooks reais (o Pagar.me quase certamente nunca
+      // manda 'x-hub-signature'), uma falsa sensação de segurança pior do
+      // que deixar vazio. Hoje o secret está vazio, então o fail-closed
+      // abaixo já rejeita tudo de qualquer forma — sem efeito prático ainda.
       const sigHeader = headers['x-hub-signature']
       if (!sigHeader) throw new Error('Missing Pagar.me signature')
 
@@ -159,8 +183,10 @@ export function pagarmeAdapter(apiKey: string): GatewayAdapter {
       // funcionavam, porque ali event.data já É o Invoice.
       const subscriptionRef = dataObj.subscription || dataObj.invoice?.subscription
 
-      // Pagar.me v5 real event names (nomes já verificados contra a doc
-      // oficial nesta sessão — só o ESQUEMA DE ASSINATURA acima é que não foi):
+      // Pagar.me v5 real event names (lista completa de docs.pagar.me/
+      // reference/eventos-de-webhook-1, verificada nesta sessão — a única
+      // lista de subscription.* documentada na v5 atual é
+      // subscription.created/subscription.canceled, sem updated/suspended):
       // - Ativação/renovação: 'charge.paid' ou 'invoice.paid'
       // - Cancelamento: 'subscription.canceled' (uma L — grafia americana do Pagar.me)
       // - Falha: 'charge.payment_failed' / 'invoice.payment_failed'
@@ -169,7 +195,19 @@ export function pagarmeAdapter(apiKey: string): GatewayAdapter {
       }
       // Note: webhook handler converts 'activated' to 'renewed' for already-active subscriptions
       if (event.type === 'subscription.canceled') type = 'subscription.cancelled'
-      if (event.type === 'charge.payment_failed' || event.type === 'invoice.payment_failed') {
+      // ACHADO DE VERIFICAÇÃO CONTRA A DOC (2026-08-24): 'charge.refunded' e
+      // 'invoice.canceled' existem na lista oficial de eventos e antes
+      // caíam em 'unknown' — uma assinatura estornada ou com a fatura
+      // cancelada ficava presa em 'active' para sempre, sem nenhum sinal
+      // chegar até aqui. Mapeados para 'payment.failed' (o handler marca
+      // past_due e só derruba o plano se o período pago já tiver acabado —
+      // o mesmo tratamento conservador já usado para uma cobrança recusada).
+      if (
+        event.type === 'charge.payment_failed' ||
+        event.type === 'invoice.payment_failed' ||
+        event.type === 'charge.refunded' ||
+        event.type === 'invoice.canceled'
+      ) {
         if (subscriptionRef) type = 'payment.failed'
       }
 

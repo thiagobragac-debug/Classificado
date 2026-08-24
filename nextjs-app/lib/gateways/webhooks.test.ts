@@ -173,6 +173,24 @@ describe('pagarmeAdapter.validateWebhook', () => {
     const evt = await adapter.validateWebhook(body, { 'x-hub-signature': header }, SECRET);
     expect(evt.type).toBe('payment.failed');
   });
+
+  // Achado de verificação contra a doc oficial (2026-08-24): charge.refunded
+  // e invoice.canceled existem na lista real de eventos e antes caíam em
+  // 'unknown' — uma assinatura estornada ou com fatura cancelada ficava
+  // presa em 'active' para sempre.
+  it('charge.refunded com subscription -> payment.failed', async () => {
+    const body = JSON.stringify({ id: 'evt_5', type: 'charge.refunded', data: { invoice: { subscription: { id: 'sub_1' } } } });
+    const header = assinar(body, SECRET);
+    const evt = await adapter.validateWebhook(body, { 'x-hub-signature': header }, SECRET);
+    expect(evt.type).toBe('payment.failed');
+  });
+
+  it('invoice.canceled com subscription -> payment.failed', async () => {
+    const body = JSON.stringify({ id: 'evt_6', type: 'invoice.canceled', data: { subscription: { id: 'sub_1' } } });
+    const header = assinar(body, SECRET);
+    const evt = await adapter.validateWebhook(body, { 'x-hub-signature': header }, SECRET);
+    expect(evt.type).toBe('payment.failed');
+  });
 });
 
 describe('asaasAdapter.validateWebhook', () => {
