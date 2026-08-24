@@ -100,6 +100,34 @@ rejeitar 100% dos webhooks legítimos, um segundo modo de falha silenciosa.
 
 ---
 
+## 🔧 Validação do pipeline admin → runtime — 2026-08-24
+
+Pedido: confirmar que toda chave/config salva em **Admin → Configurações**
+é lida com o mesmo nome pelo código que a consome. Cruzei cada
+`settings['x']`/`localStorage.getItem('x')` do runtime contra cada
+`get`/`set` do admin (~26 chaves).
+
+| Local | Admin salva | Runtime lia | Efeito real |
+|---|---|---|---|
+| `app/api/checkout/init/route.ts` | `stripe_pub_key` | `stripe_public_key` | **Confirmado em produção** (chave real de 107 chars só existe sob o nome certo): todo checkout via Stripe devolvia 503 "Stripe keys not configuradas", mesmo com as duas chaves preenchidas no admin. Corrigido. |
+| `components/Header.tsx` (`applyDynamicSettings`) | `primary_color` | `tc_primary_color` | Cor primária customizada no admin nunca chegava a ser aplicada ao site (o `syncPlatformSettings` espelha `platform_settings` no localStorage pelo nome literal da coluna `key`, não com prefixo `tc_`). Hoje sem efeito observável — a linha `primary_color` ainda não existe em produção — mas o bug já existia. Corrigido. |
+
+Conferido e **sem divergência**: `mp_public_key`, `pagarme_pub_key`,
+`tc_logo_url`, `retention_strategy` (usado por
+`supabase/functions/data-retention-job`).
+
+**Sem consumidor em lugar nenhum do runtime** (controles do admin que hoje
+não afetam o site — não é bug de nome, é funcionalidade ainda não
+conectada): `dark_mode`, `feature_chat`, `feature_kyc`, `hero_title`,
+`hero_subtitle`, `show_hero`, `tc_feat_auctions`, `tc_feat_plans`,
+`tc_feat_social_login`. Vale decidir se algum destes deveria ser removido
+do admin ou implementado.
+
+Validado: `tsc --noEmit`, `vitest run` (113/113), `next build`. Commit
+`4b2cdd9`.
+
+---
+
 ## 🟠 Segurança — antes de abrir ao público
 
 ### 2. CAPTCHA no Supabase Auth (correção do que este item dizia antes)
