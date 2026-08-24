@@ -31,6 +31,75 @@ em outras tabelas. Testado antes e depois com um admin real; e pela UI de
 verdade em Denúncias (Ignorar → efeito confirmado no banco → revertido,
 por ser dado pré-existente).
 
+## 🔴 Achado crítico — 4 tabelas + colunas de `profiles` publicamente expostas (corrigido)
+
+Varredura completa de `pg_policies` procurando qualquer policy com
+`qual = true` para roles diferentes de `service_role` encontrou dados
+reais legíveis (e em alguns casos graváveis) por **qualquer requisição
+não autenticada** — só com a `anon key`, que é pública por design (vem
+no bundle JS do navegador):
+
+- **`subscriptions`** — policy "Admins can view all subscriptions"
+  (`SELECT`, `roles: {public}`, `qual: true`) não checava admin nenhum.
+  Qualquer um lia toda assinatura de todo usuário (plano, valor, ids do
+  gateway). Confirmado exploitável: inserida uma linha de teste e lida
+  de volta com a anon key, sem token nenhum. Tabela está vazia hoje (0
+  assinaturas reais), mas a exposição era real e afetaria a primeira
+  assinatura de verdade.
+- **`api_keys`** — duas policies públicas (`SELECT` e `UPDATE`) sem
+  checagem real. Qualquer um lia `secret_hash` + email + permissions de
+  todo parceiro, e podia **escrever** em qualquer linha (reativar chave
+  revogada, elevar permissions pra `full_access`). O próprio código
+  (`lib/api-auth.ts`) já documentava que o fluxo real usa `service_role`
+  para tudo isso — as policies públicas contradiziam a intenção
+  documentada.
+- **`api_request_logs`** — policy "Rate limit select own logs only"
+  com nome de ownership mas `qual: true` real — mesmo caso, também dead
+  in practice (rate limit já lê via `service_role`).
+- **`profiles.is_admin` / `profiles.is_blocked`** — colunas zumbi (a
+  fonte real dessas flags é `user_secrets` desde
+  `20260723072100_split_user_secrets.sql`, mesma causa raiz do achado
+  acima) ficaram publicamente legíveis **e graváveis por qualquer
+  usuário autenticado no seu próprio registro** — ou seja, um usuário
+  comum podia potencialmente tentar setar `is_admin = true` na própria
+  linha (a escrita real de permissão nunca olha essa coluna, mas ela não
+  devia estar exposta).
+
+Corrigido em duas migrations em produção:
+`20260824180000_security_fix_public_data_exposure.sql` (drop das
+policies públicas quebradas, consolidação em `is_admin()`) e
+`20260824190000_restrict_profiles_privileged_columns.sql` (restrição de
+coluna em `profiles`).
+
+**Lição de Postgres**: um `REVOKE` de coluna sozinho **não tem efeito**
+se a role também tiver um `GRANT` de tabela inteira — e o Supabase
+concede `GRANT ALL ON ALL TABLES` para `anon`/`authenticated` por
+padrão. A primeira tentativa (só `revoke select (is_admin, is_blocked)
+on profiles from anon, authenticated`) foi testada e **confirmada sem
+efeito** (a coluna continuava legível). O fix correto é `revoke select
+on profiles from anon, authenticated` (tabela inteira) seguido de
+`grant select (lista explícita de colunas seguras) on profiles to
+anon, authenticated` — e o mesmo padrão para `update`.
+
+Consequência esperada e mapeada antes de aplicar: qualquer
+`select('*')` em `profiles` (incluindo `select('*', {count:'exact',
+head:true})`) passa a falhar com 401 para `anon`/`authenticated`. Grep
+completo em `app/` e `components/` encontrou 3 call sites usando
+`select('*')` que dependiam disso — trocados para listas de colunas
+explícitas: `VerificacaoClient.tsx`, `admin/page.tsx` (dashboard,
+2 queries) e `lib/supabase-server.ts` (`getServerPlatformStats`, stat de
+"Verificados" da home). Validado depois: `is_admin`/`is_blocked` agora
+`401` via anon key; colunas públicas legítimas continuam `200`; `tsc`,
+`vitest` (113 testes) e `next build` passam limpos.
+
+Na mesma varredura, bônus de limpeza (mesmo padrão
+`profiles.is_admin`, sem exposição pública nova — a leitura pública já
+era intencional nesses casos, só a escrita de admin estava quebrada):
+`paises`, `estados`, `cidades`, `platform_settings`, `auctions`,
+`profile_secrets`, `user_verifications`, `transactions`, `plans`, e
+(numa migration anterior, commit `4a5dc9e`) `api_keys`/
+`api_request_logs` no fluxo de admin.
+
 ## 🟢 Funcionalidade nova: lances por lote no Leilão Virtual (não existia)
 
 Ao testar Leilões pela primeira vez de ponta a ponta, descobri que **dar
