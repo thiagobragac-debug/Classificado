@@ -103,7 +103,14 @@ export default async function AuctionPage(props: { params: Promise<{ id: string 
       .single(),
     supabase
       .from('auction_lots')
-      .select('id, lot_number, title, description, images, starting_bid, current_bid, status, auction_id')
+      // BUG CORRIGIDO: pedia colunas que não existem (images, starting_bid,
+      // status — nomes reais são image, min_bid; status nem existe nesta
+      // tabela). PostgREST rejeita a consulta inteira com 400 quando um
+      // select referencia uma coluna inexistente, então { data: lots } sempre
+      // vinha vazio e a página mostrava "Nenhum lote cadastrado" mesmo
+      // quando existiam lotes reais — o erro nem era logado, só a
+      // desestruturação `{ data: lots }` descartava o error.
+      .select('id, lot_number, title, description, image, video, sire, dam, min_bid, current_bid, auction_id')
       .eq('auction_id', auctionId)
       .order('lot_number', { ascending: true }),
   ]);

@@ -398,6 +398,29 @@ export async function placeBid(auctionId: string, amount: number | string) {
   return data;
 }
 
+// FUNCIONALIDADE NOVA: lance por LOTE do "Leilão Virtual"
+// (auction_events/auction_lots) — sistema separado do leilão de anúncio
+// individual acima (auctions/auction_bids). Antes desta função existir,
+// LotBiddingModal chamava placeBid() passando o id do EVENTO, que
+// place_bid_atomic procurava na tabela errada (auctions) — todo lance
+// falhava com "Leilão não encontrado". Ver
+// supabase/migrations/20260824160000_add_lot_bidding_system.sql.
+export async function placeLotBid(lotId: string, amount: number | string) {
+  const session = await getSession();
+  if (!session) throw new Error('Não autenticado');
+  const sanitized = typeof amount === 'string'
+    ? amount.replace(/\./g, '').replace(',', '.')
+    : amount;
+  const numAmount = Number(sanitized);
+  if (!isFinite(numAmount) || numAmount <= 0) throw new Error('Valor do lance inválido.');
+  const { data, error } = await getSupabase().rpc('place_lot_bid_atomic', {
+    p_lot_id: lotId, p_amount: numAmount
+  });
+  if (error) throw error;
+  if (!data?.success) throw new Error(data?.error || 'Erro ao processar lance.');
+  return data;
+}
+
 // ─── BANNERS ────────────────────────────────────────────────────
 
 export async function getBanners(position: string, userLoc: any = null) {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { placeBid } from '@/lib/supabase';
+import { placeLotBid } from '@/lib/supabase';
 import { showToast } from '@/lib/toast';
 
 export interface LotData {
@@ -101,7 +101,11 @@ export default function LotBiddingModal({ lot, onClose, userId }: LotBiddingModa
     if (pendingBid === null || !userId || !lot) return;
     setBidding(true);
     try {
-      await placeBid(lot.auction_id, pendingBid);
+      // BUG CORRIGIDO: chamava placeBid(lot.auction_id, ...), que envia o id
+      // do EVENTO para uma função feita para outro sistema (leilão de
+      // anúncio individual) — todo lance falhava com "Leilão não
+      // encontrado". Ver lib/supabase.ts:placeLotBid.
+      await placeLotBid(lot.id, pendingBid);
       showToast(`Lance de ${BRL.format(pendingBid)} registrado com sucesso!`, 'success');
       setPendingBid(null);
       onClose();
