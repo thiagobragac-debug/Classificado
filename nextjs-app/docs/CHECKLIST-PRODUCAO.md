@@ -9,6 +9,69 @@ diretamente. Reconfira antes do go-live.
 
 ---
 
+## ✅ Teste E2E completo, do zero, com pagamento real fechando o loop — 2026-08-24
+
+Pedido: refazer o teste inteiro criando usuário, anúncio, conversa e
+pagamento reais no banco, com tudo interagindo com o admin. Diferença desta
+rodada para a de mais cedo no mesmo dia: desta vez o pagamento foi **até o
+fim**, com o webhook realmente validado e a assinatura virando `active` de
+verdade — não só até o ponto em que travava antes.
+
+**Metodologia:** 3 contas descartáveis (vendedor, comprador, admin) criadas
+pelo **formulário de cadastro real** (não Admin API — testa o cadastro em
+si também). Vendedor publicou um anúncio pelo formulário `/anunciar` de
+verdade; admin aprovou pelo `/admin/anuncios`; comprador mandou mensagem
+real pelo anúncio; comprador assinou o plano Produtor PRO — Stripe Elements
+não dá pra automatizar (roda num iframe de outra origem, sem acesso via
+essas ferramentas), então o pagamento foi completado pela API real da
+Stripe com o mesmo `clientSecret` gerado pela rota real, o que já tinha
+sido validado como equivalente antes. Com autorização explícita do usuário,
+configurei um `stripe_webhook_secret` de teste temporário, busquei o
+invoice **real** da assinatura na Stripe (não inventado) e montei o evento
+de webhook com esse dado real, assinado corretamente (`t=...,v1=...` HMAC).
+Ao final: assinatura cancelada e apagada na Stripe, `stripe_webhook_secret`
+revertido para vazio, todas as linhas de teste apagadas do banco, os 3
+usuários apagados — tudo confirmado por leitura independente pós-limpeza.
+
+**Resultado do pagamento:** `/api/checkout` criou a assinatura real
+(`sub_1U7xIo...`), o webhook assinado corretamente foi aceito
+(`{"eventType":"subscription.activated"}`), e **as três tabelas
+atualizaram certo**: `subscriptions.status = active`, `profiles.
+subscription_status = active` + `plan_expires_at` certo, `user_secrets.
+plan = 'pro'` + `plan_id` certo. O próprio painel do comprador passou a
+mostrar "Pro" e "0/15 anúncios" imediatamente — confirmação do lado do
+cliente, não só do banco.
+
+**3 bugs novos encontrados e corrigidos** (commit `069a62e`) — todos só
+apareceram porque desta vez havia uma assinatura *realmente paga e ativa*
+para checar contra o admin, o que nenhum teste anterior tinha feito:
+
+| Onde | Sintoma | Causa raiz |
+|---|---|---|
+| `admin/usuarios` | "Assinantes" sempre 0, badge de plano nunca aparecia | `user_secrets.plan` é sempre minúsculo (`pro`/`premium`/`free`), mas a página comparava contra `Pro`/`Premium`/`Grátis` capitalizados — **e** a consulta rodava direto do browser, e a RLS de `user_secrets` só libera `auth.uid() = id`, então o admin nunca via o plano de ninguém além de si mesmo |
+| `admin/assinaturas` | "Receita (MRR)" e o valor de cada linha sempre R$ 0,00 | `app/api/checkout/route.ts` nunca gravava a coluna `price` em lugar nenhum — toda assinatura ficava com `price NULL` para sempre, mesmo cobrando de verdade |
+| Rodapé do site (pt e es) | Link "Planos Premium" abria sempre em "Meus Anúncios" | Apontava para `/painel#assinatura`, uma aba que nunca existiu (as reais são `ads`/`messages`/`favorites`/`profile`/`billing`) |
+
+O primeiro achado é sério: significa que **o admin nunca conseguiu ver
+corretamente quem é assinante pagante** — nem antes desta correção, nem em
+nenhuma versão anterior do código, porque a RLS sempre bloqueou essa
+leitura. `/api/admin/users` (nova rota, mesmo padrão do `/api/admin/
+block-user` já existente) resolve isso lendo com o `service_role`.
+
+**Achado que ficou de fora (não é bug de código, é dado)**: no rodapé do
+anúncio existe um banner "Anuncie Anúncio" apontando para `/planos.html`,
+uma URL que não existe mais no site (há inclusive uma regra em
+`globals.css:461` escondendo esse link para usuários logados, sugerindo que
+já era um problema conhecido). É conteúdo de banner/admin, não código —
+vale checar em **Admin → Banners**.
+
+**Confirmado, sem alteração**: Mercado Pago (bloqueador 0) e os 4 webhook
+secrets (bloqueador 1) seguem exatamente como documentado — este teste não
+mexeu nesses dois itens além de usar o secret temporário da Stripe, já
+revertido.
+
+---
+
 ## 🧪 Teste completo do site — 2026-08-24
 
 Pedido: navegar o site inteiro como usuário comum e como admin (não só ler
