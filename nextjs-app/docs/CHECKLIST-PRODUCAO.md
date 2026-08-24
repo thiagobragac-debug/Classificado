@@ -9,6 +9,75 @@ diretamente. Reconfira antes do go-live.
 
 ---
 
+## 🔴 Achado crítico — RLS de 5 tabelas do admin nunca funcionou (corrigido)
+
+Testando com um admin de verdade (não lendo código): escrever em
+**categorias, banners, depoimentos, lotes de leilão e denúncias** pelo
+painel sempre retornava sucesso na tela, mas **zero linhas eram
+alteradas no banco**. Denúncias tinha a leitura também bloqueada —
+`/admin/denuncias` sempre mostrava "0 denúncias", mesmo com reais no
+banco.
+
+Causa raiz: as regras de segurança (RLS) dessas 5 tabelas verificavam
+`profiles.is_admin` — uma coluna que **nenhum fluxo real do sistema
+preenche**. Tornar alguém admin sempre grava em `user_secrets.is_admin`
+(coluna diferente, tabela diferente). `auction_events` e
+`institutional_pages` nunca tiveram esse problema porque já usavam a
+função `is_admin()` (que checa o lugar certo).
+
+Corrigido com migration em produção (commit `4800e66`), substituindo as
+políticas quebradas pela função `is_admin()` — a mesma que já funcionava
+em outras tabelas. Testado antes e depois com um admin real; e pela UI de
+verdade em Denúncias (Ignorar → efeito confirmado no banco → revertido,
+por ser dado pré-existente).
+
+## 🟢 Funcionalidade nova: lances por lote no Leilão Virtual (não existia)
+
+Ao testar Leilões pela primeira vez de ponta a ponta, descobri que **dar
+lance em qualquer lote sempre falhava** com "Leilão não encontrado" —
+não por um bug pontual, mas porque essa funcionalidade nunca tinha sido
+construída no banco. A tela chamava uma função pronta de um sistema
+**completamente diferente e não relacionado** (leilão de anúncio
+individual, `auctions`/`auction_bids`), passando o ID errado.
+
+Com autorização do usuário, construí o sistema que faltava (commit
+`50cc389`), espelhando o design do sistema irmão: nova tabela
+`auction_lot_bids`, colunas `current_bid`/`winner_id` em `auction_lots`,
+e a função `place_lot_bid_atomic` (reaproveitando `auction_events.step`
+e `accepts_bids`, colunas que já existiam mas nunca eram usadas).
+
+De quebra, corrigido no mesmo commit: `app/(public)/leiloes/[id]/page.tsx`
+pedia colunas inexistentes (`images`, `starting_bid`, `status`) na
+consulta de lotes — a página pública de leilão **sempre mostrou "Nenhum
+lote cadastrado"**, mesmo com lotes reais, porque a consulta inteira
+falhava em silêncio (400 do PostgREST, erro nunca checado).
+
+Testado ao vivo pela UI real: lote criado, leilão ao vivo, lance de R$500
+sobre lance inicial de R$1.000 → `current_bid`/`winner_id` corretos no
+banco + linha real em `auction_lot_bids`. Validação de incremento mínimo
+testada também (lance insuficiente rejeitado com a mensagem certa). Tudo
+limpo depois.
+
+**Não testado ainda**: encerramento do leilão / apuração de vencedor por
+lote (não há tela para isso hoje — só a criação do lote e o lance em si).
+
+## ✅ Cupons de desconto — testado com checkout real (2 bugs corrigidos)
+
+Cupom de 50% criado no admin e aplicado num checkout real via Stripe:
+confirmado que a Stripe cobrou exatamente R$39,50 (metade de R$79), o uso
+do cupom incrementou para 1/1, e uma segunda tentativa com o mesmo cupom
+foi bloqueada. Achados e corrigidos (commit `cd9d2d3`):
+
+1. Quando um cupom deixava de ser válido entre a checagem no navegador e o
+   envio do pagamento (ex.: limite de usos esgotado nesse intervalo), o
+   checkout ignorava o cupom em silêncio e cobrava o preço cheio, sem
+   avisar. Agora retorna erro explícito.
+2. `admin/cupons`: um cupom esgotado (`is_active=true` mas `usage_count >=
+   max_uses`) mostrava "Inativo" no badge de status mas "Desativar" no
+   botão ao lado — contraditório. Unificado.
+
+---
+
 ## ✅ Teste E2E completo, do zero, com pagamento real fechando o loop — 2026-08-24
 
 Pedido: refazer o teste inteiro criando usuário, anúncio, conversa e
