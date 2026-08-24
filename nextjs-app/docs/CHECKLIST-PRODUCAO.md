@@ -11,11 +11,41 @@ diretamente. Reconfira antes do go-live.
 
 ## 🔴 Bloqueador
 
+### 0. Access token do Mercado Pago está inválido — 2026-08-24
+
+**Mais grave que o item 1 abaixo: hoje NINGUÉM consegue assinar via Mercado
+Pago, o gateway padrão para usuário nacional (todo usuário sem `country`
+preenchido cai aqui — ou seja, a esmagadora maioria).**
+
+Confirmado com dois testes reais independentes:
+
+1. `GET https://api.mercadopago.com/users/me` com o `mp_access_token` salvo em
+   produção → `401 {"code":"unauthorized","message":"invalid access token"}`.
+2. Chamada real a `/api/checkout` (rota de verdade, usuário de teste
+   descartável, limpo depois) com plano pago → mesmo erro, devolvido direto ao
+   usuário: `"Mercado Pago erro na assinatura: {"code":"unauthorized","message":"invalid access token"}"`.
+
+A `mp_public_key` salva também não é reconhecida pela própria API da Mercado
+Pago para tokenizar cartão (`404 not found public_key`) — o mesmo erro que o
+Brick apresentaria no navegador. Não dá para saber, sem acesso ao dashboard da
+Mercado Pago, se o token expirou, foi revogado, ou se public key e access
+token vieram de aplicações/contas de teste diferentes — só que, do jeito que
+está, nenhuma das duas credenciais funciona.
+
+**O que fazer:** no dashboard da Mercado Pago (Suas integrações → aplicação
+usada), gerar um par novo de credenciais de teste (ou produção, se for o
+caso) — access token e public key da **mesma aplicação** — e colar os dois em
+**Admin → Configurações → Gateways de Pagamento**. Depois, repetir o teste 1
+acima (ou pedir para eu repetir) para confirmar antes de liberar.
+
+---
+
 ### 1. Webhook secrets dos gateways
 
-**Sem isto, quem paga não recebe o plano.**
+**Sem isto, quem paga não recebe o plano — mesmo que a cobrança na Stripe/MP
+tenha sido aprovada de verdade.**
 
-Verificado — os quatro estão vazios:
+Ainda vazios em 2026-08-24 (inalterado desde 2026-08-22):
 
 | Chave | Estado |
 |---|---|
@@ -27,11 +57,26 @@ Verificado — os quatro estão vazios:
 Os adapters rejeitam corretamente webhook sem secret configurado (não há
 bypass), então **toda** notificação de pagamento é recusada hoje. `/sucesso` é
 uma tela cosmética: não ativa nada. O único caminho que ativa plano sem webhook
-é o cupom de 100% off. A tabela `subscriptions` tem 0 linhas — ninguém jamais
-completou uma assinatura.
+é o cupom de 100% off.
 
-**Gateways ativos:** nacional `mercadopago`, internacional `stripe`. Pagar.me e
-Asaas não estão em uso; o Asaas nem tem API key.
+**Prova ao vivo, ponta a ponta, em 2026-08-24** (usuário de teste descartável,
+tudo limpo depois — ver seção de auditoria mais abaixo): uma assinatura Stripe
+real foi criada e cobrada pelas rotas de verdade (`/api/checkout/init` →
+Stripe Elements/SetupIntent real → `/api/checkout`). Do lado da Stripe:
+`status: active`, `unit_amount: 7900` (R$79, cobrado de verdade em modo
+teste). Do lado do nosso banco: a linha em `subscriptions` ficou parada em
+`status: "pending"` — para sempre, porque simulei exatamente o webhook que a
+Stripe mandaria (payload real, referenciando a assinatura real) e a resposta
+foi `"Stripe webhook secret not configured. Rejecting webhook."`. Ou seja: o
+usuário paga, a cobrança é aprovada, ele é redirecionado para
+`/painel?subscribed=1` e vê um banner de sucesso — mas `profiles.plan`/
+`user_secrets.plan` nunca mudam, porque o webhook que faria essa atualização
+é recusado antes de tocar no banco. Do ponto de vista do usuário: pagou e não
+recebeu o plano, sem nenhum aviso de que algo deu errado.
+
+**Gateways ativos:** nacional `mercadopago` (veja item 0 — hoje inoperante),
+internacional `stripe`. Pagar.me e Asaas não estão em uso; o Asaas nem tem API
+key.
 
 **O que fazer**
 
@@ -122,6 +167,48 @@ logo depois, nunca commitado):
 Mercado Pago e Pagar.me seguem apenas no nível 2 (código correto contra a
 doc oficial + auto-consistente nos testes mockados) — sem chave de sandbox
 fornecida ainda para repetir esse teste.
+
+### ✅ Validado ponta a ponta pelas ROTAS reais (não só o adapter) — 2026-08-24
+
+Pergunta respondida: "desde a seleção do plano pelo usuário no site até a
+assinatura ser atualizada no ambiente, está tudo funcionando?" Resposta
+testada com HTTP de verdade, não só leitura de código:
+
+**Metodologia:** criado usuário descartável via Admin Auth API
+(`e2e-flow-test-...@tauzeclass.com.br`), login real (password grant) gerando
+um `access_token` de verdade, servidor Next.js local rodando contra o banco
+de produção. Todas as chamadas abaixo foram feitas nas rotas reais
+(`/api/checkout/init`, `/api/checkout`, `/api/webhooks/payments`), não em
+funções isoladas. Ao final: assinatura cancelada e apagada na Stripe, linha
+de teste apagada de `subscriptions`, usuário de teste apagado (cascade em
+`profiles`/`user_secrets`) — tudo confirmado por leitura independente
+pós-limpeza.
+
+**Caminho Stripe (usuário internacional) — funciona até o webhook:**
+`checkout/init` retornou `publicKey`/`clientSecret` reais → SetupIntent
+confirmado com PaymentMethod de teste (mesmo fluxo do `StripeCheckoutForm` no
+navegador, `return_url` incluído) → `/api/checkout` criou a assinatura de
+verdade na Stripe (`sub_1U7vLA09kaQPprD6VyWfuY9y`, `status: active`,
+`unit_amount: 7900`) e gravou `gateway_subscription_id`/`gateway_customer_id`
+na linha `pending` em `subscriptions`. Webhook simulado com payload real →
+rejeitado por falta de secret (ver item 1 do bloqueador). **Resultado:
+dinheiro cobrado, plano nunca ativado no banco.**
+
+**Caminho Mercado Pago (usuário nacional, o padrão) — quebra antes mesmo de
+chegar ao gateway:** mesma sequência, `checkout/init` respondeu
+normalmente (`gateway: mercadopago`, `publicKey` real), mas `/api/checkout`
+falhou com `"Mercado Pago erro na assinatura: invalid access token"` — ver
+item 0 do bloqueador. Ponto positivo confirmado: o rollback funciona — a
+linha `pending` (lock) foi apagada automaticamente no erro, sem deixar lixo
+no banco.
+
+**Conclusão honesta:** o código dos dois pontos de checkout (`checkout/init`,
+`checkout`) está correto e funcionando — os dois bugs de nome de chave e os
+17 achados da auditoria de gateways realmente resolveram o que deveriam
+resolver. O que ainda impede QUALQUER assinatura real de se completar hoje
+não é mais código, são dois itens de configuração puramente do lado do
+usuário: item 0 (credenciais Mercado Pago inválidas) e item 1 (webhook
+secrets vazios).
 
 ---
 
