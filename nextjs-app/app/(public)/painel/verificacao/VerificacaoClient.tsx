@@ -40,7 +40,10 @@ export default function VerificacaoClient() {
     }
 
     // Busca profile e verifica o status
-    const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single()
+    // select('*') quebrava aqui: is_admin/is_blocked deixaram de ter grant
+    // público (achado de segurança 2026-08-24) e um select com * exige
+    // acesso a toda coluna, mesmo que o valor nunca seja usado no render.
+    const { data: profile } = await supabase.from('profiles').select('id, name, verified, kyc_status').eq('id', session.user.id).single()
     setUser(profile)
     
     // Verifica se já tem request pendente

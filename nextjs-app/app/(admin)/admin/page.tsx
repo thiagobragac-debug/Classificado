@@ -32,10 +32,14 @@ export default function AdminDashboard() {
     // ficava travado nos zeros iniciais para sempre, não importa quantos
     // usuários/anúncios existissem. Cada consulta agora trata seu próprio
     // erro (tabela 'reports' pode nem existir ainda) sem derrubar as demais.
+    // select('id', ...) em vez de select('*', ...): profiles.is_admin/
+    // is_blocked deixaram de ter grant público (achado de segurança
+    // 2026-08-24) e um select com * exige acesso a toda coluna da
+    // tabela mesmo num count com head:true, que não devolve linha nenhuma.
     const [adsRes, usersRes, pendingRes, reportsRes] = await Promise.all([
       supabase.from('ads').select('*', { count: 'exact', head: true }),
-      supabase.from('profiles').select('*', { count: 'exact', head: true }),
-      supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('kyc_status', 'pending'),
+      supabase.from('profiles').select('id', { count: 'exact', head: true }),
+      supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('kyc_status', 'pending'),
       supabase.from('reports').select('*', { count: 'exact', head: true }).eq('status', 'open'),
     ])
 

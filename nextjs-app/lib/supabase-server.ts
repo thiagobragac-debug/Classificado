@@ -86,7 +86,10 @@ export const getServerPlatformStats = cache(async () => {
   const today = new Date().toISOString();
   const [adsResult, usersResult, bovinosResult, maquinasResult, auctionsResult] = await Promise.all([
     supabase.from('ads').select('*', { count: 'exact', head: true }).eq('status', 'active'),
-    supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('verified', true),
+    // select('id', ...): profiles.is_admin/is_blocked deixaram de ter grant
+    // público (achado de segurança 2026-08-24) — select('*') quebra até num
+    // count com head:true.
+    supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('verified', true),
     supabase.from('ads').select('*', { count: 'exact', head: true }).eq('status', 'active').eq('category_id', 'bovinos'),
     supabase.from('ads').select('*', { count: 'exact', head: true }).eq('status', 'active').eq('category_id', 'maquinas'),
     supabase.from('auction_events').select('*', { count: 'exact', head: true }).neq('status', 'draft').gte('date', today),
