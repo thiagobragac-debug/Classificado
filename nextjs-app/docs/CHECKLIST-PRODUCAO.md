@@ -9,6 +9,61 @@ diretamente. Reconfira antes do go-live.
 
 ---
 
+## 🧹 Fechamento dos achados médios/baixos do reteste — 2026-08-25
+
+Terceira rodada ("continuar!"), fechando os itens que tinham ficado
+registrados mas não corrigidos nas duas rodadas anteriores.
+
+**5 médios corrigidos** (commit `2fe6429`): troca de idioma no header
+sem F5 (`setLang()` agora chama `router.refresh()`); textos hardcoded
+em PT na seção de Confiança mesmo com ES selecionado; chip de
+"Localização" em `/listagem` preso no rótulo autodetectado depois de
+troca manual de país/estado/cidade (`useAutoGeo` agora rastreia o que
+ele mesmo aplicou e limpa o rótulo quando o valor diverge);
+`/leiloes?status=closed` nunca mostrava leilões encerrados (filtro
+usava `'finished'`, valor real é `'closed'`); ordenação "futuro
+primeiro" em `/eventos` não funcionava pra datas em texto livre das
+feiras (novo parser `parseEventDate`, incluindo correção de um regex
+greedy que casava "ril" em vez de "Abril"). Chaves de API "Sandbox"
+eram cosméticas (liam/escreviam dado real de produção sem isolamento)
+— sem implementar isolamento de dado, a interpretação mais segura
+adotada foi bloquear escrita: `POST /api/v1/ads` agora rejeita chaves
+sandbox com 403.
+
+**3 baixos corrigidos** (commit `54b40d8`): geração de id de categoria
+em `/admin/categorias` produzia hífen duplo/solto pra nomes com
+pontuação consecutiva (ex.: `"[TESTE E2E] Categoria"` →
+`"-teste-e2e--categoria"`) — corrigido colapsando sequências de
+caracteres não-alfanuméricos num único hífen e removendo hífens nas
+pontas; insert otimista de novo leilão em `/admin/leiloes` mostrava
+"lotes" sem número até reload (faltava `lotsCount: 0`); modal de lance
+de lote deixava o usuário chegar até "Confirmar lance?" num evento
+AGENDADO antes de descobrir, só depois de confirmar, que o servidor
+rejeita — agora avisa antes; e o card do lote não atualizava o "Lance
+Atual" após um lance bem-sucedido sem F5 manual (`router.refresh()`).
+
+**Achado à parte, já aplicado ao banco de produção**: a FK de
+`api_request_logs` para `api_keys` estava `ON DELETE SET NULL` —
+excluir uma chave deixava os logs órfãos pra sempre (sem dono, mas
+ainda contando no total agregado do Dashboard de Uso da API). Trocado
+para `ON DELETE CASCADE`; verificado ao vivo criando chave + log,
+excluindo a chave e confirmando o log desaparecer.
+
+**Itens conscientemente deixados como gap de feature, não bug** (sem
+ação nesta rodada): sem UI de edição de lote no admin; sem estado
+"cancelado" distinto pra evento de leilão; cupons sem função de edição;
+CTA mobile de vendedor sem verificação abre JSON crú em
+`/api/contact-seller` pra visitante deslogado; páginas de conteúdo do
+admin (categorias/banners/depoimentos/páginas) não checam contagem de
+linhas afetadas após escritas (defesa em profundidade, só importa se
+RLS quebrar de novo); duplicidade de maiúscula/minúscula em país/estado
+nos dropdowns de localização (higiene de dado, não bug de código).
+
+Validado: `tsc --noEmit`, `vitest run` (119/119), `next build` limpos
+em ambos os commits. Commits `2fe6429`, `54b40d8`.
+
+---
+
 ## 🧪 Reteste completo do site (14 áreas) — 2026-08-25
 
 Segunda rodada pedida explicitamente ("corrigir um a um e ao finalizar
