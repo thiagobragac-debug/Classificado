@@ -45,9 +45,17 @@ export default function AdminBanners() {
   const handleToggleStatus = async (id: string, currentStatus: string) => {
     const newStatus = currentStatus === 'active' ? 'inactive' : 'active'
     const supabase = getSupabase()
-    const { error } = await supabase.from('banners').update({ status: newStatus }).eq('id', id)
-    if (!error) {
+    // GAP CORRIGIDO (reteste do site, 2026-08-25): update().eq() sem
+    // .select() retorna { error: null } mesmo sem alterar nenhuma linha
+    // (ex.: RLS bloqueando silenciosamente) — a UI trocava o status
+    // localmente como se tivesse funcionado, mesmo sem gravar no banco.
+    const { data, error } = await supabase.from('banners').update({ status: newStatus }).eq('id', id).select()
+    if (!error && data && data.length > 0) {
       setBanners(banners.map(b => b.id === id ? { ...b, status: newStatus } : b))
+    } else if (!error) {
+      showToast('Nenhum banner foi alterado — verifique suas permissões.', 'error')
+    } else {
+      showToast('Erro: ' + error.message, 'error')
     }
   }
 
@@ -73,9 +81,11 @@ export default function AdminBanners() {
   const handleDelete = async (id: string) => {
     if (!(await confirm('Deseja realmente excluir este banner?'))) return
     const supabase = getSupabase()
-    const { error } = await supabase.from('banners').delete().eq('id', id)
-    if (!error) {
+    const { data, error } = await supabase.from('banners').delete().eq('id', id).select()
+    if (!error && data && data.length > 0) {
       setBanners(banners.filter(b => b.id !== id))
+    } else if (!error) {
+      showToast('Nenhum banner foi excluído — verifique suas permissões.', 'error')
     } else {
       showToast('Erro ao excluir: ' + error.message, 'error')
     }
@@ -112,11 +122,13 @@ export default function AdminBanners() {
     }
 
     if (editingId) {
-      const { error } = await supabase.from('banners').update(payload).eq('id', editingId)
-      if (!error) {
+      const { data, error } = await supabase.from('banners').update(payload).eq('id', editingId).select()
+      if (!error && data && data.length > 0) {
         setBanners(banners.map(b => b.id === editingId ? { ...b, ...payload } : b))
         setIsModalOpen(false)
         showToast('Banner atualizado!', 'success')
+      } else if (!error) {
+        showToast('Nenhum banner foi alterado — verifique suas permissões.', 'error')
       } else {
         showToast('Erro: ' + error.message, 'error')
       }

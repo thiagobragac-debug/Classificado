@@ -25,6 +25,8 @@ const ALLOWED_ORIGINS = [
   'http://localhost:3000',
 ].filter(Boolean) as string[];
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export async function GET(request: NextRequest) {
   // ─── Verificação de Origin (CSRF protection) ─────────────────
   const origin = request.headers.get('origin');
@@ -32,16 +34,32 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  const { searchParams } = new URL(request.url);
+  const adId = searchParams.get('adId');
+
   // ─── Autenticação obrigatória ─────────────────────────────────
-  // O número de WhatsApp é dado pessoal — só usuários autenticados podem acessar
+  // O número de WhatsApp é dado pessoal — só usuários autenticados podem acessar.
+  // GAP CORRIGIDO (reteste do site, 2026-08-25): esta rota é aberta direto
+  // pelo navegador (<a target="_blank">), não chamada via fetch/XHR — um
+  // visitante deslogado clicando "Falar com Vendedor" no mobile abria uma
+  // aba nova mostrando o JSON crú {"error":"Unauthorized",...} em vez de
+  // uma tela reconhecível. Agora redireciona pro login com `next` de volta
+  // pro anúncio, igual ao padrão já usado no resto do site.
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json(
-      { error: 'Unauthorized', message: 'Faça login para contatar o vendedor.' },
-      { status: 401 }
-    );
+    const loginUrl = new URL('/login', request.url);
+    if (adId && UUID_REGEX.test(adId)) {
+      loginUrl.searchParams.set('next', `/anuncio/${adId}`);
+    }
+    return NextResponse.redirect(loginUrl, {
+      status: 302,
+      headers: {
+        'Cache-Control': 'no-store, no-cache, private',
+        'Pragma': 'no-cache',
+      },
+    });
   }
 
   // ─── Rate limiting por user_id (não por IP — mais preciso) ───
@@ -63,14 +81,10 @@ export async function GET(request: NextRequest) {
   }
 
   // ─── Validação do adId ────────────────────────────────────────
-  const { searchParams } = new URL(request.url);
-  const adId = searchParams.get('adId');
-
   if (!adId) {
     return NextResponse.json({ error: 'Missing adId parameter' }, { status: 400 });
   }
 
-  const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   if (!UUID_REGEX.test(adId)) {
     return NextResponse.json({ error: 'Invalid adId format' }, { status: 400 });
   }

@@ -76,8 +76,13 @@ export default function AdminDepoimentos() {
     }
 
     if (editingId) {
-      const { error } = await supabase.from('testimonials').update(payload).eq('id', editingId)
+      // GAP CORRIGIDO (reteste do site, 2026-08-25): update().eq() sem
+      // .select() retorna { error: null } mesmo sem alterar nenhuma linha
+      // (ex.: RLS bloqueando silenciosamente) — a UI mostrava sucesso sem
+      // ter gravado nada no banco.
+      const { data, error } = await supabase.from('testimonials').update(payload).eq('id', editingId).select()
       if (error) showToast('Erro ao atualizar: ' + error.message, 'error')
+      else if (!data || data.length === 0) showToast('Nenhum depoimento foi alterado — verifique suas permissões.', 'error')
       else {
         showToast('Atualizado com sucesso!', 'success')
         loadTestimonials()
@@ -97,8 +102,9 @@ export default function AdminDepoimentos() {
   const handleDelete = async (id: number) => {
     if (!(await confirm('Deseja realmente apagar este depoimento?'))) return
     const supabase = getSupabase()
-    const { error } = await supabase.from('testimonials').delete().eq('id', id)
+    const { data, error } = await supabase.from('testimonials').delete().eq('id', id).select()
     if (error) showToast('Erro ao deletar: ' + error.message, 'error')
+    else if (!data || data.length === 0) showToast('Nenhum depoimento foi excluído — verifique suas permissões.', 'error')
     else {
       setTestimonials(testimonials.filter(t => t.id !== id))
     }

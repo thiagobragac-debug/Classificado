@@ -20,9 +20,10 @@ export default function AdminAuctionLots() {
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [form, setForm] = useState({ 
-    lot_number: '', 
-    title: '', 
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [form, setForm] = useState({
+    lot_number: '',
+    title: '',
     min_bid: 0,
     image: '',
     video: '',
@@ -82,13 +83,38 @@ export default function AdminAuctionLots() {
     setLoading(false)
   }
 
+  const openNew = () => {
+    setEditingId(null)
+    setForm({ lot_number: '', title: '', min_bid: 0, image: '', video: '', sire: '', dam: '', description: '' })
+    setIsModalOpen(true)
+  }
+
+  // GAP CORRIGIDO (reteste do site, 2026-08-25): não existia UI de edição
+  // de lote no admin — um erro de digitação no título/filiação/lance
+  // mínimo só podia ser corrigido excluindo o lote e recriando, o que
+  // também zerava qualquer lance real (current_bid/winner_id) já
+  // registrado nele.
+  const openEdit = (lot: any) => {
+    setEditingId(lot.id)
+    setForm({
+      lot_number: lot.lot_number,
+      title: lot.title,
+      min_bid: lot.min_bid || 0,
+      image: lot.image || '',
+      video: lot.video || '',
+      sire: lot.sire || '',
+      dam: lot.dam || '',
+      description: lot.description || ''
+    })
+    setIsModalOpen(true)
+  }
+
   const handleSave = async () => {
     if (!form.lot_number || !form.title) {
       return showToast('Preencha o número do lote e o título', 'error')
     }
     const supabase = getSupabase()
-    const { data, error } = await supabase.from('auction_lots').insert([{
-      auction_id: auctionId,
+    const payload = {
       lot_number: form.lot_number,
       title: form.title,
       min_bid: Number(form.min_bid) || 0,
@@ -97,7 +123,24 @@ export default function AdminAuctionLots() {
       sire: form.sire || null,
       dam: form.dam || null,
       description: form.description || null
-    }]).select()
+    }
+
+    if (editingId) {
+      const { data, error } = await supabase.from('auction_lots').update(payload).eq('id', editingId).select()
+      if (!error && data && data.length > 0) {
+        setIsModalOpen(false)
+        setEditingId(null)
+        showToast('Lote atualizado com sucesso!', 'success')
+        loadData()
+      } else if (!error) {
+        showToast('Nenhum lote foi alterado — verifique suas permissões.', 'error')
+      } else {
+        showToast('Erro ao atualizar lote: ' + error.message, 'error')
+      }
+      return
+    }
+
+    const { data, error } = await supabase.from('auction_lots').insert([{ ...payload, auction_id: auctionId }]).select()
 
     if (!error && data) {
       setLots([...lots, data[0]])
@@ -154,7 +197,7 @@ export default function AdminAuctionLots() {
           <p className="adm-page-sub">{new Date(auction?.date).toLocaleString('pt-BR')} • {lots.length} {lots.length === 1 ? 'Lote cadastrado' : 'Lotes cadastrados'}</p>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button className="adm-btn adm-btn--primary" onClick={() => setIsModalOpen(true)}>
+          <button className="adm-btn adm-btn--primary" onClick={openNew}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Novo Lote
           </button>
@@ -222,9 +265,14 @@ export default function AdminAuctionLots() {
                     )}
                   </td>
                   <td style={{ textAlign: 'right' }}>
-                    <button className="adm-btn adm-btn--sm adm-btn--outline" style={{ color: 'var(--adm-red)', borderColor: 'var(--adm-border)' }} onClick={() => handleDelete(lot.id)}>
-                      Excluir
-                    </button>
+                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                      <button className="adm-btn adm-btn--sm adm-btn--outline" onClick={() => openEdit(lot)}>
+                        Editar
+                      </button>
+                      <button className="adm-btn adm-btn--sm adm-btn--outline" style={{ color: 'var(--adm-red)', borderColor: 'var(--adm-border)' }} onClick={() => handleDelete(lot.id)}>
+                        Excluir
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -241,7 +289,7 @@ export default function AdminAuctionLots() {
                 <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--adm-accent-pale)', color: 'var(--adm-accent)', display: 'grid', placeItems: 'center' }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                 </div>
-                Inserir Novo Lote
+                {editingId ? 'Editar Lote' : 'Inserir Novo Lote'}
               </h3>
             </div>
             
@@ -297,7 +345,7 @@ export default function AdminAuctionLots() {
 
             <div className="adm-modal-footer" style={{ margin: 0, padding: '20px 32px', borderTop: '1px solid var(--adm-border)', background: 'var(--adm-surface-2)', borderRadius: '0 0 var(--adm-r-xl) var(--adm-r-xl)' }}>
               <button className="adm-btn adm-btn--outline" onClick={() => setIsModalOpen(false)}>Cancelar</button>
-              <button className="adm-btn adm-btn--primary" onClick={handleSave}>Salvar Lote</button>
+              <button className="adm-btn adm-btn--primary" onClick={handleSave}>{editingId ? 'Salvar Alterações' : 'Salvar Lote'}</button>
             </div>
           </div>
         </div>

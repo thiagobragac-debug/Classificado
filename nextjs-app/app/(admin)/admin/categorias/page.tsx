@@ -55,18 +55,24 @@ export default function AdminCategorias() {
     
     if (editingId) {
       // Update
-      const { error } = await supabase.from('categories').update({
+      const { data, error } = await supabase.from('categories').update({
         name_pt: form.name_pt,
         name_es: form.name_es,
         icon: form.icon,
         color: form.color,
         active: form.active
-      }).eq('id', editingId)
+      }).eq('id', editingId).select()
 
-      if (!error) {
+      // GAP CORRIGIDO (reteste do site, 2026-08-25): update().eq() sem
+      // .select() retorna { error: null } mesmo quando o filtro não bate
+      // com nenhuma linha (ex.: RLS bloqueando silenciosamente) — a UI
+      // mostrava "Categoria atualizada!" sem ter mudado nada no banco.
+      if (!error && data && data.length > 0) {
         setCategories(categories.map(c => c.id === editingId ? { ...c, ...form } : c))
         setIsModalOpen(false)
         showToast('Categoria atualizada!', 'success')
+      } else if (!error) {
+        showToast('Nenhuma categoria foi alterada — verifique suas permissões.', 'error')
       } else {
         showToast('Erro: ' + error.message, 'error')
       }
@@ -87,9 +93,13 @@ export default function AdminCategorias() {
 
   const handleToggleActive = async (id: string, currentActive: boolean) => {
     const supabase = getSupabase()
-    const { error } = await supabase.from('categories').update({ active: !currentActive }).eq('id', id)
-    if (!error) {
+    const { data, error } = await supabase.from('categories').update({ active: !currentActive }).eq('id', id).select()
+    if (!error && data && data.length > 0) {
       setCategories(categories.map(c => c.id === id ? { ...c, active: !currentActive } : c))
+    } else if (!error) {
+      showToast('Nenhuma categoria foi alterada — verifique suas permissões.', 'error')
+    } else {
+      showToast('Erro: ' + error.message, 'error')
     }
   }
 

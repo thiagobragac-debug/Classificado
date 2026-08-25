@@ -25,6 +25,7 @@ interface LotBiddingModalProps {
   onClose: () => void;
   userId?: string; // from session
   isLive?: boolean;
+  isCancelled?: boolean;
 }
 
 /** Returns dynamic bid increment options based on the current bid value */
@@ -37,7 +38,7 @@ function getBidIncrements(currentBid: number): number[] {
 
 const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
-export default function LotBiddingModal({ lot, onClose, userId, isLive = true }: LotBiddingModalProps) {
+export default function LotBiddingModal({ lot, onClose, userId, isLive = true, isCancelled = false }: LotBiddingModalProps) {
   const router = useRouter();
   const [bidding, setBidding] = useState(false);
   const [pendingBid, setPendingBid] = useState<number | null>(null);
@@ -95,6 +96,10 @@ export default function LotBiddingModal({ lot, onClose, userId, isLive = true }:
     // clicar Confirmar, que o servidor rejeita ("Este leilão não está ao
     // vivo"). O RPC continua sendo a validação real — isto é só aviso
     // antecipado na UI, pra não fingir que o fluxo vai completar.
+    if (isCancelled) {
+      showToast('Este leilão foi cancelado — não é possível dar lances.', 'error');
+      return;
+    }
     if (!isLive) {
       showToast('Este leilão ainda não está ao vivo — lances abrem quando a transmissão iniciar.', 'warning');
       return;
@@ -108,7 +113,7 @@ export default function LotBiddingModal({ lot, onClose, userId, isLive = true }:
       return;
     }
     setPendingBid(amount);
-  }, [userId, currentBid, isLive]);
+  }, [userId, currentBid, isLive, isCancelled]);
 
   const confirmBid = useCallback(async () => {
     if (pendingBid === null || !userId || !lot) return;
@@ -243,6 +248,10 @@ export default function LotBiddingModal({ lot, onClose, userId, isLive = true }:
                       Cancelar
                     </button>
                   </div>
+                </div>
+              ) : isCancelled ? (
+                <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '1rem', color: '#f87171', fontSize: '0.9rem' }}>
+                  Este leilão foi cancelado. Não é possível dar lances.
                 </div>
               ) : !isLive ? (
                 <div style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.3)', borderRadius: '8px', padding: '1rem', color: '#fbbf24', fontSize: '0.9rem' }}>

@@ -178,6 +178,7 @@ export default function AdminLeiloes() {
   const emAndamento = auctions.filter(a => a.status === 'live').length
   const agendados = auctions.filter(a => a.status === 'scheduled').length
   const finalizados = auctions.filter(a => a.status === 'closed').length
+  const cancelados = auctions.filter(a => a.status === 'cancelled').length
 
   return (
     <>
@@ -192,6 +193,7 @@ export default function AdminLeiloes() {
               <button className="adm-btn adm-btn--outline" onClick={() => handleBulkStatusUpdate('scheduled')}>Agendar</button>
               <button className="adm-btn adm-btn--outline" onClick={() => handleBulkStatusUpdate('live')}>Iniciar</button>
               <button className="adm-btn adm-btn--outline" onClick={() => handleBulkStatusUpdate('closed')}>Finalizar</button>
+              <button className="adm-btn adm-btn--outline" style={{ color: 'var(--adm-red)', borderColor: 'var(--adm-red)' }} onClick={() => handleBulkStatusUpdate('cancelled')}>Cancelar</button>
             </div>
           )}
           <button className="adm-btn adm-btn--primary" onClick={() => setIsModalOpen(true)}>
@@ -201,7 +203,7 @@ export default function AdminLeiloes() {
         </div>
       </div>
 
-      <div className="adm-stats-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)', marginBottom: '20px' }}>
+      <div className="adm-stats-grid" style={{ gridTemplateColumns: 'repeat(5,1fr)', marginBottom: '20px' }}>
         <div className="adm-stat-card">
           <div><div className="adm-stat-val">{total}</div><div className="adm-stat-lbl">Total</div></div>
           <div className="adm-stat-icon adm-stat-icon--green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></div>
@@ -218,6 +220,10 @@ export default function AdminLeiloes() {
           <div><div className="adm-stat-val" style={{ color: 'var(--adm-text-muted)' }}>{finalizados}</div><div className="adm-stat-lbl">Finalizados</div></div>
           <div className="adm-stat-icon" style={{ background: 'var(--adm-surface-3)', color: 'var(--adm-text-muted)' }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
         </div>
+        <div className="adm-stat-card">
+          <div><div className="adm-stat-val" style={{ color: 'var(--adm-red)' }}>{cancelados}</div><div className="adm-stat-lbl">Cancelados</div></div>
+          <div className="adm-stat-icon" style={{ background: 'var(--adm-red-pale)', color: 'var(--adm-red)' }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></div>
+        </div>
       </div>
 
       <div className="adm-card">
@@ -231,6 +237,7 @@ export default function AdminLeiloes() {
             <option value="scheduled">Agendado</option>
             <option value="live">Ao Vivo</option>
             <option value="closed">Finalizado</option>
+            <option value="cancelled">Cancelado</option>
             <option value="active">Ativo (Genérico)</option>
             <option value="draft">Rascunho</option>
           </select>
@@ -276,9 +283,10 @@ export default function AdminLeiloes() {
                     {auc.status === 'live' && <span className="adm-badge adm-badge--red">Ao Vivo</span>}
                     {auc.status === 'scheduled' && <span className="adm-badge adm-badge--amber">Agendado</span>}
                     {auc.status === 'closed' && <span className="adm-badge" style={{ background: 'var(--adm-surface-3)' }}>Finalizado</span>}
+                    {auc.status === 'cancelled' && <span className="adm-badge adm-badge--blocked">Cancelado</span>}
                     {auc.status === 'active' && <span className="adm-badge adm-badge--green">Ativo</span>}
                     {auc.status === 'draft' && <span className="adm-badge" style={{ background: 'var(--adm-surface-2)' }}>Rascunho</span>}
-                    {!['live', 'scheduled', 'closed', 'active', 'draft'].includes(auc.status) && <span className="adm-badge">{auc.status}</span>}
+                    {!['live', 'scheduled', 'closed', 'cancelled', 'active', 'draft'].includes(auc.status) && <span className="adm-badge">{auc.status}</span>}
                   </td>
                   <td>
                     <span style={{ fontWeight: 600, color: auc.lotsCount > 0 ? 'var(--adm-green)' : 'var(--adm-text-muted)' }}>
@@ -295,6 +303,12 @@ export default function AdminLeiloes() {
                       )}
                       {auc.status === 'closed' && (
                         <button className="adm-btn adm-btn--sm adm-btn--outline" style={{ color: 'var(--adm-text-muted)' }} onClick={() => handleStatusUpdate(auc.id, 'scheduled')}>Reabrir</button>
+                      )}
+                      {['scheduled', 'live', 'active', 'draft'].includes(auc.status) && (
+                        <button className="adm-btn adm-btn--sm adm-btn--outline" style={{ color: 'var(--adm-red)', borderColor: 'var(--adm-border)' }} onClick={() => handleStatusUpdate(auc.id, 'cancelled')}>Cancelar</button>
+                      )}
+                      {auc.status === 'cancelled' && (
+                        <button className="adm-btn adm-btn--sm adm-btn--outline" style={{ color: 'var(--adm-text-muted)' }} onClick={() => handleStatusUpdate(auc.id, 'scheduled')}>Reagendar</button>
                       )}
                     </div>
                   </td>
@@ -444,6 +458,7 @@ export default function AdminLeiloes() {
             <button className="adm-btn adm-btn--sm adm-btn--primary" style={{ background: 'var(--adm-green)', borderColor: 'var(--adm-green)' }} onClick={() => handleBulkStatusUpdate('live')}>Mover para Ao Vivo</button>
             <button className="adm-btn adm-btn--sm adm-btn--primary" style={{ background: 'var(--adm-amber)', borderColor: 'var(--adm-amber)' }} onClick={() => handleBulkStatusUpdate('scheduled')}>Mover para Agendado</button>
             <button className="adm-btn adm-btn--sm adm-btn--outline" style={{ color: 'var(--adm-text-muted)' }} onClick={() => handleBulkStatusUpdate('closed')}>Finalizar Todos</button>
+            <button className="adm-btn adm-btn--sm adm-btn--outline" style={{ color: 'var(--adm-red)', borderColor: 'var(--adm-red)' }} onClick={() => handleBulkStatusUpdate('cancelled')}>Cancelar Todos</button>
           </div>
         </div>
       )}

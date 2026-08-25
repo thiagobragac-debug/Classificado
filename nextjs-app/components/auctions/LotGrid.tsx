@@ -8,10 +8,11 @@ import LotBiddingModal from './LotBiddingModal';
 interface LotGridProps {
   lots: LotData[];
   isLive: boolean;
+  isCancelled?: boolean;
   userId?: string;
 }
 
-export default function LotGrid({ lots, isLive, userId }: LotGridProps) {
+export default function LotGrid({ lots, isLive, isCancelled = false, userId }: LotGridProps) {
   const [selectedLot, setSelectedLot] = useState<LotData | null>(null);
 
   if (!lots || lots.length === 0) {
@@ -78,6 +79,7 @@ export default function LotGrid({ lots, isLive, userId }: LotGridProps) {
           lot={selectedLot}
           userId={userId}
           isLive={isLive}
+          isCancelled={isCancelled}
           onClose={() => setSelectedLot(null)}
         />
       )}

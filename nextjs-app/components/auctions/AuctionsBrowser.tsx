@@ -14,7 +14,7 @@ export interface AuctionEvent {
   id: string;
   title: string;
   date: string;
-  status: 'live' | 'scheduled' | 'closed' | 'active' | 'draft';
+  status: 'live' | 'scheduled' | 'closed' | 'cancelled' | 'active' | 'draft';
   youtube: string | null;
   cover: string | null;
   catalog: string | null;
@@ -53,16 +53,17 @@ export default function AuctionsBrowser({ events }: { events: AuctionEvent[] }) 
   const prevHero = () => setCurrentHeroIndex(prev => (prev - 1 + heroEvents.length) % heroEvents.length);
 
   const getEventState = (ev: AuctionEvent) => {
-    if (ev.status === 'closed') return { isClosed: true, isLive: false, isScheduled: false };
-    if (ev.status === 'live') return { isClosed: false, isLive: true, isScheduled: false };
-    if (ev.status === 'scheduled') return { isClosed: false, isLive: false, isScheduled: true };
-    
+    if (ev.status === 'cancelled') return { isClosed: false, isLive: false, isScheduled: false, isCancelled: true };
+    if (ev.status === 'closed') return { isClosed: true, isLive: false, isScheduled: false, isCancelled: false };
+    if (ev.status === 'live') return { isClosed: false, isLive: true, isScheduled: false, isCancelled: false };
+    if (ev.status === 'scheduled') return { isClosed: false, isLive: false, isScheduled: true, isCancelled: false };
+
     const evDate = new Date(ev.date).getTime();
     const now = new Date().getTime();
     if (evDate > now) {
-      return { isClosed: false, isLive: false, isScheduled: true };
+      return { isClosed: false, isLive: false, isScheduled: true, isCancelled: false };
     } else {
-      return { isClosed: false, isLive: true, isScheduled: false };
+      return { isClosed: false, isLive: true, isScheduled: false, isCancelled: false };
     }
   };
 
@@ -168,6 +169,7 @@ export default function AuctionsBrowser({ events }: { events: AuctionEvent[] }) 
               <option value="active">Ativos</option>
               <option value="todos">Todos os status</option>
               <option value="closed">Encerrados</option>
+              <option value="cancelled">Cancelados</option>
             </select>
             <svg className={styles.selectIcon} viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
           </div>
@@ -182,12 +184,12 @@ export default function AuctionsBrowser({ events }: { events: AuctionEvent[] }) 
           </p>
         ) : (
           events.map(ev => {
-            const { isLive, isClosed, isScheduled } = getEventState(ev);
-            
+            const { isLive, isClosed, isScheduled, isCancelled } = getEventState(ev);
+
             let statusText = 'AGENDADO';
             let statusBg = '#3b82f6';
             let stripeColor = '#3b82f6';
-            
+
             if (isLive) {
               statusText = 'AO VIVO';
               statusBg = '#ef4444';
@@ -196,6 +198,10 @@ export default function AuctionsBrowser({ events }: { events: AuctionEvent[] }) 
               statusText = 'ENCERRADO';
               statusBg = '#6b7280';
               stripeColor = '#6b7280';
+            } else if (isCancelled) {
+              statusText = 'CANCELADO';
+              statusBg = '#991b1b';
+              stripeColor = '#991b1b';
             }
 
             const imgFilter = !isLive ? 'grayscale(80%) opacity(0.85)' : 'none';
@@ -233,9 +239,9 @@ export default function AuctionsBrowser({ events }: { events: AuctionEvent[] }) 
                   
                   <div className={styles.cardActions}>
                     <span className="btn btn--accent" style={{ flex: 1, justifyContent: 'center', pointerEvents: 'none' }}>
-                      {isClosed ? 'Ver Resultados' : isLive ? 'Participar' : 'Ver Lotes'}
+                      {isCancelled ? 'Cancelado' : isClosed ? 'Ver Resultados' : isLive ? 'Participar' : 'Ver Lotes'}
                     </span>
-                    {!isClosed && (
+                    {!isClosed && !isCancelled && (
                       <button 
                         className="btn btn--outline" 
                         aria-label="Lembrar-me" 

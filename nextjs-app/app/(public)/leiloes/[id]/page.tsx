@@ -121,6 +121,7 @@ export default async function AuctionPage(props: { params: Promise<{ id: string 
 
   const isLive = auction.status === 'live';
   const isScheduled = auction.status === 'scheduled';
+  const isCancelled = auction.status === 'cancelled';
 
   // Extrai ID do YouTube com validação mais rigorosa
   const isYoutube = auction.youtube &&
@@ -148,6 +149,11 @@ export default async function AuctionPage(props: { params: Promise<{ id: string 
               {isScheduled && (
                 <div style={{ display: 'inline-block', background: 'rgba(59,130,246,0.1)', color: '#3b82f6', padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 700, marginBottom: '1rem', border: '1px solid rgba(59,130,246,0.2)' }}>
                   AGENDADO
+                </div>
+              )}
+              {isCancelled && (
+                <div style={{ display: 'inline-block', background: 'rgba(239,68,68,0.1)', color: '#ef4444', padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 700, marginBottom: '1rem', border: '1px solid rgba(239,68,68,0.2)' }}>
+                  LEILÃO CANCELADO
                 </div>
               )}
               <h1 style={{ fontSize: '2rem', margin: 0, lineHeight: 1.2, color: 'white' }}>{auction.title}</h1>
@@ -197,7 +203,7 @@ export default async function AuctionPage(props: { params: Promise<{ id: string 
         {/* Lista de Lotes */}
         <div>
           <h2 className="section-title">Catálogo de Lotes</h2>
-          <LotGrid lots={((lots || []) as unknown as LotData[])} isLive={isLive} userId={userId} />
+          <LotGrid lots={((lots || []) as unknown as LotData[])} isLive={isLive} isCancelled={isCancelled} userId={userId} />
         </div>
 
         {/* Patrocínio */}

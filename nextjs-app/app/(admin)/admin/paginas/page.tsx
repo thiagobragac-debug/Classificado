@@ -74,10 +74,12 @@ export default function AdminInstitutionalPages() {
   const handleDelete = async (id: string) => {
     if (!(await confirm('Deseja realmente excluir esta página institucional?'))) return
     const supabase = getSupabase()
-    const { error } = await supabase.from('institutional_pages').delete().eq('id', id)
-    if (!error) {
+    const { data, error } = await supabase.from('institutional_pages').delete().eq('id', id).select()
+    if (!error && data && data.length > 0) {
       setPages(pages.filter(p => p.id !== id))
       showToast('Página excluída com sucesso.', 'success')
+    } else if (!error) {
+      showToast('Nenhuma página foi excluída — verifique suas permissões.', 'error')
     } else {
       showToast('Erro ao excluir: ' + error.message, 'error')
     }
@@ -96,9 +98,11 @@ export default function AdminInstitutionalPages() {
       updated_at: new Date().toISOString()
     }
 
-    const { error } = await supabase.from('institutional_pages').upsert(payload)
+    const { data, error } = await supabase.from('institutional_pages').upsert(payload).select()
     if (error) {
       showToast('Erro ao salvar página: ' + error.message, 'error')
+    } else if (!data || data.length === 0) {
+      showToast('Nenhuma página foi salva — verifique suas permissões.', 'error')
     } else {
       showToast('Página salva com sucesso!', 'success')
       setIsModalOpen(false)

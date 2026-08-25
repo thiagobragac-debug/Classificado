@@ -53,8 +53,10 @@ async function fetchAuctions(searchParams: any) {
     query = query.in('status', ['live', 'scheduled']);
   } else if (status === 'closed') {
     query = query.in('status', ['closed']);
+  } else if (status === 'cancelled') {
+    query = query.in('status', ['cancelled']);
   } else if (status === 'todos') {
-    query = query.in('status', ['live', 'scheduled', 'closed']);
+    query = query.in('status', ['live', 'scheduled', 'closed', 'cancelled']);
   } else {
     // Default fallback
     query = query.in('status', ['live', 'scheduled']);
@@ -119,10 +121,13 @@ export default async function LeiloesPage({ searchParams }: { searchParams: Prom
         eventAttendanceMode: isOnline
           ? 'https://schema.org/OnlineEventAttendanceMode'
           : 'https://schema.org/OfflineEventAttendanceMode',
+        // GAP CORRIGIDO (reteste do site, 2026-08-25): leilão 'closed'
+        // (encerrado normalmente) mapeava pra EventCancelled — schema.org
+        // não tem um status "concluído", mas cancelado é semanticamente
+        // errado pra um evento que só terminou. Só o status real
+        // 'cancelled' (agora suportado) deve virar EventCancelled.
         eventStatus:
-          ev.status === 'live'
-            ? 'https://schema.org/EventScheduled'
-            : ev.status === 'closed'
+          ev.status === 'cancelled'
             ? 'https://schema.org/EventCancelled'
             : 'https://schema.org/EventScheduled',
         location: isOnline

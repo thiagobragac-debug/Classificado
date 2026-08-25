@@ -8,6 +8,7 @@ export default function AdminCupons() {
   const [coupons, setCoupons] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 15
@@ -37,24 +38,47 @@ export default function AdminCupons() {
 
   const handleToggleActive = async (id: string, currentActive: boolean) => {
     const supabase = getSupabase()
-    const { error } = await supabase.from('coupons').update({ is_active: !currentActive }).eq('id', id)
-    if (!error) {
+    const { data, error } = await supabase.from('coupons').update({ is_active: !currentActive }).eq('id', id).select()
+    if (!error && data && data.length > 0) {
       setCoupons(coupons.map(c => c.id === id ? { ...c, is_active: !currentActive } : c))
+    } else if (!error) {
+      showToast('Nenhum cupom foi alterado — verifique suas permissões.', 'error')
     }
   }
 
   const handleDelete = async (id: string) => {
     if (!confirm('Deseja realmente excluir este cupom? Ele pode quebrar links ativos.')) return
     const supabase = getSupabase()
-    const { error } = await supabase.from('coupons').delete().eq('id', id)
-    if (!error) {
+    const { data, error } = await supabase.from('coupons').delete().eq('id', id).select()
+    if (!error && data && data.length > 0) {
       setCoupons(coupons.filter(c => c.id !== id))
+    } else if (!error) {
+      showToast('Nenhum cupom foi excluído — verifique suas permissões.', 'error')
     }
   }
 
   const openNew = () => {
+    setEditingId(null)
     setForm({
       code: '', discount_type: 'percentage', discount_value: 0, valid_until: '', max_uses: '', is_active: true
+    })
+    setIsModalOpen(true)
+  }
+
+  // GAP CORRIGIDO (reteste do site, 2026-08-25): não existia forma de
+  // editar um cupom já criado — só criar, ativar/desativar e excluir. Um
+  // erro de digitação no valor do desconto ou na data de validade só podia
+  // ser corrigido excluindo o cupom e criando outro (quebrando o link que
+  // já tivesse sido compartilhado com o código antigo).
+  const openEdit = (c: any) => {
+    setEditingId(c.id)
+    setForm({
+      code: c.code,
+      discount_type: c.discount_type,
+      discount_value: c.discount_value,
+      valid_until: c.valid_until ? new Date(c.valid_until).toISOString().slice(0, 10) : '',
+      max_uses: c.max_uses ?? '',
+      is_active: c.is_active
     })
     setIsModalOpen(true)
   }
@@ -62,13 +86,26 @@ export default function AdminCupons() {
   const handleSave = async () => {
     if (!form.code) return showToast('Preencha o código do cupom', 'error')
     if (form.discount_value <= 0) return showToast('O desconto deve ser maior que zero', 'error')
-    
+
     const supabase = getSupabase()
     const payload = {
       ...form,
       code: form.code.toUpperCase(),
       valid_until: form.valid_until ? new Date(form.valid_until).toISOString() : null,
       max_uses: form.max_uses === '' ? null : Number(form.max_uses)
+    }
+
+    if (editingId) {
+      const { data, error } = await supabase.from('coupons').update(payload).eq('id', editingId).select().single()
+      if (!error && data) {
+        setCoupons(coupons.map(c => c.id === editingId ? data : c))
+        setIsModalOpen(false)
+        setEditingId(null)
+        showToast('Cupom atualizado!', 'success')
+      } else {
+        showToast('Erro: ' + error?.message, 'error')
+      }
+      return
     }
 
     const { data, error } = await supabase.from('coupons').insert(payload).select().single()
@@ -166,6 +203,7 @@ export default function AdminCupons() {
                     </td>
                     <td style={{ textAlign: 'center' }}>
                       <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                        <button className="adm-btn adm-btn--sm adm-btn--outline" onClick={() => openEdit(c)}>Editar</button>
                         {/* BUG CORRIGIDO: o rótulo do botão olhava só a coluna
                             is_active bruta, enquanto o badge de Status ao
                             lado já considera expirado/esgotado. Um cupom
@@ -234,7 +272,7 @@ export default function AdminCupons() {
       {isModalOpen && (
         <div className="adm-overlay" style={{ display: 'flex' }} onClick={e => e.target === e.currentTarget && setIsModalOpen(false)}>
           <div className="adm-modal" style={{ maxWidth: '500px', width: '100%', padding: '24px' }}>
-            <h3 className="adm-modal-title" style={{ marginTop: 0 }}>Criar Novo Cupom</h3>
+            <h3 className="adm-modal-title" style={{ marginTop: 0 }}>{editingId ? 'Editar Cupom' : 'Criar Novo Cupom'}</h3>
             
             <div className="adm-field">
               <label>Código do Cupom</label>
@@ -268,7 +306,7 @@ export default function AdminCupons() {
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
               <button className="adm-btn adm-btn--outline" onClick={() => setIsModalOpen(false)}>Cancelar</button>
-              <button className="adm-btn adm-btn--primary" onClick={handleSave}>Criar Cupom</button>
+              <button className="adm-btn adm-btn--primary" onClick={handleSave}>{editingId ? 'Salvar Alterações' : 'Criar Cupom'}</button>
             </div>
           </div>
         </div>
