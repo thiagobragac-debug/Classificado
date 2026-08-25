@@ -9,6 +9,73 @@ diretamente. Reconfira antes do go-live.
 
 ---
 
+## 🧩 Gaps de feature do reteste, agora implementados — 2026-08-25
+
+Quarta rodada ("Atacar os gaps de feature"), fechando os itens que
+tinham sido deliberadamente registrados como gap de feature/hygiene
+(não bugs) nas duas rodadas anteriores.
+
+**Edição em admin que só tinha criar/excluir**: cupons e lotes de
+leilão ganharam edição de verdade — antes, corrigir um erro de
+digitação exigia excluir e recriar, o que no caso de um lote também
+zerava qualquer lance real (`current_bid`/`winner_id`) já registrado.
+
+**Novo status `cancelled` para eventos de leilão**, de ponta a ponta
+(não exigiu migration — a coluna `status` de `auction_events` é texto
+livre sem CHECK constraint): badge/filtro/KPI/ações individuais e em
+massa (Cancelar, Reagendar) no admin; `/leiloes?status=cancelled` na
+listagem pública; banner "LEILÃO CANCELADO" na página do leilão; e o
+modal de lance agora bloqueia com uma mensagem específica
+("Este leilão foi cancelado") em vez do aviso genérico de "ainda não
+está ao vivo". De brinde: o `eventStatus` do JSON-LD mapeava leilão
+`closed` (só terminou) para `EventCancelled` — semanticamente errado,
+carregado desde a correção do valor `finished`→`closed` da rodada
+anterior. Corrigido pra só o status `cancelled` real virar
+`EventCancelled`.
+
+**CTA mobile de vendedor**: visitante deslogado clicando "Falar com
+Vendedor" abria uma aba nova mostrando o JSON crú
+`{"error":"Unauthorized",...}` — a rota é navegada direto pelo
+navegador (`<a target="_blank">`), não chamada via fetch, então uma
+resposta JSON nunca fazia sentido nesse caminho. Agora redireciona pro
+`/login?next=/anuncio/{id}`, igual ao padrão já usado no resto do
+site.
+
+**Achado relacionado, sinalizado mas NÃO alterado nesta rodada**:
+investigando o CTA mobile, percebemos que o painel lateral do anúncio
+no desktop (`AdSidebar.tsx`) expõe o link `wa.me/{telefone}` direto no
+HTML server-rendered, sem exigir login — ou seja, o mesmo dado
+(`phone_whatsapp`) que o mobile protege com autenticação, rate limit e
+verificação de origin no `/api/contact-seller` fica visível a
+qualquer visitante (e a crawlers) só de abrir a página no desktop.
+Isso não estava na lista de gaps documentados e muda comportamento
+visível — decisão de produto que precisa de confirmação antes de
+alterar.
+
+**Defesa em profundidade nas páginas de conteúdo do admin**:
+categorias/banners/depoimentos/páginas faziam `update()`/`delete()`/
+`upsert()` sem `.select()` — a Supabase JS retorna `{ error: null }`
+mesmo quando o filtro não bate com nenhuma linha (ex.: RLS bloqueando
+silenciosamente), e a UI mostrava "sucesso" sem ter mudado nada no
+banco. Todas as quatro páginas agora checam a contagem de linhas
+afetadas antes do toast de sucesso.
+
+**Higiene de dado nos dropdowns de localização**: `/listagem` usava
+`new Set()` bruto sobre `country`/`state`/`city` de `ads` — como esses
+campos são texto livre sem normalização de caixa no cadastro,
+"Brasil"/"brasil" apareciam como duas opções distintas no mesmo
+dropdown. Não corrige o dado sujo no banco (fora de escopo), mas o
+dropdown agora agrupa por chave normalizada em minúsculas.
+
+Validado ao vivo: `/api/contact-seller` redireciona corretamente pro
+login com `next=` preservando o anúncio de origem; leilão de teste
+descartável com `status=cancelled` mostrou o badge/filtro/página/modal
+de lance corretos em toda a extensão pública, dado limpo e cleanup
+confirmado depois. `tsc --noEmit`, `vitest run` (119/119), `next
+build` limpos. Commit `5a1a066`.
+
+---
+
 ## 🧹 Fechamento dos achados médios/baixos do reteste — 2026-08-25
 
 Terceira rodada ("continuar!"), fechando os itens que tinham ficado
