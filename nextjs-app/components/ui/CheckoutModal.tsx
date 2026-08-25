@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/components/AuthProvider'
-import { getSupabase } from '@/lib/supabase'
 
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
@@ -76,29 +75,31 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
   }, [gatewayConfig])
 
   // --- Coupon ---
+  // BUG CORRIGIDO (revisão de regras de negócio, 2026-08-25): lia a tabela
+  // `coupons` direto com a anon key — parou de ser possível quando a RLS
+  // virou admin-only (a policy antiga permitia qualquer autenticado
+  // listar/criar cupom, inclusive de 100% off). O preview agora passa por
+  // uma rota de servidor que faz a mesma checagem sem expor a tabela.
   const handleApplyCoupon = async () => {
     if (!couponCode) return
     setLoadingCoupon(true)
     setCouponError('')
-    const supabase = getSupabase()
-    const { data, error } = await supabase
-      .from('coupons')
-      .select('*')
-      .eq('code', couponCode.toUpperCase())
-      .eq('is_active', true)
-      .single()
-
-    if (error || !data) {
-      setCouponError('Cupom inválido ou inativo.')
+    try {
+      const res = await fetch('/api/checkout/validate-coupon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: couponCode }),
+      })
+      const data = await res.json()
+      if (!data.valid) {
+        setCouponError(data.error || 'Cupom inválido ou inativo.')
+        setCoupon(null)
+      } else {
+        setCoupon({ code: couponCode.toUpperCase(), discount_type: data.discount_type, discount_value: data.discount_value })
+      }
+    } catch {
+      setCouponError('Erro ao validar cupom.')
       setCoupon(null)
-    } else if (data.valid_until && new Date(data.valid_until) < new Date()) {
-      setCouponError('Cupom expirado.')
-      setCoupon(null)
-    } else if (data.max_uses && data.usage_count >= data.max_uses) {
-      setCouponError('Limite de usos atingido.')
-      setCoupon(null)
-    } else {
-      setCoupon(data)
     }
     setLoadingCoupon(false)
   }

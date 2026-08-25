@@ -1,0 +1,24 @@
+-- ============================================================================
+--  Remove policy de INSERT em `ads` que permite QUALQUER UM inserir anúncio
+-- ============================================================================
+--
+--  Achado ao consultar pg_policies em produção durante a revisão de regras de
+--  negócio de 2026-08-25: existe hoje uma policy "API service can insert ads"
+--  (FOR INSERT, WITH CHECK (true), sem restrição de papel) na tabela `ads`.
+--
+--  A migration 20260724_api_rls_fixes.sql já documentava esse exato risco —
+--  "Sem restrição de papel, essa policy vale para anon... Qualquer visitante
+--  do site poderia inserir anúncios arbitrários direto no PostgREST, sem
+--  passar por API key, sem rate limit e sem sanitização de campos" — e
+--  incluía um DROP POLICY IF EXISTS defensivo. Só que aquela migration,
+--  pelo próprio relato dela, nunca chegou a ser aplicada em produção (a
+--  versão original tinha erro de sintaxe e abortava antes de qualquer
+--  instrução rodar) — a policy perigosa, criada fora do histórico de
+--  migrations rastreado neste repositório, continuou ativa até agora.
+--
+--  POST /api/v1/ads (a API de parceiros) já usa o client de service_role
+--  (createAdminClient), que ignora RLS — não depende desta policy pra
+--  funcionar. Removê-la não quebra nada legítimo.
+-- ============================================================================
+
+drop policy if exists "API service can insert ads" on public.ads;

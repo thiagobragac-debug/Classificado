@@ -92,6 +92,8 @@ export default function PricingClientUI({ initialPlans }: { initialPlans: Plan[]
     }
   }, [session, searchParams, initialPlans])
 
+  const [downgrading, setDowngrading] = useState(false)
+
   const handlePlanClick = async (plan: Plan) => {
     if (!session) {
       router.push(`/login?redirect=/planos&plan_id=${plan.id}`)
@@ -99,8 +101,32 @@ export default function PricingClientUI({ initialPlans }: { initialPlans: Plan[]
     }
 
     if (plan.price <= 0) {
-      if (await confirm('Tem certeza que deseja mudar para o plano Grátis?')) {
-        alert('Downgrade não implementado completamente nesta simulação.')
+      // BUG CORRIGIDO (revisão de regras de negócio, 2026-08-25): este botão
+      // era um alert() dizendo "simulação" — nenhuma chamada de API, nada
+      // persistido. "Fazer Downgrade" só aparece quando o usuário já tem
+      // plan_id (assinatura paga real), e downgrade pro Grátis é
+      // exatamente a mesma regra que já vale pra cancelar: acesso ao plano
+      // pago continua até o fim do período já pago (cancel_at_period_end),
+      // não perde na hora. Reaproveita a MESMA rota de cancelamento já
+      // validada, em vez de duplicar a lógica.
+      if (!(await confirm('Tem certeza que deseja voltar para o plano Grátis? Você continua com acesso ao plano atual até o fim do período já pago.'))) return
+      setDowngrading(true)
+      try {
+        const sb = getSupabase()
+        const { data: { session: freshSession } } = await sb.auth.getSession()
+        if (!freshSession?.access_token) throw new Error('Sessão expirada. Faça login novamente.')
+        const res = await fetch('/api/subscriptions/cancel', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${freshSession.access_token}` },
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Erro ao processar downgrade')
+        alert(data.message || 'Downgrade agendado — seu plano volta pro Grátis no fim do período já pago.')
+        router.refresh()
+      } catch (err: any) {
+        alert(err.message || 'Erro inesperado ao processar downgrade')
+      } finally {
+        setDowngrading(false)
       }
     } else {
       setSelectedPlan(plan)
@@ -226,12 +252,12 @@ export default function PricingClientUI({ initialPlans }: { initialPlans: Plan[]
                   ))}
                 </ul>
                 
-                <button 
+                <button
                   className={`${styles.btnPlan} ${isFree ? styles.btnFree : (isPopular ? styles.btnPro : styles.btnPremium)} ${isCurrent ? styles.btnCurrent : ''}`}
-                  disabled={isCurrent}
+                  disabled={isCurrent || downgrading}
                   onClick={() => handlePlanClick(plan)}
                 >
-                  {isCurrent ? 'Plano Atual' : (isFree ? (userPlanId ? 'Fazer Downgrade' : 'Começar Grátis') : 'Assinar')}
+                  {isCurrent ? 'Plano Atual' : (isFree ? (userPlanId ? (downgrading ? 'Processando...' : 'Fazer Downgrade') : 'Começar Grátis') : 'Assinar')}
                 </button>
               </div>
             )

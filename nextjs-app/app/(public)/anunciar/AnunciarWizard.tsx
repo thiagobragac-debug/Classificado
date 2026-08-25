@@ -67,7 +67,8 @@ export function AnunciarWizard({ initialData, userProfile, isEditMode }: Anuncia
       pais: initialData?.country || userProfile?.country || 'Brasil',
       estado: initialData?.state || userProfile?.state || '',
       cidade: initialData?.city || userProfile?.city || '',
-      fotos: initialData?.images || []
+      fotos: initialData?.images || [],
+      video: initialData?.video_url || '',
     }
   })
 
@@ -99,7 +100,8 @@ export function AnunciarWizard({ initialData, userProfile, isEditMode }: Anuncia
             pais: parsed.country || userProfile?.country || 'Brasil',
             estado: parsed.state || userProfile?.state || '',
             cidade: parsed.city || userProfile?.city || '',
-            fotos: parsed.images || []
+            fotos: parsed.images || [],
+            video: parsed.video_url || '',
           });
           // Após carregar, remover para não recarregar se o usuário começar novamente
           localStorage.removeItem('tc_draft_ad');
@@ -205,13 +207,14 @@ export function AnunciarWizard({ initialData, userProfile, isEditMode }: Anuncia
       negotiable: data.aNegociar,
       condition: data.condicao || null,
       status: status,
-      images: data.fotos
+      images: data.fotos,
+      video_url: data.video || null,
     }
   }
 
   const onSubmit = async (data: AnuncioFormValues) => {
     setIsSubmitting(true)
-    
+
     try {
       const { getSupabase } = await import('@/lib/supabase');
       const { data: { session } } = await getSupabase().auth.getSession();

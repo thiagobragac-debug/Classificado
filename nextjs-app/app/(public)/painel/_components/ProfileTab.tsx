@@ -4,10 +4,11 @@ import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { updateProfile } from '@/lib/supabase';
+import { updateProfile, getSupabase } from '@/lib/supabase';
 import { resendVerificationEmail, uploadKycDocument } from '@/lib/supabase-panel';
 import { showToast } from '@/lib/toast';
 import styles from '../painel.module.css';
+import { Lock } from 'lucide-react';
 
 const profileSchema = z.object({
   name: z.string().min(2, 'Nome muito curto'),
@@ -33,6 +34,58 @@ export function ProfileTab({ user }: { user: any }) {
   const [selfieFile, setSelfieFile] = useState<File | null>(null);
   const [kycLoading, setKycLoading] = useState(false);
   const [kycStatus, setKycStatus] = useState<string | undefined>(user.profile?.kyc_status);
+
+  // GAP CORRIGIDO (revisão de regras de negócio, 2026-08-25): "Banner de
+  // perfil" é vendido pro Premium (has_banner) mas nunca teve tela de
+  // upload — profiles.banner_url só era lido (perfil público), nunca
+  // escrito por ninguém. O bucket `profile-banners` já existia provisionado.
+  const [hasBannerPlan, setHasBannerPlan] = useState(false);
+  const [bannerUrl, setBannerUrl] = useState<string | null>(user.profile?.banner_url || null);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadBannerPlan() {
+      const sb = getSupabase();
+      const { data: secrets } = await sb.from('user_secrets').select('plan_id').eq('id', user.id).maybeSingle();
+      let planRow: { has_banner: boolean } | null = null;
+      if (secrets?.plan_id) {
+        const { data } = await sb.from('plans').select('has_banner').eq('id', secrets.plan_id).maybeSingle();
+        planRow = data;
+      }
+      if (!planRow) {
+        const { data } = await sb.from('plans').select('has_banner').eq('is_active', true).eq('price', 0).order('sort_order').limit(1).maybeSingle();
+        planRow = data;
+      }
+      if (!cancelled) setHasBannerPlan(!!planRow?.has_banner);
+    }
+    if (user?.id) loadBannerPlan();
+    return () => { cancelled = true };
+  }, [user?.id]);
+
+  const handleBannerUpload = async (file: File | null) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      showToast('Envie uma imagem (PNG, JPEG ou WebP).', 'error');
+      return;
+    }
+    setUploadingBanner(true);
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `${user.id}/${Date.now()}.${ext}`;
+      const sb = getSupabase();
+      const { error: upErr } = await sb.storage.from('profile-banners').upload(path, file, { cacheControl: '31536000', upsert: false });
+      if (upErr) throw upErr;
+      const { data: { publicUrl } } = sb.storage.from('profile-banners').getPublicUrl(path);
+      await updateProfile(user.id, { banner_url: publicUrl });
+      setBannerUrl(publicUrl);
+      showToast('Banner de perfil atualizado!', 'success');
+    } catch (err: any) {
+      showToast('Erro ao enviar banner: ' + (err.message || ''), 'error');
+    } finally {
+      setUploadingBanner(false);
+    }
+  };
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -127,8 +180,26 @@ export function ProfileTab({ user }: { user: any }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 1fr)', gap: '1.5rem', alignItems: 'start' }} className="profile-two-col">
         {/* Formulário de Dados */}
         <div className={styles.card} style={{ padding: '1.5rem' }}>
+          <p style={{ fontSize: '.75rem', fontWeight: 700, letterSpacing: '.06em', color: 'var(--clr-text-light)', textTransform: 'uppercase', marginBottom: '1rem' }}>Banner de Perfil</p>
+          {!hasBannerPlan ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '.6rem', padding: '.9rem 1rem', background: 'var(--clr-bg-alt)', borderRadius: '.75rem', color: 'var(--clr-text-muted)', fontSize: '.88rem', marginBottom: '1.5rem' }}>
+              <Lock size={16} />
+              Banner de perfil é um recurso do plano Premium. <a href="/planos" style={{ color: 'var(--clr-primary)', fontWeight: 600 }}>Fazer upgrade</a>
+            </div>
+          ) : (
+            <div style={{ marginBottom: '1.5rem' }}>
+              {bannerUrl && (
+                <img src={bannerUrl} alt="Banner do perfil" style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: '.75rem', marginBottom: '.75rem' }} />
+              )}
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: '.5rem', padding: '.6rem 1.1rem', border: '1.5px dashed var(--clr-border-light)', borderRadius: '.75rem', cursor: uploadingBanner ? 'not-allowed' : 'pointer', background: 'var(--clr-bg-alt)', fontSize: '.85rem', fontWeight: 700 }}>
+                {uploadingBanner ? 'Enviando...' : bannerUrl ? 'Trocar banner' : 'Enviar banner'}
+                <input type="file" accept="image/png,image/jpeg,image/webp" style={{ display: 'none' }} disabled={uploadingBanner} onChange={e => handleBannerUpload(e.target.files?.[0] || null)} />
+              </label>
+            </div>
+          )}
+
           <p style={{ fontSize: '.75rem', fontWeight: 700, letterSpacing: '.06em', color: 'var(--clr-text-light)', textTransform: 'uppercase', marginBottom: '1rem' }}>Dados Pessoais</p>
-          
+
           <form onSubmit={handleSubmit(onSubmit)}>
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: '1.25rem' }}>
               <div>

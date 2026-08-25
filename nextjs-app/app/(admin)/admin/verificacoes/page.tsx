@@ -150,12 +150,21 @@ export default function VerificacoesPage() {
     loadCounts()
   }
 
-  const handleReject = async (reqId: string, name: string) => {
+  const handleReject = async (reqId: string, userId: string, name: string) => {
     const reason = prompt(`Motivo da rejeição para "${name}" (ex: Documento ilegível):`)
     if (!reason) return
-    const supabase = getSupabase()
-    await supabase.from('verification_requests').update({ status: 'rejected', reason }).eq('id', reqId)
-    showToast('Solicitação rejeitada.', 'info')
+    // BUG CORRIGIDO (revisão de regras de negócio, 2026-08-25): rejeitar fazia
+    // update direto em verification_requests, sem passar por /api/admin/
+    // verify-user — profiles.kyc_status (coluna privilegiada, só service_role
+    // escreve) nunca era sincronizado, e o usuário ficava com o badge preso em
+    // "pending" pra sempre, mesmo com a solicitação já marcada 'rejected'.
+    try {
+      await aplicarVerificacao(userId, false, reqId, reason)
+      showToast('Solicitação rejeitada.', 'info')
+    } catch (err) {
+      showToast('Erro ao rejeitar: ' + (err as Error).message, 'error')
+      return
+    }
     setDocModal(null)
     loadRequests()
     loadCounts()
@@ -278,7 +287,7 @@ export default function VerificacoesPage() {
                               <button
                                 className="adm-btn adm-btn--outline"
                                 style={{ fontSize: '0.85rem', padding: '6px 14px', color: '#dc2626', borderColor: '#dc2626' }}
-                                onClick={() => handleReject(req.id, name)}
+                                onClick={() => handleReject(req.id, req.user_id, name)}
                               >
                                 Recusar
                               </button>
@@ -435,7 +444,7 @@ export default function VerificacoesPage() {
               {docModal.status === 'pending' ? (
                 <div style={{ display: 'flex', gap: '10px', paddingTop: '20px', borderTop: '1px solid var(--adm-border)', justifyContent: 'flex-end' }}>
                   <button
-                    onClick={() => handleReject(docModal.id, getUserName(docModal))}
+                    onClick={() => handleReject(docModal.id, docModal.user_id, getUserName(docModal))}
                     style={{
                       display: 'inline-flex', alignItems: 'center', gap: '8px',
                       padding: '10px 20px', borderRadius: '8px', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer',

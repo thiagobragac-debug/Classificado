@@ -1,11 +1,11 @@
 'use client'
 
-import React, { useRef, useState } from 'react'
+import React, { useRef, useState, useEffect } from 'react'
 import { useFormContext } from 'react-hook-form'
-import { ImagePlus, X, Loader2 } from 'lucide-react'
+import { ImagePlus, X, Loader2, Video, Lock } from 'lucide-react'
 import styles from '../page.module.css'
 import { AnuncioFormValues } from './schema'
-import { uploadAdImage } from '@/lib/supabase'
+import { uploadAdImage, uploadAdVideo, getSupabase, getSession } from '@/lib/supabase'
 import { showToast } from '@/lib/toast'
 
 interface StepPhotosProps {
@@ -13,13 +13,52 @@ interface StepPhotosProps {
   isSubmitting: boolean;
 }
 
+// GAP CORRIGIDO (revisão de regras de negócio, 2026-08-25): o limite de
+// fotos era um "6" fixo no código, igual pra todo mundo — Grátis (vendido
+// como 5) ganhava 1 a mais, PRO (15) e Premium (30) recebiam bem menos do
+// que pagavam. Busca o valor real do plano do usuário, mesma fonte que o
+// trigger enforce_ad_media_plan_limits usa no banco (o teto real).
+function usePlanMediaLimits() {
+  const [limits, setLimits] = useState<{ maxPhotos: number; hasVideo: boolean; loaded: boolean }>({ maxPhotos: 5, hasVideo: false, loaded: false })
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      const session = await getSession()
+      if (!session) return
+      const sb = getSupabase()
+      const { data: secrets } = await sb.from('user_secrets').select('plan_id').eq('id', session.user.id).maybeSingle()
+      let planRow: { max_photos: number; has_video: boolean } | null = null
+      if (secrets?.plan_id) {
+        const { data } = await sb.from('plans').select('max_photos, has_video').eq('id', secrets.plan_id).maybeSingle()
+        planRow = data
+      }
+      if (!planRow) {
+        const { data } = await sb.from('plans').select('max_photos, has_video').eq('is_active', true).eq('price', 0).order('sort_order').limit(1).maybeSingle()
+        planRow = data
+      }
+      if (!cancelled && planRow) {
+        setLimits({ maxPhotos: planRow.max_photos, hasVideo: planRow.has_video, loaded: true })
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
+
+  return limits
+}
+
 export function StepPhotos({ onPrev, isSubmitting }: StepPhotosProps) {
   const { setValue, watch, getValues, formState: { errors } } = useFormContext<AnuncioFormValues>()
   const fileInputRef = useRef<HTMLInputElement>(null)
-  
+  const videoInputRef = useRef<HTMLInputElement>(null)
+
   const fotos = watch('fotos') || []
+  const video = watch('video')
   const [uploadingCount, setUploadingCount] = useState(0)
+  const [uploadingVideo, setUploadingVideo] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
+  const { maxPhotos, hasVideo } = usePlanMediaLimits()
 
   const compressImage = (file: File, maxPx = 1280, quality = 0.82): Promise<File> => {
     return new Promise((resolve) => {
@@ -68,10 +107,10 @@ export function StepPhotos({ onPrev, isSubmitting }: StepPhotosProps) {
   const handleFiles = async (files: FileList | null) => {
     if (!files) return
     const valid = Array.from(files).filter(f => f.type.startsWith('image/'))
-    
-    const availableSlots = 6 - fotos.length
+
+    const availableSlots = maxPhotos - fotos.length
     const toProcess = valid.slice(0, availableSlots)
-    
+
     if (toProcess.length > 0) {
       setUploadingCount(prev => prev + toProcess.length)
       
@@ -82,7 +121,7 @@ export function StepPhotos({ onPrev, isSubmitting }: StepPhotosProps) {
           if (url) {
             // Get latest fotos from form state to avoid race conditions in loop
             const prev = getValues('fotos') || [];
-            if (prev.length < 6) {
+            if (prev.length < maxPhotos) {
                setValue('fotos', [...prev, url], { shouldValidate: true })
             }
           }
@@ -94,6 +133,30 @@ export function StepPhotos({ onPrev, isSubmitting }: StepPhotosProps) {
       }
     }
   }
+
+  const handleVideoFile = async (files: FileList | null) => {
+    const file = files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('video/')) {
+      showToast('Envie um arquivo de vídeo (mp4 ou webm).', 'error')
+      return
+    }
+    if (file.size > 50 * 1024 * 1024) {
+      showToast('O vídeo deve ter no máximo 50 MB.', 'error')
+      return
+    }
+    setUploadingVideo(true)
+    try {
+      const url = await uploadAdVideo(file, 'draft')
+      if (url) setValue('video', url, { shouldValidate: true })
+    } catch (err: any) {
+      showToast(`Erro ao fazer upload do vídeo: ${err.message}`, 'error')
+    } finally {
+      setUploadingVideo(false)
+    }
+  }
+
+  const removeVideo = () => setValue('video', '', { shouldValidate: true })
 
   const removeFile = (index: number) => {
     const newFotos = [...fotos]
@@ -137,7 +200,7 @@ export function StepPhotos({ onPrev, isSubmitting }: StepPhotosProps) {
         </div>
         <div>
           <h2>Fotos do Anúncio</h2>
-          <p>Adicione até 6 fotos. Anúncios com fotos recebem 5x mais contatos.</p>
+          <p>Adicione até {maxPhotos} fotos. Anúncios com fotos recebem 5x mais contatos.</p>
         </div>
       </div>
       
@@ -165,8 +228,8 @@ export function StepPhotos({ onPrev, isSubmitting }: StepPhotosProps) {
           ) : (
             <>
               <strong style={{ color: 'var(--clr-primary)', fontSize: '1.1rem' }}>Clique para selecionar</strong> ou arraste fotos aqui
-              <p style={{ color: 'var(--clr-muted)', fontSize: '0.88rem', margin: '0.5rem 0' }}>JPEG, PNG, WebP — Máximo de 6 imagens, 10 MB cada</p>
-              <p style={{ color: 'var(--clr-muted)', fontSize: '0.8rem', margin: 0, fontWeight: 700 }}>{fotos.length} de 6 adicionadas</p>
+              <p style={{ color: 'var(--clr-muted)', fontSize: '0.88rem', margin: '0.5rem 0' }}>JPEG, PNG, WebP — Máximo de {maxPhotos} imagens, 10 MB cada</p>
+              <p style={{ color: 'var(--clr-muted)', fontSize: '0.8rem', margin: 0, fontWeight: 700 }}>{fotos.length} de {maxPhotos} adicionadas</p>
             </>
           )}
         </div>
@@ -196,6 +259,45 @@ export function StepPhotos({ onPrev, isSubmitting }: StepPhotosProps) {
       )}
       
       {errors.fotos && <span className={styles.errorText} style={{ marginTop: '1rem', fontWeight: 500 }}>{errors.fotos.message}</span>}
+
+      <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid var(--clr-border)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.75rem' }}>
+          <Video size={20} />
+          <strong>Vídeo do anúncio (opcional)</strong>
+        </div>
+        {!hasVideo ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.9rem 1rem', background: 'var(--clr-surface-alt, #f8fafc)', borderRadius: '0.6rem', color: 'var(--clr-muted)', fontSize: '0.88rem' }}>
+            <Lock size={16} />
+            Vídeo no anúncio é um recurso dos planos PRO e Premium. <a href="/planos" style={{ color: 'var(--clr-primary)', fontWeight: 600 }}>Fazer upgrade</a>
+          </div>
+        ) : video ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <video src={video} controls style={{ width: 220, borderRadius: '0.6rem' }} />
+            <button type="button" className={styles.btnOutline} onClick={removeVideo} style={{ padding: '0.5rem 1rem' }}>Remover vídeo</button>
+          </div>
+        ) : (
+          <div
+            className={styles.photoUploadZone}
+            role="button"
+            tabIndex={0}
+            aria-label="Clique para escolher um vídeo"
+            onClick={() => !uploadingVideo && videoInputRef.current?.click()}
+            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && !uploadingVideo && videoInputRef.current?.click()}
+          >
+            <input type="file" ref={videoInputRef} accept="video/mp4,video/webm" onChange={e => handleVideoFile(e.target.files)} style={{ display: 'none' }} />
+            {uploadingVideo ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}>
+                <Loader2 className="animate-spin" size={20} />
+                <strong>Enviando vídeo...</strong>
+              </div>
+            ) : (
+              <p style={{ margin: 0, color: 'var(--clr-muted)', fontSize: '0.9rem' }}>
+                <strong style={{ color: 'var(--clr-primary)' }}>Clique para escolher um vídeo</strong> — MP4 ou WebM, máximo 50 MB
+              </p>
+            )}
+          </div>
+        )}
+      </div>
 
       <div className={styles.wizardActions}>
         <button type="button" className={`${styles.btnOutline} btn--lg`} onClick={onPrev} style={{ padding: '0.8rem 2rem' }} disabled={isBusy}>Voltar</button>

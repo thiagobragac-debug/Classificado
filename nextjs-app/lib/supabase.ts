@@ -191,6 +191,7 @@ export interface AdPayload {
   // status: apenas 'draft' ou 'pending' — 'active' é definido pelo servidor após moderação
   status: 'draft' | 'pending';
   images: string[];
+  video_url?: string | null;
 }
 
 export async function createAd(payload: AdPayload) {
@@ -249,6 +250,29 @@ export async function uploadAdImage(file: File, folder = 'draft'): Promise<strin
   if (error) throw error;
   
   const { data: { publicUrl } } = getSupabase().storage.from('ad-images').getPublicUrl(fileName);
+  return publicUrl;
+}
+
+// Bucket `ad-videos` já existia provisionado (50MB, mp4/webm) antes desta
+// função — a promessa de "vídeo no anúncio" (planos PRO/Premium) nunca
+// tinha upload de verdade, só o campo de exibição em AdGallery. A checagem
+// de plano (has_video) é reforçada no banco (enforce_ad_media_plan_limits,
+// supabase/migrations/20260825150300) — aqui só sobe o arquivo.
+export async function uploadAdVideo(file: File, folder = 'draft'): Promise<string | null> {
+  const session = await getSession();
+  if (!session) throw new Error('Not authenticated');
+
+  const ext = file.name.split('.').pop();
+  const fileName = `${folder}/${session.user.id}/${Date.now()}_${Math.random().toString(36).substring(2)}.${ext}`;
+
+  const { error } = await getSupabase().storage.from('ad-videos').upload(fileName, file, {
+    cacheControl: '31536000',
+    upsert: false
+  });
+
+  if (error) throw error;
+
+  const { data: { publicUrl } } = getSupabase().storage.from('ad-videos').getPublicUrl(fileName);
   return publicUrl;
 }
 

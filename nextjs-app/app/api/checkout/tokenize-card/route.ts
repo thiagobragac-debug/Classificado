@@ -29,6 +29,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // GAP CORRIGIDO (revisão de regras de negócio, 2026-08-25): esta é a
+    // ÚNICA rota que recebe PAN/CVV em claro — sem rate limit, vira um
+    // oráculo de card-testing usando nossas próprias credenciais Asaas.
+    // Limite mais apertado que /api/checkout por causa disso.
+    const { data: dentroDoLimite } = await supabase.rpc('check_rate_limit', {
+      p_bucket: `tokenize_card_${user.id}`,
+      p_limit: 5,
+      p_window_seconds: 60,
+    })
+    if (dentroDoLimite === false) {
+      return NextResponse.json({ error: 'Muitas tentativas. Aguarde um momento.' }, { status: 429 })
+    }
+
     const body = await req.json()
     const { creditCard, billingAddress, doc, phone } = body
 

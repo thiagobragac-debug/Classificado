@@ -174,7 +174,13 @@ export async function POST(request: NextRequest) {
     tags_pt:       safeTags,
     video_url:     body.video_url ? String(body.video_url).slice(0, 500) : null,
     user_id:       String(body.user_id),
-    status:        'active' as const,
+    // BUG CORRIGIDO (revisão de regras de negócio, 2026-08-25): nascia
+    // 'active' direto, pulando a moderação que todo outro caminho de
+    // criação de anúncio (o wizard do site) sempre respeita — a mesma
+    // promessa feita ao usuário ("seu anúncio ficará disponível após
+    // revisão em até 24h") também vale pra anúncio entrando via API de
+    // parceiro.
+    status:        'pending' as const,
   }
 
   // Validate price

@@ -196,12 +196,20 @@ export async function POST(req: Request) {
       // Lookup plan UUID from plans table
       const { data: planData } = await supabase.from('plans').select('id').eq('name', sub.plan).maybeSingle()
 
-      // Update profiles: only subscription_status and expiry
+      // GAP CORRIGIDO (revisão de regras de negócio, 2026-08-25): a tela de
+      // verificação promete "assinantes dos planos pagos com pagamento via
+      // cartão de crédito aprovado ganham o selo automaticamente" — mas
+      // este handler nunca tocava em profiles.verified. Hoje cartão é o
+      // único método de pagamento realmente oferecido em qualquer gateway
+      // (sem Pix/boleto no checkout), então toda assinatura paga aprovada
+      // aqui É, na prática, via cartão. Roda como service_role, então
+      // passa por guard_profile_verification sem problema.
       const { error: profErr } = await supabase
         .from('profiles')
         .update({
           subscription_status: 'active',
           plan_expires_at: updateData.current_period_end || null,
+          verified: true,
         })
         .eq('id', sub.user_id)
       if (profErr) console.error(`[Webhook:${gateway}] Failed to update profiles:`, profErr.message)
