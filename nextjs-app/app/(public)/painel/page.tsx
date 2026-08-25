@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { createClient } from '@/lib/supabase-server';
+import { PLAN_META } from '@/lib/supabase';
 import PainelClient from './PainelClient';
 
 export default async function PainelPage() {
@@ -94,11 +95,42 @@ export default async function PainelPage() {
     };
   }
 
+  // BUG CORRIGIDO (teste do plano Grátis, 2026-08-25): o painel usava
+  // PLAN_META, um objeto hardcoded em lib/supabase.ts desconectado da
+  // tabela `plans` — se o admin mudasse max_ads/highlight_count em
+  // /admin/planos, o contador do painel continuava com o valor antigo.
+  // Busca a mesma tabela que o trigger enforce_ad_quota usa como fonte de
+  // verdade, resolvendo a linha pelo mesmo critério já usado alhures no
+  // código (webhook de pagamento usa nome pra pro/premium; o trigger usa
+  // price=0 como fallback do plano grátis).
+  const { data: plansData } = await supabase
+    .from('plans')
+    .select('name, description, max_ads, highlight_count')
+    .eq('is_active', true);
+
+  const planRow =
+    (profile.plan === 'premium' && plansData?.find(p => p.name.toLowerCase().includes('premium'))) ||
+    (profile.plan === 'pro' && plansData?.find(p => p.name.toLowerCase().includes('pro'))) ||
+    plansData?.find(p => p.max_ads !== undefined && p.name && !p.name.toLowerCase().includes('pro') && !p.name.toLowerCase().includes('premium')) ||
+    null;
+
+  const fallbackMeta = PLAN_META[profile.plan] || PLAN_META.free;
+  const planMeta = planRow ? {
+    label: planRow.name,
+    desc: planRow.description || '',
+    ads: planRow.max_ads,
+    featured: planRow.highlight_count,
+    // Convenção de exibição: qualquer limite alto configurado no admin
+    // (>= 999) é tratado como "ilimitado" na UI, sem depender de um valor
+    // mágico específico (o valor real hoje é 9999).
+    unlimited: planRow.max_ads >= 999,
+  } : { ...fallbackMeta, unlimited: fallbackMeta.ads >= 999 }; // fallback só se a busca acima falhar
+
   // Suspense required: PainelClient uses useSearchParams() internally (detects ?subscribed=1).
   // Without this, Next.js 14 App Router throws a build error.
   return (
     <Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', fontSize: '1rem', color: '#64748b' }}>Carregando painel...</div>}>
-      <PainelClient initialUser={fullUser} initialStats={adStats} />
+      <PainelClient initialUser={fullUser} initialStats={adStats} initialPlanMeta={planMeta} />
     </Suspense>
   );
 }

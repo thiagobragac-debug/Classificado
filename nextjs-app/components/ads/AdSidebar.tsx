@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { Share2, Heart, AlertTriangle, CheckCircle, ShieldCheck, Mail } from 'lucide-react';
 import { AdBanner } from '@/components/AdBanner';
 import { AdMessageForm } from './AdMessageForm';
 import { AdReportModal } from './AdReportModal';
+import { useFavorites } from '@/lib/useFavorites';
 
 // Minimal interfaces for the props we need
 interface Profile {
@@ -59,33 +60,19 @@ function memberSince(dateStr: string): string {
 }
 
 export function AdSidebar({ ad, adTitle, catName, hasWhatsapp }: AdSidebarProps) {
-  const [isFav, setIsFav] = useState(false);
-  const [favLoading, setFavLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [msgOpen, setMsgOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
-
-  useEffect(() => {
-    if (!ad.id) return;
-    const favs: string[] = JSON.parse(localStorage.getItem('tc_favorites') || '[]');
-    setIsFav(favs.includes(ad.id));
-  }, [ad.id]);
-
-  const toggleFav = useCallback(() => {
-    if (favLoading) return;
-    setFavLoading(true);
-    const favs: string[] = JSON.parse(localStorage.getItem('tc_favorites') || '[]');
-    if (isFav) {
-      const updated = favs.filter(f => f !== ad.id);
-      localStorage.setItem('tc_favorites', JSON.stringify(updated));
-      setIsFav(false);
-    } else {
-      favs.push(ad.id);
-      localStorage.setItem('tc_favorites', JSON.stringify(favs));
-      setIsFav(true);
-    }
-    setFavLoading(false);
-  }, [isFav, ad.id, favLoading]);
+  // BUG CORRIGIDO (teste do plano Grátis, 2026-08-25): este componente tinha
+  // sua própria implementação de "favoritar" que só gravava no localStorage
+  // — nunca chamava a RPC toggle_favorite_atomic. O favorito parecia salvar
+  // (botão virava "Salvo"), mas nunca aparecia em /painel > Favoritos e
+  // sumia ao trocar de dispositivo. useFavorites() é o hook correto, já
+  // usado pelos cards de listagem/home (RecentAdsSection, FeaturedAdsSection,
+  // AdsGrid) — persiste no backend quando logado.
+  const { favs, toggleFav: toggleFavHook } = useFavorites();
+  const isFav = !!favs[ad.id];
+  const toggleFav = () => toggleFavHook(ad.id);
 
   const share = async () => {
     const url = window.location.href;
@@ -208,7 +195,7 @@ export function AdSidebar({ ad, adTitle, catName, hasWhatsapp }: AdSidebarProps)
               <button onClick={share} style={{ background: 'none', border: 'none', display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--clr-text-muted)', cursor: 'pointer', fontSize: '0.9rem' }}>
                 <Share2 className="w-4 h-4" /> {copied ? 'Copiado!' : 'Compartilhar'}
               </button>
-              <button onClick={toggleFav} disabled={favLoading} style={{ background: 'none', border: 'none', display: 'flex', alignItems: 'center', gap: '0.35rem', color: isFav ? '#ef4444' : 'var(--clr-text-muted)', cursor: 'pointer', fontSize: '0.9rem' }}>
+              <button onClick={toggleFav} style={{ background: 'none', border: 'none', display: 'flex', alignItems: 'center', gap: '0.35rem', color: isFav ? '#ef4444' : 'var(--clr-text-muted)', cursor: 'pointer', fontSize: '0.9rem' }}>
                 <Heart className={`w-4 h-4 ${isFav ? 'fill-current' : ''}`} /> {isFav ? 'Salvo' : 'Salvar'}
               </button>
               <button onClick={() => setReportOpen(true)} style={{ background: 'none', border: 'none', display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--clr-text-muted)', cursor: 'pointer', fontSize: '0.9rem' }}>

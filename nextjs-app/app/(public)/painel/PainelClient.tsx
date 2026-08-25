@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { logout, PLAN_META } from '@/lib/supabase';
+import { logout } from '@/lib/supabase';
 import styles from './painel.module.css';
 
 import { MyAdsTab } from './_components/MyAdsTab';
@@ -13,7 +13,7 @@ import { BillingTab } from './_components/BillingTab';
 
 type Tab = 'ads' | 'messages' | 'favorites' | 'profile' | 'billing';
 
-export default function PainelClient({ initialUser, initialStats }: { initialUser: any, initialStats: any }) {
+export default function PainelClient({ initialUser, initialStats, initialPlanMeta }: { initialUser: any, initialStats: any, initialPlanMeta: any }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const validTabs: Tab[] = ['ads', 'messages', 'favorites', 'profile', 'billing']
@@ -93,8 +93,7 @@ export default function PainelClient({ initialUser, initialStats }: { initialUse
   };
 
   const profile = user?.profile || {};
-  const plan = profile.plan || 'free';
-  const planMeta = PLAN_META[plan] || PLAN_META.free;
+  const planMeta = initialPlanMeta;
   const name = profile.display_name || profile.name || user?.email?.split('@')[0] || 'Usuário';
   const initials = name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
 
@@ -168,12 +167,12 @@ export default function PainelClient({ initialUser, initialStats }: { initialUse
           <div className={styles.sidebarUsage}>
             <div className={styles.sidebarUsageLabels}>
               <span>Anúncios usados</span>
-              <span>{adStats.active} / {planMeta.ads === 999 ? 'Ilimitado' : planMeta.ads}</span>
+              <span>{adStats.active} / {planMeta.unlimited ? 'Ilimitado' : planMeta.ads}</span>
             </div>
             <div className={styles.sidebarUsageBar}>
               <div
                 className={styles.sidebarUsageBarFill}
-                style={{ width: planMeta.ads === 999 ? '100%' : `${Math.min(100, (adStats.active / planMeta.ads) * 100)}%` }}
+                style={{ width: planMeta.unlimited ? '100%' : `${Math.min(100, (adStats.active / planMeta.ads) * 100)}%` }}
               />
             </div>
           </div>
@@ -212,11 +211,11 @@ export default function PainelClient({ initialUser, initialStats }: { initialUse
           tabIndex={0}
           style={{ minWidth: 0 }}
         >
-          {activeTab === 'ads'       && <MyAdsTab userId={user?.id} />}
+          {activeTab === 'ads'       && <MyAdsTab userId={user?.id} adStats={adStats} planMeta={planMeta} />}
           {activeTab === 'messages'  && <MessagesTab userId={user?.id} />}
           {activeTab === 'favorites' && <FavoritesTab userId={user?.id} />}
           {activeTab === 'profile'   && <ProfileTab user={user} />}
-          {activeTab === 'billing'   && <BillingTab user={user} />}
+          {activeTab === 'billing'   && <BillingTab user={user} planMeta={planMeta} />}
         </div>
       </div>
     </>

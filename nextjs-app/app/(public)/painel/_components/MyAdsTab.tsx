@@ -37,7 +37,7 @@ function fDate(iso: string) {
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
 }
 
-export function MyAdsTab({ userId }: { userId: string }) {
+export function MyAdsTab({ userId, adStats, planMeta }: { userId: string, adStats?: { active: number }, planMeta?: { ads: number, unlimited: boolean } }) {
   const { confirm } = useConfirm();
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState('all');
@@ -54,6 +54,12 @@ export function MyAdsTab({ userId }: { userId: string }) {
   const total = data?.total || 0;
   const totalPages = Math.ceil(total / 12);
 
+  // GAP CORRIGIDO (teste do plano Grátis, 2026-08-25): um anúncio pendente
+  // que não pode ser aprovado por causa da cota do plano (trigger
+  // enforce_ad_quota) era visualmente idêntico a um pendente comum
+  // aguardando moderação — nada na UI explicava o motivo real.
+  const atQuota = !!planMeta && !planMeta.unlimited && !!adStats && adStats.active >= planMeta.ads;
+
   const handleDelete = async (id: string) => {
     if (!(await confirm('Tem certeza que deseja excluir este anúncio?'))) return;
     try {
@@ -68,8 +74,13 @@ export function MyAdsTab({ userId }: { userId: string }) {
     try {
       await toggleAdStatus(id, status);
       mutate(); // Refetch
-    } catch {
-      showToast('Erro ao alterar status.', 'error');
+    } catch (err: any) {
+      // BUG CORRIGIDO (teste do plano Grátis, 2026-08-25): o catch descartava
+      // err.message e sempre mostrava um erro genérico — quando a reativação
+      // esbarra na cota de anúncios do plano (trigger enforce_ad_quota,
+      // P0001), esse é o ÚNICO caminho self-service que alcança esse erro, e
+      // o usuário nunca via a mensagem real explicando o motivo.
+      showToast(err?.message || 'Erro ao alterar status.', 'error');
     }
   };
 
@@ -145,9 +156,14 @@ export function MyAdsTab({ userId }: { userId: string }) {
                 
                 {/* Info */}
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '.6rem', marginBottom: '.35rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '.6rem', marginBottom: '.35rem', flexWrap: 'wrap' }}>
                     <span className={`${styles.statusBadge} ${status.className}`}>{status.label}</span>
                     {ad.featured && <span className={`${styles.statusBadge} ${styles.statusFeatured}`}>⭐ Destaque</span>}
+                    {ad.status === 'pending' && atQuota && (
+                      <span style={{ fontSize: '.75rem', color: 'var(--clr-text-muted)' }}>
+                        Aguardando vaga — você atingiu o limite de anúncios ativos do seu plano
+                      </span>
+                    )}
                   </div>
                   <div className={styles.adCardTitle}>
                     {ad.title_pt || ad.title_es}

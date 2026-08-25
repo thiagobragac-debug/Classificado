@@ -168,7 +168,13 @@ export default function PricingClientUI({ initialPlans }: { initialPlans: Plan[]
         <div className={styles.pricingGrid}>
           {initialPlans.map(plan => {
             const isFree = plan.price <= 0
-            const isCurrent = userPlanId === plan.id
+            // BUG CORRIGIDO (teste do plano Grátis, 2026-08-25): user_secrets.
+            // plan_id só é gravado pelo webhook de pagamento (planos pagos) —
+            // quem está no Grátis (o padrão de todo mundo, via fallback do
+            // trigger enforce_ad_quota) sempre tem plan_id NULL. Sem este
+            // fallback, isCurrent nunca era true pro card Grátis, e o botão
+            // mostrava "Começar Grátis" pra quem já estava nele.
+            const isCurrent = !!session && (userPlanId ? userPlanId === plan.id : isFree)
             const isPopular = plan.sort_order === 2
 
             return (

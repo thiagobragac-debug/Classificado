@@ -63,20 +63,36 @@ export default function AdminAnuncios() {
   const handleBulkStatusUpdate = async (newStatus: string) => {
     if (selectedIds.length === 0) return
     const supabase = getSupabase()
-    
-    // Update all selected ads in the database
-    const { error } = await supabase.from('ads')
-      .update({ status: newStatus })
-      .in('id', selectedIds)
-      
-    if (!error) {
-      // Update local state
-      setAds(ads.map(a => selectedIds.includes(a.id) ? { ...a, status: newStatus } : a))
-      showToast(`${selectedIds.length} anúncios atualizados para ${newStatus}!`, 'success')
-      setSelectedIds([]) // Clear selection after action
-    } else {
-      showToast('Erro ao atualizar anúncios: ' + error.message, 'error')
+
+    // BUG CORRIGIDO (teste do plano Grátis, 2026-08-25): um único .update()
+    // com .in() é uma transação só — se qualquer anúncio do lote esbarrasse
+    // na cota de anúncios do dono (trigger enforce_ad_quota), a transação
+    // inteira abortava e NENHUM anúncio selecionado era aprovado, sem
+    // indicar qual causou o erro. Atualizando um por um, os que podem ser
+    // aprovados são aprovados, e os que falham continuam selecionados (e
+    // identificáveis) pro admin decidir o que fazer.
+    const results = await Promise.all(selectedIds.map(async id => {
+      const { error } = await supabase.from('ads').update({ status: newStatus }).eq('id', id)
+      return { id, error }
+    }))
+
+    const succeededIds = results.filter(r => !r.error).map(r => r.id)
+    const failed = results.filter(r => r.error)
+
+    if (succeededIds.length > 0) {
+      const succeededSet = new Set(succeededIds)
+      setAds(ads.map(a => succeededSet.has(a.id) ? { ...a, status: newStatus } : a))
     }
+
+    if (failed.length === 0) {
+      showToast(`${succeededIds.length} anúncios atualizados para ${newStatus}!`, 'success')
+    } else if (succeededIds.length === 0) {
+      showToast(`Nenhum anúncio atualizado. Erro: ${failed[0].error.message}`, 'error')
+    } else {
+      showToast(`${succeededIds.length} atualizados, ${failed.length} falharam: ${failed[0].error.message}`, 'error')
+    }
+
+    setSelectedIds(failed.map(r => r.id)) // mantém selecionados só os que falharam, pra inspeção
   }
 
   const toggleSelectAll = () => {

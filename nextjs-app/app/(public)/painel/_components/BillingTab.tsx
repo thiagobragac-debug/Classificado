@@ -3,17 +3,16 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import useSWR from 'swr';
-import { getMyBilling, PLAN_META, getSupabase } from '@/lib/supabase';
+import { getMyBilling, getSupabase } from '@/lib/supabase';
 import styles from '../painel.module.css';
 
-export function BillingTab({ user }: { user: any }) {
+export function BillingTab({ user, planMeta }: { user: any, planMeta: any }) {
   const [filter, setFilter] = useState('all');
   const [page, setPage] = useState(1);
   const [paymentPending, setPaymentPending] = useState(false);
   const PAGE_SIZE = 5;
 
   const plan = user.profile?.plan || 'free';
-  const planMeta = PLAN_META[plan] || PLAN_META.free;
   const userId = user?.id as string | undefined;
 
   const [isCancelling, setIsCancelling] = useState(false);
