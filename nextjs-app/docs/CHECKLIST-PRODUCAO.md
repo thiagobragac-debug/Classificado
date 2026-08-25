@@ -9,6 +9,84 @@ diretamente. Reconfira antes do go-live.
 
 ---
 
+## ✅ Teste do plano Grátis (auditoria + ao vivo + correção) — 2026-08-25
+
+Pedido: "realizar nova validação detalhada, bem como teste usuario gratis!"
+— seguindo o gancho da rodada de gateways, focado especificamente no plano
+Grátis (padrão de todo usuário, `max_ads=3` hoje). Metodologia: workflow com
+2 agentes em paralelo (auditoria de código de tudo que verifica plano/cota,
+e teste ao vivo clicando na UI real com dados descartáveis em produção),
+seguido de verificação adversarial independente de cada achado antes de
+corrigir.
+
+**Objetivo principal (cota de 3 anúncios ativos): funciona corretamente de
+ponta a ponta.** Cadastro real → wizard real publicando 4 anúncios → 3
+ativados sem erro → 4º rejeitado pelo trigger `enforce_ad_quota` com a
+mensagem certa (`P0001`) → pausar 1 ativo libera a cota → 4º ativa
+normalmente. Paridade confirmada: leilão (lance), favoritar (RPC), contatar
+vendedor e denunciar **não** têm nenhuma checagem de plano — igual pra
+grátis e pago, como deveria ser.
+
+A auditoria e o teste ao vivo encontraram 6 divergências de UI/UX (a cota
+em si nunca foi contornável — os problemas eram todos em como a interface
+comunica, ou deixa de comunicar, essa regra). Todas as 6 corrigidas,
+re-verificadas ao vivo uma por uma, commit `c2da62f`:
+
+1. **Favoritar em `/anuncio/[id]` não persistia — bug real, não só UX.**
+   `AdSidebar.tsx` tinha uma implementação própria, paralela, que só
+   gravava em `localStorage` — nunca chamava a RPC `toggle_favorite_atomic`.
+   O botão "Salvar" parecia funcionar, mas o favorito nunca aparecia em
+   "Meus Favoritos" e sumia ao trocar de dispositivo. Trocado pelo hook
+   `lib/useFavorites.ts`, já usado corretamente nos cards de listagem/home.
+2. **Reativar anúncio pausado além da cota mostrava erro genérico.**
+   `MyAdsTab.tsx` descartava `error.message` no catch — único caminho
+   self-service que alcança o bloqueio de cota, e o usuário nunca sabia que
+   era um limite de plano. Agora mostra a mensagem real do banco.
+3. **Anúncio pendente bloqueado por cota era indistinguível de um pendente
+   comum.** `MyAdsTab.tsx` agora mostra "Aguardando vaga — você atingiu o
+   limite de anúncios ativos do seu plano" ao lado do badge.
+4. **Aprovação em massa no admin falhava em bloco.** Um único
+   `.update().in(...)` é uma transação só — se 1 dos anúncios selecionados
+   esbarrasse na cota do dono, a transação inteira abortava e nenhum era
+   aprovado, sem indicar qual. Agora atualiza um por um e reporta
+   sucesso/falha por item, mantendo selecionados só os que falharam.
+5. **Contador do painel usava `PLAN_META` hardcoded, já divergente do
+   banco** (`premium: 999` no código vs. `max_ads: 9999` real — inofensivo
+   hoje só porque nenhum Premium tem 999+ anúncios, mas ilustra o risco: se
+   o admin mudasse o limite do Grátis em `/admin/planos`, o painel
+   continuaria mostrando o valor antigo). `painel/page.tsx` agora busca a
+   tabela `plans` — a mesma fonte que o trigger de cota usa — e repassa
+   pra `PainelClient`/`BillingTab`/`MyAdsTab`. Testado ao vivo: mudei
+   `max_ads` do Grátis pra 5 via script, o painel acompanhou em tempo real
+   sem novo deploy, revertido depois.
+6. **Badge "Plano Atual" nunca aparecia pra quem está no Grátis.**
+   `user_secrets.plan_id` só é gravado pelo webhook de pagamento (planos
+   pagos) — quem está no Grátis por padrão sempre tem `plan_id NULL`, e
+   `PricingClientUI.tsx` comparava só por id. Mesma classe de bug já
+   corrigida antes pros planos pagos, mas não pro Grátis. Adicionado
+   fallback: card com `price <= 0` conta como atual quando `plan_id` é nulo
+   e há sessão logada.
+
+**Nota tangencial, registrada mas não corrigida (fora do escopo direto):**
+`plans.highlight_count` ("2 destaques Pro / 10 Premium") é vendido na
+página de planos mas não tem nenhum trigger de enforcement — o admin liga
+`ads.featured` manualmente sem teto por plano. Mesmo padrão do achado #5,
+mas sobre destaques em vez de cota de anúncios; decisão de produto, não
+bug.
+
+Validado: `tsc --noEmit`, `vitest run` (119/119), `next build` limpos, e
+cada uma das 6 correções re-testada ao vivo contra produção com dados
+descartáveis (ver relatório da verificação — favoritar persistindo/
+removendo de verdade, mensagem de cota com o texto exato do banco, aviso
+aparecendo no anúncio pendente certo, aprovação em massa com 1 sucesso + 1
+falha isolada e identificável, contador do painel mudando ao vivo junto
+com `plans.max_ads`, badge aparecendo logado e sumindo deslogado). Limpeza
+de todo dado de teste confirmada por leitura independente em duas rodadas
+(varredura por ID conhecido e por padrão de nome/e-mail, sem depender de
+lista salva).
+
+---
+
 ## ✅ Correção dos 5 achados da rodada 2 — 2026-08-25
 
 Fecha os 5 achados marcados como CONFIRMADOS na auditoria rodada 2 (abaixo
