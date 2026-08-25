@@ -244,7 +244,7 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ id: 
             <strong className="ad-mobile-cta-price-value">
               {ad.price
                 ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: ad.currency || 'BRL' }).format(ad.price)
-                : 'Consulte'}
+                : 'Sob consulta' /* BUG CORRIGIDO (reteste, 2026-08-25): 2ª ocorrência do texto de preço nulo, diferente do painel lateral — unificado */}
             </strong>
           </div>
           <a

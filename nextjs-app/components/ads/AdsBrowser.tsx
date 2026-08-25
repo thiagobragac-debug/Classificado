@@ -110,7 +110,7 @@ export default function AdsBrowser({
 
         {children}
 
-      <div className="container" style={{ paddingBlock: 'var(--sp-8) var(--sp-16)' }}>
+      <div className="container" style={{ paddingBlock: hideHero ? 'var(--sp-4) var(--sp-16)' : 'var(--sp-8) var(--sp-16)' }}>
         <div style={{ display: 'flex', gap: 'var(--sp-8)', alignItems: 'stretch' }}>
           {/* SIDEBAR */}
           <aside className="desktop-only" style={{ width: '280px', flexShrink: 0 }}>
@@ -121,7 +121,15 @@ export default function AdsBrowser({
 
           {/* MAIN CONTENT */}
           <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-            <ActiveFiltersList categories={categories} initialGeo={initialGeo} />
+            {/* BUG CRÍTICO CORRIGIDO (reteste do site, 2026-08-25): useAutoGeo
+                (chamado dentro de ActiveFiltersList) aplica a geolocalização
+                DO VISITANTE como filtro sempre que não há localização manual —
+                certo para /listagem ("perto de você"), errado na página de um
+                vendedor específico (AdsBrowser com sellerId): escondia TODOS
+                os anúncios de um vendedor sempre que o visitante estivesse
+                fora da cidade detectada dele, mesmo o vendedor tendo
+                anúncios ativos reais em outro lugar. */}
+            <ActiveFiltersList categories={categories} initialGeo={initialGeo} disableAutoGeo={!!sellerId} />
             
             <div style={{ opacity: isPending ? 0.5 : 1, transition: 'opacity 0.2s', pointerEvents: isPending ? 'none' : 'auto' }}>
               {initialAds.length === 0 ? (

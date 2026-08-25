@@ -9,7 +9,8 @@ export function useAutoGeo(
   cidade: string, setCidade: (v: string) => void,
   applyFilters: (overrides: any) => void,
   initialGeo: any,
-  searchParams: URLSearchParams
+  searchParams: URLSearchParams,
+  disabled?: boolean
 ) {
   const { geo, loading: geoLoading } = useGeoLocation();
   const geoAppliedRef = useRef(false);
@@ -21,6 +22,13 @@ export function useAutoGeo(
   const hasSpecificManualLoc = !!(searchParams.get('pais') || searchParams.get('estado') || searchParams.get('cidade'));
 
   useEffect(() => {
+    // Ex: página de um vendedor específico — a listagem já é escopada por
+    // esse vendedor, geolocalização automática do visitante não deveria se
+    // aplicar (ver comentário em AdsBrowser.tsx).
+    if (disabled) {
+      setGeoReady(true);
+      return;
+    }
     if (hasSpecificManualLoc) {
       setGeoReady(true);
       return;
@@ -82,7 +90,7 @@ export function useAutoGeo(
 
     doGeoFill();
 
-  }, [geo, geoLoading, hasSpecificManualLoc, initialGeo, setPais, setEstado, setCidade, applyFilters]);
+  }, [geo, geoLoading, hasSpecificManualLoc, initialGeo, setPais, setEstado, setCidade, applyFilters, disabled]);
 
   const advanceGeoLevel = useCallback(() => {
     if (geoLevel === 'city') { 

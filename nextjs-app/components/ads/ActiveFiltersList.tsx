@@ -6,7 +6,7 @@ import { Category } from '@/components/ads/AdCard';
 import { useLang } from '@/lib/lang-context';
 import { useSearchParams } from 'next/navigation';
 
-export default function ActiveFiltersList({ categories, initialGeo }: { categories: Category[], initialGeo?: { pais: string | null; estado: string | null; cidade: string | null } }) {
+export default function ActiveFiltersList({ categories, initialGeo, disableAutoGeo }: { categories: Category[], initialGeo?: { pais: string | null; estado: string | null; cidade: string | null }, disableAutoGeo?: boolean }) {
   const { lang } = useLang();
   const searchParams = useSearchParams();
 
@@ -17,7 +17,7 @@ export default function ActiveFiltersList({ categories, initialGeo }: { categori
   } = useAdsFilters(initialGeo);
 
   const { geoLabel, advanceGeoLevel } = useAutoGeo(
-    pais, setPais, estado, setEstado, cidade, setCidade, applyFilters, initialGeo, searchParams
+    pais, setPais, estado, setEstado, cidade, setCidade, applyFilters, initialGeo, searchParams, disableAutoGeo
   );
 
   const getActiveFilters = () => {

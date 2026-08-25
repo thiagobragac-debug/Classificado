@@ -4,7 +4,7 @@ import { Metadata } from 'next';
 import AdsBrowser from '@/components/ads/AdsBrowser';
 import SellerProfileHeader from '@/components/seller/SellerProfileHeader';
 import { getAdsListagem, adsSearchParamsSchema } from '@/lib/services/ads.service';
-import { getAllCategories, getGeoParams } from '@/lib/listagem-utils';
+import { getAllCategories } from '@/lib/listagem-utils';
 import { createAnonClient } from '@/lib/supabase-server';
 
 type Props = { 
@@ -15,7 +15,10 @@ type Props = {
 // Next.js React cache dedups this call per request
 const getProfile = cache(async (id: string) => {
   const sb = createAnonClient();
-  const { data } = await sb.from('profiles').select('name, display_name, created_at, verified').eq('id', id).single();
+  // BUG CORRIGIDO (reteste do site, 2026-08-25): faltava avatar_url/
+  // banner_url — o header do vendedor sempre mostrava a inicial genérica
+  // e o banner padrão, mesmo quando o vendedor tinha foto real cadastrada.
+  const { data } = await sb.from('profiles').select('name, display_name, created_at, verified, avatar_url, banner_url').eq('id', id).single();
   return data;
 });
 
@@ -54,12 +57,24 @@ export default async function VendedorPage(props: Props) {
   const sp = { ...searchParams, seller_id: params.id };
   const parsedParams = adsSearchParamsSchema.parse(sp);
 
-  const geoContext = await getGeoParams({
-    pais: parsedParams.pais,
-    estado: parsedParams.estado,
-    cidade: parsedParams.cidade
-  });
-  
+  // BUG CRÍTICO CORRIGIDO (reteste do site, 2026-08-25): getGeoParams() cai
+  // pro cookie de geolocalização automática (IP do visitante) sempre que
+  // pais/estado/cidade não vêm explícitos na URL — correto para /listagem
+  // (uma busca "perto de você"), mas errado aqui: a página de um vendedor
+  // específico não deveria esconder os anúncios dele só porque o VISITANTE
+  // está em outra cidade. Confirmado ao vivo: um vendedor com 9 anúncios
+  // ativos espalhados pelo Mercosul mostrava "Nenhum anúncio encontrado"
+  // pra qualquer visitante fora da cidade autodetectada. Construído aqui
+  // sem o fallback de cookie — só filtra por localização se o VISITANTE
+  // escolher manualmente um filtro na própria tela do vendedor.
+  const geoContext = {
+    pais: parsedParams.pais || null,
+    estado: parsedParams.estado || null,
+    cidade: parsedParams.cidade || null,
+    hasManualGeo: !!(parsedParams.pais || parsedParams.estado || parsedParams.cidade),
+    geoCookie: null,
+  };
+
   const sb = createAnonClient();
 
   // Profile is now deduplicated, it will instantly return from cache if generateMetadata already ran
@@ -156,6 +171,8 @@ async function SellerContent({ sellerId, sellerName, parsedParams, geoContext }:
           sellerName={sellerName}
           stats={{ ...stats, verified: profile?.verified ?? false }}
           sellerCreatedAt={profile?.created_at ?? null}
+          avatarUrl={profile?.avatar_url ?? null}
+          bannerUrl={profile?.banner_url ?? null}
         />
       </div>
       <AdsBrowser 

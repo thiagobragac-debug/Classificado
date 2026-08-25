@@ -123,14 +123,40 @@ export default function AdminDenuncias() {
     }
   }
 
+  // BUG ALTO CORRIGIDO (reteste do site, 2026-08-25): "Marcar como Resolvidas"
+  // só gravava reports.status='resolved' sem nunca banir o anúncio nem setar
+  // resolved_at — mas a UI rotula QUALQUER report resolved como "Banido (Ação
+  // Tomada)" (mesma badge da ação individual "Banir"), e handleRevert() acima
+  // assume que reverter um report resolved com ad_id sempre significa
+  // devolver um anúncio banido pra pending. Resultado: usar essa ação em
+  // massa e depois "Reverter" derrubava (pending) um anúncio ativo legítimo
+  // que nunca tinha sido banido. Corrigido banindo de fato os anúncios das
+  // denúncias selecionadas quando newStatus='resolved' — mesmo efeito da
+  // ação individual "Banir", só que em lote — pra badge e Reverter ficarem
+  // consistentes com a realidade. "Ignorar" (dismissed) continua sem tocar
+  // no anúncio, igual à ação individual equivalente.
   const handleBulkStatusUpdate = async (newStatus: string) => {
     if (selectedIds.length === 0) return
     const supabase = getSupabase()
-    
+
+    if (newStatus === 'resolved') {
+      const selectedReports = reports.filter(r => selectedIds.includes(r.id))
+      const adIds = selectedReports.map(r => r.ad_id).filter(Boolean)
+      if (adIds.length > 0) {
+        const { error: adsError } = await supabase.from('ads').update({ status: 'rejected' }).in('id', adIds)
+        if (adsError) {
+          return showToast('Erro ao banir anúncios em massa: ' + adsError.message, 'error')
+        }
+      }
+    }
+
+    const updates: Record<string, any> = { status: newStatus }
+    if (newStatus === 'resolved') updates.resolved_at = new Date().toISOString()
+
     const { error } = await supabase.from('reports')
-      .update({ status: newStatus })
+      .update(updates)
       .in('id', selectedIds)
-      
+
     if (!error) {
       setReports(reports.map(r => selectedIds.includes(r.id) ? { ...r, status: newStatus } : r))
       showToast(`${selectedIds.length} denúncias marcadas como ${newStatus}!`, 'success')

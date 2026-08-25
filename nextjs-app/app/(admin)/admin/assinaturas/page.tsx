@@ -66,15 +66,20 @@ export default function AdminAssinaturas() {
     }
   }
 
-  const handleReactivate = async (id: string, userId: string) => {
+  const handleReactivate = async (id: string) => {
     const supabase = getSupabase()
-    const { error } = await supabase.from('subscriptions').update({ status: 'active', cancel_at_period_end: false }).eq('id', id)
-    if (!error) {
-      await supabase.from('profiles').update({ subscription_status: 'active' }).eq('id', userId)
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/admin/subscriptions/reactivate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ subscriptionId: id }),
+    })
+    const body = await res.json()
+    if (res.ok) {
       setSubscriptions(subscriptions.map(s => s.id === id ? { ...s, status: 'active' } : s))
       showToast('Assinatura reativada.', 'success')
     } else {
-      showToast('Erro ao reativar: ' + error.message, 'error')
+      showToast('Erro ao reativar: ' + (body.error || res.statusText), 'error')
     }
   }
 
@@ -105,12 +110,18 @@ export default function AdminAssinaturas() {
         <p className="adm-page-sub">Gerencie planos, pagamentos e receita recorrente do portal.</p>
       </div>
 
-      <div className="adm-stats-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)', marginBottom: '20px' }}>
+      {/* BUG CORRIGIDO (reteste do site, 2026-08-25): `atrasados` já era
+          calculado mas não tinha card nenhum no grid — uma assinatura
+          past_due entrava no Total sem aparecer em nenhum indicador dedicado. */}
+      <div className="adm-stats-grid" style={{ gridTemplateColumns: 'repeat(5,1fr)', marginBottom: '20px' }}>
         <div className="adm-stat-card">
           <div><div className="adm-stat-val">{total}</div><div className="adm-stat-lbl">Total</div></div>
         </div>
         <div className="adm-stat-card">
           <div><div className="adm-stat-val" style={{ color: 'var(--adm-green)' }}>{ativos}</div><div className="adm-stat-lbl">Ativas</div></div>
+        </div>
+        <div className="adm-stat-card">
+          <div><div className="adm-stat-val" style={{ color: 'var(--adm-amber)' }}>{atrasados}</div><div className="adm-stat-lbl">Atrasadas</div></div>
         </div>
         <div className="adm-stat-card">
           <div><div className="adm-stat-val" style={{ color: 'var(--adm-red)' }}>{cancelados}</div><div className="adm-stat-lbl">Canceladas</div></div>
@@ -176,7 +187,7 @@ export default function AdminAssinaturas() {
                         <button className="adm-btn adm-btn--sm adm-btn--outline" style={{ color: 'var(--adm-red)', borderColor: 'var(--adm-red)' }} onClick={() => handleCancel(sub.id)}>Cancelar</button>
                       )}
                       {sub.status === 'cancelled' && (
-                        <button className="adm-btn adm-btn--sm adm-btn--outline" onClick={() => handleReactivate(sub.id, sub.user_id)}>Reativar</button>
+                        <button className="adm-btn adm-btn--sm adm-btn--outline" onClick={() => handleReactivate(sub.id)}>Reativar</button>
                       )}
                     </div>
                   </td>

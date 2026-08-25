@@ -5,16 +5,20 @@ import ReviewModal from './ReviewModal';
 import { Star, Share2, ShieldCheck } from 'lucide-react';
 import styles from './SellerProfileHeader.module.css';
 
-export default function SellerProfileHeader({ 
-  sellerId, 
-  sellerName, 
+export default function SellerProfileHeader({
+  sellerId,
+  sellerName,
   stats,
-  sellerCreatedAt
-}: { 
+  sellerCreatedAt,
+  avatarUrl,
+  bannerUrl,
+}: {
   sellerId: string;
   sellerName: string;
   stats: { total_reviews: number; avg_rating: number; verified?: boolean };
   sellerCreatedAt?: string | null;
+  avatarUrl?: string | null;
+  bannerUrl?: string | null;
 }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -52,19 +56,35 @@ export default function SellerProfileHeader({
 
   return (
     <>
-      <div className="container" style={{ marginTop: '1.5rem' }}>
+      <div className="container" style={{ marginTop: '0.75rem' }}>
         <div className={styles.sellerHeaderCard}>
-          <div className={styles.sellerBanner} />
-          
+          {/* BUG CORRIGIDO (reteste do site, 2026-08-25): avatar_url/banner_url
+              do vendedor eram lidos em outras partes do site (cards de anúncio,
+              mensagens) mas nunca chegavam aqui — o header sempre mostrava a
+              inicial genérica e o banner padrão, mesmo com foto real cadastrada. */}
+          <div
+            className={styles.sellerBanner}
+            style={bannerUrl ? { backgroundImage: `url(${bannerUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
+          />
+
           <div className={styles.sellerContent}>
-            <div 
-              className={styles.sellerAvatar}
-              style={avatarColorStyle}
-              role="img"
-              aria-label={`Avatar de ${sellerName}`}
-            >
-              {sellerName.charAt(0).toUpperCase()}
-            </div>
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt={`Avatar de ${sellerName}`}
+                className={styles.sellerAvatar}
+                style={{ objectFit: 'cover' }}
+              />
+            ) : (
+              <div
+                className={styles.sellerAvatar}
+                style={avatarColorStyle}
+                role="img"
+                aria-label={`Avatar de ${sellerName}`}
+              >
+                {sellerName.charAt(0).toUpperCase()}
+              </div>
+            )}
             
             <div className={styles.sellerInfo}>
               <div className={styles.sellerNameRow}>
