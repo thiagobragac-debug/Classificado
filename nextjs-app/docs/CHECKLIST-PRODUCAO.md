@@ -9,6 +9,139 @@ diretamente. Reconfira antes do go-live.
 
 ---
 
+## 🔍 Auditoria multi-agente completa (site + admin), com verificação adversarial — 2026-08-25
+
+Pedido: "realizar teste novamente completo com todas funcionalidades do site
+e admin, [...] clique em todas as funcionalidades". Rodada via workflow com
+19 agentes clicando ao vivo (não só lendo código), agrupados por conta de
+login (anônimo/vendedor/comprador/admin, já que o navegador usa uma sessão
+compartilhada) para evitar um agente derrubar a sessão do outro. Cada achado
+passou por um segundo agente independente tentando refutá-lo antes de entrar
+no relatório final.
+
+**⚠️ Cobertura real ficou bem abaixo do planejado.** A rodada durou quase 5h
+(19 agentes, 40 sub-agentes no total) e o servidor `next dev` do projeto
+ficou instável/derrubado a partir do 2º dos 19 alvos e nunca voltou sozinho
+pelo resto da execução — provavelmente por exaustão do pool de workers do
+Turbopack ("Jest worker encountered N child process exceptions") sob carga
+concorrente sustentada de vários agentes navegando por horas, possivelmente
+agravado pelo próprio crash de imagem descrito abaixo. Resultado: **todas as
+7 áreas de admin testadas ficaram sem nenhuma cobertura real de clique**
+(só investigação de banco/código — nenhum bug pôde ser confirmado NEM
+descartado lá), 1 área (`admin_usuarios`) nem chegou a rodar (bloqueada pelo
+classificador de segurança do Claude Code por delegar SQL destrutivo
+irrestrito a um agente autônomo — achado sobre o desenho da própria
+auditoria, não sobre o site), e várias áreas do site público também
+perderam a fase de verificação por causa disso. Interpretar os "achados não
+confirmados" abaixo com esse contexto: muitos são bem verossímeis, só não
+puderam ser reproduzidos de novo porque o servidor caiu no meio do caminho.
+
+### 🔴 Ação de emergência já tomada
+O anúncio-fixture descartável criado para a auditoria tinha uma imagem em
+`placehold.co` — host fora da allowlist `images.remotePatterns` de
+`next.config.ts`. Isso **derrubava a Home inteira e qualquer página de
+anúncio** (ver achado crítico abaixo) **no banco de produção real**, não só
+no ambiente de teste. Assim que percebido, o anúncio foi excluído
+diretamente do banco (`ads.id = e20a1bde-b32d-4ec5-815b-63e0497891c6`) e a
+remoção foi confirmada por leitura independente. Todos os outros fixtures
+descartáveis da auditoria (contas de teste, leilão/lote, cupom) também
+foram limpos e confirmados removidos.
+
+### Achados CONFIRMADOS ao vivo (reproduzidos de forma independente)
+
+1. **🔴 Crítico — `next/image` sem tratamento de erro derruba a Home e
+   `/anuncio/[id]` inteiros.** Qualquer anúncio ativo com imagem hospedada
+   fora de `images.remotePatterns` faz o `next/image` lançar uma exceção
+   não tratada que sobe até o error boundary de nível de página
+   (`app/(public)/error.tsx`), substituindo TODO o conteúdo (não só o
+   card) por "Ops! Algo não saiu como esperado" — sem fallback por card,
+   afetando qualquer visitante. Se propaga também para `/anuncio/[id]` de
+   outros anúncios via o fallback "Nível 4: recentes global" de
+   `SimilarAds.tsx`, que ignora categoria. Isso não depende de má-fé — só
+   de um vendedor colar uma URL de imagem de um host não cadastrado.
+2. **🔴 Crítico (segurança) — segredos dos 4 gateways de pagamento
+   (Stripe, Mercado Pago, Pagar.me, Asaas) vazam pro `localStorage` do
+   navegador quando um ADMIN loga.** Causa raiz exata:
+   `components/Header.tsx`, função `syncPlatformSettings` (~linhas 82-99),
+   faz `select('*')` em `platform_settings` direto do navegador; a policy
+   RLS `is_admin()` libera TODAS as colunas (incluindo as secretas) pra
+   quem tem `is_admin=true`, e o código grava cada `key/value` retornado
+   em `localStorage.setItem()` sem nenhum filtro — ao contrário de
+   `app/api/admin/settings/route.ts`, que já tem uma lista `CHAVES_SECRETAS`
+   pra nunca devolver esses valores. O logout NÃO limpa o `localStorage`,
+   então os segredos ficam expostos a qualquer script da página
+   indefinidamente, mesmo depois do admin sair da conta. Só chaves de
+   sandbox no ambiente atual, mas o mesmo caminho com chaves reais
+   exporia credenciais de cobrança de produção a qualquer XSS.
+3. **🟠 Alto — denúncia de anúncio por visitante DESLOGADO sempre falha.**
+   `components/ads/AdReportModal.tsx` grava `reporter_id: null` quando não
+   há sessão (comportamento intencional, denúncia anônima deveria
+   funcionar), mas a policy RLS "Anyone can report" usa
+   `with_check (auth.uid() = reporter_id)` — em SQL, `NULL = NULL` nunca é
+   `TRUE`, então o INSERT é sempre rejeitado (confirmado com uma chamada
+   REST direta reproduzindo 401/42501). Mensagem genérica "Erro ao enviar
+   denúncia", sem indicar que precisa logar.
+4. **🟠 Alto — badge de data errado em 3 dos 8 cards de `/eventos`.**
+   `EventCard.tsx` usa um regex mais simples
+   (`/(\d+)\s+([a-zA-Zç]+)/i`) que o usado pra ordenação em `page.tsx`
+   (`/(\d{1,2})\D*?([a-zA-Zç]{3,})/i`, já corrigido numa rodada anterior)
+   — pega a primeira palavra depois do número, então "12 de Novembro"
+   vira badge "12 DE", "28 de Abril a 06 de Maio" vira "28 DE" e
+   "15 a 18 de Agosto" vira "15 A". A ordenação geral da lista está
+   correta; só o badge visual do card está errado.
+
+### Achados reportados com boa evidência mas NÃO reverificados (servidor
+caiu antes da 2ª checagem — tratar como "provável", não como confirmado)
+
+- **Wizard de "Anunciar" trava com tela em branco (`opacity:0`) ao clicar
+  "Próximo Passo"**, com ou sem formulário válido, sem erro no console —
+  bloquearia todo o fluxo de criação de anúncio pela UI.
+- **Nenhum feedback visível de validação** ao tentar avançar com
+  Título/Categoria vazios no mesmo wizard.
+- **Categoria não persiste ao recarregar um rascunho salvo** em
+  `/anunciar` — o agente de verificação não conseguiu clicar, mas achou
+  uma causa raiz muito convincente no código: o `<select>` de categoria é
+  não-controlado (`react-hook-form` puro), e a lista de `<option>`s chega
+  depois via fetch assíncrono em `StepData.tsx` — o valor default é
+  aplicado pela ref callback do `register()` no mount, quando só existe a
+  option vazia "Selecione...", e a ref callback não roda de novo quando as
+  categorias chegam depois.
+- **Erro 500 "Jest worker encountered N child process exceptions"** em
+  `/eventos/[id]` e `/leiloes/[id]` — relatado de forma consistente por
+  4 agentes de áreas diferentes, com o mesmo código de erro (`E394`).
+  Como é um crash do pool de workers do modo dev do Next (Turbopack), não
+  necessariamente reflete produção (build compilado não usa esse pool),
+  mas os 2 arquivos merecem um teste isolado e rápido antes de descartar.
+- **Formulário de cartão do Mercado Pago nunca renderiza no checkout**
+  (`#cardPaymentBrick_container` fica vazio, `Bricks.create` falha) — a
+  causa raiz alegada pelo relator original (script inline bloqueado pelo
+  CSP) foi contestada pelo verificador (o SDK do MP só injeta um
+  `<script src=...>` externo já permitido, não inline) — pode ser um
+  sintoma real com diagnóstico errado, ou um falso-positivo; a melhor
+  forma de saber é reproduzir ao vivo, pois é a área de checkout, a mais
+  sensível do site.
+
+### Falso-positivo descartado, com um achado menor real encontrado no lugar
+
+O seletor de idioma (PT/ES) do header **funciona** — o achado original
+provavelmente coincidiu com o bug que o commit `2fe6429` já corrigiu no
+mesmo dia (`router.refresh()` ausente). Só que, testando isso, apareceu um
+achado **novo e real, menor**: o rodapé "simplificado" (usado em
+`/listagem`, `/painel`, `/anunciar`, `/vendedor`, `/leiloes`, `/anuncio`,
+`/eventos` — `components/Footer.tsx`, bloco `isSimplified`) é 100%
+hardcoded em português e nunca usa `t()`/lang, então fica em PT mesmo com
+ES selecionado (diferente do rodapé completo da home, que já traduz certo).
+
+### Áreas sem NENHUMA cobertura real (bloqueio de ambiente, não "sem bugs")
+`admin_usuarios` (nem rodou — classificador bloqueou), `admin_anuncios`,
+`admin_assinaturas`, `admin_leiloes`, `admin_conteudo` (categorias/
+banners/depoimentos/páginas), `admin_cupons`, `admin_denuncias_apikeys`,
+`admin_config_verificacoes` — nenhuma dessas 8 áreas conseguiu clicar em
+nada; todas relatam o mesmo bloqueio de servidor. Não interpretar como
+"admin está limpo".
+
+---
+
 ## 🧩 Gaps de feature do reteste, agora implementados — 2026-08-25
 
 Quarta rodada ("Atacar os gaps de feature"), fechando os itens que
