@@ -271,6 +271,11 @@ export default function AdminApiKeys() {
                     <option value="production">Produção</option>
                     <option value="sandbox">Sandbox (Testes)</option>
                   </select>
+                  {form.environment === 'sandbox' && (
+                    <small style={{ color: 'var(--adm-text-muted)', display: 'block', marginTop: '4px' }}>
+                      Lê dados reais de produção (não existe banco de sandbox separado), mas não pode escrever — write_ads é bloqueado pra chaves sandbox.
+                    </small>
+                  )}
                 </div>
                 <div className="adm-field">
                   <label>Rate Limit (req/min)</label>

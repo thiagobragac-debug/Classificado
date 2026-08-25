@@ -14,6 +14,9 @@ export function useAutoGeo(
 ) {
   const { geo, loading: geoLoading } = useGeoLocation();
   const geoAppliedRef = useRef(false);
+  // Guarda exatamente o que o auto-geo aplicou, pra distinguir de uma
+  // mudança manual do usuário (ver efeito de sincronização abaixo).
+  const autoAppliedRef = useRef<{ pais: string; estado: string; cidade: string } | null>(null);
 
   const [geoLabel, setGeoLabel] = useState<string | null>(null);
   const [geoLevel, setGeoLevel] = useState<'city'|'state'|'country'|null>(null);
@@ -41,6 +44,7 @@ export function useAutoGeo(
 
     if (initialGeo && (initialGeo.cidade || initialGeo.estado || initialGeo.pais)) {
       geoAppliedRef.current = true;
+      autoAppliedRef.current = { pais: initialGeo.pais || '', estado: initialGeo.estado || '', cidade: initialGeo.cidade || '' };
       if (initialGeo.cidade) {
         setGeoLabel(`Perto de você — ${initialGeo.cidade}`);
         setGeoLevel('city');
@@ -69,6 +73,7 @@ export function useAutoGeo(
       let newEstado = geo.state || '';
       let newCidade = geo.city || '';
 
+      autoAppliedRef.current = { pais: newPais, estado: newEstado, cidade: newCidade };
       if (newPais) setPais(newPais);
       if (newEstado) setEstado(newEstado);
       if (newCidade) setCidade(newCidade);
@@ -92,20 +97,44 @@ export function useAutoGeo(
 
   }, [geo, geoLoading, hasSpecificManualLoc, initialGeo, setPais, setEstado, setCidade, applyFilters, disabled]);
 
+  // BUG CORRIGIDO (reteste do site, 2026-08-25): o chip "Perto de você — X"
+  // ficava preso no valor autodetectado mesmo depois do usuário trocar
+  // manualmente país/estado/cidade nos selects do filtro de Localização —
+  // a URL e os resultados ficavam certos, só o chip visível é que mentia.
+  // Sempre que pais/estado/cidade atuais não baterem mais com o que o
+  // auto-geo de fato aplicou, o rótulo deixa de ser válido — limpamos aqui
+  // pra getActiveFilters() (ActiveFiltersList.tsx) cair no branch de
+  // localização MANUAL (que já existe e mostra o valor certo).
+  useEffect(() => {
+    if (!geoLabel || !autoAppliedRef.current) return;
+    const auto = autoAppliedRef.current;
+    if (pais !== auto.pais || estado !== auto.estado || cidade !== auto.cidade) {
+      setGeoLabel(null);
+      setGeoLevel(null);
+      autoAppliedRef.current = null;
+    }
+  }, [pais, estado, cidade, geoLabel]);
+
   const advanceGeoLevel = useCallback(() => {
-    if (geoLevel === 'city') { 
-      setCidade(''); setGeoLevel('state'); 
-      setGeoLabel(estado ? `Seu estado — ${estado}` : null); 
+    if (geoLevel === 'city') {
+      setCidade(''); setGeoLevel('state');
+      setGeoLabel(estado ? `Seu estado — ${estado}` : null);
+      // Mantém a ref em sincronia com o novo nível — senão o efeito de
+      // sincronização acima ia achar que isto também foi uma mudança
+      // "manual" e apagar o rótulo "Seu estado — X" que acabamos de setar.
+      autoAppliedRef.current = { pais, estado, cidade: '' };
       applyFilters({ cidade: '' });
     }
-    else if (geoLevel === 'state') { 
-      setEstado(''); setCidade(''); setGeoLevel('country'); 
-      setGeoLabel(pais ? `Seu país — ${pais}` : null); 
+    else if (geoLevel === 'state') {
+      setEstado(''); setCidade(''); setGeoLevel('country');
+      setGeoLabel(pais ? `Seu país — ${pais}` : null);
+      autoAppliedRef.current = { pais, estado: '', cidade: '' };
       applyFilters({ estado: '', cidade: '' });
     }
-    else if (geoLevel === 'country') { 
-      setPais(''); setEstado(''); setCidade(''); 
+    else if (geoLevel === 'country') {
+      setPais(''); setEstado(''); setCidade('');
       setGeoLevel(null); setGeoLabel(null);
+      autoAppliedRef.current = null;
       // Delete the geo cookies so the server won't re-inject geo from cookie on next request
       try {
         document.cookie = 'user_geo_v1=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';

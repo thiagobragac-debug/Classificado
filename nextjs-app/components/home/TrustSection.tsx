@@ -10,9 +10,11 @@ export async function TrustSection() {
     <section className="section trust-section" aria-labelledby="trust-heading">
       <div className="container">
         <div style={{ textAlign: 'center', marginBottom: 'var(--sp-12)' }}>
-          <div className="section-label" style={{ justifyContent: 'center', marginBottom: 'var(--sp-3)' }}>Por que escolher o Tauze Class</div>
+          {/* BUG CORRIGIDO (reteste do site, 2026-08-25): rótulo e subtítulo
+              hardcoded em português — únicos textos desta seção sem t() */}
+          <div className="section-label" style={{ justifyContent: 'center', marginBottom: 'var(--sp-3)' }}>{t('trust_label')}</div>
           <h2 className="section-title" id="trust-heading" style={{ marginBottom: 'var(--sp-3)' }}>{t('trust_title')}</h2>
-          <p className="section-subtitle" style={{ marginInline: 'auto', textAlign: 'center' }}>A plataforma mais confiável para negócios rurais no Mercosul.</p>
+          <p className="section-subtitle" style={{ marginInline: 'auto', textAlign: 'center' }}>{t('trust_subtitle')}</p>
         </div>
         <div className="trust-grid" role="list">
           {TRUST_ITEMS.map((item, i) => (

@@ -43,12 +43,18 @@ async function fetchAuctions(searchParams: any) {
   // Selecionar apenas as colunas necessárias para o card
   let query = sb.from('auction_events').select('id, title, date, cover, status, youtube, catalog');
 
+  // BUG CORRIGIDO (achado desde a 1ª rodada do teste completo, 2026-08-24,
+  // só agora corrigido): o valor real de status para leilão encerrado é
+  // 'closed' (confirmado contra admin/leiloes/page.tsx e o resto do
+  // sistema) — 'finished' nunca existiu em nenhum auction_event real, então
+  // "Encerrados"/"Todos os status" nunca retornavam os leilões encerrados
+  // de verdade.
   if (status === 'active') {
     query = query.in('status', ['live', 'scheduled']);
   } else if (status === 'closed') {
-    query = query.in('status', ['finished']);
+    query = query.in('status', ['closed']);
   } else if (status === 'todos') {
-    query = query.in('status', ['live', 'scheduled', 'finished']);
+    query = query.in('status', ['live', 'scheduled', 'closed']);
   } else {
     // Default fallback
     query = query.in('status', ['live', 'scheduled']);
@@ -116,7 +122,7 @@ export default async function LeiloesPage({ searchParams }: { searchParams: Prom
         eventStatus:
           ev.status === 'live'
             ? 'https://schema.org/EventScheduled'
-            : ev.status === 'finished'
+            : ev.status === 'closed'
             ? 'https://schema.org/EventCancelled'
             : 'https://schema.org/EventScheduled',
         location: isOnline

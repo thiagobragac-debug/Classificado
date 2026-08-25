@@ -105,6 +105,17 @@ export async function POST(request: NextRequest) {
     return apiError('Forbidden: this key does not have write_ads permission', 403)
   }
 
+  // BUG MÉDIO CORRIGIDO (reteste do site, 2026-08-25): o campo "Ambiente"
+  // (Sandbox/Produção) da chave era puramente cosmético — nenhuma rota
+  // olhava pra ele, então uma chave marcada "Sandbox" criava anúncio real
+  // de verdade em produção (confirmado ao vivo no reteste). Não existe
+  // isolamento de dado real entre ambientes nesta base — a interpretação
+  // mais segura sem isso é: chave sandbox nunca escreve, só lê.
+  if (apiKey.environment === 'sandbox') {
+    logRequest({ apiKey, request, statusCode: 403, durationMs: Date.now() - startTime })
+    return apiError('Forbidden: sandbox keys are read-only — writes always affect real production data', 403)
+  }
+
   const rateLimit = await checkRateLimit(apiKey)
   if (!rateLimit.allowed) {
     logRequest({ apiKey, request, statusCode: 429, durationMs: Date.now() - startTime })
