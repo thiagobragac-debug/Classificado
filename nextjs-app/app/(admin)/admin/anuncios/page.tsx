@@ -149,7 +149,12 @@ export default function AdminAnuncios() {
       <div className="adm-page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <h1 className="adm-page-title">Gerenciar Anúncios</h1>
-          <p className="adm-page-sub">Aprove, destaque ou remova anúncios do portal.</p>
+          {/* GAP CORRIGIDO (auditoria completa, 2026-08-25): o subtítulo
+              prometia "destaque" e "remova", mas esta tela nunca teve botão
+              de destacar (featured) nem de excluir — só aprovar/rejeitar/
+              pausar (individual e em massa). Texto ajustado pra descrever
+              o que a tela realmente faz. */}
+          <p className="adm-page-sub">Aprove, rejeite ou pause anúncios do portal.</p>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
           <button className="adm-btn adm-btn--outline" onClick={handleExport}>

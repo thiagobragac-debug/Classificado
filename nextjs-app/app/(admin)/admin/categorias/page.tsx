@@ -3,8 +3,10 @@
 import React, { useEffect, useState } from 'react'
 import { getSupabase } from '@/lib/supabase'
 import { showToast } from '@/lib/toast'
+import { useConfirm } from '@/components/ui/ConfirmProvider'
 
 export default function AdminCategorias() {
+  const { confirm } = useConfirm()
   const [categories, setCategories] = useState<any[]>([])
   const [adsCount, setAdsCount] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -103,6 +105,29 @@ export default function AdminCategorias() {
     }
   }
 
+  // GAP CORRIGIDO (auditoria completa, 2026-08-25): não havia forma de
+  // excluir uma categoria pela UI (só editar/ativar-desativar), diferente
+  // de Banners e Páginas Institucionais, que já tinham "Excluir" na
+  // listagem. A FK de ads.category_id é ON DELETE NO ACTION (confirmado no
+  // banco), então o Postgres já protege sozinho contra excluir uma
+  // categoria com anúncios associados — só precisa tratar esse erro (código
+  // 23503) com uma mensagem amigável em vez de deixar a exceção crua.
+  const handleDelete = async (c: any) => {
+    if (!(await confirm(`Deseja realmente excluir a categoria "${c.name_pt}"?`))) return
+    const supabase = getSupabase()
+    const { data, error } = await supabase.from('categories').delete().eq('id', c.id).select()
+    if (!error && data && data.length > 0) {
+      setCategories(categories.filter(cat => cat.id !== c.id))
+      showToast('Categoria excluída!', 'success')
+    } else if (error?.code === '23503') {
+      showToast('Não é possível excluir: existem anúncios cadastrados nesta categoria.', 'error')
+    } else if (!error) {
+      showToast('Nenhuma categoria foi excluída — verifique suas permissões.', 'error')
+    } else {
+      showToast('Erro: ' + error.message, 'error')
+    }
+  }
+
   const openNew = () => {
     setEditingId(null)
     setForm({ id: '', name_pt: '', name_es: '', icon: '🐐', color: '#16A34A', active: true })
@@ -175,6 +200,7 @@ export default function AdminCategorias() {
               <button className="adm-btn adm-btn--outline adm-btn--sm" onClick={() => handleToggleActive(c.id, c.active)}>
                 {c.active ? 'Desativar' : 'Ativar'}
               </button>
+              <button className="adm-btn adm-btn--outline adm-btn--sm" style={{ color: 'var(--adm-red)', borderColor: 'var(--adm-red)' }} onClick={() => handleDelete(c)}>Excluir</button>
             </div>
           </div>
         ))}

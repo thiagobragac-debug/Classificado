@@ -13,7 +13,7 @@ interface StepDataProps {
 }
 
 export function StepData({ onNext }: StepDataProps) {
-  const { register, control, trigger, watch, formState: { errors } } = useFormContext<AnuncioFormValues>()
+  const { register, control, trigger, watch, setValue, getValues, formState: { errors } } = useFormContext<AnuncioFormValues>()
   const moeda = watch('moeda') as string | undefined
   const [categories, setCategories] = useState<any[]>([])
 
@@ -25,13 +25,31 @@ export function StepData({ onNext }: StepDataProps) {
         .select('*')
         .eq('active', true)
         .order('sort_order', { ascending: true })
-        
+
       if (!error && data) {
         setCategories(data)
       }
     }
     loadCategories()
   }, [])
+
+  // GAP CORRIGIDO (auditoria completa, 2026-08-25): o <select> de
+  // categoria é não-controlado (register()) — seu valor inicial é
+  // aplicado pela ref callback no MOUNT, quando só existe a option vazia
+  // "Selecione...", já que a lista real de categorias chega depois, pelo
+  // fetch assíncrono acima. Quando as options chegam, o <select> nunca é
+  // ressincronizado com o valor do formulário (ex.: category_id de um
+  // rascunho restaurado), e fica preso em "Selecione..." mesmo com o
+  // valor certo no estado do formulário. Precisa ser um efeito separado,
+  // disparado depois que `categories` já foi commitado no DOM (setValue
+  // não seleciona um <option> que ainda não existe na árvore) — fazer
+  // isso no mesmo efeito do fetch, logo após setCategories(), roda cedo
+  // demais, antes do React re-renderizar com as novas options.
+  useEffect(() => {
+    if (categories.length > 0) {
+      setValue('categoria', getValues('categoria'), { shouldDirty: false, shouldTouch: false })
+    }
+  }, [categories, setValue, getValues])
 
   const handleNext = async () => {
     // Validate only this step's fields

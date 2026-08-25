@@ -90,6 +90,13 @@ const STRIPE_CONNECT = ['https://api.stripe.com', 'https://m.stripe.com', 'https
 
 const MP_SCRIPT = ['https://sdk.mercadopago.com', 'https://http2.mlstatic.com'];
 const MP_FRAME = ['https://*.mercadopago.com', 'https://*.mercadolibre.com'];
+// GAP DE INTEGRAÇÃO CORRIGIDO (auditoria completa, 2026-08-25): depois de
+// liberar o script inline de bootstrap do Brick (ver isCheckoutRoute em
+// buildCsp), ele passou a rodar e disparar chamadas de fingerprinting
+// antifraude (device fingerprint / cookie de sessão) pra esses domínios —
+// bloqueadas por connect-src/img-src, deixando o Brick sem inicializar do
+// mesmo jeito, só que num ponto mais adiante do fluxo.
+const MP_ANTIFRAUDE = ['https://*.mercadolibre.com', 'https://*.mercadolivre.com'];
 // BUG CRÍTICO CORRIGIDO (teste completo do site, 2026-08-24): faltava
 // http2.mlstatic.com aqui. O Brick de cartão (@mercadopago/sdk-react) busca
 // seu JSON de i18n desse host via fetch() no navegador — sem ele em
@@ -98,22 +105,47 @@ const MP_FRAME = ['https://*.mercadopago.com', 'https://*.mercadolibre.com'];
 // cartão. mlstatic já estava liberado em script-src e img-src, só faltava
 // aqui — checkout por cartão via Mercado Pago (gateway nacional ativo) não
 // funcionava para nenhum usuário real até esta correção.
-const MP_CONNECT = ['https://api.mercadopago.com', 'https://api.mercadolibre.com', 'https://events.mercadopago.com', 'https://http2.mlstatic.com'];
+const MP_CONNECT = ['https://api.mercadopago.com', 'https://api.mercadolibre.com', 'https://events.mercadopago.com', 'https://http2.mlstatic.com', ...MP_ANTIFRAUDE];
+
+// Rotas onde o CheckoutModal roda (Card Payment Brick da Mercado Pago) — a
+// única exceção à política de script-src baseada em nonce, ver comentário
+// em buildCsp() abaixo.
+const CHECKOUT_ROUTES = ['/planos'];
 
 // ─── CSP Builder ───────────────────────────────────────────────
-function buildCsp(nonce: string): string {
+function buildCsp(nonce: string, pathname: string): string {
   const isProd = process.env.NODE_ENV === 'production';
   const supabaseHttp = SUPABASE_HOST ? [`https://${SUPABASE_HOST}`] : [];
   const supabaseWs = SUPABASE_HOST ? [`wss://${SUPABASE_HOST}`] : [];
 
   const directive = (name: string, values: string[]) => `${name} ${values.join(' ')}`;
 
+  // GAP DE INTEGRAÇÃO CORRIGIDO (auditoria completa, 2026-08-25): o Card
+  // Payment Brick do Mercado Pago (usado só nesta rota, via CheckoutModal)
+  // injeta um <script> inline PRÓPRIO durante a inicialização (bootstrap de
+  // cookie/Storage Access API — os campos de cartão em si já rodam isolados
+  // num iframe da própria Mercado Pago, com o CSP deles, não o nosso) sem
+  // carregar o nonce por requisição desta página. É uma lacuna reconhecida
+  // e não resolvida do SDK deles (sem workaround oficial, confirmado na
+  // documentação e no repositório deles) — e não dá pra usar um hash
+  // fixo no lugar do nonce: o conteúdo desse script muda a cada sessão
+  // (mesmo tamanho, hash diferente em cada carregamento, confirmado ao
+  // vivo), então 'sha256-...' nunca bateria pro próximo usuário.
+  //
+  // Correção: só NESTA rota, o script-src abre mão do nonce (permitindo
+  // 'unsafe-inline') — o resto do site inteiro continua exatamente com a
+  // mesma política estrita baseada em nonce de sempre. É a forma padrão de
+  // isolar uma dependência de terceiro que não suporta nonce, sem
+  // enfraquecer a proteção nas páginas que não precisam dela.
+  const isCheckoutRoute = CHECKOUT_ROUTES.some(r => pathname === r || pathname.startsWith(`${r}/`));
+
   return [
     `default-src 'self'`,
-    // nonce obrigatório para scripts inline do Next.js (hydration)
+    // nonce obrigatório para scripts inline do Next.js (hydration) — exceto
+    // na(s) rota(s) de checkout, ver comentário acima.
     directive('script-src', [
       `'self'`,
-      `'nonce-${nonce}'`,
+      ...(isCheckoutRoute ? [`'unsafe-inline'`] : [`'nonce-${nonce}'`]),
       'https://cdn.jsdelivr.net',
       ...STRIPE_SCRIPT,
       ...MP_SCRIPT,
@@ -134,6 +166,7 @@ function buildCsp(nonce: string): string {
       'https://placehold.co',
       'https://*.stripe.com',
       'https://http2.mlstatic.com',
+      ...MP_ANTIFRAUDE,
     ]),
     // Fontes
     `font-src 'self' data: https://fonts.gstatic.com`,
@@ -194,7 +227,7 @@ export async function proxy(request: NextRequest) {
 
   // ─── Nonce para CSP ──────────────────────────────────────────
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
-  const csp = buildCsp(nonce);
+  const csp = buildCsp(nonce, pathname);
 
   const ip = resolverIpConfiavel(request.headers);
 
