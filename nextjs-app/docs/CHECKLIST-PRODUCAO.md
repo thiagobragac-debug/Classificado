@@ -9,6 +9,75 @@ diretamente. Reconfira antes do go-live.
 
 ---
 
+## 🧪 Teste completo do site (13 áreas) + correção — 2026-08-24
+
+Pedido: "realizar novo teste completo do site, com todas as funcionalidade
+detalhadamente" seguido de "corrigir um a um e ao finalizar realizar novo
+teste detalhado". Rodado um teste ao vivo (não leitura de código) em 15
+áreas públicas + admin em paralelo, cada uma com dado descartável próprio,
+limpo e confirmado depois. 2 áreas (Perfil do Vendedor, Admin Dashboard/
+Anúncios) falharam por erro de conexão da ferramenta, sem gerar achado —
+cobertas na rodada de reteste. Achado de ambiente: a porta 3000 local
+estava ocupada por outro projeto do usuário; o servidor real do Tauze
+Class rodava na 3001 — não é um bug do site.
+
+**4 críticos, 6 altos, 8 médios corrigidos**, todos validados ao vivo contra
+produção (usuário/dado descartável, limpeza confirmada por leitura
+independente):
+
+| Severidade | Achado | Causa raiz | Correção |
+|---|---|---|---|
+| Crítico | Home quebrava inteira (client-side) | `next/image` lança e derruba a página quando `avatar_url` do vendedor está fora de `next.config.ts remotePatterns` | `TopSellersSection.tsx`: `<img>` comum, mesmo padrão de `AdSidebar.tsx` |
+| Crítico | Checkout por cartão 100% quebrado | CSP faltava `http2.mlstatic.com` em `connect-src` — Bricks do Mercado Pago nunca inicializava | `proxy.ts`, `MP_CONNECT` |
+| Crítico | Cancelar assinatura no admin não revogava acesso | só mudava `subscriptions.status`, nunca `profiles`/`user_secrets`, nunca cancelava no gateway | nova rota `/api/admin/subscriptions/cancel`, espelha o webhook real |
+| Crítico | `/eventos/[id]` 404 pra 8 dos 10 eventos reais | só consultava `auction_events`, nunca a tabela `eventos` | fallback pra `eventos` + normalização |
+| Alto | Home sempre 0 em Bovinos/Máquinas | filtro sem o prefixo `cat-` do `category_id` real | `lib/supabase-server.ts` |
+| Alto | Lightbox de imagem sem como fechar | stacking context do header (`z-index`) prendia o `position:fixed` do lightbox | `AdGallery.tsx`: React Portal + Escape/backdrop |
+| Alto | Cadastro perdia nome/WhatsApp/CEP em silêncio | update com coluna inexistente derrubava a chamada inteira sem checar erro; causa mais funda: 9 colunas de endereço/KYC nunca existiram em `user_secrets` | `RegisterForm.tsx` usa `updateProfile()`; migration cria as colunas |
+| Alto | Mesmo bug no painel ("Meu Perfil") | mesma causa raiz (colunas ausentes) | resolvido pela mesma migration |
+| Alto | Badge "Plano Atual" nunca aparecia | lia `profiles.plan_id`, que nenhum fluxo real atualiza | `PricingClientUI.tsx` lê `user_secrets.plan_id` |
+| Alto | Admin de Leilões não mostra lance atual/vencedor | `select('*')` não bastava — faltava exibir `current_bid`/`winner_id` | nova coluna "Lance Atual" + join com `profiles` |
+| Alto | Dashboard de Uso da API travado em "Carregando..." | `.throwOnError().catch()` — mesmo bug de builder não-Promise já visto em `admin/page.tsx` | remove `.catch()`, usa `try/finally` |
+| Médio | Race condition nos filtros de `/listagem` | closure desatualizada — segunda chamada rápida sobrescrevia a primeira | `useAdsFilters.ts`: ref mutável (testado até no caso síncrono) |
+| Médio | Selos de verificação do vendedor nunca apareciam no anúncio | `select` de `profiles` incompleto | adicionadas `email_verified`/`phone_verified`/`kyc_status` |
+| Médio | Soft-404 em `/anuncio/[id-inexistente]` (200 em vez de 404) | `loading.tsx` cria Suspense que trava o status em 200 antes do `notFound()` — confirmado até em build de produção real | removido `loading.tsx` da rota |
+| Médio | Links do rodapé pra páginas institucionais sempre abriam a errada | usavam `#hash`, a página seleciona por `?page=` | 18 ocorrências corrigidas |
+| Médio | Badge "Identidade" e confirmação de e-mail sempre desatualizados no painel | `select`/`fullUser` incompletos | adicionados `kyc_status` e `email_confirmed_at` |
+| Médio | `user_secrets.email` `NULL` pra 100% dos usuários | trigger nunca buscava de `auth.users` (profiles não tem coluna email) | migration corrige o trigger + backfill |
+| Médio | Tradução ES incompleta em `/eventos` | página nunca lia o cookie de idioma nem chamava `t()` | título/subtítulo/cards/busca traduzidos |
+
+**Investigado e descartado como falso alarme** (documentado no código pra não
+reinvestigar à toa): "loading.tsx duplicado no DOM" em `/eventos` — é o
+marcador de streaming SSR do React (`<!--$?-->` + `<template>`) aparecendo
+no HTML cru sem JS; confirmado que o navegador real resolve certo na
+hidratação (2 `<main>`, sem skeleton).
+
+**Decisão consciente, não corrigida**: estatística "Cidades" (120+) da home
+é constante — mas isso é por design (mesmo padrão de `total_countries: 4`,
+já configurável via `platform_settings.tc_cnt_cidades`), não um bug.
+
+**Adiado por escopo** (não são bugs de comportamento, são lacunas de
+completude/produto — registrado para decisão futura, não esquecido):
+dropdown de Estado duplica sigla/nome por extenso; tradução ES incompleta
+em `/listagem` e `/anunciar` (só `/eventos` foi tratado); sem edição de
+lote de leilão no admin (só criar/excluir); sem estado "cancelado"
+distinto pra evento de leilão; `/admin/cupons` sem função de editar;
+excluir chave de API deixa `api_request_logs` órfãos (FK vira NULL, não
+CASCADE); geração de ID de categoria produz hífens soltos/duplicados com
+nomes com pontuação; CTA mobile de contato abre JSON cru pra visitante
+deslogado; Service Worker falha ao registrar em `/listagem` (não
+investigado a fundo).
+
+Limpeza: 2 usuários + 2 anúncios de teste órfãos da rodada de teste
+(sessão que travou por erro de conexão da ferramenta) encontrados e
+apagados numa varredura final, confirmados ausentes por leitura
+independente.
+
+Validado: `tsc --noEmit`, `vitest run` (119/119), `next build`. Commit
+`68e5ed5`.
+
+---
+
 ## 🔴 Achado crítico — RLS de 5 tabelas do admin nunca funcionou (corrigido)
 
 Testando com um admin de verdade (não lendo código): escrever em
