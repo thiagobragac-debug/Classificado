@@ -9,6 +9,165 @@ diretamente. Reconfira antes do go-live.
 
 ---
 
+## ✅ Revisão completa de regras de negócio — 2026-08-25
+
+Pedido: "revisar regras de negocio detalhada!" — auditoria em 7 domínios
+(planos/benefícios, cupons, ciclo de vida de assinaturas, leilões,
+moderação/denúncias, KYC, geo/moeda/gateway + antifraude), cada um lido
+por um agente dedicado contra o código e o banco de produção, com
+verificação adversarial independente de todo achado crítico/alto antes de
+qualquer correção. 19 achados confirmados. Todos corrigidos (o usuário
+aprovou as 3 categorias: críticos de segurança, bugs reais de "alta", e
+promessas nunca implementadas).
+
+### 🔴 Segurança crítica — já exploráveis em produção antes desta correção
+
+Todos fechados com trigger/RLS no banco (não só no cliente), seguindo o
+mesmo padrão já usado em `enforce_ad_quota`/`guard_profile_verification`:
+
+1. **`ads.featured` sem limite algum.** RLS permitia qualquer dono
+   `update({featured:true})` direto, sem checar `highlight_count` do
+   plano. **Achado com evidência real**: 3 contas do plano Grátis
+   (`highlight_count=0`) já tinham `featured=true`, uma com 7 destaques
+   simultâneos. Novo `guard_ad_featured` restringe a admin/service_role.
+2. **Moderação de anúncio contornável.** RLS deixava o dono pular
+   `pending`, ativar direto, reativar um `rejected`, ou editar conteúdo
+   de um anúncio `active` sem cair em nova revisão — tudo via chamada
+   direta ao PostgREST (o wizard real já protegia certo, mas só no
+   cliente). Novo `guard_ad_moderation` fecha os 3 caminhos no banco.
+3. **Policy `"API service can insert ads"` com `WITH CHECK (true)`**,
+   sem restrição de papel, permitia **qualquer visitante anônimo** inserir
+   anúncio arbitrário direto no PostgREST. A migration que deveria ter
+   corrigido isso (`20260724_api_rls_fixes.sql`) documentava o risco mas
+   nunca foi de fato aplicada em produção — a policy perigosa continuou
+   ativa até agora. Removida.
+4. **`coupons` com RLS aberta a qualquer autenticado** (podia criar o
+   próprio cupom de 100% off pelo console do navegador) **+** as RPCs
+   `try_apply_coupon`/`revert_coupon_usage` sem checar quem chama
+   (mesma classe de bug já corrigida em `place_bid_atomic`, nunca
+   replicada aqui). Ambos fechados: RLS admin-only, RPCs service_role-only.
+   O preview de cupom no checkout (`CheckoutModal`) passou a usar uma
+   rota nova (`/api/checkout/validate-coupon`) em vez de ler a tabela.
+5. **`verification_requests` (KYC) sem RLS nenhuma.** Testado ao vivo: um
+   `GET` só com a anon key pública, sem login, devolvia CPF/CNPJ e paths
+   de documento de identidade de qualquer solicitação. RLS aplicada:
+   dono vê/insere a própria, admin vê/gerencia todas.
+6. **Zero rate limit em `/api/checkout` e `/api/checkout/tokenize-card`**
+   (a única rota que recebe número de cartão em claro) — usando o mesmo
+   `check_rate_limit` (janela no Postgres) que `/login` já usa.
+7. **`deleteAd` gravava `status:'deleted'`, valor que não existe no enum
+   `ad_status` real** (confirmado via `pg_enum`) — toda tentativa de
+   excluir anúncio retornava erro do Postgres. Enum corrigido.
+8. **Achado durante a própria verificação ao vivo desta rodada**: 4
+   policies de `storage.objects` liam `profiles.is_admin` como subquery
+   direta em vez de chamar `public.is_admin()`. Isso quebrava **todo**
+   upload de usuário comum (foto de anúncio, vídeo, banner) — não só
+   upload de admin — desde que o `SELECT` de `is_admin` foi revogado de
+   `authenticated` numa migration anterior (`20260824190000`), porque
+   múltiplas policies permissivas se combinam com OR mas um ERRO de
+   permissão numa delas aborta a operação inteira, mesmo que outra
+   policy tivesse liberado. Corrigido usando `public.is_admin()`.
+
+### 🟠 Bugs reais (não promessa de produto — código incorreto)
+
+9. **`max_photos` hardcoded em 6 fotos pra todo mundo** — Grátis
+   (prometido 5) ganhava 1 a mais; PRO (15) e Premium (30) recebiam menos
+   da metade do que pagavam. Wizard agora busca o limite real do plano;
+   banco aplica via `enforce_ad_media_plan_limits` (mesmo padrão de
+   `enforce_ad_quota`, contornável só no cliente sem isso).
+10. **Admin "Recusar" verificação KYC não sincronizava
+    `profiles.kyc_status`** (só `verification_requests.status`) —
+    usuário rejeitado ficava com o badge preso em "pendente" pra sempre.
+    Corrigido reaproveitando a mesma rota que "Aprovar" já usa
+    (`/api/admin/verify-user`).
+11. **API de parceiros (`/api/v1/ads`) pulava moderação**, criando
+    anúncio já `active` — inconsistente com a promessa de moderação que
+    vale pro resto do site. Agora nasce `pending` como todo outro caminho.
+12. **2 leilões legados** (tabela `auctions`, sistema sem consumidor de
+    UI hoje) presos em `status='live'` há ~7-8 semanas depois do horário
+    de término — dado corrigido diretamente (`status='ended'`), sem
+    justificar construir um `pg_cron` pra um sistema sem tela nenhuma.
+    Para o sistema em uso real (`auction_events`), a transição de status
+    continua 100% manual (clique do admin) — sem incidente hoje, mas
+    registrado como gap pra uma rodada futura decidir se vale automatizar.
+
+### 🟢 Promessas vendidas mas nunca implementadas (construídas nesta rodada)
+
+13. **Upload de vídeo no anúncio** (PRO/Premium) — nunca teve UI, só o
+    campo de exibição (`AdGallery` já renderizava `video_url`, mas
+    ninguém tinha como preenchê-lo). Adicionado ao wizard
+    (`StepPhotos.tsx`), com upload real pro bucket `ad-videos` (já
+    provisionado) e gate por `plans.has_video` (UI + banco).
+14. **Banner de perfil** (Premium) — `profiles.banner_url` só era lido
+    (perfil público), nunca escrito por ninguém. Adicionado ao painel
+    (`ProfileTab.tsx`), upload pro bucket `profile-banners` (já
+    provisionado), gate por `plans.has_banner` (UI + banco).
+15. **Selo "Identidade Confirmada" automático** ao assinar plano pago —
+    a própria tela de verificação promete isso, mas o webhook de
+    pagamento nunca tocava em `profiles.verified`. Corrigido (cartão é
+    hoje o único método de pagamento realmente oferecido, então toda
+    assinatura paga aprovada já satisfaz a condição da promessa).
+16. **Downgrade pro Grátis em `/planos`** era literalmente um
+    `alert('Downgrade não implementado completamente nesta simulação.')`
+    — sem nenhuma chamada de API. Agora reaproveita a rota real de
+    cancelamento (mesma semântica: acesso continua até o fim do período
+    pago, não perde na hora).
+17. **Upgrade sem pro-rata podia criar assinatura duplicada** — nada
+    verificava se o usuário já tinha uma assinatura ativa antes de criar
+    outra, risco real de cobrança dupla no gateway. `/api/checkout` agora
+    cancela a assinatura anterior (gateway dela, que pode ser diferente
+    do novo) antes de prosseguir; se o cancelamento falhar, bloqueia a
+    troca em vez de arriscar dupla cobrança. Pro-rata "de verdade" (multa
+    proporcional aos dias restantes) segue não implementado — fica pra
+    uma decisão de produto futura, já que depende de cálculo específico
+    de cada gateway.
+18. **FAQ de `/planos` promete pausar anúncios excedentes** ao voltar
+    pro Grátis — `enforce_plan_expiration` nunca tocava na tabela `ads`.
+    Agora pausa o excedente (mais antigos primeiro, mantém os mais
+    recentes ativos) respeitando a cota real do plano Grátis.
+
+### Achado próprio, durante a validação desta mesma rodada
+
+Ao testar ao vivo, o campo `video` novo no schema do wizador
+(`z.string().url()`) rejeitava o valor padrão `''` (nenhum vídeo
+escolhido) — quebrava a validação do formulário **inteiro**, pra
+qualquer usuário, com ou sem vídeo. Corrigido pra aceitar string vazia
+antes de qualquer commit. Também descoberto durante essa mesma
+investigação: o padrão "wizard não avança" (já visto antes nesta sessão)
+voltou a aparecer mesmo depois do fix — desta vez confirmado, via
+inspeção direta do fiber do React, que é 100% um artefato de ferramenta
+(a transição do Framer Motion, `AnimatePresence mode="wait"`, não
+completa num navegador headless sem compositing — o estado interno
+`currentStep` avança corretamente). Não afeta usuários reais.
+
+### Não corrigido nesta rodada (registrado, não esquecido)
+
+- Segundo fluxo de KYC em `ProfileTab.tsx` (`handleKycSubmit` →
+  `uploadKycDocument`) é duas telas diferentes fazendo a mesma coisa —
+  essa é morta/quebrada (o trigger `guard_profile_verification` bloqueia
+  a escrita em `kyc_status` antes de chegar em `user_secrets`, e nunca
+  cria linha em `verification_requests`). O fluxo real e funcional é só
+  `/painel/verificacao`. Vale decidir: remover a tela duplicada ou
+  consertar o caminho alternativo.
+- Downgrade **entre dois planos pagos** (ex.: Premium→Pro) continua
+  caindo no mesmo caminho de upgrade (cobrança imediata do plano novo,
+  sem agendar pro próximo ciclo como o FAQ genérico sugere) — só o
+  downgrade especificamente pro Grátis foi corrigido nesta rodada.
+- Vários achados de severidade média/baixa do domínio geo/moeda/antifraude
+  não entraram no escopo aprovado (moeda hardcoda "R$" em 3 telas
+  secundárias sem efeito hoje porque `plans.currency` já é BRL; sem rate
+  limit em denúncias/mensagens; sem regra de "1 conta por CPF").
+
+Validado: `tsc --noEmit`, `vitest run` (119/119), `next build` limpos.
+25 asserções diretas contra produção (triggers/RLS novos, testados com e
+sem exceção de admin/service_role) + verificação de UI ao vivo (upload
+gated por plano, downgrade disparando `/api/subscriptions/cancel` de
+verdade, preview de cupom via a rota nova, sync de rejeição de KYC).
+
+Commit `c60556e`.
+
+---
+
 ## ✅ Teste do plano Grátis (auditoria + ao vivo + correção) — 2026-08-25
 
 Pedido: "realizar nova validação detalhada, bem como teste usuario gratis!"
