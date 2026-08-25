@@ -4,15 +4,9 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Image from 'next/image';
 import { ChevronLeft, ChevronRight, Play, X, Grid } from 'lucide-react';
+import { imageUrl } from '@/lib/storage';
 
 const FALLBACK_IMG = '/assets/hero_farm.webp';
-const SB_STORAGE = 'https://rfzuzuobwuanmbrcthqe.supabase.co/storage/v1/object/public/ad-images/';
-
-function imageUrl(path: string): string {
-  if (!path) return FALLBACK_IMG;
-  if (path.startsWith('http')) return path;
-  return SB_STORAGE + path;
-}
 
 interface AdGalleryProps {
   images: string[] | null;

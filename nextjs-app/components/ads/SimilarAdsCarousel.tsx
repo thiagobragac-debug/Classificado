@@ -4,15 +4,7 @@ import { useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
-
-const FALLBACK_IMG = '/assets/hero_farm.webp';
-const SB_STORAGE = 'https://rfzuzuobwuanmbrcthqe.supabase.co/storage/v1/object/public/ad-images/';
-
-function imageUrl(path: string): string {
-  if (!path) return FALLBACK_IMG;
-  if (path.startsWith('http')) return path;
-  return SB_STORAGE + path;
-}
+import { imageUrl } from '@/lib/storage';
 
 export function SimilarAdsCarousel({ ads }: { ads: any[] }) {
   const carouselRef = useRef<HTMLDivElement>(null);
@@ -58,7 +50,7 @@ export function SimilarAdsCarousel({ ads }: { ads: any[] }) {
       >
         {ads.map(ad => {
           const title = ad.title_pt || 'Sem título';
-          const img = ad.images?.[0] ? imageUrl(ad.images[0]) : FALLBACK_IMG;
+          const img = imageUrl(ad.images?.[0]);
           const locParts = [ad.city, ad.state].filter(Boolean).join(', ');
           
           return (

@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
 import { useLang } from '@/lib/lang-context';
 import { getSupabase, getSession } from '@/lib/supabase';
+import { SECRET_SETTING_KEYS } from '@/lib/secret-settings';
 
 // ─── Sanitiza URL do logo (mesmo critério do main.js original) ────────────────
 function sanitizeLogoUrl(url: string | null): string | null {
@@ -82,10 +83,26 @@ export default function Header({
   const syncPlatformSettings = async () => {
     try {
       const sb = getSupabase();
-      const { data, error } = await sb.from('platform_settings').select('*');
+      // GAP DE SEGURANÇA CORRIGIDO (auditoria completa, 2026-08-25):
+      // select('*') aqui devolvia TODAS as colunas de platform_settings pra
+      // quem tem is_admin=true via RLS — incluindo os segredos dos 4
+      // gateways de pagamento (stripe/mp/pagarme/asaas) — e o código gravava
+      // cada key/value retornado direto no localStorage sem filtro nenhum,
+      // ao contrário de app/api/admin/settings/route.ts, que já tem essa
+      // proteção. O logout não limpa localStorage, então os segredos
+      // ficavam expostos a qualquer script da página (inclusive XSS)
+      // indefinidamente, mesmo depois do admin sair da conta. Agora as
+      // linhas secretas são excluídas já na query (nunca chegam ao
+      // navegador) e, por segurança extra, filtradas de novo antes de
+      // gravar.
+      const { data, error } = await sb
+        .from('platform_settings')
+        .select('key, value')
+        .not('key', 'in', `(${SECRET_SETTING_KEYS.join(',')})`);
       if (!error && data && data.length > 0) {
         let changed = false;
         data.forEach((s: { key: string; value: string }) => {
+          if ((SECRET_SETTING_KEYS as readonly string[]).includes(s.key)) return;
           if (localStorage.getItem(s.key) !== s.value) {
             localStorage.setItem(s.key, s.value);
             changed = true;
@@ -264,7 +281,15 @@ export default function Header({
                           <span>Minha Assinatura</span>
                         </Link>
                         <div style={{ height: 1, background: 'rgba(0,0,0,0.06)', margin: '4px 8px' }}></div>
-                        <button onClick={async () => { setUserMenuOpen(false); await getSupabase().auth.signOut(); window.location.href = '/login'; }}
+                        <button onClick={async () => {
+                          setUserMenuOpen(false);
+                          // Defesa em profundidade: limpa qualquer resíduo de
+                          // chave secreta que possa ter sido gravado antes
+                          // desta correção (ou por algum bug futuro).
+                          SECRET_SETTING_KEYS.forEach(k => localStorage.removeItem(k));
+                          await getSupabase().auth.signOut();
+                          window.location.href = '/login';
+                        }}
                           style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', color: '#DC2626', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.92rem', borderRadius: 10, fontWeight: 600 }}>
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.8 }}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                           <span>Sair da Conta</span>

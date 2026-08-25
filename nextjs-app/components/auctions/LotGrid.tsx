@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
+import { imageUrl } from '@/lib/storage';
 import { LotData } from './LotBiddingModal';
 import LotBiddingModal from './LotBiddingModal';
 
@@ -37,7 +38,7 @@ export default function LotGrid({ lots, isLive, isCancelled = false, userId }: L
                   LOTE {lot.lot_number}
                 </div>
                 <Image
-                  src={lot.image || '/assets/hero_farm.webp'}
+                  src={imageUrl(lot.image)}
                   alt={`Foto do lote ${lot.lot_number}: ${lot.title}`}
                   fill
                   sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 280px"

@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useDebouncedCallback } from 'use-debounce';
 import { useLang } from '@/lib/lang-context';
 import { showToast } from '@/lib/toast';
+import { imageUrl } from '@/lib/storage';
 import Countdown from './Countdown';
 import styles from '@/app/(public)/leiloes/leiloes.module.css';
 
@@ -218,9 +219,9 @@ export default function AuctionsBrowser({ events }: { events: AuctionEvent[] }) 
                     {isScheduled && <span className={styles.pulseDot} style={{ background: '#4ade80' }}></span>}
                     {statusText}
                   </div>
-                  <Image 
-                    src={ev.cover || '/assets/hero_farm.webp'} 
-                    alt={ev.title} 
+                  <Image
+                    src={imageUrl(ev.cover)}
+                    alt={ev.title}
                     fill
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                     className={styles.adCardImg}

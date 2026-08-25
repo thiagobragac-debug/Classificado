@@ -2,6 +2,8 @@ import React from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { t as _t, Lang } from '@/lib/constants'
+import { parseEventDate } from '@/lib/event-date'
+import { imageUrl } from '@/lib/storage'
 
 export interface AuctionEvent {
   id: string
@@ -23,25 +25,26 @@ export default function EventCard({ ev, lang = 'pt' }: EventCardProps) {
   let day = '--';
   let month = 'TBD';
 
-  if (ev.date && !isNaN(new Date(ev.date).getTime())) {
-    // É uma data ISO válida (usada nos Leilões)
-    const dateObj = new Date(ev.date);
-    day = dateObj.getDate().toString().padStart(2, '0');
-    month = dateObj.toLocaleString('pt-BR', { month: 'short' }).replace('.', '').toUpperCase();
-  } else if (ev.date && typeof ev.date === 'string') {
-    // É uma string de texto (usada nas Feiras/Eventos, ex: "30 ago - 7 set 2026")
-    const match = ev.date.match(/(\d+)\s+([a-zA-Zç]+)/i);
-    if (match) {
-      day = match[1].padStart(2, '0');
-      month = match[2].substring(0, 3).toUpperCase();
+  // GAP CORRIGIDO (auditoria completa, 2026-08-25): esta badge usava um
+  // regex próprio, mais simples que o já corrigido em page.tsx (usado só
+  // pra ordenação) — pegava a primeira palavra depois do número, sem pular
+  // conectivos como "de"/"a", então "12 de Novembro" virava "12 DE" em vez
+  // de "12 NOV". Reusa a mesma função (lib/event-date.ts) que já lida com
+  // isso corretamente, pra badge e ordenação nunca mais divergirem.
+  if (ev.date) {
+    const parsed = parseEventDate(ev.date);
+    if (!isNaN(parsed)) {
+      const dateObj = new Date(parsed);
+      day = dateObj.getDate().toString().padStart(2, '0');
+      month = dateObj.toLocaleString('pt-BR', { month: 'short' }).replace('.', '').toUpperCase();
     }
   }
 
   return (
     <Link href={`/eventos/${ev.id}`} className="event-card glass-card" style={{ textDecoration: 'none', color: 'inherit', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden', height: '100%', transition: 'transform 0.2s, box-shadow 0.2s' }}>
       <div style={{ position: 'relative', width: '100%', height: '220px', backgroundColor: '#f1f5f9' }}>
-        <Image 
-          src={ev.cover || '/assets/hero_farm.webp'} 
+        <Image
+          src={imageUrl(ev.cover)}
           alt={ev.title}
           fill
           style={{ objectFit: 'cover' }}

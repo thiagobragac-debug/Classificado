@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import { imageUrl } from '@/lib/storage';
 
 export interface Category { id: string; name_pt: string; name_es: string; icon: string; color: string; active: boolean; sort_order: number; }
 export interface Ad { id: string; title_pt: string; title_es: string; price: number; currency: string; price_unit_pt: string; negotiable: boolean; country: string; state: string; city: string; location_text: string; images: string[]; tags_pt: string[]; status: string; featured: boolean; created_at: string; category_id: string; }
@@ -10,8 +11,6 @@ export const COUNTRY_FLAGS: Record<string, string> = {
   'Peru': '🇵🇪', 'Bolívia': '🇧🇴', 'Venezuela': '🇻🇪',
   'Equador': '🇪🇨', 'Estados Unidos': '🇺🇸', 'Portugal': '🇵🇹'
 };
-
-const IMG_BASE = 'https://rfzuzuobwuanmbrcthqe.supabase.co/storage/v1/object/public/ad-images/';
 
 function fmtPrice(price: number, currency = 'BRL', lang = 'pt') {
   return new Intl.NumberFormat(lang === 'es' ? 'es-AR' : 'pt-BR', {
@@ -38,8 +37,11 @@ interface AdCardProps {
 
 export default function AdCard({ ad, categories, lang, isFav, onToggleFav, priority = false }: AdCardProps) {
   const title = lang === 'es' ? (ad.title_es || ad.title_pt) : ad.title_pt;
-  const imgPath = ad.images?.[0];
-  const imgSrc = imgPath ? (imgPath.startsWith('http') ? imgPath : `${IMG_BASE}${imgPath}`) : '/assets/hero_farm.webp';
+  // imageUrl() já garante que qualquer host externo aqui está na allowlist
+  // de next.config.ts (ou cai no fallback local) — não precisa mais marcar
+  // toda URL http(s) como unoptimized só pra evitar o next/image travar em
+  // host não configurado.
+  const imgSrc = imageUrl(ad.images?.[0]);
   const locParts = [ad.city, ad.state].filter(Boolean).join(', ');
   const flag = ad.country ? (COUNTRY_FLAGS[ad.country] || '🌎') : '';
   const loc = ad.location_text || [locParts, flag && `${flag} ${ad.country}`].filter(Boolean).join(' — ');
@@ -58,7 +60,7 @@ export default function AdCard({ ad, categories, lang, isFav, onToggleFav, prior
           style={{ objectFit: 'cover' }}
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           priority={priority}
-          unoptimized={imgPath?.startsWith('http') || imgSrc.includes('hero_farm.webp')}
+          unoptimized={imgSrc.includes('hero_farm.webp')}
         />
         {catName && (
           <div className="ad-card__category-badge" style={{ background: cat?.color || 'var(--clr-primary)', color: 'white' }}>

@@ -9,6 +9,7 @@ import { deleteAd } from '@/lib/supabase-panel';
 import { showToast } from '@/lib/toast';
 import { usePushNotifications } from './usePush';
 import { useConfirm } from '@/components/ui/ConfirmProvider';
+import { imageUrl } from '@/lib/storage';
 import styles from '../painel.module.css';
 
 const STATUS_LABELS: Record<string, { label: string; className: string }> = {
@@ -124,7 +125,7 @@ export function MyAdsTab({ userId }: { userId: string }) {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {ads.map((ad: any) => {
-            const img = ad.images?.[0];
+            const img = ad.images?.[0] ? imageUrl(ad.images[0], '') : '';
             const status = STATUS_LABELS[ad.status] || STATUS_LABELS.pending;
             
             return (

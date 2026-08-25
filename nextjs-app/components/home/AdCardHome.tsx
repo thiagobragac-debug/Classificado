@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { m } from 'framer-motion';
 import { CAT_COLORS } from '@/lib/constants';
 import { useCategories } from '@/lib/categories-context';
+import { imageUrl } from '@/lib/storage';
 
 function formatRelativeTime(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -34,7 +35,7 @@ export function AdCardHome({ ad, lang, favs, toggleFav, priority = false }: { ad
   const categories = useCategories();
   const cat = ad.category_id?.replace('cat-', '') || '';
   const colors = CAT_COLORS[cat] || { bg: '#F8FAFC', clr: '#475569' };
-  const img = ad.images?.[0];
+  const img = ad.images?.[0] ? imageUrl(ad.images[0], '') : '';
   const isFav = !!favs[ad.id];
 
   return (

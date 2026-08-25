@@ -3,6 +3,7 @@ import { createAnonClient } from '@/lib/supabase-server'
 import Image from 'next/image'
 import Link from 'next/link'
 import type { Metadata } from 'next'
+import { imageUrl } from '@/lib/storage'
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -147,7 +148,7 @@ export default async function EventDetailPage({
         {event.cover && (
           <div style={{ position: 'relative', width: '100%', height: '400px', backgroundColor: '#f1f5f9', borderRadius: '1rem', overflow: 'hidden', marginBottom: '2rem' }}>
             <Image
-              src={event.cover.startsWith('http') ? event.cover : `https://rfzuzuobwuanmbrcthqe.supabase.co/storage/v1/object/public/ad-images/${event.cover}`}
+              src={imageUrl(event.cover)}
               alt={event.title}
               fill
               style={{ objectFit: 'cover' }}

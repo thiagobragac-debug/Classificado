@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { createAdminClient } from '@/lib/supabase-admin'
+import { SECRET_SETTING_KEYS } from '@/lib/secret-settings'
 
 // Leitura e escrita de platform_settings pelo painel administrativo.
 //
@@ -14,18 +15,9 @@ import { createAdminClient } from '@/lib/supabase-admin'
 // Aqui os segredos nunca saem do servidor: a leitura devolve apenas se estão
 // preenchidos, e a escrita aceita valor novo sem nunca ter mostrado o antigo.
 
-// Espelha exatamente o conjunto que a RLS já esconde de `anon`. Se uma chave
-// secreta nova for criada, precisa entrar aqui também.
-const CHAVES_SECRETAS = new Set([
-  'stripe_secret_key',
-  'stripe_webhook_secret',
-  'mp_access_token',
-  'mp_webhook_secret',
-  'pagarme_api_key',
-  'pagarme_webhook_secret',
-  'asaas_api_key',
-  'asaas_webhook_token',
-])
+// Lista compartilhada com components/Header.tsx (lib/secret-settings.ts) —
+// se uma chave secreta nova for criada, precisa entrar lá, não só aqui.
+const CHAVES_SECRETAS = new Set<string>(SECRET_SETTING_KEYS)
 
 // Sentinela para apagar um segredo de propósito — sem ela não haveria como
 // distinguir "não mexi neste campo" de "quero limpar".
