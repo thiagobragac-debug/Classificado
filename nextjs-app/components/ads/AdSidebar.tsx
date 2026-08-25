@@ -14,7 +14,6 @@ interface Profile {
   display_name: string | null;
   avatar_url: string | null;
   verified: boolean | null;
-  phone_whatsapp: string | null;
   created_at: string;
   kyc_status: string | null;
   email_verified: boolean | null;
@@ -43,6 +42,7 @@ interface AdSidebarProps {
   ad: Ad;
   adTitle: string;
   catName: string;
+  hasWhatsapp: boolean;
 }
 
 function timeAgo(dateStr: string): string {
@@ -58,7 +58,7 @@ function memberSince(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 }
 
-export function AdSidebar({ ad, adTitle, catName }: AdSidebarProps) {
+export function AdSidebar({ ad, adTitle, catName, hasWhatsapp }: AdSidebarProps) {
   const [isFav, setIsFav] = useState(false);
   const [favLoading, setFavLoading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -103,8 +103,6 @@ export function AdSidebar({ ad, adTitle, catName }: AdSidebarProps) {
   const sellerName = ad.profiles?.display_name || ad.profiles?.name || 'Vendedor';
   const sellerInitial = sellerName.charAt(0).toUpperCase();
   const locationParts = [ad.city, ad.state, ad.country].filter(Boolean);
-  const whatsappNum = ad.profiles?.phone_whatsapp?.replace(/\D/g, '');
-  const whatsappMsg = encodeURIComponent(`Olá! Vi seu anúncio "${adTitle}" no Tauze Class e gostaria de saber mais.`);
 
   return (
     <div className="sidebar-fixed-container">
@@ -179,9 +177,9 @@ export function AdSidebar({ ad, adTitle, catName }: AdSidebarProps) {
 
           {/* Action buttons */}
           <div className="action-column" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {whatsappNum ? (
+            {hasWhatsapp ? (
               <a
-                href={`https://wa.me/${whatsappNum}?text=${whatsappMsg}`}
+                href={`/api/contact-seller?adId=${ad.id}`}
                 target="_blank" rel="noopener noreferrer"
                 className="btn btn-primary"
                 style={{ width: '100%', padding: '1rem', fontSize: '1.1rem', fontWeight: 600, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', background: '#25D366', color: 'white', borderRadius: '0.8rem', textDecoration: 'none' }}

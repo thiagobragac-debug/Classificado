@@ -162,13 +162,25 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ id: 
     },
   };
 
+  // GAP DE SEGURANÇA CORRIGIDO (2026-08-25): o painel lateral no desktop
+  // lia profiles.phone_whatsapp direto do objeto `ad`, serializado pro
+  // client component <AdSidebar> — expondo o WhatsApp do vendedor no
+  // HTML/RSC payload pra QUALQUER visitante sem login, mesmo o dado
+  // sendo protegido com autenticação, rate limit e verificação de origin
+  // no CTA mobile via /api/contact-seller. Agora só um booleano
+  // (hasWhatsapp) atravessa pro client; o número em si nunca sai do
+  // servidor, e o botão do desktop passa a usar a mesma rota protegida.
+  const { phone_whatsapp, ...profilesWithoutPhone } = ad.profiles ?? {};
+  const hasWhatsapp = !!phone_whatsapp;
+  const adForSidebar = { ...ad, profiles: ad.profiles ? profilesWithoutPhone : null };
+
   return (
     <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: escapeJsonLd(jsonLd) }}
       />
-      <RecentViewTracker ad={ad} />
+      <RecentViewTracker ad={adForSidebar} />
 
       {/* BREADCRUMB */}
       <div className="page-header ad-page-header">
@@ -232,7 +244,7 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ id: 
           </div>
 
           {/* RIGHT COLUMN */}
-          <AdSidebar ad={ad} adTitle={adTitle} catName={catName} />
+          <AdSidebar ad={adForSidebar} adTitle={adTitle} catName={catName} hasWhatsapp={hasWhatsapp} />
         </div>
       </div>
 
