@@ -9,6 +9,64 @@ diretamente. Reconfira antes do go-live.
 
 ---
 
+## 🧪 Reteste completo do site (14 áreas) — 2026-08-25
+
+Segunda rodada pedida explicitamente ("corrigir um a um e ao finalizar
+realizar novo teste detalhado"). **Todos os 20 fixes da rodada de
+2026-08-24 abaixo foram confirmados funcionando** — nenhuma regressão.
+Cobriu pela primeira vez as 2 áreas que tinham falhado por erro de
+conexão da ferramenta (Perfil do Vendedor, Admin Dashboard/Anúncios).
+
+**Novo achado crítico, corrigido**: `/vendedor/[id]` aplicava a
+geolocalização automática do VISITANTE sobre a listagem do PRÓPRIO
+vendedor — um vendedor com anúncios reais espalhados pelo Mercosul
+mostrava "Nenhum anúncio encontrado" pra qualquer visitante fora da
+cidade detectada. Causa em duas partes: `getGeoParams()` com fallback de
+cookie do visitante, e `lib/useAutoGeo.ts` (compartilhado com
+`/listagem`, onde o comportamento É desejado) aplicando geolocalização
+incondicionalmente. Corrigido com um parâmetro `disabled` em
+`useAutoGeo`, ligado quando `AdsBrowser` recebe `sellerId`.
+
+**4 altos corrigidos**: "Reativar" em `/admin/assinaturas` escrevia
+`profiles.subscription_status` direto do cliente — a migration de colunas
+privilegiadas de `profiles` não inclui essa coluna na lista que o próprio
+usuário pode gravar, falhava sempre com 42501 nunca checado (nova rota
+`/api/admin/subscriptions/reactivate`, service_role); KPI "Atrasadas"
+calculado mas sem card; `/admin/denuncias` "Marcar como Resolvidas" em
+massa não bania o anúncio mas a UI rotulava como banido, e "Reverter"
+depois derrubava um anúncio ativo legítimo (agora bane de verdade, igual
+à ação individual); `avatar_url`/`banner_url` do vendedor nunca chegavam
+ao header do perfil público.
+
+**1 médio corrigido**: soft-404 em `/vendedor/[id-inexistente]` (mesma
+causa do fix já aplicado em `/anuncio/[id]` — `loading.tsx` removido).
+
+**1 baixo corrigido**: 2ª ocorrência de texto de preço nulo inconsistente
+(CTA mobile) unificada com o painel lateral.
+
+**Novos achados médios/baixos, registrados mas NÃO corrigidos nesta
+rodada** (para decisão/priorização futura):
+- Trocar idioma no header não sincroniza o conteúdo renderizado no
+  servidor até um F5 completo (Server Components leem o cookie só no
+  request) — várias seções da home ficam com PT/ES misturado até reload.
+- Chip de "Localização" em `/listagem` fica preso no rótulo antigo
+  ("Perto de você — X") depois que o usuário troca manualmente
+  país/estado/cidade — os resultados ficam certos, só o chip é enganoso.
+- `/leiloes?status=closed|todos` continua sem mostrar leilões encerrados
+  (filtra por `'finished'`, valor real é `'closed'`) — achado já conhecido
+  da primeira rodada, ainda não corrigido.
+- Ordenação "futuro primeiro" em `/eventos` só funciona pra datas ISO
+  (`auction_events`); feiras da tabela `eventos` têm data em texto livre
+  que `new Date()` não parseia, então continuam na ordem de inserção.
+- Campo "Ambiente" (Sandbox/Produção) das chaves de API é cosmético — não
+  há isolamento real, uma chave "Sandbox" lê/escreve dado de produção de
+  verdade.
+
+Validado: `tsc --noEmit`, `vitest run` (119/119), `next build`. Commit
+`4b05a57`.
+
+---
+
 ## 🧪 Teste completo do site (13 áreas) + correção — 2026-08-24
 
 Pedido: "realizar novo teste completo do site, com todas as funcionalidade
