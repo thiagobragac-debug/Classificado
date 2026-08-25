@@ -9,6 +9,100 @@ diretamente. Reconfira antes do go-live.
 
 ---
 
+## ✅ Correção dos 5 achados da rodada 2 — 2026-08-25
+
+Fecha os 5 achados marcados como CONFIRMADOS na auditoria rodada 2 (abaixo
+— o usuário escolheu "Corrigir os 5 (críticos + alto + baixos)"). Dos 5
+achados originais, 1 acabou sendo um falso-positivo de ferramenta
+(explicado abaixo); os outros 4 eram bugs reais.
+
+1. **Wizard de `/anunciar` não avançava pro passo 2 — FALSO-POSITIVO.**
+   Reinvestigado com servidor `next dev` totalmente reiniciado (o servidor
+   de longa duração usado na auditoria original tinha ficado com HMR
+   "stale" — confirmado inspecionando `onClick.toString()` via as props do
+   fiber do React, que mostrava código desatualizado/da função errada).
+   Com servidor limpo, `trigger()` valida certo e `isStepValid=true`,
+   avançando normalmente. Nenhuma mudança de código foi necessária.
+2. **🟠 Rascunho perde a Categoria ao recarregar — corrigido.**
+   `StepData.tsx` agora ressincroniza o `<select>` de categoria (não-
+   controlado, via `register()`) num `useEffect` **separado**, disparado
+   depois que `categories` já populou o DOM com as `<option>`s reais —
+   `setValue()` não consegue selecionar uma option que ainda não existe na
+   árvore. A primeira tentativa (ressincronizar no mesmo efeito do fetch)
+   não funcionava por isso; confirmado ao vivo nos dois casos (bug
+   reproduzido, depois corrigido) recarregando a página com um rascunho
+   salvo e lendo `categoria.value` no DOM.
+3. **🔴 Formulário de cartão do Mercado Pago não renderizava — corrigido
+   com CSP restrita à rota de checkout.** Ver detalhes da decisão técnica
+   na subseção abaixo — o usuário pediu explicitamente a solução
+   profissional, não um remendo.
+4. **🟡 Categorias sem opção de excluir — corrigido.** Novo botão
+   "Excluir" em `/admin/categorias`, com confirmação. Reaproveita a
+   proteção que já existia no banco (constraint de FK com `ON DELETE`
+   padrão `NO ACTION`): se houver anúncios na categoria, o Postgres
+   rejeita a exclusão com o erro `23503`, que a UI traduz numa mensagem
+   amigável em vez de deixar a exclusão "sumir" uma categoria em uso.
+5. **🟡 Subtítulo de `/admin/anuncios` prometia "destacar"/"remover"
+   inexistentes — corrigido.** Texto agora reflete as ações reais
+   (Aprovar/Rejeitar/Pausar).
+
+### CSP do checkout Mercado Pago — por que não foi um remendo
+
+O bug real: o SDK do Mercado Pago Bricks gera um `<script>` **inline**
+dinamicamente durante a inicialização do formulário de cartão, e nosso CSP
+`script-src` só permitia `'nonce-…'` — scripts inline sem nonce são
+bloqueados por padrão em todo o site, correto pra maioria das páginas, mas
+o Bricks não injeta nonce nenhum no script que ele mesmo gera.
+
+Três alternativas foram avaliadas antes de decidir:
+
+- **CSP hash-based (`'sha256-…'`)** — testada empiricamente antes de
+  descartada, não só por suposição: capturado o conteúdo do script inline
+  (57.551 caracteres) via monkey-patch de `Node.prototype.appendChild`,
+  calculado o SHA-256, e repetido o processo numa segunda sessão de login
+  totalmente independente. Mesmo tamanho, hash **diferente**
+  (`7l6KtvjuuHL…` vs `bcKbpfu2rWL…`) — o conteúdo do script varia por
+  sessão (provavelmente tokens de fingerprinting/anti-fraude embutidos),
+  então um hash fixo no CSP quebraria a maioria das sessões reais.
+  Inviável.
+- **`'unsafe-inline'` global** — rejeitado: relaxaria proteção contra XSS
+  em todo o site (blog, formulários de anúncio com rich text, área de
+  denúncias) só por causa de uma única página de checkout.
+- **`'unsafe-inline'` restrito à rota `/planos`** — escolhida.
+  `proxy.ts:buildCsp()` agora recebe o `pathname` e, só quando a rota é
+  `/planos` (ou sub-rota), omite o nonce do `script-src` e inclui
+  `'unsafe-inline'` no lugar (por especificação do CSP, `'unsafe-inline'`
+  é ignorado por navegadores modernos sempre que há nonce/hash na mesma
+  diretiva — por isso não dá pra simplesmente "somar" os dois; um exclui
+  o outro). Resto do site continua exigindo nonce normalmente.
+
+Risco residual avaliado como baixo: os campos sensíveis de número de
+cartão/CVV do Bricks renderizam dentro de um `<iframe>` hospedado pelo
+próprio Mercado Pago, com o CSP **deles**, não o nosso — o script que
+passou a rodar sem nonce é só bootstrap/consentimento de
+cookies/fingerprinting anti-fraude, não a superfície que lida com dado de
+cartão.
+
+Efeito colateral encontrado e corrigido junto: depois de liberar o
+`script-src`, o script do Bricks passou a rodar e disparou violações
+**novas** de `connect-src`/`img-src` contra domínios de anti-fraude da
+MercadoLibre (`*.mercadolibre.com`, `*.mercadolivre.com`) — adicionados a
+ambas as diretivas.
+
+**Achado residual NÃO corrigido nesta rodada (fora do escopo de CSP):**
+mesmo com zero violações de CSP confirmadas, o formulário de cartão ainda
+não renderiza — agora falhando com 404 em
+`https://api.mercadopago.com/v1/payment_methods/search?...&product_id=…`.
+Não há chave de Mercado Pago no `.env.local` (ficam em `platform_settings`
+no banco); tudo indica ser um problema de configuração do lado da conta
+Mercado Pago (chave de teste ou `product_id` não registrado no painel
+deles), não um bug de código — precisa de acesso ao painel do Mercado
+Pago pra investigar, fora do que dá pra resolver por aqui.
+
+Commit `e8040e6`.
+
+---
+
 ## 🔍 Auditoria rodada 2 — admin sem cobertura + achados pendentes — 2026-08-25
 
 Pedido: "seguir areas nao validada ainda!" — cobre as 8 áreas de admin sem
