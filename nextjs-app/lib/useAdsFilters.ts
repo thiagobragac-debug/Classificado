@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useTransition } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useTransition } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useDebounce } from 'use-debounce';
 
@@ -53,8 +53,24 @@ export function useAdsFilters(initialGeo?: { pais: string | null; estado: string
 
   const hasFilters = !!(categoria || pais || estado || cidade || precoMin || precoMax || destaque || negociavel || debouncedBusca);
 
+  // BUG CORRIGIDO (teste completo do site, 2026-08-24): getPageUrl usava
+  // `filters` (derivado do useSearchParams() do React — uma snapshot do
+  // ÚLTIMO RENDER) como base. Mudar dois filtros em sequência rápida — antes
+  // do router.push do primeiro COMMITAR um re-render com searchParams
+  // atualizado — fazia a segunda chamada mesclar overrides sobre uma
+  // snapshot desatualizada, descartando a primeira mudança em silêncio.
+  // Tentativa de ler window.location.search fresco NÃO resolveu: o
+  // router.push dentro de startTransition não atualiza a URL do navegador
+  // de forma síncrona, então mesmo lendo "ao vivo" a segunda chamada ainda
+  // via a URL antiga. A solução real é uma ref mutável, atualizada
+  // SINCRONAMENTE a cada chamada — não depende de re-render do React nem de
+  // quando o navegador de fato terminar de navegar.
+  const latestFiltersRef = useRef<AdsFilters>(filters);
+  useEffect(() => { latestFiltersRef.current = filters; }, [filters]);
+
   const getPageUrl = useCallback((p: number, overrides: Partial<AdsFilters> = {}) => {
-    const f = { ...filters, busca: buscaRaw, ...overrides };
+    const f = { ...latestFiltersRef.current, busca: buscaRaw, ...overrides, page: p };
+    latestFiltersRef.current = f;
     const params = new URLSearchParams();
     if (f.busca) params.set('busca', f.busca);
     if (f.categoria) params.set('categoria', f.categoria);
@@ -69,7 +85,7 @@ export function useAdsFilters(initialGeo?: { pais: string | null; estado: string
     if (p > 1) params.set('page', p.toString());
     
     return `${pathname}${params.toString() ? '?' + params.toString() : ''}`;
-  }, [pathname, filters, buscaRaw]);
+  }, [pathname, buscaRaw]);
 
   const applyFilters = useCallback((overrides: Partial<AdsFilters> = {}) => {
     startTransition(() => {

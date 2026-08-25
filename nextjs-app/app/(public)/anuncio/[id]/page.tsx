@@ -47,7 +47,17 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     .eq('status', 'active')
     .maybeSingle();
 
-  if (!ad) return { title: 'Anúncio não encontrado' };
+  // BUG CORRIGIDO (teste completo do site, 2026-08-24): soft-404 — a página
+  // sempre respondia HTTP 200 mesmo para um id inexistente (curl confirmou
+  // em dev E em build de produção real). Causa: esta rota tem loading.tsx,
+  // que envolve o page.tsx num Suspense — o streaming já começa como 200
+  // antes do notFound() do corpo da página rodar, e o status não pode mais
+  // mudar depois que qualquer HTML foi enviado (comportamento documentado
+  // do App Router). generateMetadata roda ANTES do corpo começar a
+  // streamar, então chamar notFound() aqui (que já sabia que o anúncio não
+  // existe, só nunca chamava) resolve sem precisar remover o skeleton de
+  // loading do caminho feliz.
+  if (!ad) notFound();
 
   const title = ad.title_pt || ad.title_es || 'Anúncio';
   const imgUrl = ad.images?.[0] ? imageUrl(ad.images[0]) : null;
@@ -90,7 +100,12 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ id: 
 
   const { data: ad } = await supabase
     .from('ads')
-    .select('*, profiles(id, name, display_name, avatar_url, verified, phone_whatsapp, country, created_at), categories(name_pt, name_es, icon)')
+    // BUG CORRIGIDO (teste completo do site, 2026-08-24): faltavam
+    // email_verified/phone_verified/kyc_status — AdSidebar.tsx usa esses 3
+    // campos pra decidir se mostra os selos de e-mail/telefone/identidade
+    // verificados, que por isso nunca apareciam mesmo com o vendedor
+    // realmente verificado no banco.
+    .select('*, profiles(id, name, display_name, avatar_url, verified, phone_whatsapp, country, created_at, email_verified, phone_verified, kyc_status), categories(name_pt, name_es, icon)')
     .eq('id', id)
     .maybeSingle();
 

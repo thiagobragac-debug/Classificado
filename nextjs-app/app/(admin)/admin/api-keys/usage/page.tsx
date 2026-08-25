@@ -35,11 +35,22 @@ export default function AdminApiUsage() {
   async function loadStats() {
     setLoading(true)
     const supabase = getSupabase()
+    try {
 
     const since = new Date(Date.now() - period * 24 * 60 * 60 * 1000).toISOString()
 
-    // ── Daily breakdown ──────────────────────────────────────────────────────
-    const { data: daily } = await supabase.rpc('get_api_daily_stats', { since_date: since }).throwOnError().catch(() => ({ data: null }))
+    // BUG CRÍTICO CORRIGIDO (teste completo do site, 2026-08-24): o builder
+    // devolvido por supabase.rpc(...).throwOnError() é "thenable" mas não é
+    // uma Promise nativa — não tem .catch() (mesma classe de bug já corrigida
+    // em admin/page.tsx nesta sessão). Chamar .catch() aqui lançava um
+    // TypeError SÍNCRONO antes mesmo de awaitar a chamada, o que nunca
+    // chegava no fallback manual abaixo (que já existia, mas nunca era
+    // alcançado) nem no setLoading(false) do fim da função — a tela ficava
+    // travada em "Carregando dados..." para sempre. A função get_api_daily_stats
+    // também não existe no banco (PGRST202); desestruturar error normalmente
+    // (sem throwOnError) deixa `daily` null nesse caso, que já é exatamente a
+    // condição que o fallback manual abaixo espera.
+    const { data: daily } = await supabase.rpc('get_api_daily_stats', { since_date: since })
 
     // Fallback: manual query if RPC doesn't exist yet
     let dailyData: DayStats[] = []
@@ -120,7 +131,9 @@ export default function AdminApiUsage() {
       setHourStats(Object.entries(byHour).map(([h, t]) => ({ hour: Number(h), total: t as number })))
     }
 
-    setLoading(false)
+    } finally {
+      setLoading(false)
+    }
   }
 
   // ── Mini bar chart (pure SVG — zero deps) ────────────────────────────────────

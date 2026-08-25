@@ -1,6 +1,7 @@
 import React from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { t as _t, Lang } from '@/lib/constants'
 
 export interface AuctionEvent {
   id: string
@@ -14,9 +15,11 @@ export interface AuctionEvent {
 
 interface EventCardProps {
   ev: AuctionEvent
+  lang?: Lang
 }
 
-export default function EventCard({ ev }: EventCardProps) {
+export default function EventCard({ ev, lang = 'pt' }: EventCardProps) {
+  const t = (key: string) => _t(key, lang)
   let day = '--';
   let month = 'TBD';
 
@@ -52,16 +55,16 @@ export default function EventCard({ ev }: EventCardProps) {
         </div>
         {/* Fallback description overlay */}
         <div style={{ position: 'absolute', bottom: '12px', left: '16px', right: '16px', color: 'white', fontSize: 'var(--fs-sm)', fontWeight: 500, display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
-          {ev.description || 'Confira os detalhes deste grande evento do Agronegócio.'}
+          {ev.description || t('events_card_fallback_desc')}
         </div>
       </div>
       <div className="event-card-body" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', flex: 1, background: 'white' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-          <div className="event-card-tag" style={{ background: 'var(--clr-primary-pale)', color: 'var(--clr-primary)', fontSize: '0.7rem', padding: '2px 8px', borderRadius: '4px', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Destaque Oficial</div>
+          <div className="event-card-tag" style={{ background: 'var(--clr-primary-pale)', color: 'var(--clr-primary)', fontSize: '0.7rem', padding: '2px 8px', borderRadius: '4px', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>{t('events_featured_badge')}</div>
           {ev.status === 'Ao Vivo' && (
              <div style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#EF4444', fontSize: '0.7rem', padding: '2px 8px', borderRadius: '4px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#EF4444', display: 'inline-block', animation: 'pulse 1.5s infinite' }}></span>
-               Ao Vivo
+               {t('events_live')}
              </div>
           )}
         </div>
@@ -72,7 +75,7 @@ export default function EventCard({ ev }: EventCardProps) {
             <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
             <circle cx="12" cy="10" r="3"/>
           </svg>
-          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ev.location || 'Local a definir'}</span>
+          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ev.location || t('events_no_location')}</span>
         </div>
       </div>
     </Link>

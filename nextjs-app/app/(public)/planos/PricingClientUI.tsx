@@ -59,14 +59,19 @@ export default function PricingClientUI({ initialPlans }: { initialPlans: Plan[]
       if (session) {
         const sb = getSupabase()
         try {
-          // profiles.plan_id (uuid) → plans.id: identifies which plan the user is subscribed to
-          const { data: profile } = await sb
-            .from('profiles')
+          // BUG CRÍTICO CORRIGIDO (teste completo do site, 2026-08-24): o
+          // badge "Plano Atual" nunca aparecia pra nenhum assinante real
+          // porque lia profiles.plan_id — coluna que nenhum fluxo real de
+          // ativação toca. O único lugar que grava plan_id de verdade
+          // (app/api/webhooks/payments/route.ts, evento subscription.
+          // activated/renewed) escreve em user_secrets.plan_id.
+          const { data: secrets } = await sb
+            .from('user_secrets')
             .select('plan_id')
             .eq('id', session.user.id)
             .single()
-          if (profile?.plan_id) {
-            setUserPlanId(profile.plan_id)
+          if (secrets?.plan_id) {
+            setUserPlanId(secrets.plan_id)
           }
         } catch (err) {
           console.error('Erro ao buscar plano do usuário:', err)

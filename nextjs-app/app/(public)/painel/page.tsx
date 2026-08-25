@@ -25,7 +25,11 @@ export default async function PainelPage() {
   const [{ data: profileData, error: profileError }, { data: secretsData }] = await Promise.all([
     supabase
       .from('profiles')
-      .select('id, name, display_name, avatar_url, phone_whatsapp, bio, city, state, country')
+      // BUG CORRIGIDO (teste completo do site, 2026-08-24): faltava kyc_status,
+      // email_verified e phone_verified — ProfileTab usa esses campos pros
+      // badges de verificação, que por isso sempre mostravam "Não Enviado"/
+      // "Pendente" mesmo com o status real já atualizado no banco.
+      .select('id, name, display_name, avatar_url, phone_whatsapp, bio, city, state, country, kyc_status, email_verified, phone_verified')
       .eq('id', user.id)
       .single(),
     supabase
@@ -50,7 +54,11 @@ export default async function PainelPage() {
         name: user.user_metadata?.name || user.email?.split('@')[0] || 'Usuário',
         display_name: user.user_metadata?.display_name || user.email?.split('@')[0] || 'Usuário'
       })
-      .select('id, name, display_name, avatar_url, phone_whatsapp, bio, city, state, country')
+      // BUG CORRIGIDO (teste completo do site, 2026-08-24): faltava kyc_status,
+      // email_verified e phone_verified — ProfileTab usa esses campos pros
+      // badges de verificação, que por isso sempre mostravam "Não Enviado"/
+      // "Pendente" mesmo com o status real já atualizado no banco.
+      .select('id, name, display_name, avatar_url, phone_whatsapp, bio, city, state, country, kyc_status, email_verified, phone_verified')
       .single();
 
     if (newProfileRaw) {
@@ -66,6 +74,11 @@ export default async function PainelPage() {
   const fullUser = {
     id: user.id,
     email: user.email,
+    // BUG CORRIGIDO (teste completo do site, 2026-08-24): faltava — o badge
+    // de e-mail em ProfileTab.tsx lê user.email_confirmed_at, mas fullUser
+    // nunca repassava esse campo, então sempre mostrava "Pendente" mesmo
+    // para conta com e-mail já confirmado.
+    email_confirmed_at: user.email_confirmed_at,
     profile,
   };
 

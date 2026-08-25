@@ -40,14 +40,41 @@ export default function AdminAssinaturas() {
     setLoading(false)
   }
 
-  const handleUpdateStatus = async (id: string, newStatus: string) => {
+  // BUG CRÍTICO CORRIGIDO (teste completo do site, 2026-08-24): este handler
+  // só fazia `subscriptions.update({status})` direto do cliente — nunca
+  // cancelava de verdade no gateway (continuaria cobrando/renovando lá) nem
+  // sincronizava profiles/user_secrets, então o usuário mantinha o plano
+  // pago ativo pra sempre mesmo "cancelado" aqui. Cancelar agora passa pela
+  // rota de servidor /api/admin/subscriptions/cancel (só ela tem acesso à
+  // secret key do gateway). Reativar continua local (não existe "desfazer
+  // cancelamento" genérico do lado do gateway), mas agora sincroniza
+  // profiles.subscription_status também, pra não deixar os dois divergentes.
+  const handleCancel = async (id: string) => {
     const supabase = getSupabase()
-    const { error } = await supabase.from('subscriptions').update({ status: newStatus }).eq('id', id)
-    if (!error) {
-      setSubscriptions(subscriptions.map(s => s.id === id ? { ...s, status: newStatus } : s))
-      showToast(`Status alterado para ${newStatus}`, 'success')
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/admin/subscriptions/cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ subscriptionId: id }),
+    })
+    const body = await res.json()
+    if (res.ok) {
+      setSubscriptions(subscriptions.map(s => s.id === id ? { ...s, status: 'cancelled' } : s))
+      showToast('Assinatura cancelada.', 'success')
     } else {
-      showToast('Erro ao alterar status: ' + error.message, 'error')
+      showToast('Erro ao cancelar: ' + (body.error || res.statusText), 'error')
+    }
+  }
+
+  const handleReactivate = async (id: string, userId: string) => {
+    const supabase = getSupabase()
+    const { error } = await supabase.from('subscriptions').update({ status: 'active', cancel_at_period_end: false }).eq('id', id)
+    if (!error) {
+      await supabase.from('profiles').update({ subscription_status: 'active' }).eq('id', userId)
+      setSubscriptions(subscriptions.map(s => s.id === id ? { ...s, status: 'active' } : s))
+      showToast('Assinatura reativada.', 'success')
+    } else {
+      showToast('Erro ao reativar: ' + error.message, 'error')
     }
   }
 
@@ -57,11 +84,16 @@ export default function AdminAssinaturas() {
     return true
   })
 
+  // BUG CORRIGIDO: os valores de status aqui ('overdue'/'canceled') nunca
+  // batiam com os valores reais gravados pelo webhook/checkout ('past_due'/
+  // 'cancelled', 2 L) — qualquer atraso ou cancelamento vindo do fluxo real
+  // ficava com KPI zerado, badge cru sem estilo, e SEM NENHUM botão de ação
+  // na tela (a linha não caía em nenhuma das condições de renderização).
   // KPIs
   const total = subscriptions.length
   const ativos = subscriptions.filter(s => s.status === 'active').length
-  const atrasados = subscriptions.filter(s => s.status === 'overdue').length
-  const cancelados = subscriptions.filter(s => s.status === 'canceled').length
+  const atrasados = subscriptions.filter(s => s.status === 'past_due').length
+  const cancelados = subscriptions.filter(s => s.status === 'cancelled').length
   
   // MRR sum of active
   const mrr = subscriptions.filter(s => s.status === 'active').reduce((acc, curr) => acc + (curr.price || 0), 0)
@@ -97,8 +129,8 @@ export default function AdminAssinaturas() {
           <select className="adm-select" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
             <option value="Todos">Todos os status</option>
             <option value="active">Ativa</option>
-            <option value="overdue">Atrasada</option>
-            <option value="canceled">Cancelada</option>
+            <option value="past_due">Atrasada</option>
+            <option value="cancelled">Cancelada</option>
           </select>
         </div>
 
@@ -133,18 +165,18 @@ export default function AdminAssinaturas() {
                   <td>R$ {Number(sub.price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                   <td>
                     {sub.status === 'active' && <span className="adm-badge adm-badge--green">Ativa</span>}
-                    {sub.status === 'overdue' && <span className="adm-badge adm-badge--amber">Atrasada</span>}
-                    {sub.status === 'canceled' && <span className="adm-badge adm-badge--red">Cancelada</span>}
-                    {!['active', 'overdue', 'canceled'].includes(sub.status) && <span className="adm-badge">{sub.status}</span>}
+                    {sub.status === 'past_due' && <span className="adm-badge adm-badge--amber">Atrasada</span>}
+                    {sub.status === 'cancelled' && <span className="adm-badge adm-badge--red">Cancelada</span>}
+                    {!['active', 'past_due', 'cancelled'].includes(sub.status) && <span className="adm-badge">{sub.status}</span>}
                   </td>
                   <td>{sub.next_billing_at ? new Date(sub.next_billing_at).toLocaleDateString() : '-'}</td>
                   <td style={{ textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
-                      {sub.status === 'active' && (
-                        <button className="adm-btn adm-btn--sm adm-btn--outline" style={{ color: 'var(--adm-red)', borderColor: 'var(--adm-red)' }} onClick={() => handleUpdateStatus(sub.id, 'canceled')}>Cancelar</button>
+                      {(sub.status === 'active' || sub.status === 'past_due') && (
+                        <button className="adm-btn adm-btn--sm adm-btn--outline" style={{ color: 'var(--adm-red)', borderColor: 'var(--adm-red)' }} onClick={() => handleCancel(sub.id)}>Cancelar</button>
                       )}
-                      {sub.status === 'canceled' && (
-                        <button className="adm-btn adm-btn--sm adm-btn--outline" onClick={() => handleUpdateStatus(sub.id, 'active')}>Reativar</button>
+                      {sub.status === 'cancelled' && (
+                        <button className="adm-btn adm-btn--sm adm-btn--outline" onClick={() => handleReactivate(sub.id, sub.user_id)}>Reativar</button>
                       )}
                     </div>
                   </td>

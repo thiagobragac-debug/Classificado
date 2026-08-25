@@ -57,9 +57,14 @@ export default function AdminAuctionLots() {
     setAuction(aucData)
 
     // Fetch Lots
+    // BUG CORRIGIDO (teste completo do site, 2026-08-24): o admin nunca
+    // mostrava lance atual/vencedor de um lote (só o lance inicial estático),
+    // mesmo com lances reais já registrados em auction_lot_bids — não dava
+    // pra acompanhar um leilão ao vivo pelo próprio painel. current_bid/
+    // winner_id já são colunas reais de auction_lots (só faltava exibir).
     const { data: lotsData } = await supabase
       .from('auction_lots')
-      .select('*')
+      .select('*, winner:profiles!winner_id(name, display_name)')
       .eq('auction_id', auctionId)
       .order('lot_number', { ascending: true }) // You might want to order numerically if possible, but alphabetically works for now if mixed with letters
     
@@ -146,7 +151,7 @@ export default function AdminAuctionLots() {
             &larr; Voltar para Leilões
           </Link>
           <h1 className="adm-page-title">Gestão de Lotes: {auction?.title}</h1>
-          <p className="adm-page-sub">{new Date(auction?.date).toLocaleString('pt-BR')} • {lots.length} Lotes cadastrados</p>
+          <p className="adm-page-sub">{new Date(auction?.date).toLocaleString('pt-BR')} • {lots.length} {lots.length === 1 ? 'Lote cadastrado' : 'Lotes cadastrados'}</p>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
           <button className="adm-btn adm-btn--primary" onClick={() => setIsModalOpen(true)}>
@@ -165,12 +170,13 @@ export default function AdminAuctionLots() {
                 <th>Animal / Título</th>
                 <th>Filiação</th>
                 <th>Lance Inicial</th>
+                <th>Lance Atual</th>
                 <th style={{ textAlign: 'right' }}>Ações</th>
               </tr>
             </thead>
             <tbody>
               {lots.length === 0 ? (
-                <tr><td colSpan={5} style={{ textAlign: 'center', padding: '40px', color: 'var(--adm-text-muted)' }}>Nenhum lote cadastrado neste leilão.</td></tr>
+                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--adm-text-muted)' }}>Nenhum lote cadastrado neste leilão.</td></tr>
               ) : lots.map(lot => (
                 <tr key={lot.id}>
                   <td>
@@ -198,6 +204,22 @@ export default function AdminAuctionLots() {
                   </td>
                   <td>
                     {lot.min_bid > 0 ? `R$ ${lot.min_bid.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-'}
+                  </td>
+                  <td>
+                    {lot.current_bid > 0 ? (
+                      <div>
+                        <div style={{ fontWeight: 600, color: 'var(--adm-green)' }}>
+                          R$ {Number(lot.current_bid).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </div>
+                        {lot.winner && (
+                          <div style={{ fontSize: '0.78rem', color: 'var(--adm-text-muted)' }}>
+                            🏆 {lot.winner.display_name || lot.winner.name}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <span style={{ color: 'var(--adm-text-muted)' }}>Sem lances</span>
+                    )}
                   </td>
                   <td style={{ textAlign: 'right' }}>
                     <button className="adm-btn adm-btn--sm adm-btn--outline" style={{ color: 'var(--adm-red)', borderColor: 'var(--adm-border)' }} onClick={() => handleDelete(lot.id)}>

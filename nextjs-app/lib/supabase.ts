@@ -31,7 +31,12 @@ export async function getCurrentUser() {
   if (!session) return null;
   const { data: profileRaw } = await getSupabase()
     .from('profiles')
-    .select('id, name, display_name, avatar_url, verified, country, pais, user_secrets(plan)')
+    // BUG CORRIGIDO (teste completo do site, 2026-08-24): 'pais' não existe
+    // em profiles (a coluna real é 'country') — a query inteira falhava
+    // (42703), fazendo getCurrentUser() sempre devolver null. Função sem
+    // nenhum chamador hoje (código morto), mas quebraria assim que alguém
+    // reativasse — corrigido preventivamente.
+    .select('id, name, display_name, avatar_url, verified, country, user_secrets(plan)')
     .eq('id', session.user.id)
     .maybeSingle();
 

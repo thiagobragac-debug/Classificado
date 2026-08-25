@@ -42,7 +42,7 @@ export default function Footer() {
           <div style={{ display: 'flex', gap: '1.5rem', fontWeight: 500 }}>
             <Link href="/" style={{ color: '#cbd5e1', textDecoration: 'none' }}>Início</Link>
             <Link href="/suporte" style={{ color: '#cbd5e1', textDecoration: 'none' }}>Suporte</Link>
-            <Link href="/institucional#termos" style={{ color: '#cbd5e1', textDecoration: 'none' }}>Termos de Uso</Link>
+            <Link href="/institucional?page=termos" style={{ color: '#cbd5e1', textDecoration: 'none' }}>Termos de Uso</Link>
           </div>
         </div>
       </footer>
@@ -119,9 +119,9 @@ export default function Footer() {
         <div className="footer-bottom">
           <span>{t('footer_copy')}</span>
           <div style={{ display: 'flex', gap: 'var(--sp-4)' }}>
-            <Link href="/institucional#privacidade">Privacidade</Link>
-            <Link href="/institucional#termos">Termos</Link>
-            <Link href="/institucional#cookies">Cookies</Link>
+            <Link href="/institucional?page=privacidade">Privacidade</Link>
+            <Link href="/institucional?page=termos">Termos</Link>
+            <Link href="/institucional?page=cookies">Cookies</Link>
           </div>
         </div>
 

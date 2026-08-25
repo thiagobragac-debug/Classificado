@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { useLang } from '@/lib/lang-context';
 
 export function TopSellersSection({ topSellers }: { topSellers: any[] }) {
@@ -20,12 +19,19 @@ export function TopSellersSection({ topSellers }: { topSellers: any[] }) {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
           </Link>
         </div>
+        {!topSellers || topSellers.length === 0 ? (
+          <p style={{ color: '#64748b', textAlign: 'center', padding: '2rem 0' }}>{t('top_sellers_empty')}</p>
+        ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem' }}>
-          {topSellers?.map((seller: any, index: number) => (
+          {topSellers.map((seller: any, index: number) => (
             <Link key={seller.id} href={`/vendedor/${seller.id}`} className="top-seller-card glass-card">
               <div className="seller-rank">#{index + 1}</div>
               {seller.avatar_url ? (
-                <Image src={seller.avatar_url} alt={seller.name} width={56} height={56} style={{ borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                // <img> comum, não next/image: avatar_url é livre (qualquer host que o
+                // usuário tenha salvo), e next/image lança e derruba a página inteira via
+                // error boundary quando o host não está em next.config.ts remotePatterns —
+                // mesmo padrão já usado em AdSidebar.tsx/admin/usuarios para este caso.
+                <img src={seller.avatar_url} alt={seller.name} width={56} height={56} style={{ borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
               ) : (
                 <div style={{ width: '3.5rem', height: '3.5rem', borderRadius: '50%', background: 'linear-gradient(135deg, var(--clr-primary-mid), var(--clr-primary))', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: '1.2rem', flexShrink: 0, boxShadow: 'var(--shadow-green)' }}>
                   {seller.name?.substring(0, 2).toUpperCase() || 'US'}
@@ -48,6 +54,7 @@ export function TopSellersSection({ topSellers }: { topSellers: any[] }) {
             </Link>
           ))}
         </div>
+        )}
       </div>
     </section>
   );

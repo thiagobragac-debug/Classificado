@@ -4,8 +4,10 @@ import React, { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { detectLocation } from '@/lib/useGeoLocation'
 import { showToast } from '@/lib/toast'
+import { t as _t, Lang } from '@/lib/constants'
 
-export default function EventSearch() {
+export default function EventSearch({ lang = 'pt' }: { lang?: Lang }) {
+  const t = (key: string) => _t(key, lang)
   const router = useRouter()
   const searchParams = useSearchParams()
   const initialQuery = searchParams.get('q') || ''
@@ -60,14 +62,14 @@ export default function EventSearch() {
         </button>
         <input 
           type="text" 
-          placeholder={isLocating ? "Localizando..." : "Digite sua cidade..."}
+          placeholder={isLocating ? t('events_locating') : t('events_search_placeholder')}
           style={{ borderLeft: '1px solid #e5e7eb', paddingLeft: '16px', width: '100%', borderTop: 'none', borderRight: 'none', borderBottom: 'none', outline: 'none' }} 
           autoComplete="off"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           disabled={isLocating}
         />
-        <button type="submit" className="hero-search-btn">Buscar</button>
+        <button type="submit" className="hero-search-btn">{t('events_search_btn')}</button>
       </form>
     </div>
   )

@@ -1,9 +1,19 @@
 import React from 'react'
+import { cookies } from 'next/headers'
 import { createAnonClient } from '@/lib/supabase-server'
+import { t as _t } from '@/lib/constants'
 import EventCard, { AuctionEvent } from './EventCard'
 import EventSearch from './EventSearch'
 import Link from 'next/link'
 
+// Achado do teste completo do site (2026-08-24) sobre "loading.tsx duplicado
+// no DOM" foi investigado e descartado: é o marcador de streaming SSR do
+// React (<!--$?--> + <template id="B:0">) aparecendo normalmente no HTML
+// cru (curl, sem JS) — o navegador real resolve e remove o fallback na
+// hidratação (confirmado ao vivo: exatamente 2 <main>, sem skeleton, depois
+// de navegar de verdade). O agente de teste capturou isso numa aba que não
+// estava sendo composta visualmente (document.hidden=true), mesma classe de
+// falso alarme já documentada nesta sessão para outras leituras de DOM.
 export const revalidate = 3600; // ISR — página de eventos raramente muda
 
 export const metadata = {
@@ -38,6 +48,13 @@ export default async function EventosPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
+  // BUG CORRIGIDO (teste completo do site, 2026-08-24): página inteira
+  // ficava fixa em português mesmo com ES selecionado no header — o
+  // componente nunca lia o cookie de idioma nem chamava t().
+  const cookieStore = await cookies()
+  const lang = (cookieStore.get('tc_lang')?.value || 'pt') as 'pt' | 'es'
+  const t = (key: string) => _t(key, lang)
+
   const query = await searchParams
   // Sanitizar e limitar comprimento da query de busca
   const rawSearch = typeof query?.q === 'string' ? query.q : ''
@@ -87,13 +104,27 @@ export default async function EventosPage({
 
     events = [...normalizedAuctions, ...normalizedEventos];
 
-    events.sort((a, b) => {
+    // BUG CORRIGIDO (teste completo do site, 2026-08-24): ordenação puramente
+    // ascendente por data colocava um leilão encerrado com data já passada
+    // (ex: fechado há 2 semanas) na FRENTE de eventos futuros reais em
+    // "Grandes Destaques Nacionais", só porque uma data passada é
+    // numericamente "menor" que uma futura. Eventos já ocorridos (data válida
+    // e no passado) agora vão para o final da lista, sem deixar de aparecer.
+    const now = Date.now();
+    const byDate = (a: AuctionEvent, b: AuctionEvent) => {
       const timeA = new Date(a.date).getTime();
       const timeB = new Date(b.date).getTime();
-      const validA = !isNaN(timeA) ? timeA : Date.now() + 86400000;
-      const validB = !isNaN(timeB) ? timeB : Date.now() + 86400000;
+      const validA = !isNaN(timeA) ? timeA : now + 86400000;
+      const validB = !isNaN(timeB) ? timeB : now + 86400000;
       return validA - validB;
-    });
+    };
+    const isPast = (ev: AuctionEvent) => {
+      const t = new Date(ev.date).getTime();
+      return !isNaN(t) && t < now;
+    };
+    const upcoming = events.filter(e => !isPast(e)).sort(byDate);
+    const past = events.filter(isPast).sort(byDate);
+    events = [...upcoming, ...past];
 
   } catch (err) {
     console.error('Erro ao carregar eventos:', err)
@@ -167,38 +198,38 @@ export default async function EventosPage({
             <div className="list-hero-inner">
               <div>
                 <nav aria-label="Breadcrumb" className="breadcrumb">
-                  <Link href="/">Início</Link>
+                  <Link href="/">{t('nav_home')}</Link>
                   <span aria-hidden="true">›</span>
-                  <span aria-current="page">Agenda de Eventos</span>
+                  <span aria-current="page">{t('events_title')}</span>
                 </nav>
-                <h1 className="list-hero-title">Agenda de Eventos</h1>
-                <p className="list-hero-count">Descubra as maiores feiras, exposições e congressos do Agronegócio.</p>
+                <h1 className="list-hero-title">{t('events_title')}</h1>
+                <p className="list-hero-count">{t('events_subtitle')}</p>
               </div>
 
-              <EventSearch />
+              <EventSearch lang={lang} />
             </div>
           </div>
         </div>
 
         <div className="container" style={{ paddingTop: 'var(--sp-6)' }}>
           <div className="events-section">
-            <h2 className="section-title">Grandes Destaques Nacionais</h2>
+            <h2 className="section-title">{t('events_highlights')}</h2>
 
             {events.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-gray-500 mb-4">
-                  Nenhum evento encontrado{searchQuery ? ` para "${searchQuery}"` : ''}.
+                  {t('events_empty')}{searchQuery ? ` para "${searchQuery}"` : ''}.
                 </p>
                 {searchQuery && (
                   <Link href="/eventos" className="text-green-600 hover:underline font-medium">
-                    Limpar busca e ver todos
+                    {t('events_clear_search')}
                   </Link>
                 )}
               </div>
             ) : (
               <div className="events-grid">
                 {events.map((ev) => (
-                  <EventCard key={ev.id} ev={ev} />
+                  <EventCard key={ev.id} ev={ev} lang={lang} />
                 ))}
               </div>
             )}

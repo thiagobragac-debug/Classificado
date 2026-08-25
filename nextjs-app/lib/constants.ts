@@ -40,6 +40,7 @@ export const I18N = {
     filter_featured: 'Destaque', filter_cat: 'Categoria',
     recently_viewed: 'Vistos Recentemente',
     top_sellers_label: 'Lojas de Destaque', top_sellers: 'Top Vendedores',
+    top_sellers_empty: 'Nenhum vendedor em destaque ainda.',
     testimonials_label: 'Provas Sociais', testimonials: 'Casos de Sucesso',
 
     // Auth & Forms
@@ -68,6 +69,22 @@ export const I18N = {
     err_doc: 'Documento inválido.',
     err_phone: 'Telefone inválido.',
     err_cep: 'CEP inválido.',
+
+    // Eventos (achado do teste completo do site, 2026-08-24: página inteira
+    // ficava fixa em português mesmo com ES selecionado)
+    events_title: 'Agenda de Eventos',
+    events_subtitle: 'Descubra as maiores feiras, exposições e congressos do Agronegócio.',
+    events_highlights: 'Grandes Destaques Nacionais',
+    events_card_fallback_desc: 'Confira os detalhes deste grande evento do Agronegócio.',
+    events_featured_badge: 'Destaque Oficial',
+    events_live: 'Ao Vivo',
+    events_no_location: 'Local a definir',
+    events_empty: 'Nenhum evento encontrado',
+    events_clear_search: 'Limpar busca e ver todos',
+    events_search_placeholder: 'Digite sua cidade...',
+    events_locating: 'Localizando...',
+    events_search_btn: 'Buscar',
+    err_invalid_credentials: 'E-mail ou senha incorretos.',
   },
   es: {
     nav_home: 'Inicio', nav_ads: 'Anuncios', nav_events: 'Eventos',
@@ -103,6 +120,7 @@ export const I18N = {
     filter_featured: 'Destacado', filter_cat: 'Categoría',
     recently_viewed: 'Vistos Recientemente',
     top_sellers_label: 'Tiendas Destacadas', top_sellers: 'Top Vendedores',
+    top_sellers_empty: 'Ningún vendedor destacado todavía.',
     testimonials_label: 'Pruebas Sociales', testimonials: 'Casos de Éxito',
 
     // Auth & Forms
@@ -131,6 +149,21 @@ export const I18N = {
     err_doc: 'Documento inválido.',
     err_phone: 'Teléfono inválido.',
     err_cep: 'Código postal inválido.',
+
+    // Eventos
+    events_title: 'Agenda de Eventos',
+    events_subtitle: 'Descubre las mayores ferias, exposiciones y congresos del Agronegocio.',
+    events_highlights: 'Grandes Destacados Nacionales',
+    events_card_fallback_desc: 'Conoce los detalles de este gran evento del Agronegocio.',
+    events_featured_badge: 'Destacado Oficial',
+    events_live: 'En Vivo',
+    events_no_location: 'Local a definir',
+    events_empty: 'Ningún evento encontrado',
+    events_clear_search: 'Limpiar búsqueda y ver todos',
+    events_search_placeholder: 'Ingresa tu ciudad...',
+    events_locating: 'Localizando...',
+    events_search_btn: 'Buscar',
+    err_invalid_credentials: 'Correo o contraseña incorrectos.',
   }
 };
 
@@ -210,18 +243,18 @@ export const FOOTER_LINKS = {
       { label: 'Serviços', href: '/listagem?cat=servicos' },
     ],
     help: [
-      { label: 'Central de Ajuda',        href: '/institucional#ajuda'      },
-      { label: 'Política de Privacidade', href: '/institucional#privacidade' },
-      { label: 'Termos de Uso',           href: '/institucional#termos'     },
-      { label: 'Denunciar Anúncio',       href: '/institucional#denuncia'   },
-      { label: 'Fale Conosco',            href: '/institucional#contato'    },
+      { label: 'Central de Ajuda',        href: '/institucional?page=ajuda'      },
+      { label: 'Política de Privacidade', href: '/institucional?page=privacidade' },
+      { label: 'Termos de Uso',           href: '/institucional?page=termos'     },
+      { label: 'Denunciar Anúncio',       href: '/institucional?page=denuncia'   },
+      { label: 'Fale Conosco',            href: '/institucional?page=contato'    },
     ],
     company: [
-      { label: 'Sobre Nós',         href: '/institucional#sobre'              },
+      { label: 'Sobre Nós',         href: '/institucional?page=sobre'              },
       { label: 'Planos Premium',    href: '/painel#billing'                },
-      { label: 'Trabalhe Conosco',  href: '/institucional#trabalhe-conosco'   },
-      { label: 'Imprensa',          href: '/institucional#imprensa'           },
-      { label: 'API para Parceiros',href: '/institucional#api'                },
+      { label: 'Trabalhe Conosco',  href: '/institucional?page=trabalhe-conosco'   },
+      { label: 'Imprensa',          href: '/institucional?page=imprensa'           },
+      { label: 'API para Parceiros',href: '/institucional?page=api'                },
     ],
   },
   es: {
@@ -234,18 +267,18 @@ export const FOOTER_LINKS = {
       { label: 'Servicios',  href: '/listagem?cat=servicos' },
     ],
     help: [
-      { label: 'Centro de Ayuda',          href: '/institucional#ajuda'      },
-      { label: 'Política de Privacidad',   href: '/institucional#privacidade' },
-      { label: 'Términos de Uso',          href: '/institucional#termos'     },
-      { label: 'Denunciar Anuncio',        href: '/institucional#denuncia'   },
-      { label: 'Contáctenos',             href: '/institucional#contato'    },
+      { label: 'Centro de Ayuda',          href: '/institucional?page=ajuda'      },
+      { label: 'Política de Privacidad',   href: '/institucional?page=privacidade' },
+      { label: 'Términos de Uso',          href: '/institucional?page=termos'     },
+      { label: 'Denunciar Anuncio',        href: '/institucional?page=denuncia'   },
+      { label: 'Contáctenos',             href: '/institucional?page=contato'    },
     ],
     company: [
-      { label: 'Sobre Nosotros',           href: '/institucional#sobre'            },
+      { label: 'Sobre Nosotros',           href: '/institucional?page=sobre'            },
       { label: 'Planes Premium',           href: '/painel#billing'              },
-      { label: 'Trabaja con Nosotros',     href: '/institucional#trabalhe-conosco' },
-      { label: 'Prensa',                   href: '/institucional#imprensa'         },
-      { label: 'API para Socios',          href: '/institucional#api'              },
+      { label: 'Trabaja con Nosotros',     href: '/institucional?page=trabalhe-conosco' },
+      { label: 'Prensa',                   href: '/institucional?page=imprensa'         },
+      { label: 'API para Socios',          href: '/institucional?page=api'              },
     ],
   }
 };

@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { signupWithEmail, getSupabase } from '@/lib/supabase'
+import { signupWithEmail, updateProfile } from '@/lib/supabase'
 import { useLang } from '@/lib/lang-context'
 
 interface RegisterFormProps {
@@ -36,19 +36,22 @@ export function RegisterForm({ onSetAlert, onSuccess }: RegisterFormProps) {
     setLoading(true)
     try {
       const authData = await signupWithEmail(data.email, data.password, data.name)
-      
+
       if (authData && authData.user) {
-        const sb = getSupabase()
-        await sb.from('profiles').update({
+        // BUG CRÍTICO CORRIGIDO (teste completo do site, 2026-08-24): este
+        // update ia direto pra 'profiles' com o campo 'zip_code' — coluna que
+        // nunca existiu ali (CEP é dado sensível, roteado para user_secrets).
+        // O UPDATE inteiro falhava (PGRST204), e como o erro não era checado,
+        // display_name/phone_whatsapp eram perdidos JUNTO com o CEP, e a
+        // tela ainda mostrava "Conta criada com sucesso!". updateProfile()
+        // já sabe rotear cada campo para a tabela certa (SECRET_KEYS) e agora
+        // lança se qualquer uma das duas gravações falhar.
+        await updateProfile(authData.user.id, {
           display_name: data.displayName,
           phone_whatsapp: data.phone,
-          zip_code: data.cep
-        }).eq('id', authData.user.id)
-
-        await sb.from('user_secrets').update({
+          zip_code: data.cep,
           document_number: data.doc,
-          email: data.email
-        }).eq('id', authData.user.id)
+        })
       }
 
       onSetAlert('Conta criada com sucesso! Você já pode fazer login.', 'success')

@@ -90,8 +90,12 @@ export const getServerPlatformStats = cache(async () => {
     // público (achado de segurança 2026-08-24) — select('*') quebra até num
     // count com head:true.
     supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('verified', true),
-    supabase.from('ads').select('*', { count: 'exact', head: true }).eq('status', 'active').eq('category_id', 'bovinos'),
-    supabase.from('ads').select('*', { count: 'exact', head: true }).eq('status', 'active').eq('category_id', 'maquinas'),
+    // BUG CORRIGIDO (teste completo do site, 2026-08-24): category_id real
+    // dos anúncios usa o prefixo 'cat-' (ex: 'cat-bovinos', 'cat-maquinas' —
+    // ver tabela categories.id). Sem o prefixo, estas duas contagens sempre
+    // davam 0, mesmo com anúncios reais ativos nessas categorias.
+    supabase.from('ads').select('*', { count: 'exact', head: true }).eq('status', 'active').eq('category_id', 'cat-bovinos'),
+    supabase.from('ads').select('*', { count: 'exact', head: true }).eq('status', 'active').eq('category_id', 'cat-maquinas'),
     supabase.from('auction_events').select('*', { count: 'exact', head: true }).neq('status', 'draft').gte('date', today),
   ]);
 

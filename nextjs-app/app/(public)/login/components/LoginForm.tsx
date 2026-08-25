@@ -50,7 +50,13 @@ export function LoginForm({ onSetAlert, onNavigateToForgot }: LoginFormProps) {
       // Hard redirect para garantir o envio correto dos cookies para o servidor
       window.location.href = safeRedirect
     } catch (err: any) {
-      onSetAlert(err.message || 'Erro ao fazer login.', 'error')
+      // BUG CORRIGIDO (teste completo do site, 2026-08-24): mensagem de
+      // erro do Supabase vinha crua em inglês ("Invalid login credentials"),
+      // enquanto o resto do formulário é todo traduzido PT/ES.
+      const msg = err.message === 'Invalid login credentials'
+        ? t('err_invalid_credentials')
+        : err.message || 'Erro ao fazer login.'
+      onSetAlert(msg, 'error')
       setLoading(false)
     }
   }

@@ -8,6 +8,46 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9
 
 export const revalidate = 3600; // ISR — eventos raramente mudam
 
+// BUG CRÍTICO CORRIGIDO (teste completo do site, 2026-08-24): esta página só
+// consultava auction_events — as 8 "feiras" reais vindas da tabela `eventos`
+// (Expointer, Agrishow, ExpoZebu etc., listadas em /eventos junto com os
+// leilões) sempre devolviam 404 ao clicar. Agora tenta auction_events
+// primeiro e cai para `eventos` se não achar, igual à normalização já feita
+// em app/(public)/eventos/page.tsx.
+async function findEvent(id: string) {
+  const sb = createAnonClient();
+
+  const { data: auction } = await sb
+    .from('auction_events')
+    .select('id, title, date, cover, status')
+    .eq('id', id)
+    .neq('status', 'draft')
+    .maybeSingle();
+
+  if (auction) {
+    return { title: auction.title, date: auction.date, cover: auction.cover, location: undefined, organizer: undefined, link: undefined };
+  }
+
+  const { data: evento } = await sb
+    .from('eventos')
+    .select('id, title, date, image, location_str, organizer, link')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (evento) {
+    return { title: evento.title, date: evento.date, cover: evento.image, location: evento.location_str, organizer: evento.organizer, link: evento.link };
+  }
+
+  return null;
+}
+
+// eventos.date é texto livre ("30 ago - 7 set 2026"), não ISO — só formatar
+// como data quando for de fato parseável (auction_events.date, ISO).
+function formatEventDate(date: string): string {
+  const parsed = new Date(date);
+  return isNaN(parsed.getTime()) ? date : parsed.toLocaleDateString('pt-BR');
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -16,14 +56,7 @@ export async function generateMetadata({
   const { id } = await params;
   if (!UUID_REGEX.test(id)) return { title: 'Evento não encontrado' };
 
-  const sb = createAnonClient();
-  const { data } = await sb
-    .from('auction_events')
-    .select('title, cover, date')
-    .eq('id', id)
-    .neq('status', 'draft')
-    .single();
-
+  const data = await findEvent(id);
   if (!data) return { title: 'Evento não encontrado' };
 
   const coverUrl = data.cover
@@ -32,7 +65,7 @@ export async function generateMetadata({
       : `https://rfzuzuobwuanmbrcthqe.supabase.co/storage/v1/object/public/ad-images/${data.cover}`
     : undefined;
 
-  const description = `Evento em ${new Date(data.date).toLocaleDateString('pt-BR')}`;
+  const description = `Evento em ${formatEventDate(data.date)}`;
 
   return {
     title: data.title,
@@ -57,19 +90,17 @@ export async function generateMetadata({
   };
 }
 
-// Pré-renderizar os próximos 50 eventos mais próximos no build
+// Pré-renderizar os próximos eventos no build (auction_events + eventos —
+// mesma correção do achado: metade dos eventos reais vem da tabela eventos).
 export async function generateStaticParams() {
   try {
     const sb = createAnonClient();
-    const { data } = await sb
-      .from('auction_events')
-      .select('id')
-      .neq('status', 'draft')
-      .gte('date', new Date().toISOString())
-      .order('date', { ascending: true })
-      .limit(50);
+    const [{ data: auctions }, { data: eventos }] = await Promise.all([
+      sb.from('auction_events').select('id').neq('status', 'draft').gte('date', new Date().toISOString()).order('date', { ascending: true }).limit(50),
+      sb.from('eventos').select('id').limit(50),
+    ]);
 
-    return (data || []).map(ev => ({ id: ev.id }));
+    return [...(auctions || []), ...(eventos || [])].map(ev => ({ id: ev.id }));
   } catch {
     return [];
   }
@@ -87,15 +118,7 @@ export default async function EventDetailPage({
     notFound()
   }
 
-  // createAnonClient: dado público, sem necessidade de sessão
-  const sb = createAnonClient()
-
-  const { data: event } = await sb
-    .from('auction_events')
-    .select('id, title, date, cover, status')
-    .eq('id', id)
-    .neq('status', 'draft') // não exibir eventos em rascunho
-    .single()
+  const event = await findEvent(id)
 
   if (!event) {
     notFound()
@@ -136,15 +159,27 @@ export default async function EventDetailPage({
         <div style={{ background: 'var(--clr-surface)', padding: '2rem', borderRadius: '1rem', border: '1px solid var(--clr-border)' }}>
           <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '1rem' }}>Informações do Evento</h2>
           <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-            <strong>Data:</strong> {new Date(event.date).toLocaleDateString('pt-BR')}
+            <strong>Data:</strong> {formatEventDate(event.date)}
           </p>
-          <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
-            <strong>Local:</strong> {(event as any).location || 'Online'}
+          <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: event.organizer || event.link ? '0.5rem' : '1.5rem' }}>
+            <strong>Local:</strong> {event.location || 'Online'}
           </p>
+          {event.organizer && (
+            <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+              <strong>Organização:</strong> {event.organizer}
+            </p>
+          )}
+          {event.link && (
+            <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
+              <a href={event.link} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--clr-primary)' }}>
+                Site oficial do evento →
+              </a>
+            </p>
+          )}
 
           <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.5rem' }}>Descrição</h3>
           <p style={{ color: 'var(--clr-text-muted)', lineHeight: 1.6 }}>
-            {(event as any).description || 'Nenhuma descrição disponível para este evento.'}
+            Nenhuma descrição disponível para este evento.
           </p>
         </div>
       </div>

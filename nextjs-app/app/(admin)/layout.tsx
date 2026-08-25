@@ -1,6 +1,7 @@
 import React from 'react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
 import { createClient } from '@/lib/supabase-server'
 import { ConfirmProvider } from '@/components/ui/ConfirmProvider'
 import './admin/admin-v2.css'
@@ -21,7 +22,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
-    redirect('/login?redirectTo=/admin')
+    // BUG CORRIGIDO (teste completo do site, 2026-08-24): sempre mandava
+    // pro dashboard genérico (/admin) depois de logar, mesmo que o admin
+    // tivesse tentado acessar uma página específica como /admin/leiloes.
+    const requestedPath = (await headers()).get('x-pathname') || '/admin'
+    redirect(`/login?redirectTo=${encodeURIComponent(requestedPath)}`)
   }
 
   // is_admin checado apenas server-side, nunca exposto ao cliente

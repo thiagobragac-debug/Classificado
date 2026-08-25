@@ -136,7 +136,10 @@ export function AdSidebar({ ad, adTitle, catName }: AdSidebarProps) {
                 {ad.price_unit_pt && <span className="product-price-unit" style={{ color: 'var(--clr-text-muted)', fontWeight: 500 }}>/ {ad.price_unit_pt}</span>}
               </div>
             ) : (
-              <span style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--clr-text-muted)' }}>Consultar preço</span>
+              // BUG CORRIGIDO (teste completo do site, 2026-08-24): texto
+              // diferente de AdCard.tsx/SimilarAdsCarousel.tsx pro mesmo
+              // estado (preço nulo) — unificado em "Sob consulta".
+              <span style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--clr-text-muted)' }}>Sob consulta</span>
             )}
             {ad.negotiable && <span className="tag-negotiable" style={{ display: 'inline-block', marginTop: '0.5rem', background: '#dcfce7', color: '#166534', padding: '0.25rem 0.5rem', borderRadius: '0.5rem', fontSize: '0.75rem', fontWeight: 600 }}>Negociável</span>}
           </div>

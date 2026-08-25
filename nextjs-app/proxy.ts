@@ -90,7 +90,15 @@ const STRIPE_CONNECT = ['https://api.stripe.com', 'https://m.stripe.com', 'https
 
 const MP_SCRIPT = ['https://sdk.mercadopago.com', 'https://http2.mlstatic.com'];
 const MP_FRAME = ['https://*.mercadopago.com', 'https://*.mercadolibre.com'];
-const MP_CONNECT = ['https://api.mercadopago.com', 'https://api.mercadolibre.com', 'https://events.mercadopago.com'];
+// BUG CRÍTICO CORRIGIDO (teste completo do site, 2026-08-24): faltava
+// http2.mlstatic.com aqui. O Brick de cartão (@mercadopago/sdk-react) busca
+// seu JSON de i18n desse host via fetch() no navegador — sem ele em
+// connect-src, o browser bloqueia a chamada por CSP e o Bricks.create()
+// falha silenciosamente, deixando a tela de checkout sem NENHUM campo de
+// cartão. mlstatic já estava liberado em script-src e img-src, só faltava
+// aqui — checkout por cartão via Mercado Pago (gateway nacional ativo) não
+// funcionava para nenhum usuário real até esta correção.
+const MP_CONNECT = ['https://api.mercadopago.com', 'https://api.mercadolibre.com', 'https://events.mercadopago.com', 'https://http2.mlstatic.com'];
 
 // ─── CSP Builder ───────────────────────────────────────────────
 function buildCsp(nonce: string): string {
@@ -207,6 +215,13 @@ export async function proxy(request: NextRequest) {
   // Passamos o nonce para o layout via request header
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-nonce', nonce);
+  // BUG CORRIGIDO (teste completo do site, 2026-08-24): app/(admin)/layout.tsx
+  // redirecionava sempre para /login?redirectTo=/admin (string fixa) —
+  // acessar /admin/leiloes sem sessão jogava o admin no dashboard genérico
+  // depois de logar, não na página que ele realmente pediu. Layouts não
+  // recebem o pathname atual como prop; repassamos aqui via header pra
+  // qualquer Server Component poder ler com headers().get('x-pathname').
+  requestHeaders.set('x-pathname', pathname);
 
   let response = NextResponse.next({
     request: { headers: requestHeaders },
