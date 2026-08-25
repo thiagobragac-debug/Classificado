@@ -44,7 +44,14 @@ export default function AdminCategorias() {
     const supabase = getSupabase()
     
     // Auto-generate ID if it's new
-    const finalId = form.id || form.name_pt.toLowerCase().replace(/[^a-z0-9]/g, '-')
+    // BUG CORRIGIDO (reteste do site, 2026-08-25): substituir CADA caractere
+    // não-alfanumérico por um hífen (em vez de uma SEQUÊNCIA deles por um
+    // hífen só) produzia ids com hífen duplo/solto pra nomes com pontuação
+    // consecutiva (ex.: "[TESTE E2E] Categoria" -> "-teste-e2e--categoria").
+    const finalId = form.id || form.name_pt
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
     
     if (editingId) {
       // Update

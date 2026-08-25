@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { placeLotBid } from '@/lib/supabase';
 import { showToast } from '@/lib/toast';
 
@@ -23,6 +24,7 @@ interface LotBiddingModalProps {
   lot: LotData | null;
   onClose: () => void;
   userId?: string; // from session
+  isLive?: boolean;
 }
 
 /** Returns dynamic bid increment options based on the current bid value */
@@ -35,7 +37,8 @@ function getBidIncrements(currentBid: number): number[] {
 
 const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
-export default function LotBiddingModal({ lot, onClose, userId }: LotBiddingModalProps) {
+export default function LotBiddingModal({ lot, onClose, userId, isLive = true }: LotBiddingModalProps) {
+  const router = useRouter();
   const [bidding, setBidding] = useState(false);
   const [pendingBid, setPendingBid] = useState<number | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -86,6 +89,16 @@ export default function LotBiddingModal({ lot, onClose, userId }: LotBiddingModa
 
   // ─── Bid confirmation step ─────────────────────────────────────
   const requestBid = useCallback((amount: number) => {
+    // BUG CORRIGIDO (reteste do site, 2026-08-25): num evento AGENDADO
+    // (isLive=false), o modal deixava o usuário escolher valor e chegar
+    // até "Confirmar lance de R$X?" antes de descobrir, só depois de
+    // clicar Confirmar, que o servidor rejeita ("Este leilão não está ao
+    // vivo"). O RPC continua sendo a validação real — isto é só aviso
+    // antecipado na UI, pra não fingir que o fluxo vai completar.
+    if (!isLive) {
+      showToast('Este leilão ainda não está ao vivo — lances abrem quando a transmissão iniciar.', 'warning');
+      return;
+    }
     if (!userId) {
       showToast('Você precisa estar logado para dar lances.', 'error');
       return;
@@ -95,7 +108,7 @@ export default function LotBiddingModal({ lot, onClose, userId }: LotBiddingModa
       return;
     }
     setPendingBid(amount);
-  }, [userId, currentBid]);
+  }, [userId, currentBid, isLive]);
 
   const confirmBid = useCallback(async () => {
     if (pendingBid === null || !userId || !lot) return;
@@ -109,6 +122,11 @@ export default function LotBiddingModal({ lot, onClose, userId }: LotBiddingModa
       showToast(`Lance de ${BRL.format(pendingBid)} registrado com sucesso!`, 'success');
       setPendingBid(null);
       onClose();
+      // BUG CORRIGIDO (reteste do site, 2026-08-25): o card do lote na
+      // página (Server Component) continuava com o "Lance Atual" antigo
+      // até um F5 manual — lots vem do servidor, não há refetch automático
+      // depois de um lance bem-sucedido.
+      router.refresh();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro ao registrar lance.';
       showToast(msg, 'error');
@@ -225,6 +243,10 @@ export default function LotBiddingModal({ lot, onClose, userId }: LotBiddingModa
                       Cancelar
                     </button>
                   </div>
+                </div>
+              ) : !isLive ? (
+                <div style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.3)', borderRadius: '8px', padding: '1rem', color: '#fbbf24', fontSize: '0.9rem' }}>
+                  Este leilão ainda não está ao vivo. Lances abrem quando a transmissão iniciar.
                 </div>
               ) : (
                 <>

@@ -96,7 +96,11 @@ export default function AdminLeiloes() {
     }]).select()
 
     if (!error && data) {
-      setAuctions([data[0], ...auctions])
+      // BUG CORRIGIDO (reteste do site, 2026-08-25): o insert otimista não
+      // tinha o campo lotsCount (só calculado em loadAuctions), então a
+      // linha nova mostrava "lotes" sem número até um F5. Um leilão
+      // recém-criado sempre tem 0 lotes.
+      setAuctions([{ ...data[0], lotsCount: 0 }, ...auctions])
       setIsModalOpen(false)
       setForm({ title: '', date: '', status: 'scheduled', youtube: '', cover: '', catalog: '', min_bid: 0, step: 0, commission: 0, accepts_bids: true })
       showToast('Leilão criado com sucesso!', 'success')

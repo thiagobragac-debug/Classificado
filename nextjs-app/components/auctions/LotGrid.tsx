@@ -74,10 +74,11 @@ export default function LotGrid({ lots, isLive, userId }: LotGridProps) {
       </div>
 
       {selectedLot && (
-        <LotBiddingModal 
-          lot={selectedLot} 
-          userId={userId} 
-          onClose={() => setSelectedLot(null)} 
+        <LotBiddingModal
+          lot={selectedLot}
+          userId={userId}
+          isLive={isLive}
+          onClose={() => setSelectedLot(null)}
         />
       )}
     </>
