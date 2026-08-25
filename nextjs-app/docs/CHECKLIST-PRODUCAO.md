@@ -41,16 +41,21 @@ resposta JSON nunca fazia sentido nesse caminho. Agora redireciona pro
 `/login?next=/anuncio/{id}`, igual ao padrão já usado no resto do
 site.
 
-**Achado relacionado, sinalizado mas NÃO alterado nesta rodada**:
-investigando o CTA mobile, percebemos que o painel lateral do anúncio
-no desktop (`AdSidebar.tsx`) expõe o link `wa.me/{telefone}` direto no
-HTML server-rendered, sem exigir login — ou seja, o mesmo dado
-(`phone_whatsapp`) que o mobile protege com autenticação, rate limit e
-verificação de origin no `/api/contact-seller` fica visível a
-qualquer visitante (e a crawlers) só de abrir a página no desktop.
-Isso não estava na lista de gaps documentados e muda comportamento
-visível — decisão de produto que precisa de confirmação antes de
-alterar.
+**Achado relacionado, sinalizado e corrigido (com confirmação do
+usuário)**: investigando o CTA mobile, percebemos que o painel
+lateral do anúncio no desktop (`AdSidebar.tsx`) montava o link
+`wa.me/{telefone}` direto no servidor e passava o objeto inteiro pro
+client component — o número saía no HTML/RSC payload pra qualquer
+visitante sem login, mesmo o mobile já protegendo o mesmo dado com
+autenticação, rate limit e verificação de origin via
+`/api/contact-seller`. Confirmado com o usuário que o desktop deveria
+seguir a mesma regra do mobile. Corrigido (commit `fdb384f`): só um
+booleano (`hasWhatsapp`) atravessa pro client agora, e o botão do
+desktop usa a mesma rota protegida do mobile. No mesmo lugar, achado e
+corrigido um vazamento análogo: `RecentViewTracker` recebia o objeto
+`ad` inteiro (com `profiles.phone_whatsapp`) só pra ler `ad.id`.
+Validado ao vivo: o número (buscado direto no banco pra comparação)
+não aparece mais em nenhum lugar do HTML servido de um anúncio real.
 
 **Defesa em profundidade nas páginas de conteúdo do admin**:
 categorias/banners/depoimentos/páginas faziam `update()`/`delete()`/
