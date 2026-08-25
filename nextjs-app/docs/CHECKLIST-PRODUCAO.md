@@ -9,6 +9,56 @@ diretamente. Reconfira antes do go-live.
 
 ---
 
+## ✅ Correção dos 4 achados confirmados pela auditoria — 2026-08-25
+
+Fecha os 4 achados marcados como CONFIRMADOS na entrada de auditoria
+abaixo (o usuário escolheu "Corrigir os 4 confirmados agora").
+
+1. **`next/image` sem tratamento de erro** — corrigido centralizando a
+   validação de host em `lib/storage.ts:imageUrl()` (mesma allowlist de
+   `next.config.ts`, fallback local se o host não for permitido) e
+   migrando todo componente que renderizava imagem de anúncio/lote/
+   evento direto (`AdCardHome`, `AdCard`, `AdGallery`,
+   `SimilarAdsCarousel`, `MyAdsTab`, `LotGrid`, `EventCard`,
+   `eventos/[id]`, `AuctionsBrowser`) pra usar essa função em vez de
+   reimplementações locais divergentes (uma das causas do bug: 4
+   versões diferentes da mesma lógica, nenhuma validando host).
+2. **Segredos de gateway vazando pro `localStorage`** — `Header.tsx`
+   agora exclui as linhas secretas já na query (não chegam mais ao
+   navegador) e limpa qualquer resíduo no logout.
+   `lib/secret-settings.ts` centraliza a lista de chaves secretas,
+   compartilhada com `app/api/admin/settings/route.ts` (antes cada
+   arquivo tinha a sua própria cópia da lista).
+3. **Denúncia anônima sempre falhava** — migration
+   `20260825120000_fix_anonymous_report_rls.sql` corrige a policy RLS
+   (`auth.uid() = reporter_id` não cobria o caso NULL=NULL) **e** remove
+   o `NOT NULL` da coluna `reporter_id`, que também bloqueava sozinho.
+4. **Badge de data errado em `/eventos`** — `EventCard.tsx` e `page.tsx`
+   agora compartilham uma função só (`lib/event-date.ts`), extraída do
+   parser já corrigido numa rodada anterior, pra badge e ordenação nunca
+   mais divergirem.
+
+Validado ao vivo pra cada um (recriando o cenário de teste, confirmando
+o comportamento correto, e removendo o dado de teste com exclusão
+confirmada por leitura independente): Home renderiza normal com um
+anúncio de imagem em host proibido; 0 chaves secretas no `localStorage`
+de uma sessão admin de teste; `POST` anônimo em `/rest/v1/reports`
+retorna 201 com `reporter_id: null`; badge "12 NOV" certo pro Congresso
+Leiteiro.
+
+**Limitação residual conhecida, não corrigida nesta rodada:** o parser
+de data em texto livre (`lib/event-date.ts`) escolhe o dia errado em
+intervalos no formato "DD a DD de Mês" (ex.: "15 a 18 de Agosto" vira
+badge "18 AGO" em vez de "15 AGO") — o regex não consegue pular o
+primeiro número quando o segundo aparece antes do nome do mês. Não é o
+que a auditoria reportou (que era abreviação de mês inválida, já
+corrigido) e só afeta esse formato específico de intervalo — registrado
+aqui pra não ser perdido.
+
+Commit `9bee8a9`.
+
+---
+
 ## 🔍 Auditoria multi-agente completa (site + admin), com verificação adversarial — 2026-08-25
 
 Pedido: "realizar teste novamente completo com todas funcionalidades do site
