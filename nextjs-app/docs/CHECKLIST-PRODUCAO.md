@@ -9,6 +9,82 @@ diretamente. Reconfira antes do go-live.
 
 ---
 
+## ✅ Validação do zero — 26 achados, incluindo regressões da própria correção anterior — 2026-08-26
+
+Pedido: "realizar uma nova validação do zero, analisar erros, falhar,
+regras de negocio detalhadamente" — auditoria completa via workflow de 16
+agentes (5 revisão de código em paralelo, 3 testes ao vivo sequenciais,
+8 verificações adversariais), tratando cada achado da rodada anterior
+como não-confirmado até reproduzir de novo. 26 achados confirmados de
+forma independente; o usuário aprovou corrigir todos.
+
+**Achado mais importante desta rodada**: os 2 bugs mais graves não eram
+antigos — eram **regressões da minha própria correção de proration da
+Stripe do dia anterior** (25/08). Ilustra bem por que "revalidar do
+zero" vale a pena mesmo logo depois de uma rodada de correções.
+
+### 🔴 Críticos — já ao vivo em produção
+
+1. **INSERT direto pulava moderação E destaque por completo.**
+   `guard_ad_moderation`/`guard_ad_featured` só existiam como `before
+   update` — a policy de INSERT não checa status/featured. Confirmado ao
+   vivo: usuário Grátis publicava anúncio já `active` e `featured:true`
+   num único POST, sem revisão nenhuma. Corrigido: os dois triggers
+   agora cobrem `insert or update`.
+2. **Chave de idempotência da Stripe sem nonce por tentativa** — repetir
+   uma troca de plano já feita antes na mesma assinatura (ex.:
+   PRO→Premium→PRO de novo) fazia a Stripe devolver a resposta em cache
+   sem aplicar a troca real, com o banco gravando sucesso mesmo assim.
+   Corrigido usando o `checkoutId` (gerado por abertura do modal) como
+   nonce. Validado com 3 chamadas reais contra o sandbox da Stripe.
+3. **`user_secrets.plan_id` nunca sincronizava após troca nativa de
+   plano** — a coluna que a cota/fotos/destaque leem. Cliente pagava o
+   upgrade e continuava com os limites antigos até a próxima renovação
+   natural. Corrigido sincronizando direto no checkout.
+4. **Troca só de ciclo (mensal↔anual) no mesmo plano escapava da
+   proteção anti-duplicidade** da rodada anterior — `isPlanSwitch` só
+   comparava `plan.name`. Também corrigido: assinatura 100%-off (cupom)
+   nunca fechava ao trocar pra um plano pago de verdade.
+
+### 🟠 Alto
+5. `/listagem` quebrava no mobile — `.desktop-only` sem CSS nenhuma
+   (grid de anúncios ficava em ~31px real). Corrigido; FAB duplicado
+   morto removido.
+
+### 🟡 Médio (11 itens)
+Vídeo de anúncio ativo editável sem re-moderação · função de cron dos
+leilões chamável por anônimo · lance forjável via INSERT direto
+(bypassa a RPC) · erro cru da Stripe vazado ao cliente · webhook
+sobrescrevia selo revogado manualmente a cada renovação ·
+`/admin/assinaturas` sempre com e-mail vazio · KPI "Denúncias Abertas"
+comparava com valor de enum inexistente · `/admin/planos` sem UI pra
+vídeo/banner · colunas órfãs em `profiles` + trigger legado lendo fonte
+errada · função de expiração sem `search_path` travado · default de
+status de leilão fora do vocabulário real.
+
+### 🟢 Baixo (7 itens)
+Destacar exige anúncio ativo · `/sucesso` não afirma mais estado que não
+confirma · banner de perfil antigo removido do storage ao trocar · falha
+de rede não trava mais silenciosamente o limite de fotos · FAQ sem
+promessa de Pix/boleto (ninguém aceita) + seletor de método morto
+removido · FAQ de pro-rata sem afirmar fatura visível no downgrade ·
+policy de storage escopada só ao bucket certo.
+
+Validado: `tsc --noEmit`, `vitest run` (119/119), `next build` limpos.
+3 baterias de teste contra a API real da Stripe sandbox, asserções
+diretas no banco pra cada RLS/trigger/grant novo, e verificação de UI ao
+vivo (mobile em duas larguras de viewport, checkboxes salvando de
+verdade, e-mail de assinante aparecendo).
+
+**Não corrigido nesta rodada**: `profiles.is_admin/is_blocked/plan/
+plan_id` continuam existindo (21/14/1 linhas com dado real) — só o
+trigger que as lia errado foi corrigido; dropar as colunas de fato fica
+pra uma decisão separada.
+
+Commit `50861e7`.
+
+---
+
 ## ✅ Correção dos itens restantes da revisão de regras de negócio — 2026-08-25
 
 Pedido: "aplicar demais correções" — fecha os 3 itens que a rodada
