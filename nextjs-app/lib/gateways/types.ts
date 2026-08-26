@@ -88,4 +88,20 @@ export interface GatewayAdapter {
     phone: string | undefined,
     ip: string
   ): Promise<string>
+  // Só a Stripe implementa: troca o preço de uma assinatura JÁ EXISTENTE
+  // (em vez de criar uma nova) via items[].price_data na mesma chamada de
+  // update, usando o suporte nativo de proration da própria Stripe.
+  // `prorate=true` (upgrade) cobra a diferença proporcional agora
+  // (proration_behavior=always_invoice); `prorate=false` (downgrade) só
+  // aplica o preço novo na próxima fatura, sem cobrar nem creditar nada
+  // agora (proration_behavior=none) — exatamente as duas promessas do FAQ
+  // de /planos ("upgrade cobra pro-rata"/"downgrade muda no próximo
+  // ciclo"). Os demais gateways não têm essa API pronta — teriam que
+  // simular na mão, então não implementam este método; o checkout cai de
+  // volta no caminho de cancelar a antiga e criar uma nova.
+  updateSubscriptionPlan?(
+    gatewaySubscriptionId: string,
+    plan: GatewayPlan,
+    prorate: boolean
+  ): Promise<{ gatewaySubscriptionId: string }>
 }

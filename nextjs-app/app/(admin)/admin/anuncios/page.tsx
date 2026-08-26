@@ -60,6 +60,22 @@ export default function AdminAnuncios() {
     }
   }
 
+  // GAP CORRIGIDO (revisão de regras de negócio, 2026-08-25): esta tela
+  // nunca teve botão de destacar, apesar de plans.highlight_count ser
+  // vendido em /planos. O banco já reforça quem pode escrever (guard_ad_
+  // featured) e agora também quanto (limite de highlight_count do plano do
+  // dono) — este botão é o único caminho de UI que usa isso.
+  const handleToggleFeatured = async (adId: string, currentFeatured: boolean) => {
+    const supabase = getSupabase()
+    const { error } = await supabase.from('ads').update({ featured: !currentFeatured }).eq('id', adId)
+    if (!error) {
+      setAds(ads.map(a => a.id === adId ? { ...a, featured: !currentFeatured } : a))
+      showToast(currentFeatured ? 'Destaque removido.' : 'Anúncio destacado!', 'success')
+    } else {
+      showToast('Erro ao destacar: ' + error.message, 'error')
+    }
+  }
+
   const handleBulkStatusUpdate = async (newStatus: string) => {
     if (selectedIds.length === 0) return
     const supabase = getSupabase()
@@ -166,11 +182,12 @@ export default function AdminAnuncios() {
         <div>
           <h1 className="adm-page-title">Gerenciar Anúncios</h1>
           {/* GAP CORRIGIDO (auditoria completa, 2026-08-25): o subtítulo
-              prometia "destaque" e "remova", mas esta tela nunca teve botão
-              de destacar (featured) nem de excluir — só aprovar/rejeitar/
-              pausar (individual e em massa). Texto ajustado pra descrever
-              o que a tela realmente faz. */}
-          <p className="adm-page-sub">Aprove, rejeite ou pause anúncios do portal.</p>
+              prometia "destaque" e "remova". Na época esta tela não tinha
+              nem um nem outro, só aprovar/rejeitar/pausar — texto foi
+              ajustado. Destacar foi implementado numa rodada seguinte
+              (revisão de regras de negócio, 2026-08-25) — "remova"
+              (excluir anúncio) continua não existindo nesta tela. */}
+          <p className="adm-page-sub">Aprove, rejeite, pause ou destaque anúncios do portal.</p>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
           <button className="adm-btn adm-btn--outline" onClick={handleExport}>
@@ -290,6 +307,16 @@ export default function AdminAnuncios() {
                       )}
                       {ad.status === 'active' && (
                         <button className="adm-btn adm-btn--sm adm-btn--outline" onClick={() => handleStatusUpdate(ad.id, 'paused')} title="Pausar">Pausar</button>
+                      )}
+                      {ad.status === 'active' && (
+                        <button
+                          className="adm-btn adm-btn--sm adm-btn--outline"
+                          style={ad.featured ? { color: 'var(--adm-amber)', borderColor: 'var(--adm-amber)' } : undefined}
+                          onClick={() => handleToggleFeatured(ad.id, !!ad.featured)}
+                          title={ad.featured ? 'Remover destaque' : 'Destacar (respeita o limite do plano do vendedor)'}
+                        >
+                          {ad.featured ? '★ Remover' : '☆ Destacar'}
+                        </button>
                       )}
                       <Link href={`/anuncio/${ad.id}`} target="_blank" className="adm-btn adm-btn--sm adm-btn--outline" style={{ display: 'grid', placeItems: 'center', padding: '0 8px' }} title="Visualizar Anúncio na Loja">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>

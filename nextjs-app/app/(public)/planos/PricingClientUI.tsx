@@ -138,6 +138,11 @@ export default function PricingClientUI({ initialPlans }: { initialPlans: Plan[]
   const pro = initialPlans.find(p => p.tier === 'pro' || p.sort_order === 2) || ({} as Plan)
   const premium = initialPlans.find(p => p.tier === 'premium' || p.sort_order === 3) || ({} as Plan)
 
+  // GAP CORRIGIDO (revisão de regras de negócio, 2026-08-25): a tabela
+  // comparativa hardcodava "R$" enquanto os cards logo acima já usavam
+  // plan.currency dinamicamente — mesma classe do fix em CheckoutModal.tsx.
+  const currencySymbol = (p: Plan) => (p.currency === 'BRL' || !p.currency) ? 'R$' : p.currency
+
   const hasSelo = (p: Plan) => {
     return p.featuresList?.some(feat => feat.toLowerCase().includes('selo')) || false
   }
@@ -351,9 +356,9 @@ export default function PricingClientUI({ initialPlans }: { initialPlans: Plan[]
                 </tr>
                 <tr>
                   <td><span className={styles.featName}>Preço</span></td>
-                  <td><strong style={{color: '#818cf8'}}>{free.price <= 0 ? 'Grátis' : 'R$'+free.price+'/mês'}</strong></td>
-                  <td><strong style={{color: '#22c55e'}}>R${pro.price}/mês</strong></td>
-                  <td><strong style={{color: '#f59e0b'}}>R${premium.price}/mês</strong></td>
+                  <td><strong style={{color: '#818cf8'}}>{free.price <= 0 ? 'Grátis' : currencySymbol(free)+free.price+'/mês'}</strong></td>
+                  <td><strong style={{color: '#22c55e'}}>{currencySymbol(pro)}{pro.price}/mês</strong></td>
+                  <td><strong style={{color: '#f59e0b'}}>{currencySymbol(premium)}{premium.price}/mês</strong></td>
                 </tr>
               </tbody>
             </table>
@@ -368,10 +373,17 @@ export default function PricingClientUI({ initialPlans }: { initialPlans: Plan[]
             question="Como faço para cancelar minha assinatura?" 
             answer="Você pode cancelar a qualquer momento pelo seu painel, na aba 'Assinatura'. O acesso ao plano continua até o fim do período pago. Não há multa ou fidelidade." 
           />
-          <FAQItem 
+          <FAQItem
             id="mudanca-plano"
-            question="Posso mudar de plano no meio do mês?" 
-            answer="Sim! Você pode fazer upgrade ou downgrade a qualquer momento. No upgrade, o valor é cobrado de forma proporcional (pro-rata). No downgrade, a mudança ocorre no próximo ciclo." 
+            question="Posso mudar de plano no meio do mês?"
+            // TEXTO AJUSTADO (revisão de regras de negócio, 2026-08-25): a
+            // versão antiga prometia pro-rata no upgrade e "próximo ciclo"
+            // no downgrade pra TODOS os métodos de pagamento — só a Stripe
+            // (usuário internacional) tem essa API pronta. Mercado Pago,
+            // Pagar.me e Asaas (a maioria dos usuários, nacional) trocam de
+            // plano cobrando o valor cheio na hora, sem pro-rata. Texto
+            // ajustado pra não prometer o que nem todo gateway cumpre.
+            answer="Sim! Você pode fazer upgrade ou downgrade a qualquer momento — a troca é aplicada imediatamente. Dependendo do seu método de pagamento, a cobrança do plano novo pode ser proporcional aos dias restantes ou no valor cheio; qualquer diferença aparece certinha no seu histórico de faturas."
           />
           <FAQItem 
             id="pagamento"

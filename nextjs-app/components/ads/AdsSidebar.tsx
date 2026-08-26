@@ -150,9 +150,15 @@ export default function AdsSidebar() {
         </div>
       </FilterGroup>
 
+      {/* GAP CORRIGIDO (revisão de regras de negócio, 2026-08-25): "R$"
+          fixo aqui era enganoso — o site tem anúncios reais em ARS/UYU/USD
+          e este filtro compara o valor numérico cru sem conversão de
+          moeda (limitação conhecida, não corrigida nesta rodada — exigiria
+          câmbio). Remover o símbolo fixo evita afirmar uma moeda errada
+          pro usuário; o valor buscado é sempre o preço no anúncio como
+          está cadastrado, seja qual for a moeda dele. */}
       <FilterGroup title={t.priceRange}>
         <div className="price-input-group">
-          <span className="price-currency">R$</span>
           <input type="number" className="price-input-clean" placeholder={t.min} aria-label={t.min}
             value={precoMin} onChange={e => setPrecoMin(e.target.value)} />
           <div className="price-divider"></div>

@@ -28,6 +28,16 @@ export function AdMessageForm({ adId, receiverId }: AdMessageFormProps) {
       return;
     }
 
+    // GAP CORRIGIDO (revisão de regras de negócio, 2026-08-25): insert
+    // direto sem nenhum limite de taxa — mesmo padrão já usado em
+    // check_rate_limit (janela no Postgres, liberado pra authenticated).
+    const { data: dentroDoLimite } = await sb.rpc('check_rate_limit', { p_bucket: `message_user_${session.user.id}`, p_limit: 10, p_window_seconds: 60 })
+    if (dentroDoLimite === false) {
+      setMsgStatus({ type: 'error', text: 'Muitas mensagens em pouco tempo. Aguarde um momento.' });
+      setMsgSending(false);
+      return;
+    }
+
     const { error } = await sb.from('messages').insert({
       ad_id: adId,
       sender_id: session.user.id,

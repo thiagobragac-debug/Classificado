@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { updateProfile, getSupabase } from '@/lib/supabase';
-import { resendVerificationEmail, uploadKycDocument } from '@/lib/supabase-panel';
+import { resendVerificationEmail } from '@/lib/supabase-panel';
 import { showToast } from '@/lib/toast';
 import styles from '../painel.module.css';
 import { Lock } from 'lucide-react';
@@ -30,10 +30,7 @@ type ProfileFormValues = z.infer<typeof profileSchema>;
 
 export function ProfileTab({ user }: { user: any }) {
   const [saving, setSaving] = useState(false);
-  const [docFile, setDocFile] = useState<File | null>(null);
-  const [selfieFile, setSelfieFile] = useState<File | null>(null);
-  const [kycLoading, setKycLoading] = useState(false);
-  const [kycStatus, setKycStatus] = useState<string | undefined>(user.profile?.kyc_status);
+  const [kycStatus] = useState<string | undefined>(user.profile?.kyc_status);
 
   // GAP CORRIGIDO (revisão de regras de negócio, 2026-08-25): "Banner de
   // perfil" é vendido pro Premium (has_banner) mas nunca teve tela de
@@ -133,10 +130,24 @@ export function ProfileTab({ user }: { user: any }) {
   const onSubmit = async (data: ProfileFormValues) => {
     setSaving(true);
     try {
-      await updateProfile(user.id, data);
+      // GAP CORRIGIDO (revisão de regras de negócio, 2026-08-25): salvava o
+      // CPF/CNPJ exatamente como digitado (com ou sem pontuação) — o
+      // mesmo documento em dois formatos diferentes ("123.456.789-00" vs
+      // "12345678900") passaria pela constraint UNIQUE do banco como se
+      // fossem documentos diferentes. Normaliza pra só dígitos, mesmo
+      // padrão já usado em VerificacaoClient.tsx e no checkout.
+      const payload = {
+        ...data,
+        document_number: data.document_number ? data.document_number.replace(/\D/g, '') : data.document_number,
+      };
+      await updateProfile(user.id, payload);
       showToast('Perfil salvo com sucesso!', 'success');
-    } catch {
-      showToast('Erro ao salvar perfil.', 'error');
+    } catch (err: any) {
+      if (err?.code === '23505') {
+        showToast('Este CPF/CNPJ já está cadastrado em outra conta.', 'error');
+      } else {
+        showToast('Erro ao salvar perfil.', 'error');
+      }
     } finally {
       setSaving(false);
     }
@@ -149,24 +160,6 @@ export function ProfileTab({ user }: { user: any }) {
       showToast('E-mail de confirmação reenviado!', 'success');
     } catch {
       showToast('Erro ao reenviar e-mail.', 'error');
-    }
-  };
-
-  const handleKycSubmit = async () => {
-    if (!docFile || !selfieFile) {
-      showToast('Selecione os dois arquivos antes de enviar.', 'warning');
-      return;
-    }
-    setKycLoading(true);
-    try {
-      await uploadKycDocument(docFile, selfieFile);
-      showToast('Documentos enviados para análise!', 'success');
-      if (user.profile) user.profile.kyc_status = 'pending';
-      setKycStatus('pending');
-    } catch {
-      showToast('Erro ao enviar documentos.', 'error');
-    } finally {
-      setKycLoading(false);
     }
   };
 
@@ -349,23 +342,23 @@ export function ProfileTab({ user }: { user: any }) {
                   )}
                 </div>
                 <p style={{ color: 'var(--clr-text-muted)', fontSize: '.9rem', marginBottom: '1rem' }}>Envie RG/CNH e selfie.</p>
-                
+
+                {/* BUG CORRIGIDO (revisão de regras de negócio, 2026-08-25):
+                    esta tela tinha seu PRÓPRIO formulário de envio de KYC,
+                    duplicado e quebrado — updateProfile tentava gravar
+                    kyc_status direto (coluna privilegiada, guard_profile_
+                    verification bloqueia qualquer escrita fora de
+                    service_role) e nunca criava a linha em
+                    verification_requests que a fila do admin lê. Os
+                    arquivos subiam pro bucket e ficavam órfãos; o usuário só
+                    via "Erro ao enviar documentos.". O fluxo real e
+                    funcional é /painel/verificacao (cria a solicitação
+                    corretamente) — em vez de manter dois caminhos pro mesmo
+                    fim, este vira um link pro que já funciona. */}
                 {(!kycStatus || !['pending', 'approved'].includes(kycStatus)) && (
-                  <>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '.75rem' }}>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '.5rem', padding: '.75rem', border: '1.5px dashed var(--clr-border-light)', borderRadius: '.75rem', cursor: 'pointer', background: 'var(--clr-bg-alt)' }}>
-                        <span style={{ fontSize: '.75rem', fontWeight: 700 }}>{docFile ? docFile.name : 'RG/CNH'}</span>
-                        <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => setDocFile(e.target.files?.[0] || null)} />
-                      </label>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '.5rem', padding: '.75rem', border: '1.5px dashed var(--clr-border-light)', borderRadius: '.75rem', cursor: 'pointer', background: 'var(--clr-bg-alt)' }}>
-                        <span style={{ fontSize: '.75rem', fontWeight: 700 }}>{selfieFile ? selfieFile.name : 'Selfie'}</span>
-                        <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => setSelfieFile(e.target.files?.[0] || null)} />
-                      </label>
-                    </div>
-                    <button type="button" onClick={handleKycSubmit} disabled={kycLoading} className={styles.primaryButton} style={{ width: '100%', justifyContent: 'center', marginTop: '1rem', background: '#0f172a' }}>
-                      {kycLoading ? 'Enviando...' : 'Enviar Documentos'}
-                    </button>
-                  </>
+                  <a href="/painel/verificacao" className={styles.primaryButton} style={{ width: '100%', justifyContent: 'center', background: '#0f172a', textDecoration: 'none' }}>
+                    Enviar Documentos
+                  </a>
                 )}
               </div>
             </div>

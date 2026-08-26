@@ -108,36 +108,14 @@ export async function POST(req: Request) {
     // falhar, bloqueia a troca em vez de arriscar dupla cobrança.
     const { data: existingActiveSub } = await supabase
       .from('subscriptions')
-      .select('id, gateway, gateway_subscription_id, plan')
+      .select('id, gateway, gateway_subscription_id, plan, price')
       .eq('user_id', user.id)
       .eq('status', 'active')
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
 
-    if (existingActiveSub && existingActiveSub.plan !== plan.name && existingActiveSub.gateway_subscription_id) {
-      let oldAdapter: GatewayAdapter | null = null
-      switch (existingActiveSub.gateway) {
-        case 'stripe': if (settings['stripe_secret_key']) oldAdapter = stripeAdapter(settings['stripe_secret_key']); break
-        case 'mercadopago': if (settings['mp_access_token']) oldAdapter = mercadoPagoAdapter(settings['mp_access_token']); break
-        case 'pagarme': if (settings['pagarme_api_key']) oldAdapter = pagarmeAdapter(settings['pagarme_api_key']); break
-        case 'asaas': if (settings['asaas_api_key']) oldAdapter = asaasAdapter(settings['asaas_api_key'], (settings['asaas_environment'] as 'sandbox' | 'production') || 'sandbox'); break
-      }
-      if (!oldAdapter) {
-        return NextResponse.json({ error: 'Não foi possível verificar sua assinatura atual. Contate o suporte antes de trocar de plano.' }, { status: 503 })
-      }
-      try {
-        await oldAdapter.cancelSubscription(existingActiveSub.gateway_subscription_id)
-        await supabase.from('subscriptions').update({
-          status: 'cancelled',
-          cancel_at_period_end: false,
-          updated_at: new Date().toISOString(),
-        }).eq('id', existingActiveSub.id)
-      } catch (cancelErr: any) {
-        console.error('[Checkout] Failed to cancel previous subscription before plan switch:', cancelErr.message)
-        return NextResponse.json({ error: 'Não foi possível migrar da assinatura atual automaticamente. Cancele-a antes de assinar outro plano, ou contate o suporte.' }, { status: 409 })
-      }
-    }
+    const isPlanSwitch = !!(existingActiveSub && existingActiveSub.plan !== plan.name && existingActiveSub.gateway_subscription_id)
 
     // --- Build adapter with keys from DB ---
     let adapter: GatewayAdapter
@@ -232,6 +210,93 @@ export async function POST(req: Request) {
       // real column: 'name' (no full_name). billingData.name takes priority if provided
       name: billingData?.name || profile?.display_name || profile?.name || user.email,
       country: userCountry,
+    }
+
+    // --- Troca de plano com assinatura já existente ---
+    //
+    // BUG CORRIGIDO (revisão de regras de negócio, 2026-08-25): não havia
+    // nenhuma checagem de assinatura ativa antes de criar uma nova — um
+    // "upgrade" (ou troca pra outro plano pago) podia criar uma SEGUNDA
+    // assinatura ativa em paralelo à antiga, cobrando o cliente duas vezes
+    // no gateway.
+    //
+    // Quando dá pra trocar a MESMA assinatura na Stripe (gateway atual e
+    // antigo são os dois Stripe), usa o suporte nativo de proration dela —
+    // é o único gateway com essa API pronta. Isso resolve as duas
+    // promessas do FAQ de /planos de uma vez: upgrade cobra a diferença
+    // proporcional agora (proration_behavior=always_invoice), downgrade só
+    // aplica o preço novo na próxima fatura, sem cobrar nem creditar nada
+    // agora (proration_behavior=none) — o `prorate` abaixo é essa decisão,
+    // baseada em qual preço é maior.
+    //
+    // Pros demais gateways (sem essa API) ou troca entre gateways
+    // diferentes, cai no caminho antigo: cancela a assinatura anterior e
+    // cria uma nova — cobrança imediata do valor cheio do plano novo, sem
+    // pro-rata nem agendamento (limitação conhecida, documentada no
+    // checklist).
+    if (isPlanSwitch && existingActiveSub!.gateway === gatewayName && gatewayName === 'stripe' && adapter.updateSubscriptionPlan) {
+      const prorate = finalPrice > Number(existingActiveSub!.price ?? 0)
+      try {
+        if (appliedCoupon) {
+          const { data: success, error: rpcErr } = await supabase.rpc('try_apply_coupon', { p_coupon_id: appliedCoupon.id })
+          if (rpcErr || success === false) {
+            return NextResponse.json({ error: 'O limite de uso deste cupom acabou de ser atingido por outro usuário.' }, { status: 400 })
+          }
+        }
+
+        await adapter.updateSubscriptionPlan(existingActiveSub!.gateway_subscription_id!, gatewayPlan, prorate)
+
+        await supabase.from('subscriptions').update({
+          plan: plan.name,
+          price: finalPrice,
+          billing_cycle: cycle,
+          updated_at: new Date().toISOString(),
+        }).eq('id', existingActiveSub!.id)
+
+        return NextResponse.json({
+          success: true,
+          checkoutUrl: null,
+          gateway: gatewayName,
+          sessionId: null,
+          planSwitch: true,
+          prorated: prorate,
+        })
+      } catch (switchErr: any) {
+        if (appliedCoupon) {
+          await supabase.rpc('revert_coupon_usage', { p_coupon_id: appliedCoupon.id })
+        }
+        console.error('[Checkout] Failed to switch plan on existing subscription:', switchErr.message)
+        return NextResponse.json({ error: 'Não foi possível trocar de plano: ' + switchErr.message }, { status: 502 })
+      }
+    }
+
+    // Fallback (gateways sem update nativo, ou troca entre gateways
+    // diferentes): cancela a assinatura anterior antes de prosseguir pro
+    // fluxo normal de criação — nunca deixa duas assinaturas ativas em
+    // paralelo. Se o cancelamento falhar, bloqueia a troca em vez de
+    // arriscar dupla cobrança.
+    if (isPlanSwitch) {
+      let oldAdapter: GatewayAdapter | null = null
+      switch (existingActiveSub!.gateway) {
+        case 'stripe': if (settings['stripe_secret_key']) oldAdapter = stripeAdapter(settings['stripe_secret_key']); break
+        case 'mercadopago': if (settings['mp_access_token']) oldAdapter = mercadoPagoAdapter(settings['mp_access_token']); break
+        case 'pagarme': if (settings['pagarme_api_key']) oldAdapter = pagarmeAdapter(settings['pagarme_api_key']); break
+        case 'asaas': if (settings['asaas_api_key']) oldAdapter = asaasAdapter(settings['asaas_api_key'], (settings['asaas_environment'] as 'sandbox' | 'production') || 'sandbox'); break
+      }
+      if (!oldAdapter) {
+        return NextResponse.json({ error: 'Não foi possível verificar sua assinatura atual. Contate o suporte antes de trocar de plano.' }, { status: 503 })
+      }
+      try {
+        await oldAdapter.cancelSubscription(existingActiveSub!.gateway_subscription_id!)
+        await supabase.from('subscriptions').update({
+          status: 'cancelled',
+          cancel_at_period_end: false,
+          updated_at: new Date().toISOString(),
+        }).eq('id', existingActiveSub!.id)
+      } catch (cancelErr: any) {
+        console.error('[Checkout] Failed to cancel previous subscription before plan switch:', cancelErr.message)
+        return NextResponse.json({ error: 'Não foi possível migrar da assinatura atual automaticamente. Cancele-a antes de assinar outro plano, ou contate o suporte.' }, { status: 409 })
+      }
     }
 
     // --- Idempotency: prevent double checkout (e.g., double-click or page refresh) ---

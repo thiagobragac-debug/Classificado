@@ -108,6 +108,68 @@ export function stripeAdapter(secretKey: string): GatewayAdapter {
       return { checkoutUrl: '', sessionId: subscription.id, gatewaySubscriptionId: subscription.id, gatewayCustomerId: customer.id }
     },
     
+    async updateSubscriptionPlan(gatewaySubscriptionId, plan, prorate) {
+      // 1. Busca a assinatura real pra achar o item a trocar (subscriptions
+      // têm 1 item só neste app, mas a API sempre exige o id do item).
+      const getRes = await fetch(`https://api.stripe.com/v1/subscriptions/${gatewaySubscriptionId}`, {
+        headers: { 'Authorization': `Bearer ${secretKey}` }
+      })
+      if (!getRes.ok) {
+        throw new Error(`Stripe erro ao buscar assinatura: ${await getRes.text()}`)
+      }
+      const existingSub = await getRes.json()
+      const itemId = existingSub.items?.data?.[0]?.id
+      if (!itemId) {
+        throw new Error('Stripe: assinatura existente sem item — não é possível trocar o preço.')
+      }
+
+      // 2. Cria um Product novo pro plano novo (preço final varia por
+      // cupom, mesma razão de createSubscription não reaproveitar Products).
+      const prodParams = new URLSearchParams()
+      prodParams.append('name', plan.name)
+      const prodRes = await fetch('https://api.stripe.com/v1/products', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${secretKey}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Idempotency-Key': `stripe_prod_update_${gatewaySubscriptionId}_${plan.id}`,
+        },
+        body: prodParams.toString()
+      })
+      if (!prodRes.ok) {
+        throw new Error(`Stripe erro ao criar produto: ${await prodRes.text()}`)
+      }
+      const product = await prodRes.json()
+
+      // 3. Atualiza a assinatura existente com o preço novo no MESMO item —
+      // troca de plano continua sendo 1 assinatura só na Stripe, não duas.
+      // proration_behavior é o que decide upgrade (cobra agora) vs
+      // downgrade (só na próxima fatura) — documentado na interface.
+      const updateParams = new URLSearchParams()
+      updateParams.append('items[0][id]', itemId)
+      updateParams.append('items[0][price_data][currency]', 'brl')
+      updateParams.append('items[0][price_data][product]', product.id)
+      updateParams.append('items[0][price_data][recurring][interval]', plan.billingCycle === 'annual' ? 'year' : 'month')
+      updateParams.append('items[0][price_data][unit_amount]', Math.round(plan.price * 100).toString())
+      updateParams.append('proration_behavior', prorate ? 'always_invoice' : 'none')
+      updateParams.append('metadata[plan_id]', plan.id)
+
+      const updateRes = await fetch(`https://api.stripe.com/v1/subscriptions/${gatewaySubscriptionId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${secretKey}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Idempotency-Key': `stripe_sub_update_${gatewaySubscriptionId}_${plan.id}_${prorate}`,
+        },
+        body: updateParams.toString()
+      })
+      if (!updateRes.ok) {
+        throw new Error(`Stripe erro ao trocar plano da assinatura: ${await updateRes.text()}`)
+      }
+      const updated = await updateRes.json()
+      return { gatewaySubscriptionId: updated.id }
+    },
+
     async validateWebhook(body, headers, secret) {
       const sigHeader = headers['stripe-signature']
       if (!sigHeader) throw new Error('Missing Stripe signature')

@@ -54,6 +54,22 @@ export function AdReportModal({ adId, isOpen, onClose }: AdReportModalProps) {
     const sb = getSupabase();
     const { data: { session } } = await sb.auth.getSession();
 
+    // GAP CORRIGIDO (revisão de regras de negócio, 2026-08-25): zero rate
+    // limit aqui — um usuário (ou visitante anônimo) podia disparar
+    // denúncias falsas em loop contra o mesmo anúncio. check_rate_limit é
+    // o mesmo RPC (janela no Postgres) que /login já usa, liberado pra
+    // anon/authenticated de propósito. Sem sessão (denúncia anônima, ainda
+    // permitida por design), não tem como saber quem é de verdade —
+    // limita por anúncio em vez de por usuário, pra pelo menos travar
+    // flood contra um alvo só.
+    const bucket = session?.user?.id ? `report_user_${session.user.id}` : `report_ad_${adId}`
+    const { data: dentroDoLimite } = await sb.rpc('check_rate_limit', { p_bucket: bucket, p_limit: 5, p_window_seconds: 60 })
+    if (dentroDoLimite === false) {
+      setErrorMsg('Muitas denúncias em pouco tempo. Aguarde um momento.');
+      setIsSending(false);
+      return;
+    }
+
     const { error } = await sb.from('reports').insert({
       ad_id: adId,
       reporter_id: session?.user?.id ?? null,

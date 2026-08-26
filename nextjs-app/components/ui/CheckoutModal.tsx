@@ -10,6 +10,14 @@ import { initMercadoPago, CardPayment } from '@mercadopago/sdk-react'
 
 type PaymentMethod = 'pix' | 'boleto' | 'card'
 
+// GAP CORRIGIDO (revisão de regras de negócio, 2026-08-25): "R$" estava
+// hardcoded em 4 lugares deste modal, enquanto os cards de /planos (fora
+// deste modal) já mostravam plan.currency dinamicamente. Sem efeito prático
+// hoje (plans.currency é sempre 'BRL' em produção), mas se um dia um plano
+// for cadastrado em outra moeda, o valor cobrado mostrado aqui ficaria
+// errado silenciosamente.
+const CURRENCY_SYMBOLS: Record<string, string> = { BRL: 'R$', USD: 'US$', ARS: 'AR$', PYG: '₲', UYU: '$U' }
+
 // Gateways que tokenizam o cartão no browser. Só eles podem receber pagamento
 // por cartão: os dados vão do navegador direto para o gateway, dentro de um
 // iframe do próprio provedor, e o nosso servidor nunca vê número nem CVV.
@@ -62,6 +70,7 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
         ? basePrice * (1 - coupon.discount_value / 100)
         : Math.max(0, basePrice - coupon.discount_value))
     : basePrice
+  const currencySymbol = CURRENCY_SYMBOLS[plan.currency] || plan.currency || 'R$'
 
   // --- Initialize Gateway and Idempotency ---
   const [checkoutId, setCheckoutId] = useState('')
@@ -257,15 +266,15 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
               {coupon ? (
                 <>
                   <div style={{ textDecoration: 'line-through', color: '#94a3b8', fontSize: '0.9rem' }}>
-                    R$ {basePrice.toFixed(2).replace('.', ',')} {billingCycle === 'annual' ? '/ano' : '/mês'}
+                    {currencySymbol} {basePrice.toFixed(2).replace('.', ',')} {billingCycle === 'annual' ? '/ano' : '/mês'}
                   </div>
                   <div style={{ fontWeight: 800, color: '#10b981', fontSize: '1.3rem' }}>
-                    R$ {finalPrice.toFixed(2).replace('.', ',')} {billingCycle === 'annual' ? '/ano' : '/mês'}
+                    {currencySymbol} {finalPrice.toFixed(2).replace('.', ',')} {billingCycle === 'annual' ? '/ano' : '/mês'}
                   </div>
                 </>
               ) : (
                 <div style={{ fontWeight: 800, color: '#10b981', fontSize: '1.3rem' }}>
-                  R$ {finalPrice.toFixed(2).replace('.', ',')} {billingCycle === 'annual' ? '/ano' : '/mês'}
+                  {currencySymbol} {finalPrice.toFixed(2).replace('.', ',')} {billingCycle === 'annual' ? '/ano' : '/mês'}
                 </div>
               )}
             </div>
@@ -298,7 +307,7 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
                   <div>
                     <div style={{ fontSize: '0.85rem', color: '#10b981', fontWeight: 700 }}>✅ Cupom {coupon.code} aplicado!</div>
                     <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                      Desconto de {coupon.discount_type === 'percentage' ? `${coupon.discount_value}%` : `R$ ${coupon.discount_value}`}
+                      Desconto de {coupon.discount_type === 'percentage' ? `${coupon.discount_value}%` : `${currencySymbol} ${coupon.discount_value}`}
                     </div>
                   </div>
                   <button type="button" onClick={() => { setCoupon(null); setCouponCode('') }}
