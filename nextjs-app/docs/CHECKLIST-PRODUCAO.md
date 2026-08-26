@@ -9,6 +9,108 @@ diretamente. Reconfira antes do go-live.
 
 ---
 
+## ✅ 3ª rodada de validação do zero — varredura completa do site — 2026-08-26
+
+Pedido: "mais uma varredura completa do site inteiro" antes de publicar.
+Workflow de 22 agentes (6 auditoria de código em paralelo + 5 testes ao vivo
+sequenciais + 11 verificações adversariais). Achado mais importante: os 2
+bugs críticos da rodada anterior estavam corrigidos, mas apareceram **12
+achados novos**, incluindo 1 bug de perda de dado real (CPF/endereço) e 1 de
+perda de assinatura em retry — provando de novo que revalidar do zero após
+cada rodada de correção continua valendo a pena. Usuário aprovou corrigir os
+30 achados confirmados (12 altos + 7 médios + 11 baixos).
+
+### 🔴 Altos (12)
+
+1. **CPF/CNPJ e endereço apagados em qualquer "Salvar Perfil"** —
+   `painel/page.tsx` só buscava `plan` de `user_secrets`; os demais campos
+   chegavam sempre vazios no formulário, e salvar qualquer coisa (até só a
+   bio) sobrescrevia o dado real com string vazia. Corrigido buscando os
+   campos certos.
+2. **Vendedor não conseguia reativar anúncio pausado por ele mesmo** —
+   `guard_ad_moderation` (estendido pra INSERT na rodada anterior) tratava
+   `paused→active` como se fosse pular a fila de moderação. Corrigido:
+   reativação pura (sem editar conteúdo junto) é self-service.
+3. **Reenviar o mesmo `checkoutId` com plano diferente cancelava a
+   assinatura ativa de verdade antes de falhar** — o lock de idempotência
+   (INSERT com PK) só era adquirido depois da troca/cancelamento no
+   gateway. Corrigido: lock adquirido ANTES de qualquer ação no gateway.
+4. **Upgrade de plano liberava o entitlement mesmo se a cobrança de
+   proração falhasse depois** — sem reconciliação. Redesenhado: o
+   entitlement de upgrade agora só é concedido pelo webhook
+   (`subscription.plan_changed`, i.e. fatura de proração paga de verdade),
+   não mais na hora em que a chamada de troca retorna 200.
+5. **`enforce_plan_expiration` lia `profiles.plan`**, coluna que nenhum
+   código grava (real é `user_secrets.plan`) — o freio de segurança nunca
+   disparava pra nenhuma assinatura real. Corrigido.
+6. **`ads.expires_at` nunca era conferido** — 12 anúncios vencidos há
+   semanas continuavam `active` em produção. Corrigido com cron
+   `expire_ads` a cada 15 min (achado e corrigido de carona: o trigger de
+   busca textual quebrava dentro dessa função por causa de `unaccent`
+   sem schema qualificado sob `search_path=''`).
+7. **Erro cru do gateway vazava pro cliente** em `subscriptions/cancel` e
+   no fluxo de assinatura nova de `checkout/route.ts` (só a troca de
+   plano já tinha sido sanitizada). Corrigido nos dois.
+8. **Home mostrava eventos já passados há meses** em "Próximos Eventos" —
+   `getServerUpcomingEvents` não usava o parser de data em texto livre já
+   corrigido em `/eventos`. Corrigido.
+9. **Card Payment Brick do Mercado Pago falhava ao inicializar** —
+   `initialization`/`onSubmit` inline no `CheckoutModal` recriados a cada
+   re-render, causando corrida no `useEffect` do SDK. Corrigido com
+   `useMemo`/`useCallback`+ref.
+10. **Badge de KYC nunca mostrava "Em Análise"** após envio real —
+    nenhum trigger tocava `profiles.kyc_status` no INSERT de
+    `verification_requests`. Corrigido.
+11. **Lance rápido do leilão ignorava `event.step`** — podia deixar um
+    lote sem nenhuma forma válida de dar lance pela UI. Corrigido:
+    incrementos respeitam `step`, com campo de valor manual como
+    alternativa sempre disponível.
+12. **Leilão ao vivo sem atualização em tempo real** — Realtime nunca
+    esteve habilitado pra NENHUMA tabela do projeto (achado de carona:
+    `messages`, o chat comprador↔vendedor, tinha o mesmo problema).
+    Corrigido: subscription no client + `auction_lots`/`messages`
+    adicionadas à publicação `supabase_realtime`.
+
+### 🟡 Médios (7)
+`validate-coupon` sem auth/rate limit (enumeração de cupom) ·
+`enforce_ad_quota` sem bypass de admin (travava aprovação manual) ·
+metadata `billing_cycle` da Stripe não sincronizava em troca de ciclo ·
+downgrade de plano tirava vídeo/banner/destaque na hora, mesmo já pago no
+ciclo atual (agora só aplica no próximo ciclo, junto com o preço) ·
+JSON-LD de `/eventos` com datas quebradas (SEO) · páginas institucionais
+sem metadata própria (canonical sempre na raiz) · storage de
+`ad-images`/`ad-videos` sem checar dono da pasta / plano com `has_video`.
+
+### 🟢 Baixos (11)
+6 telas do admin sem `.select()` pós-update (risco silencioso, não
+observável hoje) · sino de notificação decorativo (removido) · mensagem
+de cota em 1ª pessoa mostrada ao admin · `next_billing_at` morto (trocado
+por `current_period_end`) · nonce de idempotência regenerava no "← Voltar"
+· `place_lot_bid_atomic` sem `REVOKE EXECUTE` · rótulo "LANCE INICIAL"
+incorreto em leilão cancelado com lance real · grants redundantes em
+`auction_bids`/`auction_lot_bids` · 2 policies de storage mortas (buckets
+inexistentes) · sitemap sem `/eventos` · desempate de `order_idx`
+institucional ausente.
+
+### Não corrigido nesta rodada (dado, não código)
+Corrupção de emoji/acento nas 10 linhas de `institutional_pages.content`
+(seletor de variação de emoji virou "─") e 1 imagem de seed morta
+(Unsplash 404, anúncio "Cosechadora John Deere S760") — achados reais,
+mas são dado de banco, não bug de código; ficam para uma limpeza de
+conteúdo separada.
+
+### Nota operacional (não é bug do produto)
+Durante a Fase 1 do workflow (6 agentes de auditoria em `parallel()`),
+vários interpretaram a instrução de "testar ao vivo" ao pé da letra e
+levantaram servidores/sessões de navegador concorrentes entre si — cada
+um viu dados de teste dos outros e presumiu, por um momento, que havia
+uma sessão externa de terceiros. Investigação confirmou: era só um
+processo Claude Code ativo (este), colisão inteira interna ao próprio
+workflow. Nenhum dado de produção real foi afetado, só contas de teste
+descartáveis dos próprios agentes.
+
+---
+
 ## ✅ Validação do zero — 26 achados, incluindo regressões da própria correção anterior — 2026-08-26
 
 Pedido: "realizar uma nova validação do zero, analisar erros, falhar,
