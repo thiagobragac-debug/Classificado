@@ -9,6 +9,135 @@ diretamente. Reconfira antes do go-live.
 
 ---
 
+## ✅ Correção dos itens restantes da revisão de regras de negócio — 2026-08-25
+
+Pedido: "aplicar demais correções" — fecha os 3 itens que a rodada
+anterior tinha registrado como "não corrigido", com decisão explícita do
+usuário pra cada um dos pontos ambíguos (perguntados antes de qualquer
+código):
+
+### Pro-rata real e downgrade agendado (unificados numa correção só)
+
+A pergunta era "como implementar pro-rata real" — a resposta escolhida
+("Stripe nativo, resto fica igual") também resolveu de graça o outro item
+pendente ("downgrade entre planos pagos não agenda pro próximo ciclo"),
+porque as duas promessas do FAQ (upgrade com pro-rata / downgrade só no
+próximo ciclo) são a mesma API da Stripe com um parâmetro diferente:
+
+- Novo `GatewayAdapter.updateSubscriptionPlan(subId, plan, prorate)` — só
+  a Stripe implementa (única com API de trocar o preço de uma assinatura
+  já existente). `prorate=true` (upgrade) usa
+  `proration_behavior=always_invoice` (cobra a diferença agora);
+  `prorate=false` (downgrade) usa `proration_behavior=none` (preço novo
+  só na próxima fatura, sem cobrar/creditar nada agora).
+- `checkout/route.ts`: ao trocar de plano com Stripe→Stripe, atualiza a
+  MESMA assinatura em vez de cancelar+criar. Pra qualquer outro caso
+  (Mercado Pago/Pagar.me/Asaas, ou troca entre gateways diferentes),
+  continua no fallback já corrigido na rodada anterior (cancela a antiga,
+  cria nova — cobrança imediata do valor cheio, sem duplicar).
+- FAQ de `/planos` ajustado: não promete mais pro-rata/próximo-ciclo pra
+  TODO mundo, já que só quem cai no Stripe (usuário internacional) recebe
+  esse tratamento — Mercado Pago é o gateway nacional padrão, ou seja, a
+  maioria dos usuários reais não teria essa promessa cumprida do jeito que
+  o texto antigo dizia.
+
+**Validado contra a API real do Stripe sandbox** (13 asserções, não só
+teste mockado): criada assinatura PRO real → upgrade pra Premium com
+`prorate=true` → confirmado que gerou fatura de proração nova, paga na
+hora (R$70, a diferença proporcional) → downgrade de volta pra PRO com
+`prorate=false` → confirmado que NÃO gerou fatura nova → confirmado que
+nunca existiu mais de 1 assinatura pro mesmo customer (nunca duplicou) →
+assinatura de teste cancelada e deletada de verdade na Stripe.
+
+### Transição automática de leilões — via pg_cron
+
+A pergunta era se valia construir isso — resposta: sim, via pg_cron.
+
+- Extensão `pg_cron` habilitada (estava disponível no plano do Supabase,
+  só não instalada). Job `advance-scheduled-auctions` roda a cada 5
+  minutos, avançando `auction_events` de `scheduled` pra `live` quando o
+  horário anunciado (`date`) já passou.
+- Escopo deliberadamente limitado a essa transição: `live → closed` não
+  foi automatizado porque não existe (nem deveria existir) um horário de
+  término fixo pra leilão ao vivo — isso continua sendo decisão do
+  leiloeiro assistindo a transmissão, exatamente como hoje.
+
+Validado: job registrado e ativo (`cron.job`, `active=true`); evento de
+teste criado com `date` no passado → função rodada manualmente → status
+virou `live` corretamente → evento de teste apagado.
+
+### 1 conta por CPF/CNPJ
+
+A pergunta original recomendava NÃO aplicar sem checar os dados
+primeiro — o usuário pediu pra aplicar direto. Antes de aplicar, verificado
+que hoje **0 linhas** em produção têm `document_number` preenchido —
+migration segura, sem risco de quebrar conta existente.
+
+- Índice único por expressão em `user_secrets` (`regexp_replace` pra
+  normalizar pontuação — "123.456.789-00" e "12345678900" contam como o
+  mesmo documento).
+- `ProfileTab.tsx` agora normaliza o CPF/CNPJ pra só dígitos antes de
+  salvar (mesmo padrão já usado em `VerificacaoClient.tsx` e no
+  checkout) e trata o erro `23505` (duplicado) com mensagem clara em vez
+  de "Erro ao salvar perfil." genérico.
+
+Validado: duas contas de teste, mesmo CPF em formatos diferentes — a
+primeira grava normal, a segunda é rejeitada com `23505`.
+
+### highlight_count (destaque de anúncio) — teto + UI nova
+
+Não era um dos 3 itens perguntados, mas foi corrigido junto por ser a
+continuação direta do achado crítico da rodada anterior (RLS de
+`ads.featured` sem limite algum — já fechado, mas só o "quem", faltava o
+"quanto").
+
+- `guard_ad_featured` agora também verifica `plans.highlight_count` antes
+  de deixar um destaque novo ser ligado. **Interpretação adotada,
+  registrada explicitamente no comentário da migration**: teto de
+  anúncios simultaneamente destacados (mesmo padrão de `max_ads`), não um
+  crédito mensal que reseta — não existe em nenhum lugar do projeto hoje
+  o conceito de contagem por período, e construir isso do zero seria uma
+  suposição de produto, não uma correção. Se a intenção for outra, vale
+  revisar.
+- Botão **"☆ Destacar" / "★ Remover"** novo em `/admin/anuncios` — a tela
+  nunca teve essa ação, apesar de `highlight_count` ser vendido em
+  `/planos` desde sempre. Subtítulo da tela atualizado.
+
+Validado: usuário Grátis (`highlight_count=0`) → destacar bloqueado com
+mensagem clara. Usuário PRO (`highlight_count=2`) → 1º e 2º destaque
+funcionam, 3º bloqueado, remover 1 abre vaga pro 3º. Testado também pela
+UI real do admin (toast de erro/sucesso, botão troca de estado).
+
+### Limpeza e polimento (achados menores da mesma auditoria)
+
+- **Segundo fluxo de KYC removido** de `ProfileTab.tsx` — duplicava
+  `/painel/verificacao` mas estava quebrado (`guard_profile_verification`
+  bloqueava a escrita direta, nunca criava a `verification_request` que a
+  fila do admin lê). Virou link pro fluxo real. `uploadKycDocument()`
+  (código morto depois disso) removida de `lib/supabase-panel.ts`.
+- **Moeda hardcoded ("R$")** corrigida em `CheckoutModal.tsx` e na tabela
+  comparativa de `/planos` (usa `plan.currency` dinamicamente — sem
+  efeito prático hoje, `plans.currency` é sempre BRL, mas evita quebrar
+  silenciosamente se isso mudar). Removida do filtro de preço de
+  `/listagem` (comparava valores numéricos crus de anúncios em moedas
+  diferentes sem conversão — afirmar "R$" fixo ali era enganoso;
+  conversão de câmbio de verdade fica pra decisão futura).
+- **Rate limit em denúncias e mensagens internas** — nenhum dos dois
+  tinha qualquer freio de taxa. Usa `check_rate_limit`, o mesmo RPC com
+  janela no Postgres que `/login` já usa (5/min pra denúncia — por
+  usuário logado, ou por anúncio quando anônima; 10/min pra mensagem).
+
+Validado ao vivo, pela UI real: botão Destacar (toast de erro/sucesso
+certo, estado do botão muda), link de KYC (sem formulário inline, navega
+pra `/painel/verificacao`), moeda no checkout (R$ aparece certo, nada
+quebrado), rate limit de denúncia (bloqueia na 6ª tentativa) e de
+mensagem (bloqueia na 11ª), filtro de preço sem o símbolo fixo.
+
+`tsc --noEmit`, `vitest run` (119/119), `next build` limpos. Commit
+`bb4db8f`.
+
+---
+
 ## ✅ Revisão completa de regras de negócio — 2026-08-25
 
 Pedido: "revisar regras de negocio detalhada!" — auditoria em 7 domínios
