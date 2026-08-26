@@ -3101,3 +3101,24 @@ textarea.form-input { resize: vertical; min-height: 140px; }
   .ads-sidebar-drawer { display: flex; }
 }
 
+/* BUG CORRIGIDO (validação de 2026-08-26): components/ads/AdsBrowser.tsx
+   envolvia <AdsSidebar/> num <aside className="desktop-only"
+   style={{width:280px}}> — a classe nunca teve definição em lugar
+   nenhum do CSS, então a sidebar nunca escondia no mobile, espremendo o
+   grid de anúncios pra ~31px de largura real em /listagem e
+   /vendedor/[id]. Simplesmente esconder esse wrapper no mobile via CSS
+   não bastaria: o FAB/drawer mobile de AdsSidebar (`.ads-sidebar-fab`/
+   `.ads-sidebar-drawer`, position:fixed) são filhos do MESMO componente
+   — escondê-lo escondia o FAB junto. A correção certa é abaixo: o
+   width/sticky que vivia no wrapper externo agora é da própria
+   `.ads-sidebar-desktop` (o único filho de AdsSidebar que participa do
+   fluxo normal — os outros são position:fixed), e AdsBrowser.tsx renderiza
+   <AdsSidebar/> direto, sem wrapper nenhum. */
+.ads-sidebar-desktop {
+  width: 280px;
+  flex-shrink: 0;
+  position: sticky;
+  top: calc(var(--header-h) + var(--sp-8));
+  align-self: flex-start;
+}
+

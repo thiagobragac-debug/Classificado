@@ -16,26 +16,23 @@ export default function AdminAssinaturas() {
     loadSubscriptions()
   }, [])
 
+  // BUG CORRIGIDO (validação de 2026-08-26): consulta direto do browser
+  // (getSupabase(), anon key) nunca conseguia ler o e-mail de nenhum
+  // assinante além do próprio admin — RLS de user_secrets só libera
+  // auth.uid()=id. Agora passa por /api/admin/subscriptions
+  // (service_role, mesmo padrão já usado em /admin/usuarios).
   async function loadSubscriptions() {
     setLoading(true)
     const supabase = getSupabase()
-    const { data, error } = await supabase
-      .from('subscriptions')
-      .select('*, profiles!user_id(name, user_secrets(email))')
-      .order('created_at', { ascending: false })
-      .limit(100)
-    
-    if (!error && data) {
-      const mapped = data.map((sub: any) => ({
-        ...sub,
-        profiles: sub.profiles ? {
-          ...sub.profiles,
-          email: Array.isArray(sub.profiles.user_secrets) 
-            ? sub.profiles.user_secrets[0]?.email 
-            : sub.profiles.user_secrets?.email
-        } : null
-      }))
-      setSubscriptions(mapped)
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/admin/subscriptions', {
+      headers: { Authorization: `Bearer ${session?.access_token}` },
+    })
+    const body = await res.json()
+    if (res.ok) {
+      setSubscriptions(body.subscriptions || [])
+    } else {
+      showToast('Erro ao carregar assinaturas: ' + (body.error || ''), 'error')
     }
     setLoading(false)
   }

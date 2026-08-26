@@ -108,7 +108,7 @@ export function stripeAdapter(secretKey: string): GatewayAdapter {
       return { checkoutUrl: '', sessionId: subscription.id, gatewaySubscriptionId: subscription.id, gatewayCustomerId: customer.id }
     },
     
-    async updateSubscriptionPlan(gatewaySubscriptionId, plan, prorate) {
+    async updateSubscriptionPlan(gatewaySubscriptionId, plan, prorate, idempotencyNonce) {
       // 1. Busca a assinatura real pra achar o item a trocar (subscriptions
       // têm 1 item só neste app, mas a API sempre exige o id do item).
       const getRes = await fetch(`https://api.stripe.com/v1/subscriptions/${gatewaySubscriptionId}`, {
@@ -132,7 +132,7 @@ export function stripeAdapter(secretKey: string): GatewayAdapter {
         headers: {
           'Authorization': `Bearer ${secretKey}`,
           'Content-Type': 'application/x-www-form-urlencoded',
-          'Idempotency-Key': `stripe_prod_update_${gatewaySubscriptionId}_${plan.id}`,
+          'Idempotency-Key': `stripe_prod_update_${idempotencyNonce}`,
         },
         body: prodParams.toString()
       })
@@ -159,7 +159,7 @@ export function stripeAdapter(secretKey: string): GatewayAdapter {
         headers: {
           'Authorization': `Bearer ${secretKey}`,
           'Content-Type': 'application/x-www-form-urlencoded',
-          'Idempotency-Key': `stripe_sub_update_${gatewaySubscriptionId}_${plan.id}_${prorate}`,
+          'Idempotency-Key': `stripe_sub_update_${idempotencyNonce}`,
         },
         body: updateParams.toString()
       })

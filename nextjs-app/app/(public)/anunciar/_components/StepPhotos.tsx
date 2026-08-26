@@ -27,18 +27,35 @@ function usePlanMediaLimits() {
       const session = await getSession()
       if (!session) return
       const sb = getSupabase()
-      const { data: secrets } = await sb.from('user_secrets').select('plan_id').eq('id', session.user.id).maybeSingle()
+      const { data: secrets, error: secretsErr } = await sb.from('user_secrets').select('plan_id').eq('id', session.user.id).maybeSingle()
       let planRow: { max_photos: number; has_video: boolean } | null = null
+      let lookupErr = secretsErr
       if (secrets?.plan_id) {
-        const { data } = await sb.from('plans').select('max_photos, has_video').eq('id', secrets.plan_id).maybeSingle()
+        const { data, error } = await sb.from('plans').select('max_photos, has_video').eq('id', secrets.plan_id).maybeSingle()
         planRow = data
+        lookupErr = lookupErr || error
       }
       if (!planRow) {
-        const { data } = await sb.from('plans').select('max_photos, has_video').eq('is_active', true).eq('price', 0).order('sort_order').limit(1).maybeSingle()
+        const { data, error } = await sb.from('plans').select('max_photos, has_video').eq('is_active', true).eq('price', 0).order('sort_order').limit(1).maybeSingle()
         planRow = data
+        lookupErr = lookupErr || error
       }
-      if (!cancelled && planRow) {
+      if (cancelled) return
+      if (planRow) {
         setLimits({ maxPhotos: planRow.max_photos, hasVideo: planRow.has_video, loaded: true })
+      } else {
+        // BUG CORRIGIDO (validação de 2026-08-26): se as duas consultas
+        // falhassem (rede/RLS/timeout), `loaded` nunca virava true e o
+        // componente travava pra sempre no fallback do plano Grátis (5
+        // fotos, sem vídeo) — um usuário PRO/Premium via os limites
+        // errados sem nenhum aviso. Se o usuário TEM plano pago
+        // (secrets.plan_id preenchido) e mesmo assim a busca falhou,
+        // avisa explicitamente em vez de mentir com o valor do Grátis.
+        console.error('[StepPhotos] Falha ao buscar limites do plano:', lookupErr?.message)
+        if (secrets?.plan_id) {
+          showToast('Não foi possível confirmar os limites do seu plano agora. Os valores exibidos podem estar incorretos — recarregue a página.', 'warning')
+        }
+        setLimits({ maxPhotos: 5, hasVideo: false, loaded: true })
       }
     }
     load()

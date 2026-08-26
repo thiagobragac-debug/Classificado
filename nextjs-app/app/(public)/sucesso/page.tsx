@@ -37,9 +37,16 @@ function SucessoContent() {
           </svg>
         </div>
 
-        <h1 style={{ fontSize: '2rem', fontWeight: 900, color: '#fff', marginBottom: '0.75rem' }}>Pagamento Aprovado!</h1>
+        {/* BUG CORRIGIDO (validação de 2026-08-26): esta tela é 100%
+            client-side, sem nenhuma checagem de sessão/servidor — quem
+            acessasse a URL direto (bookmark, back/forward, link
+            compartilhado) via "Pagamento Aprovado! Plano ativado" mesmo
+            sem ter pago nada. Quem realmente ativa o plano é o webhook
+            (assíncrono); a mensagem agora não afirma um estado que esta
+            página não tem como confirmar. */}
+        <h1 style={{ fontSize: '2rem', fontWeight: 900, color: '#fff', marginBottom: '0.75rem' }}>Pagamento recebido!</h1>
         <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '1rem', lineHeight: 1.6, marginBottom: '2rem' }}>
-          Tudo certo! Seu plano foi ativado com sucesso e sua conta já está com os novos limites.
+          Estamos confirmando sua assinatura — isso leva só alguns instantes. Se os novos limites não aparecerem no seu painel em pouco tempo, contate o suporte.
         </p>
 
         <div style={{
@@ -48,7 +55,7 @@ function SucessoContent() {
           color: '#4ADE80', padding: '0.5rem 1.25rem', borderRadius: '2rem',
           fontWeight: 700, fontSize: '0.95rem', marginBottom: '2rem'
         }}>
-          Plano {plan} Ativado
+          Plano {plan} — confirmando
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>

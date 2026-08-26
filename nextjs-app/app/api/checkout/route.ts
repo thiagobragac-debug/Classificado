@@ -108,14 +108,22 @@ export async function POST(req: Request) {
     // falhar, bloqueia a troca em vez de arriscar dupla cobrança.
     const { data: existingActiveSub } = await supabase
       .from('subscriptions')
-      .select('id, gateway, gateway_subscription_id, plan, price')
+      .select('id, gateway, gateway_subscription_id, plan, price, billing_cycle')
       .eq('user_id', user.id)
       .eq('status', 'active')
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
 
-    const isPlanSwitch = !!(existingActiveSub && existingActiveSub.plan !== plan.name && existingActiveSub.gateway_subscription_id)
+    // BUG CORRIGIDO (validação de 2026-08-26): só comparava plan.name —
+    // trocar SÓ o ciclo de cobrança (mensal↔anual) no mesmo plano tinha
+    // isPlanSwitch=false, pulava os dois blocos de troca/cancelamento
+    // abaixo e caía direto no fluxo de "assinatura nova", deixando a
+    // mensal antiga ativa em paralelo (risco real de cobrança dupla,
+    // alcançável só via chamada direta à API, não pela UI normal — que já
+    // desabilita o botão do plano atual independente do ciclo).
+    const cycleForCompare: 'monthly' | 'annual' = billingCycle === 'annual' ? 'annual' : 'monthly'
+    const isPlanSwitch = !!(existingActiveSub && (existingActiveSub.plan !== plan.name || existingActiveSub.billing_cycle !== cycleForCompare))
 
     // --- Build adapter with keys from DB ---
     let adapter: GatewayAdapter
@@ -234,7 +242,7 @@ export async function POST(req: Request) {
     // cria uma nova — cobrança imediata do valor cheio do plano novo, sem
     // pro-rata nem agendamento (limitação conhecida, documentada no
     // checklist).
-    if (isPlanSwitch && existingActiveSub!.gateway === gatewayName && gatewayName === 'stripe' && adapter.updateSubscriptionPlan) {
+    if (isPlanSwitch && existingActiveSub!.gateway_subscription_id && existingActiveSub!.gateway === gatewayName && gatewayName === 'stripe' && adapter.updateSubscriptionPlan) {
       const prorate = finalPrice > Number(existingActiveSub!.price ?? 0)
       try {
         if (appliedCoupon) {
@@ -244,7 +252,10 @@ export async function POST(req: Request) {
           }
         }
 
-        await adapter.updateSubscriptionPlan(existingActiveSub!.gateway_subscription_id!, gatewayPlan, prorate)
+        // BUG CORRIGIDO (validação de 2026-08-26): checkoutId (UUID que o
+        // CheckoutModal gera por abertura do modal) como nonce de
+        // idempotência — ver comentário em lib/gateways/types.ts.
+        await adapter.updateSubscriptionPlan(existingActiveSub!.gateway_subscription_id!, gatewayPlan, prorate, checkoutId)
 
         await supabase.from('subscriptions').update({
           plan: plan.name,
@@ -252,6 +263,25 @@ export async function POST(req: Request) {
           billing_cycle: cycle,
           updated_at: new Date().toISOString(),
         }).eq('id', existingActiveSub!.id)
+
+        // BUG CORRIGIDO (validação de 2026-08-26): a troca nativa nunca
+        // sincronizava user_secrets.plan_id/profiles — são exatamente as
+        // colunas que enforce_ad_quota/enforce_ad_media_plan_limits/
+        // guard_ad_featured leem para aplicar cota/fotos/destaques. Sem
+        // isso, quem pagava um upgrade continuava com os limites do plano
+        // antigo até a próxima renovação natural (semanas/meses depois).
+        // Feito aqui, direto, em vez de depender do webhook: já sabemos
+        // com certeza que a troca deu certo (chegamos aqui só se
+        // updateSubscriptionPlan não lançou), e a Stripe rotula a fatura
+        // de proração gerada como billing_reason=subscription_update, um
+        // valor que o webhook não tem por que aprender só para replicar
+        // uma sincronização que o próprio checkout já pode fazer na hora.
+        let planEnum = 'free'
+        if (plan.name.toLowerCase().includes('premium')) planEnum = 'premium'
+        else if (plan.name.toLowerCase().includes('pro')) planEnum = 'pro'
+
+        await supabase.from('profiles').update({ subscription_status: 'active' }).eq('id', user.id)
+        await supabase.from('user_secrets').update({ plan: planEnum, plan_id: plan.id }).eq('id', user.id)
 
         return NextResponse.json({
           success: true,
@@ -265,37 +295,60 @@ export async function POST(req: Request) {
         if (appliedCoupon) {
           await supabase.rpc('revert_coupon_usage', { p_coupon_id: appliedCoupon.id })
         }
+        // BUG CORRIGIDO (validação de 2026-08-26): switchErr.message tinha
+        // o corpo cru da resposta de erro da Stripe concatenado direto no
+        // JSON devolvido ao cliente — incluía request_log_url (link do
+        // dashboard interno da Stripe) e o account ID do merchant. Loga o
+        // detalhe completo só no servidor; devolve mensagem genérica.
         console.error('[Checkout] Failed to switch plan on existing subscription:', switchErr.message)
-        return NextResponse.json({ error: 'Não foi possível trocar de plano: ' + switchErr.message }, { status: 502 })
+        return NextResponse.json({ error: 'Não foi possível trocar de plano no momento. Tente novamente ou contate o suporte.' }, { status: 502 })
       }
     }
 
-    // Fallback (gateways sem update nativo, ou troca entre gateways
-    // diferentes): cancela a assinatura anterior antes de prosseguir pro
-    // fluxo normal de criação — nunca deixa duas assinaturas ativas em
-    // paralelo. Se o cancelamento falhar, bloqueia a troca em vez de
+    // Fallback (gateways sem update nativo, troca entre gateways
+    // diferentes, ou assinatura anterior sem gateway_subscription_id —
+    // ex.: ativada via cupom de 100% off): garante que a assinatura
+    // anterior nunca fica ativa em paralelo à nova, cancelando-a de
+    // verdade no gateway quando ela tiver uma, ou só fechando a linha
+    // local quando não tiver (nada a cancelar num gateway real). Se o
+    // cancelamento no gateway falhar, bloqueia a troca em vez de
     // arriscar dupla cobrança.
+    //
+    // BUG CORRIGIDO (validação de 2026-08-26): antes exigia
+    // gateway_subscription_id truthy pra entrar neste bloco — uma
+    // assinatura 100%-off (cupom) fica 'active' com esse campo NULL
+    // (nunca chama gateway nenhum), então nunca era cancelada aqui; quem
+    // pagava de verdade depois ficava com 2 assinaturas 'active'
+    // simultâneas (a de cupom nunca fechada + a nova).
     if (isPlanSwitch) {
-      let oldAdapter: GatewayAdapter | null = null
-      switch (existingActiveSub!.gateway) {
-        case 'stripe': if (settings['stripe_secret_key']) oldAdapter = stripeAdapter(settings['stripe_secret_key']); break
-        case 'mercadopago': if (settings['mp_access_token']) oldAdapter = mercadoPagoAdapter(settings['mp_access_token']); break
-        case 'pagarme': if (settings['pagarme_api_key']) oldAdapter = pagarmeAdapter(settings['pagarme_api_key']); break
-        case 'asaas': if (settings['asaas_api_key']) oldAdapter = asaasAdapter(settings['asaas_api_key'], (settings['asaas_environment'] as 'sandbox' | 'production') || 'sandbox'); break
-      }
-      if (!oldAdapter) {
-        return NextResponse.json({ error: 'Não foi possível verificar sua assinatura atual. Contate o suporte antes de trocar de plano.' }, { status: 503 })
-      }
-      try {
-        await oldAdapter.cancelSubscription(existingActiveSub!.gateway_subscription_id!)
+      if (!existingActiveSub!.gateway_subscription_id) {
         await supabase.from('subscriptions').update({
           status: 'cancelled',
           cancel_at_period_end: false,
           updated_at: new Date().toISOString(),
         }).eq('id', existingActiveSub!.id)
-      } catch (cancelErr: any) {
-        console.error('[Checkout] Failed to cancel previous subscription before plan switch:', cancelErr.message)
-        return NextResponse.json({ error: 'Não foi possível migrar da assinatura atual automaticamente. Cancele-a antes de assinar outro plano, ou contate o suporte.' }, { status: 409 })
+      } else {
+        let oldAdapter: GatewayAdapter | null = null
+        switch (existingActiveSub!.gateway) {
+          case 'stripe': if (settings['stripe_secret_key']) oldAdapter = stripeAdapter(settings['stripe_secret_key']); break
+          case 'mercadopago': if (settings['mp_access_token']) oldAdapter = mercadoPagoAdapter(settings['mp_access_token']); break
+          case 'pagarme': if (settings['pagarme_api_key']) oldAdapter = pagarmeAdapter(settings['pagarme_api_key']); break
+          case 'asaas': if (settings['asaas_api_key']) oldAdapter = asaasAdapter(settings['asaas_api_key'], (settings['asaas_environment'] as 'sandbox' | 'production') || 'sandbox'); break
+        }
+        if (!oldAdapter) {
+          return NextResponse.json({ error: 'Não foi possível verificar sua assinatura atual. Contate o suporte antes de trocar de plano.' }, { status: 503 })
+        }
+        try {
+          await oldAdapter.cancelSubscription(existingActiveSub!.gateway_subscription_id)
+          await supabase.from('subscriptions').update({
+            status: 'cancelled',
+            cancel_at_period_end: false,
+            updated_at: new Date().toISOString(),
+          }).eq('id', existingActiveSub!.id)
+        } catch (cancelErr: any) {
+          console.error('[Checkout] Failed to cancel previous subscription before plan switch:', cancelErr.message)
+          return NextResponse.json({ error: 'Não foi possível migrar da assinatura atual automaticamente. Cancele-a antes de assinar outro plano, ou contate o suporte.' }, { status: 409 })
+        }
       }
     }
 

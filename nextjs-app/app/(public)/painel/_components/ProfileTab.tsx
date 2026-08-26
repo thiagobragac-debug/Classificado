@@ -68,6 +68,7 @@ export function ProfileTab({ user }: { user: any }) {
     }
     setUploadingBanner(true);
     try {
+      const previousUrl = bannerUrl;
       const ext = file.name.split('.').pop();
       const path = `${user.id}/${Date.now()}.${ext}`;
       const sb = getSupabase();
@@ -77,6 +78,18 @@ export function ProfileTab({ user }: { user: any }) {
       await updateProfile(user.id, { banner_url: publicUrl });
       setBannerUrl(publicUrl);
       showToast('Banner de perfil atualizado!', 'success');
+
+      // BUG CORRIGIDO (validação de 2026-08-26): cada troca de banner
+      // deixava o arquivo anterior órfão no bucket — nunca era apagado,
+      // só desreferenciado. Remove o antigo depois que o novo já está
+      // salvo (se isso falhar, não é crítico — só um arquivo extra no
+      // storage — por isso não usa o catch principal desta função).
+      if (previousUrl) {
+        const previousPath = previousUrl.split('/profile-banners/')[1];
+        if (previousPath) {
+          sb.storage.from('profile-banners').remove([previousPath]).catch(() => {});
+        }
+      }
     } catch (err: any) {
       showToast('Erro ao enviar banner: ' + (err.message || ''), 'error');
     } finally {

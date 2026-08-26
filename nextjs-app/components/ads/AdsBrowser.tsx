@@ -112,12 +112,12 @@ export default function AdsBrowser({
 
       <div className="container" style={{ paddingBlock: hideHero ? 'var(--sp-4) var(--sp-16)' : 'var(--sp-8) var(--sp-16)' }}>
         <div style={{ display: 'flex', gap: 'var(--sp-8)', alignItems: 'stretch' }}>
-          {/* SIDEBAR */}
-          <aside className="desktop-only" style={{ width: '280px', flexShrink: 0 }}>
-            <div style={{ position: 'sticky', top: 'calc(var(--header-h) + var(--sp-8))' }}>
-              <AdsSidebar />
-            </div>
-          </aside>
+          {/* SIDEBAR — AdsSidebar já é responsivo por conta própria (o
+              width/sticky do desktop mora em .ads-sidebar-desktop, no
+              CSS global; o FAB/drawer mobile são position:fixed, saem do
+              fluxo normal). Sem wrapper aqui — um <aside> externo
+              escondendo isso no mobile esconderia o FAB/drawer junto. */}
+          <AdsSidebar />
 
           {/* MAIN CONTENT */}
           <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
@@ -150,13 +150,6 @@ export default function AdsBrowser({
               )}
             </div>
           </div>
-        </div>
-
-        {/* FAB Filter Mobile */}
-        <div className="mobile-only" style={{ position: 'fixed', bottom: 'var(--sp-6)', right: 'var(--sp-4)', zIndex: 90 }}>
-          <button aria-label="Abrir filtros" aria-expanded="false" style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'var(--clr-primary)', color: 'white', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'var(--shadow-lg)' }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
-          </button>
         </div>
       </div>
       </main>

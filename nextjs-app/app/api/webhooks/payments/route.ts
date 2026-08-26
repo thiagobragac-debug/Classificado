@@ -204,13 +204,25 @@ export async function POST(req: Request) {
       // (sem Pix/boleto no checkout), então toda assinatura paga aprovada
       // aqui É, na prática, via cartão. Roda como service_role, então
       // passa por guard_profile_verification sem problema.
+      //
+      // BUG CORRIGIDO (validação de 2026-08-26): `verified: true` rodava
+      // incondicionalmente em TODA renovação (evento mensal recorrente),
+      // sem checar o valor atual — se um admin revogasse o selo de um
+      // assinante pago (fraude, etc.) via "Remover Selo", a próxima
+      // cobrança automática desfazia isso silenciosamente. O selo agora
+      // só é concedido na PRIMEIRA ativação, cumprindo a promessa
+      // ("ganha o selo automaticamente" ao assinar) sem brigar com uma
+      // decisão manual de moderação depois.
+      const profileUpdate: Record<string, any> = {
+        subscription_status: 'active',
+        plan_expires_at: updateData.current_period_end || null,
+      }
+      if (effectiveType === 'subscription.activated') {
+        profileUpdate.verified = true
+      }
       const { error: profErr } = await supabase
         .from('profiles')
-        .update({
-          subscription_status: 'active',
-          plan_expires_at: updateData.current_period_end || null,
-          verified: true,
-        })
+        .update(profileUpdate)
         .eq('id', sub.user_id)
       if (profErr) console.error(`[Webhook:${gateway}] Failed to update profiles:`, profErr.message)
 

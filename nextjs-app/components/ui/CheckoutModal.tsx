@@ -8,7 +8,14 @@ import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { initMercadoPago, CardPayment } from '@mercadopago/sdk-react'
 
-type PaymentMethod = 'pix' | 'boleto' | 'card'
+// BUG CORRIGIDO (validação de 2026-08-26): o tipo tinha 'pix'/'boleto',
+// e existia um METHOD_LABELS (⚡ PIX / 🧾 Boleto) nunca renderizado em
+// lugar nenhum — nenhum dos 4 gateways aceita esses métodos
+// (TOKENIZED_GATEWAYS abaixo só cobre cartão), e não há setter pra
+// paymentMethod mudar de 'card'. Código morto de uma seleção de método
+// que nunca chegou a existir na UI — removido, junto do FAQ que prometia
+// Pix/boleto em /planos.
+type PaymentMethod = 'card'
 
 // GAP CORRIGIDO (revisão de regras de negócio, 2026-08-25): "R$" estava
 // hardcoded em 4 lugares deste modal, enquanto os cards de /planos (fora
@@ -216,12 +223,6 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
       return
     }
     handleServerCheckout({})
-  }
-
-  const METHOD_LABELS: Record<PaymentMethod, string> = {
-    pix: '⚡ PIX',
-    boleto: '🧾 Boleto',
-    card: '💳 Cartão'
   }
 
   return (

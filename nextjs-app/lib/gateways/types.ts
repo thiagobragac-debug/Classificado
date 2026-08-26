@@ -99,9 +99,20 @@ export interface GatewayAdapter {
   // ciclo"). Os demais gateways não têm essa API pronta — teriam que
   // simular na mão, então não implementam este método; o checkout cai de
   // volta no caminho de cancelar a antiga e criar uma nova.
+  // BUG CORRIGIDO (validação de 2026-08-26): as chaves de idempotência
+  // originais eram determinísticas só em (subscriptionId, plan.id,
+  // prorate) — repetir uma combinação já usada antes na mesma assinatura
+  // (ex.: PRO→Premium→PRO de novo no mesmo dia) fazia a Stripe devolver a
+  // resposta antiga em cache, sem aplicar a troca real, enquanto o banco
+  // gravava sucesso. `idempotencyNonce` precisa ser único por TENTATIVA
+  // de troca (não por combinação de plano) — o checkoutId que o
+  // CheckoutModal já gera por abertura do modal serve exatamente pra
+  // isso: mesmo valor num duplo-clique acidental (dedupe correto),
+  // valor novo numa tentativa genuinamente nova.
   updateSubscriptionPlan?(
     gatewaySubscriptionId: string,
     plan: GatewayPlan,
-    prorate: boolean
+    prorate: boolean,
+    idempotencyNonce: string
   ): Promise<{ gatewaySubscriptionId: string }>
 }

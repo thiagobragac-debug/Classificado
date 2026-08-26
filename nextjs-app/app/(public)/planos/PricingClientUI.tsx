@@ -383,12 +383,20 @@ export default function PricingClientUI({ initialPlans }: { initialPlans: Plan[]
             // Pagar.me e Asaas (a maioria dos usuários, nacional) trocam de
             // plano cobrando o valor cheio na hora, sem pro-rata. Texto
             // ajustado pra não prometer o que nem todo gateway cumpre.
-            answer="Sim! Você pode fazer upgrade ou downgrade a qualquer momento — a troca é aplicada imediatamente. Dependendo do seu método de pagamento, a cobrança do plano novo pode ser proporcional aos dias restantes ou no valor cheio; qualquer diferença aparece certinha no seu histórico de faturas."
+            // TEXTO AJUSTADO (validação de 2026-08-26): "aparece certinha no
+            // seu histórico de faturas" dava a entender que sempre há algo
+            // visível na hora — mas um downgrade via Stripe (prorate=false)
+            // não gera fatura nenhuma agora, só na próxima renovação.
+            answer="Sim! Você pode fazer upgrade ou downgrade a qualquer momento — a troca é aplicada imediatamente. No upgrade, a cobrança do plano novo pode ser proporcional aos dias restantes (dependendo do seu método de pagamento) e a diferença aparece no seu histórico de faturas. No downgrade, nada é cobrado agora — o preço novo só vale a partir da próxima renovação."
           />
-          <FAQItem 
+          <FAQItem
             id="pagamento"
-            question="Quais formas de pagamento são aceitas?" 
-            answer="Aceitamos cartão de crédito, débito, Pix e boleto bancário." 
+            question="Quais formas de pagamento são aceitas?"
+            // TEXTO CORRIGIDO (validação de 2026-08-26): prometia Pix e
+            // boleto — nenhum dos 4 gateways aceita (todos rejeitam
+            // qualquer método != 'card'). O seletor de método no
+            // CheckoutModal (com essas opções) nunca foi conectado a nada.
+            answer="Aceitamos cartão de crédito e débito."
           />
           <FAQItem 
             id="anuncios-cancelamento"

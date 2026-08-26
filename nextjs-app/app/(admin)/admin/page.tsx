@@ -40,7 +40,10 @@ export default function AdminDashboard() {
       supabase.from('ads').select('*', { count: 'exact', head: true }),
       supabase.from('profiles').select('id', { count: 'exact', head: true }),
       supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('kyc_status', 'pending'),
-      supabase.from('reports').select('*', { count: 'exact', head: true }).eq('status', 'open'),
+      // BUG CORRIGIDO (validação de 2026-08-26): 'open' não é um valor real
+      // do enum de reports.status (pending/resolved/dismissed) — o KPI
+      // sempre mostrava 0, mesmo com denúncia pendente de verdade.
+      supabase.from('reports').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
     ])
 
     const today = new Date()

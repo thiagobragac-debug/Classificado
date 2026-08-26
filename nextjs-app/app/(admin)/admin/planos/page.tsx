@@ -25,6 +25,13 @@ export default function AdminPlanos() {
     max_ads: 15,
     max_photos: 15,
     highlight_count: 2,
+    // GAP CORRIGIDO (validação de 2026-08-26): has_video/has_banner são
+    // aplicados de verdade no banco desde 25/08
+    // (enforce_ad_media_plan_limits/enforce_profile_banner_plan_limit) e
+    // vendidos publicamente em /planos — não havia como o admin mudar
+    // isso pela UI, só via SQL direto.
+    has_video: false,
+    has_banner: false,
     features: ['']
   })
 
@@ -53,7 +60,7 @@ export default function AdminPlanos() {
   const openNew = () => {
     setEditingId(null)
     setForm({
-      name: '', icon: '🚀', description: '', price: 0, promotional_price: '', is_active: true, max_ads: 15, max_photos: 15, highlight_count: 2, features: ['']
+      name: '', icon: '🚀', description: '', price: 0, promotional_price: '', is_active: true, max_ads: 15, max_photos: 15, highlight_count: 2, has_video: false, has_banner: false, features: ['']
     })
     setIsModalOpen(true)
   }
@@ -70,6 +77,8 @@ export default function AdminPlanos() {
       max_ads: p.max_ads || 0,
       max_photos: p.max_photos || 0,
       highlight_count: p.highlight_count || 0,
+      has_video: !!p.has_video,
+      has_banner: !!p.has_banner,
       features: Array.isArray(p.features) ? p.features : p.features ? [p.features] : ['']
     })
     setIsModalOpen(true)
@@ -326,6 +335,17 @@ export default function AdminPlanos() {
                   <label>Destaques Home</label>
                   <input type="number" className="adm-input" value={form.highlight_count} onChange={e => setForm({ ...form, highlight_count: parseInt(e.target.value) })} />
                 </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '20px', marginTop: '12px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={form.has_video} onChange={e => setForm({ ...form, has_video: e.target.checked })} />
+                  Vídeo no anúncio
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={form.has_banner} onChange={e => setForm({ ...form, has_banner: e.target.checked })} />
+                  Banner de perfil
+                </label>
               </div>
 
               <h4 style={{ margin: '20px 0 10px', fontSize: '1rem', color: 'var(--adm-text)' }}>Regras (Features)</h4>
