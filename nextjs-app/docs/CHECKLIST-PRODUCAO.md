@@ -9,6 +9,90 @@ diretamente. Reconfira antes do go-live.
 
 ---
 
+## ✅ 4ª rodada — reescrita de billing sob revisão independente + sandbox Stripe real — 2026-08-26
+
+Pedido explícito do usuário, preocupado com a reescrita de billing da 3ª
+rodada (que eu tinha feito sozinho, sem segunda opinião): "esse processo
+billing me preocupa muito". Rodada dedicada — 3 revisores de código +
+5 testadores ao vivo no sandbox real da Stripe, focados só nos arquivos de
+checkout/webhook/gateway — mais uma varredura do resto do site em paralelo.
+Todos os 8 relatórios convergiram nos mesmos achados críticos, nada
+refutado. Depois de aplicar as correções, uma 2ª rodada de verificação
+independente (3 agentes) confirmou os 9 fixes ao vivo e achou mais 2
+regressões introduzidas pelos próprios fixes — também corrigidas antes do
+commit.
+
+### 🔴 Achados críticos confirmados na reescrita da 3ª rodada (todos corrigidos nesta rodada)
+
+1. **Retry após troca de plano bem-sucedida cobrava 2x de verdade** — o
+   lock de idempotência era apagado no sucesso, reabrindo a chave pro
+   mesmo `checkoutId` cair em "criar assinatura nova". Reproduzido com
+   R$79 cobrados duas vezes na Stripe real. Corrigido: o lock agora vira
+   um status terminal (`switch_applied`), nunca mais reutilizável.
+2. **Duas abas/checkoutIds diferentes não eram serializadas** — só o
+   `checkoutId` idêntico era bloqueado; duas tentativas concorrentes
+   genuínas (2 abas, duplo clique) criavam 2 assinaturas ativas reais e
+   consumiam o mesmo cupom 2x. Corrigido com um índice único parcial real
+   no banco (`subscriptions(user_id) WHERE status='pending'`), travando
+   por usuário, não por token escolhido pelo cliente.
+3. **Recomprar o plano já ativo não tinha proteção nenhuma** — confirmado
+   com cobrança dupla real. Corrigido: 409 imediato.
+4. **`current_period_end` nunca sincronizava** — a "correção" da 3ª rodada
+   lia um campo que não existe mais nesta versão de API da Stripe
+   (migrou pra dentro de `items.data[0]`). Causava downgrade automático
+   pra Grátis de assinante Premium anual pagando em dia. Corrigido.
+5. **Cupom 100% numa troca de plano gravava preço R$0 permanente** na
+   assinatura Stripe (não um desconto pontual). Corrigido: cupom 100%
+   numa troca sempre cancela a antiga de verdade + aplica o bypass local.
+6. **Secret de webhook vazio mascarava rejeição como sucesso HTTP 200** —
+   a Stripe nunca reenviava, o evento morria em silêncio. Como o
+   entitlement de upgrade passou a depender 100% do webhook, isso
+   significava: cliente pagava, nunca ganhava o plano, sem erro visível
+   em lugar nenhum. Corrigido a classificação do erro (agora 400,
+   provoca reenvio real da Stripe) — mas o secret em si continua vazio,
+   ver bloqueador de configuração já documentado abaixo.
+7. **Webhook entregue fora de ordem podia aplicar o plano errado** —
+   corrigido com uma escrita condicional atômica (não leitura-depois-escrita).
+8. **Evento marcado "processado" antes de confirmar sucesso** — um 404
+   legítimo de corrida (checkout ainda não commitou) já gravava o evento
+   como processado, engolindo qualquer reenvio real da Stripe como
+   duplicata pra sempre. Corrigido: só marca depois de achar a assinatura.
+
+### 🟠 Achados na própria migration da 3ª rodada (não do billing, achados de carona)
+
+9. **Reativação self-service de anúncio pausado sempre falhava** — uma
+   coluna `GENERATED ALWAYS` (`fts`) fica `NULL` durante todo o trigger
+   `BEFORE UPDATE`, então a comparação de diff sempre via diferença
+   mesmo sem editar nada. O fix da 3ª rodada nunca funcionou de verdade
+   em produção. Corrigido.
+10. **Escritas de `enforce_plan_expiration`/`set_profile_kyc_pending` em
+    `profiles` eram revertidas em silêncio** por um trigger antigo que
+    checava `auth.role()`/`is_admin()` em vez de `current_user` — não
+    reconhecia bypass de função `SECURITY DEFINER`, ao contrário dos
+    guardas irmãos. Corrigido alinhando ao mesmo padrão.
+
+### 🟡 Regressões introduzidas pelos próprios fixes acima, achadas na verificação e já corrigidas
+
+11. O índice único parcial (achado 2) travava a conta **inteira e pra
+    sempre** se uma linha `pending` ficasse órfã (webhook perdido, 3DS
+    abandonado, timeout de função serverless) — antes só travava aquele
+    checkoutId específico. Corrigido com um cron de reconciliação
+    (`expire-stale-pending-subscriptions`, a cada 5 min, expira `pending`
+    com mais de 15 min).
+12. A linha `switch_applied` (achado 1) inflava `/admin/assinaturas` com
+    uma entrada zumbi por troca de plano nativa. Corrigido filtrando esse
+    status nas duas leituras (`admin/subscriptions/route.ts`,
+    `getMySubscription()`).
+
+### Nota operacional (repetida, mesma causa das rodadas anteriores)
+De novo, múltiplos agentes relataram evidência de "sessão paralela" —
+mesma causa raiz já diagnosticada e confirmada nas rodadas 3 e 4: agentes
+do próprio workflow rodando em `parallel()` dentro da mesma fase colidem
+entre si (mesmo servidor, mesmo banco, mesma conta Stripe sandbox,
+diretório `scripts/` compartilhado). Não é uma sessão externa.
+
+---
+
 ## ✅ 3ª rodada de validação do zero — varredura completa do site — 2026-08-26
 
 Pedido: "mais uma varredura completa do site inteiro" antes de publicar.
