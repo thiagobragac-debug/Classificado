@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/components/AuthProvider'
 
@@ -79,10 +79,21 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
     : basePrice
   const currencySymbol = CURRENCY_SYMBOLS[plan.currency] || plan.currency || 'R$'
 
-  // --- Initialize Gateway and Idempotency ---
-  const [checkoutId, setCheckoutId] = useState('')
+  // --- Idempotency nonce ---
+  // BUG CORRIGIDO (validação do zero, 3ª rodada): antes era gerado dentro
+  // do efeito que reage a `gatewayConfig`, que muda de referência sempre
+  // que handleBillingSubmit roda de novo — inclusive num "← Voltar" +
+  // reenviar dentro da MESMA sessão de checkout. Isso trocava o nonce de
+  // idempotência no meio de um retry genuíno (ex.: resposta do servidor
+  // perdida por timeout após já ter tido sucesso), abrindo uma janela
+  // estreita pra aplicar a mesma troca de plano/proração duas vezes. Um
+  // checkoutId por ABERTURA do modal (gerado uma vez, na montagem) é o
+  // nonce certo — mesmo valor em qualquer retry dentro da mesma tentativa,
+  // valor novo só quando o modal reabre de verdade.
+  const [checkoutId] = useState(() => crypto.randomUUID())
+
+  // --- Initialize Gateway SDK ---
   useEffect(() => {
-    setCheckoutId(crypto.randomUUID())
     if (gatewayConfig?.gateway === 'stripe' && gatewayConfig.publicKey) {
       setStripePromise(loadStripe(gatewayConfig.publicKey))
     } else if (gatewayConfig?.gateway === 'mercadopago' && gatewayConfig.publicKey) {
@@ -209,6 +220,30 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
       setLoading(false)
     }
   }
+
+  // BUG CORRIGIDO (validação do zero, 3ª rodada): o Brick de cartão do
+  // Mercado Pago (CardPayment) recebia `initialization`/`onSubmit` como
+  // literais inline — recriados em TODA re-renderização do modal. O SDK
+  // (@mercadopago/sdk-react) usa esses props como dependência de efeito
+  // por IDENTIDADE: uma re-renderização enquanto o Brick ainda está
+  // inicializando (initBrick é assíncrono) podia disparar duas chamadas a
+  // create() pro mesmo container, produzindo "Bricks.create: initialization
+  // failed" de forma repetida — reproduzido de forma independente por 2
+  // rodadas de validação. handleServerCheckout muda de identidade a cada
+  // render (fecha sobre vários estados do formulário), então o callback do
+  // Brick usa uma ref pra sempre chamar a versão mais recente sem forçar
+  // o Brick a remontar.
+  const handleServerCheckoutRef = useRef(handleServerCheckout)
+  handleServerCheckoutRef.current = handleServerCheckout
+
+  const mpInitialization = useMemo(
+    () => ({ amount: finalPrice, payer: { email: session?.user?.email } }),
+    [finalPrice, session?.user?.email]
+  )
+
+  const handleMpSubmit = useCallback(async (formData: any) => {
+    await handleServerCheckoutRef.current({ gatewayToken: formData.token })
+  }, [])
 
   // Submissão para os métodos que não têm UI própria do gateway (PIX, Boleto).
   // Cartão em Stripe/Mercado Pago é enviado pelos componentes deles, que
@@ -428,10 +463,8 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
               {paymentMethod === 'card' && gatewayConfig?.gateway === 'mercadopago' && (
                 <div style={{ marginBottom: '1.5rem' }}>
                   <CardPayment
-                    initialization={{ amount: finalPrice, payer: { email: session?.user?.email } }}
-                    onSubmit={async (formData) => {
-                      await handleServerCheckout({ gatewayToken: formData.token })
-                    }}
+                    initialization={mpInitialization}
+                    onSubmit={handleMpSubmit}
                   />
                 </div>
               )}

@@ -51,9 +51,13 @@ export default function AdminPlanos() {
 
   const handleToggleActive = async (id: string, currentActive: boolean) => {
     const supabase = getSupabase()
-    const { error } = await supabase.from('plans').update({ is_active: !currentActive }).eq('id', id)
-    if (!error) {
+    const { data, error } = await supabase.from('plans').update({ is_active: !currentActive }).eq('id', id).select()
+    if (!error && data && data.length > 0) {
       setPlans(plans.map(p => p.id === id ? { ...p, is_active: !currentActive } : p))
+    } else if (!error) {
+      showToast('Nenhuma linha foi atualizada — verifique permissões ou se o registro ainda existe.', 'error')
+    } else {
+      showToast('Erro: ' + error.message, 'error')
     }
   }
 
@@ -113,11 +117,13 @@ export default function AdminPlanos() {
     }
 
     if (editingId) {
-      const { error } = await supabase.from('plans').update(payload).eq('id', editingId)
-      if (!error) {
+      const { data, error } = await supabase.from('plans').update(payload).eq('id', editingId).select()
+      if (!error && data && data.length > 0) {
         setPlans(plans.map(p => p.id === editingId ? { ...p, ...payload } : p))
         setIsModalOpen(false)
         showToast('Plano atualizado!', 'success')
+      } else if (!error) {
+        showToast('Nenhuma linha foi atualizada — verifique permissões ou se o registro ainda existe.', 'error')
       } else {
         showToast('Erro: ' + error.message, 'error')
       }

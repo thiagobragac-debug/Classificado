@@ -64,6 +64,9 @@ export default async function EventosPage({
   const sb = createAnonClient();
 
   let events: AuctionEvent[] = []
+  // Usado tanto na ordenação (dentro do try) quanto no JSON-LD (fora dele) —
+  // hoisted pra fora do try/catch pra ficar acessível nos dois lugares.
+  const now = Date.now();
 
   try {
     // Selecionar as colunas necessárias para renderização correta
@@ -111,7 +114,6 @@ export default async function EventosPage({
     // "Grandes Destaques Nacionais", só porque uma data passada é
     // numericamente "menor" que uma futura. Eventos já ocorridos (data válida
     // e no passado) agora vão para o final da lista, sem deixar de aparecer.
-    const now = Date.now();
 
     // BUG CORRIGIDO (reteste do site, 2026-08-25): a correção acima só
     // funcionava pra auction_events (data ISO) — o byDate/isPast originais
@@ -156,9 +158,15 @@ export default async function EventosPage({
     '@graph': events.map(ev => {
       let startDateStr = ev.date;
       let endDateStr = ev.date;
-      const parsedDate = new Date(ev.date);
+      // BUG CORRIGIDO (3ª varredura pré-lançamento): `new Date(ev.date)` cru
+      // não parseia o texto livre em português da tabela `eventos` (ex: "2 -
+      // 6 fev 2026"), então caía sempre no fallback "hoje" pra 8 de 10
+      // registros — quebrando os rich results do Google. parseEventDate é a
+      // mesma função já usada acima (linhas 129-139) pra ordenar a lista.
+      const parsedTime = parseEventDate(ev.date, now);
 
-      if (!isNaN(parsedDate.getTime())) {
+      if (!isNaN(parsedTime)) {
+        const parsedDate = new Date(parsedTime);
         startDateStr = parsedDate.toISOString();
         endDateStr = new Date(parsedDate.getTime() + 4 * 60 * 60 * 1000).toISOString();
       } else {

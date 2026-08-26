@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { imageUrl } from '@/lib/storage';
+import { getSupabase } from '@/lib/supabase';
 import { LotData } from './LotBiddingModal';
 import LotBiddingModal from './LotBiddingModal';
 
@@ -11,12 +12,78 @@ interface LotGridProps {
   isLive: boolean;
   isCancelled?: boolean;
   userId?: string;
+  // BUG CORRIGIDO (3ª varredura): auction_events.step nunca chegava até o
+  // modal de lances — necessário para calcular o mínimo real de lance.
+  step?: number;
+  // BUG CORRIGIDO (3ª varredura): usado para filtrar a subscription do
+  // Supabase Realtime (postgres_changes) só nos lotes deste leilão.
+  auctionId?: string;
 }
 
-export default function LotGrid({ lots, isLive, isCancelled = false, userId }: LotGridProps) {
+export default function LotGrid({ lots, isLive, isCancelled = false, userId, step = 0, auctionId }: LotGridProps) {
   const [selectedLot, setSelectedLot] = useState<LotData | null>(null);
+  // BUG CORRIGIDO (3ª varredura): a página é Server Component (ISR de 30s) —
+  // sem estado local aqui, current_bid/winner_id só atualizavam com um F5
+  // manual ou com o router.refresh() disparado por quem acabou de dar
+  // lance. Um espectador com a aba aberta não via lances de OUTROS
+  // usuários (confirmado ao vivo: aba travada no valor antigo enquanto
+  // outro lance real avançava em outra sessão).
+  const [lotsState, setLotsState] = useState<LotData[]>(lots);
 
-  if (!lots || lots.length === 0) {
+  // Mantém lotsState em sincronia quando o Server Component reenvia props
+  // novas (ex.: depois de um router.refresh() do próprio usuário).
+  useEffect(() => {
+    setLotsState(lots);
+  }, [lots]);
+
+  // Supabase Realtime: assina UPDATE em auction_lots filtrado pelo leilão
+  // atual e atualiza current_bid/winner_id na tela pra todos os
+  // espectadores, sem precisar de F5.
+  useEffect(() => {
+    if (!auctionId) return;
+    const supabase = getSupabase();
+    const channel = supabase
+      .channel(`auction-lots-${auctionId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'auction_lots',
+          filter: `auction_id=eq.${auctionId}`,
+        },
+        (payload: { new: { id: string; current_bid: number | null; winner_id: string | null } }) => {
+          const updated = payload.new;
+          setLotsState(prev =>
+            prev.map(l =>
+              l.id === updated.id
+                ? { ...l, current_bid: updated.current_bid ?? undefined, winner_id: updated.winner_id }
+                : l
+            )
+          );
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [auctionId]);
+
+  // Mantém o modal aberto (se houver) em sincronia com atualizações em
+  // tempo real do lote que ele está exibindo.
+  useEffect(() => {
+    setSelectedLot(prev => {
+      if (!prev) return prev;
+      const fresh = lotsState.find(l => l.id === prev.id);
+      if (fresh && (fresh.current_bid !== prev.current_bid || fresh.winner_id !== prev.winner_id)) {
+        return fresh;
+      }
+      return prev;
+    });
+  }, [lotsState]);
+
+  if (!lotsState || lotsState.length === 0) {
     return (
       <div style={{ textAlign: 'center', padding: '4rem 0', color: 'var(--clr-text-light)' }}>
         Nenhum lote cadastrado para este leilão.
@@ -27,9 +94,12 @@ export default function LotGrid({ lots, isLive, isCancelled = false, userId }: L
   return (
     <>
       <div className="ads-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', marginTop: '2rem' }}>
-        {lots.map(lot => {
+        {lotsState.map(lot => {
           const currentBid = lot.current_bid || lot.min_bid || 0;
           const imgFilter = !isLive ? 'grayscale(80%) opacity(0.85)' : 'none';
+          // BUG CORRIGIDO (3ª varredura): winner_id nunca era comparado com
+          // o usuário logado no lado público — só o admin mostrava vencedor.
+          const isWinning = !!(userId && lot.winner_id && lot.winner_id === userId);
 
           return (
             <article key={lot.id} className="ad-card" style={{ display: 'flex', flexDirection: 'column' }}>
@@ -37,6 +107,11 @@ export default function LotGrid({ lots, isLive, isCancelled = false, userId }: L
                 <div style={{ position: 'absolute', top: '1rem', left: '1rem', background: '#020617', color: '#fff', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.85rem', fontWeight: 700, zIndex: 10 }}>
                   LOTE {lot.lot_number}
                 </div>
+                {isWinning && (
+                  <div style={{ position: 'absolute', top: '1rem', right: '1rem', background: '#22c55e', color: '#000', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700, zIndex: 10 }}>
+                    Você está vencendo!
+                  </div>
+                )}
                 <Image
                   src={imageUrl(lot.image)}
                   alt={`Foto do lote ${lot.lot_number}: ${lot.title}`}
@@ -53,7 +128,13 @@ export default function LotGrid({ lots, isLive, isCancelled = false, userId }: L
                 
                 <div style={{ background: 'var(--clr-bg-alt)', padding: '0.75rem', borderRadius: '6px', marginBottom: '1rem' }}>
                   <div style={{ fontSize: '0.75rem', color: 'var(--clr-text-light)', marginBottom: '0.2rem' }}>
-                    {isLive ? 'LANCE ATUAL' : 'LANCE INICIAL'}
+                    {/* BUG CORRIGIDO (validação do zero, 3ª rodada): o rótulo
+                        dependia só de isLive — um leilão cancelado (ou
+                        encerrado) que já tinha recebido lance real mostrava
+                        "LANCE INICIAL" sobre um valor que na verdade é o
+                        último lance de verdade. Depende de existir lance
+                        real, não do status do leilão. */}
+                    {lot.current_bid ? 'LANCE ATUAL' : 'LANCE INICIAL'}
                   </div>
                   <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#22c55e' }}>
                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(currentBid)}
@@ -81,6 +162,7 @@ export default function LotGrid({ lots, isLive, isCancelled = false, userId }: L
           userId={userId}
           isLive={isLive}
           isCancelled={isCancelled}
+          step={step}
           onClose={() => setSelectedLot(null)}
         />
       )}

@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { cache } from 'react';
 import { SUPABASE_URL, SUPABASE_ANON } from './supabase';
+import { parseEventDate } from './event-date';
 
 export function createAnonClient() {
   return createServerClient(SUPABASE_URL, SUPABASE_ANON, { 
@@ -177,7 +178,8 @@ export const getServerTestimonials = cache(async () => {
 export async function getServerUpcomingEvents(city?: string, state?: string, country?: string, limit: number = 4) {
   const supabase = createAnonClient();
   const today = new Date().toISOString();
-  
+  const now = Date.now();
+
   // Buscar leilões
   const { data: auctionsData } = await supabase
     .from('auction_events')
@@ -187,11 +189,15 @@ export async function getServerUpcomingEvents(city?: string, state?: string, cou
     .order('date', { ascending: true })
     .limit(limit);
 
-  // Buscar feiras/eventos
+  // Buscar feiras/eventos — `date` é texto livre em português (ex: "2 - 6
+  // fev 2026"), então não dá pra filtrar/ordenar no banco com .gte()/.order().
+  // Busca um lote maior (mesmo limite usado em app/(public)/eventos/page.tsx)
+  // e filtra/ordena em memória com parseEventDate, evitando que eventos já
+  // passados apareçam na home só porque calharam nas primeiras `limit` linhas.
   const { data: eventosData } = await supabase
     .from('eventos')
     .select('id, title, date, image, location_str, link')
-    .limit(limit);
+    .limit(50);
 
   // Normalizar e mesclar
   const normalizedAuctions = (auctionsData || []).map(a => ({
@@ -206,24 +212,36 @@ export async function getServerUpcomingEvents(city?: string, state?: string, cou
     type: 'auction'
   }));
 
-  const normalizedEventos = (eventosData || []).map(e => ({
-    id: e.id,
-    title: e.title,
-    date: e.date, // pode ser string "30 ago - 7 set 2026"
-    cover: e.image,
-    location: e.location_str,
-    link: e.link,
-    type: 'evento'
-  }));
+  // Mesma lógica de app/(public)/eventos/page.tsx: uma data válida (ISO ou
+  // texto livre parseável) e já no passado é descartada; datas que não dá
+  // pra parsear não são tratadas como passadas (ficam, e vão pro fim via
+  // fallback na ordenação abaixo).
+  const isPastEvento = (dateStr: string) => {
+    const t = parseEventDate(dateStr, now);
+    return !isNaN(t) && t < now;
+  };
+
+  const normalizedEventos = (eventosData || [])
+    .filter(e => !isPastEvento(e.date))
+    .map(e => ({
+      id: e.id,
+      title: e.title,
+      date: e.date, // pode ser string "30 ago - 7 set 2026"
+      cover: e.image,
+      location: e.location_str,
+      link: e.link,
+      type: 'evento'
+    }));
 
   const merged = [...normalizedAuctions, ...normalizedEventos];
 
-  // Ordenar (os eventos podem ter strings de data, vamos tentar ordenar)
+  // Ordenar por data real de início — parseEventDate lida tanto com datas
+  // ISO (leilões) quanto com texto livre em português (feiras).
   merged.sort((a, b) => {
-    const timeA = new Date(a.date).getTime();
-    const timeB = new Date(b.date).getTime();
-    const validA = !isNaN(timeA) ? timeA : Date.now() + 86400000; // joga pro final se inválido
-    const validB = !isNaN(timeB) ? timeB : Date.now() + 86400000;
+    const timeA = parseEventDate(a.date, now);
+    const timeB = parseEventDate(b.date, now);
+    const validA = !isNaN(timeA) ? timeA : now + 86400000; // joga pro final se inválido
+    const validB = !isNaN(timeB) ? timeB : now + 86400000;
     return validA - validB;
   });
 

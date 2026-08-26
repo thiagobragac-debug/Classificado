@@ -1,11 +1,59 @@
 import React from 'react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { Metadata } from 'next';
 import DOMPurify from 'isomorphic-dompurify';
-import { createClient } from '@/lib/supabase-server';
+import { createClient, createAnonClient } from '@/lib/supabase-server';
 import './institucional.css';
 
 export const revalidate = 60; // ISR - revalida a cada minuto para as páginas mudarem rápido após edição no painel
+
+type SearchParams = { [key: string]: string | string[] | undefined };
+
+// BUG CORRIGIDO (3ª varredura pré-lançamento, 2026-08-26): faltava metadata
+// própria por página institucional — todas as 10 páginas (Termos, Privacidade,
+// Cookies, Sobre, Ajuda, API, Contato, Trabalhe Conosco, Denúncia, Imprensa)
+// herdavam o title/description genérico da home e o canonical sempre apontava
+// pra raiz (definidos no layout raiz), o que é ruim pra SEO/indexação — cada
+// uma tem conteúdo e propósito distintos.
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}): Promise<Metadata> {
+  const params = await searchParams;
+  const pageParam = typeof params.page === 'string' ? params.page : 'sobre';
+
+  // Cliente anônimo (sem cookies) — mesma leitura pública que o corpo da
+  // página faz, mas cacheável e sem depender de sessão do visitante.
+  const supabase = createAnonClient();
+  const { data: pageData } = await supabase
+    .from('institutional_pages')
+    .select('id, title, subtitle')
+    .eq('id', pageParam)
+    .maybeSingle();
+
+  if (!pageData) {
+    // Slug inexistente: a página em si faz redirect() pra pages[0] nesse
+    // caso, mas mantemos uma metadata genérica e coerente de fallback.
+    return {
+      title: 'Institucional',
+      description: 'Termos de uso, política de privacidade, cookies e demais informações institucionais do Tauze Class — o maior classificado do agronegócio do Mercosul.',
+      alternates: { canonical: 'https://tauzeclass.com.br/institucional' },
+    };
+  }
+
+  const description = pageData.subtitle
+    || `${pageData.title} — Tauze Class, o maior classificado do agronegócio do Mercosul.`;
+
+  return {
+    title: pageData.title,
+    description,
+    alternates: {
+      canonical: `https://tauzeclass.com.br/institucional?page=${pageData.id}`,
+    },
+  };
+}
 
 // Tags HTML permitidas no conteúdo institucional
 const ALLOWED_TAGS = [
@@ -35,13 +83,19 @@ const ICON_MAP: Record<string, React.ReactNode> = {
 export default async function InstitucionalPage({
   searchParams,
 }: {
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+  searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
   const pageParam = typeof params.page === 'string' ? params.page : 'sobre';
 
   const supabase = await createClient();
-  const { data: pages } = await supabase.from('institutional_pages').select('*').order('order_idx', { ascending: true });
+  // BUG CORRIGIDO (3ª varredura pré-lançamento, 2026-08-26): sem desempate,
+  // a ordenação por order_idx sozinha não é determinística entre páginas
+  // empatadas (produção tem 3 grupos de 3 páginas cada empatadas em
+  // order_idx 1/2/3). pages[0] — usado no redirect de fallback e como página
+  // padrão — dependia de uma ordem que o SQL não garante entre empates.
+  // 'id' (o slug) como segunda chave dá um resultado estável.
+  const { data: pages } = await supabase.from('institutional_pages').select('*').order('order_idx', { ascending: true }).order('id', { ascending: true });
   
   if (!pages || pages.length === 0) {
     return <div style={{ padding: '100px', textAlign: 'center' }}>Nenhuma página institucional configurada.</div>;

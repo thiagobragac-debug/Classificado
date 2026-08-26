@@ -177,7 +177,12 @@ export default function AdminAssinaturas() {
                     {sub.status === 'cancelled' && <span className="adm-badge adm-badge--red">Cancelada</span>}
                     {!['active', 'past_due', 'cancelled'].includes(sub.status) && <span className="adm-badge">{sub.status}</span>}
                   </td>
-                  <td>{sub.next_billing_at ? new Date(sub.next_billing_at).toLocaleDateString() : '-'}</td>
+                  {/* BUG CORRIGIDO (validação do zero, 3ª rodada): next_billing_at
+                      nunca é escrito por nenhum caminho de código — coluna morta,
+                      "-" garantido sempre. current_period_end é a coluna real,
+                      atualizada tanto na criação/renovação quanto na troca de
+                      plano nativa. */}
+                  <td>{sub.current_period_end ? new Date(sub.current_period_end).toLocaleDateString() : '-'}</td>
                   <td style={{ textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
                       {(sub.status === 'active' || sub.status === 'past_due') && (

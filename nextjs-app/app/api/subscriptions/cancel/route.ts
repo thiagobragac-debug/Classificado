@@ -39,7 +39,8 @@ export async function POST(req: Request) {
       .maybeSingle()
 
     if (subError) {
-      return NextResponse.json({ error: 'Erro ao buscar assinatura: ' + subError.message }, { status: 500 })
+      console.error('[Cancel Subscription] Failed to fetch subscription:', subError.message)
+      return NextResponse.json({ error: 'Erro ao buscar assinatura.' }, { status: 500 })
     }
     if (!sub) {
       return NextResponse.json({ error: 'Nenhuma assinatura ativa encontrada.' }, { status: 404 })
@@ -73,7 +74,16 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: `Gateway '${gatewayName}' nao suportado.` }, { status: 400 })
     }
 
-    await adapter.cancelSubscription(sub.gateway_subscription_id)
+    try {
+      await adapter.cancelSubscription(sub.gateway_subscription_id)
+    } catch (gatewayErr: any) {
+      // BUG CORRIGIDO (validação do zero, 3ª rodada): o corpo cru do erro do
+      // gateway (ex.: request_log_url e account id da Stripe) vazava pro
+      // cliente via o catch externo — mesma classe já corrigida em
+      // checkout/route.ts, replicada aqui.
+      console.error('[Cancel Subscription] Gateway error:', gatewayErr.message)
+      return NextResponse.json({ error: 'Não foi possível cancelar a assinatura no momento. Tente novamente ou contate o suporte.' }, { status: 502 })
+    }
 
     // --- Update local DB ---
     const now = new Date().toISOString()
@@ -87,6 +97,6 @@ export async function POST(req: Request) {
 
   } catch (err: any) {
     console.error('[Cancel Subscription] Error:', err)
-    return NextResponse.json({ error: err.message || 'Erro ao cancelar assinatura.' }, { status: 500 })
+    return NextResponse.json({ error: 'Erro ao cancelar assinatura.' }, { status: 500 })
   }
 }

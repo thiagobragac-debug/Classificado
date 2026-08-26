@@ -180,6 +180,11 @@ export async function POST(req: Request) {
       updateData.status = 'past_due'
       updateData.updated_at = now.toISOString()
     }
+    // 'subscription.plan_changed' não toca em status/período aqui —
+    // app/api/checkout/route.ts já atualizou plan/price/billing_cycle/
+    // current_period_end de forma síncrona quando a chamada de troca à
+    // Stripe teve sucesso. Este evento é só a confirmação de que a fatura
+    // de proração foi PAGA — ver bloco de entitlement abaixo.
 
     if (Object.keys(updateData).length > 0) {
       const { error: updateErr } = await supabase.from('subscriptions').update(updateData).eq('id', sub.id)
@@ -235,6 +240,36 @@ export async function POST(req: Request) {
         })
         .eq('id', sub.user_id)
       if (secErr) console.warn(`[Webhook:${gateway}] Could not update user_secrets (non-critical):`, secErr.message)
+    }
+
+    // BUG CORRIGIDO (validação de 2026-08-26, 3ª rodada): troca nativa de
+    // plano (upgrade com pro-rata) agora só concede o entitlement do plano
+    // novo QUANDO a fatura de proração é confirmada paga — não mais na hora
+    // em que a chamada de update à Stripe retorna 200 (isso só garante que
+    // o PREÇO mudou, não que o cliente pagou a diferença). Usa
+    // event.metadata.plan_id (gravado em updateSubscriptionPlan) em vez de
+    // casar por nome, que é mais frágil.
+    if (effectiveType === 'subscription.plan_changed') {
+      const planId = event.metadata?.plan_id
+      if (planId) {
+        const { data: planRow } = await supabase.from('plans').select('id, name').eq('id', planId).maybeSingle()
+        if (planRow) {
+          let planEnum = 'free'
+          if (planRow.name.toLowerCase().includes('premium')) planEnum = 'premium'
+          else if (planRow.name.toLowerCase().includes('pro')) planEnum = 'pro'
+
+          await supabase.from('profiles').update({ subscription_status: 'active' }).eq('id', sub.user_id)
+          const { error: secErr2 } = await supabase
+            .from('user_secrets')
+            .update({ plan: planEnum, plan_id: planRow.id })
+            .eq('id', sub.user_id)
+          if (secErr2) console.warn(`[Webhook:${gateway}] Could not update user_secrets on plan_changed (non-critical):`, secErr2.message)
+        } else {
+          console.warn(`[Webhook:${gateway}] plan_changed event references unknown plan_id ${planId}`)
+        }
+      } else {
+        console.warn(`[Webhook:${gateway}] plan_changed event without plan_id in metadata — cannot grant entitlement`)
+      }
     }
 
     if (effectiveType === 'subscription.cancelled' || effectiveType === 'payment.failed') {

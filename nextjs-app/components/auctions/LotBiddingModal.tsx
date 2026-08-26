@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { NumericFormat } from 'react-number-format';
 import { placeLotBid } from '@/lib/supabase';
 import { showToast } from '@/lib/toast';
 
@@ -18,6 +19,10 @@ export interface LotData {
   description: string | null;
   // Computed fields (if we have bid tracking later)
   current_bid?: number;
+  // BUG CORRIGIDO (3ª varredura): winner_id já existe em auction_lots
+  // (populado por place_lot_bid_atomic) mas nunca era buscado/exibido no
+  // lado público — só o admin mostrava quem estava vencendo.
+  winner_id?: string | null;
 }
 
 interface LotBiddingModalProps {
@@ -26,10 +31,28 @@ interface LotBiddingModalProps {
   userId?: string; // from session
   isLive?: boolean;
   isCancelled?: boolean;
+  // BUG CORRIGIDO (3ª varredura): auction_events.step nunca era buscado nem
+  // usado na UI — os "lances rápidos" eram 4 valores fixos calculados só a
+  // partir do currentBid, sem nenhuma relação com o incremento mínimo real
+  // exigido pelo servidor (place_lot_bid_atomic: lance >= currentBid + step).
+  // Com min_bid=100/step=500, por exemplo, 2 dos 4 botões antigos (200 e 300)
+  // ficavam abaixo do mínimo real (600) e eram sempre rejeitados pelo RPC.
+  step?: number;
 }
 
-/** Returns dynamic bid increment options based on the current bid value */
-function getBidIncrements(currentBid: number): number[] {
+/**
+ * Retorna os valores de "lance rápido" (deltas somados ao lance atual).
+ * O servidor (place_lot_bid_atomic) exige lance >= currentBid + step — por
+ * isso, quando o evento tem step configurado, o primeiro tier É esse
+ * mínimo real e os demais são múltiplos dele, garantindo que todo botão
+ * gerado seja sempre aceito pelo RPC.
+ */
+function getBidIncrements(currentBid: number, step: number): number[] {
+  if (step > 0) {
+    return [step, step * 2, step * 5, step * 10];
+  }
+  // Sem step configurado no evento (o RPC trata como 0 nesse caso) —
+  // qualquer valor acima do lance atual é válido, mantém os tiers antigos.
   if (currentBid < 1_000)  return [100, 200, 500, 1_000];
   if (currentBid < 10_000) return [500, 1_000, 2_000, 5_000];
   if (currentBid < 50_000) return [1_000, 2_500, 5_000, 10_000];
@@ -38,15 +61,19 @@ function getBidIncrements(currentBid: number): number[] {
 
 const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
-export default function LotBiddingModal({ lot, onClose, userId, isLive = true, isCancelled = false }: LotBiddingModalProps) {
+export default function LotBiddingModal({ lot, onClose, userId, isLive = true, isCancelled = false, step = 0 }: LotBiddingModalProps) {
   const router = useRouter();
   const [bidding, setBidding] = useState(false);
   const [pendingBid, setPendingBid] = useState<number | null>(null);
+  const [manualBid, setManualBid] = useState<number | undefined>(undefined);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const titleId = 'lot-modal-title';
 
   const currentBid = lot ? (lot.current_bid || lot.min_bid || 0) : 0;
+  // Mesmo cálculo do RPC (v_min_valid): coalesce(current_bid, min_bid, 0) + coalesce(step, 0).
+  const minValidBid = currentBid + (step > 0 ? step : 0);
+  const isWinning = !!(userId && lot?.winner_id && lot.winner_id === userId);
 
   // ─── Focus trap ────────────────────────────────────────────────
   useEffect(() => {
@@ -108,12 +135,29 @@ export default function LotBiddingModal({ lot, onClose, userId, isLive = true, i
       showToast('Você precisa estar logado para dar lances.', 'error');
       return;
     }
-    if (amount <= currentBid) {
-      showToast(`O lance deve ser maior que o lance atual (${BRL.format(currentBid)}).`, 'warning');
+    // BUG CORRIGIDO (3ª varredura): comparava só com currentBid, ignorando o
+    // step do evento — permitia abrir a confirmação para um valor que o
+    // servidor rejeitaria (lance >= currentBid + step). Agora usa o mesmo
+    // mínimo (minValidBid) que o RPC calcula, tanto para os botões rápidos
+    // (que já nascem válidos) quanto para o campo de valor manual.
+    if (amount < minValidBid) {
+      showToast(`O lance deve ser de pelo menos ${BRL.format(minValidBid)}.`, 'warning');
       return;
     }
     setPendingBid(amount);
-  }, [userId, currentBid, isLive, isCancelled]);
+  }, [userId, minValidBid, isLive, isCancelled]);
+
+  // BUG CORRIGIDO (3ª varredura): não existia nenhum campo de valor manual —
+  // só os 4 botões de lance rápido. Um lote com step alto relativo ao
+  // min_bid podia ficar sem NENHUMA forma válida de dar lance pela UI antes
+  // desta correção (os tiers antigos ignoravam o step por completo).
+  const requestManualBid = useCallback(() => {
+    if (manualBid === undefined || !isFinite(manualBid) || manualBid <= 0) {
+      showToast('Informe um valor de lance.', 'warning');
+      return;
+    }
+    requestBid(manualBid);
+  }, [manualBid, requestBid]);
 
   const confirmBid = useCallback(async () => {
     if (pendingBid === null || !userId || !lot) return;
@@ -126,6 +170,7 @@ export default function LotBiddingModal({ lot, onClose, userId, isLive = true, i
       await placeLotBid(lot.id, pendingBid);
       showToast(`Lance de ${BRL.format(pendingBid)} registrado com sucesso!`, 'success');
       setPendingBid(null);
+      setManualBid(undefined);
       onClose();
       // BUG CORRIGIDO (reteste do site, 2026-08-25): o card do lote na
       // página (Server Component) continuava com o "Lance Atual" antigo
@@ -148,7 +193,7 @@ export default function LotBiddingModal({ lot, onClose, userId, isLive = true, i
   const ytMatch = isYoutube ? lot.video?.match(/(?:v=|youtu\.be\/)([^&]+)/) : null;
   const ytId = ytMatch ? ytMatch[1] : null;
 
-  const increments = getBidIncrements(currentBid);
+  const increments = getBidIncrements(currentBid, step);
 
   return (
     <div
@@ -206,7 +251,17 @@ export default function LotBiddingModal({ lot, onClose, userId, isLive = true, i
           <div style={{ flex: '1 1 350px', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
 
             <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '8px' }}>
-              <div style={{ color: '#94a3b8', fontSize: '0.85rem', marginBottom: '0.25rem' }}>LANCE ATUAL</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>LANCE ATUAL</div>
+                {/* BUG CORRIGIDO (3ª varredura): winner_id nunca era comparado
+                    com o usuário logado na UI pública — nenhum indicador de
+                    "você está vencendo". */}
+                {isWinning && (
+                  <span style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.4)', borderRadius: '20px', padding: '0.15rem 0.6rem', fontSize: '0.75rem', fontWeight: 700 }}>
+                    Você está vencendo!
+                  </span>
+                )}
+              </div>
               <div style={{ fontSize: '2rem', fontWeight: 800, color: '#22c55e' }}>
                 {BRL.format(currentBid)}
               </div>
@@ -275,6 +330,40 @@ export default function LotBiddingModal({ lot, onClose, userId, isLive = true, i
                         </button>
                       );
                     })}
+                  </div>
+
+                  {/* BUG CORRIGIDO (3ª varredura): não havia campo de valor
+                      manual — a única forma de dar lance eram os 4 botões
+                      rápidos. Mantido sempre disponível como alternativa,
+                      com o mínimo real (currentBid + step) validado aqui
+                      antes de enviar (o servidor valida de novo de qualquer
+                      forma). */}
+                  <h4 style={{ margin: '1.25rem 0 0.5rem', color: 'white', fontSize: '1rem' }}>Ou dê um lance manual</h4>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <NumericFormat
+                      value={manualBid ?? ''}
+                      onValueChange={(values) => setManualBid(values.floatValue)}
+                      thousandSeparator="."
+                      decimalSeparator=","
+                      prefix="R$ "
+                      decimalScale={2}
+                      allowNegative={false}
+                      placeholder={`Mínimo: ${BRL.format(minValidBid)}`}
+                      aria-label="Valor do lance manual"
+                      disabled={bidding}
+                      style={{ flex: 1, padding: '0.75rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.05)', color: 'white', fontSize: '0.9rem' }}
+                    />
+                    <button
+                      onClick={requestManualBid}
+                      disabled={bidding}
+                      className="btn btn--accent"
+                      style={{ padding: '0.75rem 1rem', justifyContent: 'center', whiteSpace: 'nowrap' }}
+                    >
+                      Dar Lance
+                    </button>
+                  </div>
+                  <div style={{ color: '#64748b', fontSize: '0.8rem', marginTop: '0.35rem' }}>
+                    Lance mínimo válido: {BRL.format(minValidBid)}
                   </div>
                 </>
               )}

@@ -35,7 +35,15 @@ export default async function PainelPage() {
       .single(),
     supabase
       .from('user_secrets')
-      .select('plan') // apenas 'plan' — is_admin NÃO deve ser exposto ao cliente
+      // BUG CORRIGIDO (validação do zero, 3ª rodada): só buscava 'plan' —
+      // CPF/CNPJ e endereço moraram para user_secrets desde a migration
+      // 20260824210000, mas nunca voltaram a ser lidos aqui. ProfileTab.tsx
+      // sempre resetava esses campos pra string vazia (achava que o usuário
+      // nunca tinha preenchido nada) e, pior, "Salvar Perfil" reenviava
+      // esses valores vazios pro updateProfile() — apagando CPF/endereço
+      // reais em QUALQUER salvamento, mesmo editando só a bio. is_admin
+      // continua propositalmente fora da lista — lógica de admin é server-only.
+      .select('plan, document_number, zip_code, street, number, complement, neighborhood')
       .eq('id', user.id)
       .maybeSingle()
   ]);
@@ -43,6 +51,12 @@ export default async function PainelPage() {
   let profile = profileData ? {
     ...profileData,
     plan: secretsData?.plan || 'free',
+    document_number: secretsData?.document_number || '',
+    zip_code: secretsData?.zip_code || '',
+    street: secretsData?.street || '',
+    number: secretsData?.number || '',
+    complement: secretsData?.complement || '',
+    neighborhood: secretsData?.neighborhood || '',
     // is_admin propositalmente omitido — lógica de admin deve ser server-only
   } : null;
 
@@ -63,8 +77,18 @@ export default async function PainelPage() {
       .single();
 
     if (newProfileRaw) {
-      // O trigger no BD criará o user_secrets com plan='free'
-      profile = { ...newProfileRaw, plan: 'free' };
+      // O trigger no BD criará o user_secrets com plan='free', sem nenhum
+      // dado de documento/endereço ainda.
+      profile = {
+        ...newProfileRaw,
+        plan: 'free',
+        document_number: '',
+        zip_code: '',
+        street: '',
+        number: '',
+        complement: '',
+        neighborhood: '',
+      };
     } else {
       console.error('Erro ao auto-criar perfil:', insertError);
       redirect('/login?error=profile_creation_failed');

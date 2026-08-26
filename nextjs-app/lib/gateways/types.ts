@@ -23,13 +23,17 @@ export interface CreateSubscriptionResult {
 }
 
 export interface WebhookEvent {
-  type: 'subscription.activated' | 'subscription.renewed' | 'subscription.cancelled' | 'payment.failed' | 'unknown'
+  type: 'subscription.activated' | 'subscription.renewed' | 'subscription.cancelled' | 'subscription.plan_changed' | 'payment.failed' | 'unknown'
   eventId: string // Unique event ID to prevent duplicate webhook processing
   gatewaySubscriptionId: string
   gatewayCustomerId?: string
   userEmail?: string
   externalReference?: string // our internal user_id or subscription_id
   periodEnd?: string // ISO date
+  // Metadata carregado da assinatura no momento do evento (ex.: plan_id) —
+  // 'subscription.plan_changed' usa isto pra saber pra qual plano aplicar
+  // o entitlement, sem depender de casar por nome.
+  metadata?: Record<string, any>
   raw: any
 }
 
@@ -114,5 +118,5 @@ export interface GatewayAdapter {
     plan: GatewayPlan,
     prorate: boolean,
     idempotencyNonce: string
-  ): Promise<{ gatewaySubscriptionId: string }>
+  ): Promise<{ gatewaySubscriptionId: string; currentPeriodEnd?: string }>
 }

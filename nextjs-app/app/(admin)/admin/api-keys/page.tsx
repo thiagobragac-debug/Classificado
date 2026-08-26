@@ -42,18 +42,24 @@ export default function AdminApiKeys() {
 
   const handleToggleStatus = async (id: string, currentStatus: boolean) => {
     const supabase = getSupabase()
-    const { error } = await supabase.from('api_keys').update({ is_active: !currentStatus }).eq('id', id)
-    if (!error) {
+    const { data, error } = await supabase.from('api_keys').update({ is_active: !currentStatus }).eq('id', id).select()
+    if (!error && data && data.length > 0) {
       setKeys(keys.map(k => k.id === id ? { ...k, is_active: !currentStatus } : k))
+    } else if (!error) {
+      showToast('Nenhuma linha foi atualizada — verifique permissões ou se o registro ainda existe.', 'error')
+    } else {
+      showToast('Erro: ' + error.message, 'error')
     }
   }
 
   const handleDelete = async (id: string) => {
     if (!(await confirm('Deseja realmente excluir esta chave?'))) return
     const supabase = getSupabase()
-    const { error } = await supabase.from('api_keys').delete().eq('id', id)
-    if (!error) {
+    const { data, error } = await supabase.from('api_keys').delete().eq('id', id).select()
+    if (!error && data && data.length > 0) {
       setKeys(keys.filter(k => k.id !== id))
+    } else if (!error) {
+      showToast('Nenhuma chave foi excluída — verifique permissões ou se o registro ainda existe.', 'error')
     } else {
       showToast('Erro ao excluir: ' + error.message, 'error')
     }

@@ -51,10 +51,19 @@ export default function AdminAnuncios() {
 
   const handleStatusUpdate = async (adId: string, newStatus: string) => {
     const supabase = getSupabase()
-    const { error } = await supabase.from('ads').update({ status: newStatus }).eq('id', adId)
-    if (!error) {
+    const { data, error } = await supabase.from('ads').update({ status: newStatus }).eq('id', adId).select()
+    if (!error && data && data.length > 0) {
       setAds(ads.map(a => a.id === adId ? { ...a, status: newStatus } : a))
       showToast(`Anúncio atualizado para ${newStatus}!`, 'success')
+    } else if (!error) {
+      showToast('Nenhuma linha foi atualizada — verifique permissões ou se o registro ainda existe.', 'error')
+    } else if (error.message.includes('Limite de') && error.message.includes('anuncios ativos')) {
+      // BUG CORRIGIDO (3ª varredura de pré-lançamento, 2026-08-26): a
+      // trigger enforce_ad_quota devolve uma mensagem em 1ª pessoa
+      // endereçada ao VENDEDOR ("seu plano", "faca upgrade"), mas quem lê
+      // o toast aqui é o ADMIN aprovando o anúncio — o texto cru confundia
+      // o admin, que lia como se fosse sobre o próprio plano dele.
+      showToast('Não é possível aprovar: o vendedor já atingiu o limite de anúncios ativos do plano dele. Ele precisa pausar outro anúncio ou fazer upgrade antes de aprovar este.', 'error')
     } else {
       showToast('Erro ao atualizar anúncio: ' + error.message, 'error')
     }
@@ -67,10 +76,12 @@ export default function AdminAnuncios() {
   // dono) — este botão é o único caminho de UI que usa isso.
   const handleToggleFeatured = async (adId: string, currentFeatured: boolean) => {
     const supabase = getSupabase()
-    const { error } = await supabase.from('ads').update({ featured: !currentFeatured }).eq('id', adId)
-    if (!error) {
+    const { data, error } = await supabase.from('ads').update({ featured: !currentFeatured }).eq('id', adId).select()
+    if (!error && data && data.length > 0) {
       setAds(ads.map(a => a.id === adId ? { ...a, featured: !currentFeatured } : a))
       showToast(currentFeatured ? 'Destaque removido.' : 'Anúncio destacado!', 'success')
+    } else if (!error) {
+      showToast('Nenhuma linha foi atualizada — verifique permissões ou se o registro ainda existe.', 'error')
     } else {
       showToast('Erro ao destacar: ' + error.message, 'error')
     }

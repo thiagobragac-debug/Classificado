@@ -68,10 +68,12 @@ export default function AdminLeiloes() {
 
   const handleStatusUpdate = async (id: string, newStatus: string) => {
     const supabase = getSupabase()
-    const { error } = await supabase.from('auction_events').update({ status: newStatus }).eq('id', id)
-    if (!error) {
+    const { data, error } = await supabase.from('auction_events').update({ status: newStatus }).eq('id', id).select()
+    if (!error && data && data.length > 0) {
       setAuctions(auctions.map(a => a.id === id ? { ...a, status: newStatus } : a))
       showToast(`Status do leilão atualizado para ${newStatus}!`, 'success')
+    } else if (!error) {
+      showToast('Nenhuma linha foi atualizada — verifique permissões ou se o registro ainda existe.', 'error')
     } else {
       showToast('Erro ao atualizar status: ' + error.message, 'error')
     }
@@ -147,14 +149,17 @@ export default function AdminLeiloes() {
     if (selectedIds.length === 0) return
     const supabase = getSupabase()
     
-    const { error } = await supabase.from('auction_events')
+    const { data, error } = await supabase.from('auction_events')
       .update({ status: newStatus })
       .in('id', selectedIds)
-      
-    if (!error) {
+      .select()
+
+    if (!error && data && data.length > 0) {
       setAuctions(auctions.map(a => selectedIds.includes(a.id) ? { ...a, status: newStatus } : a))
-      showToast(`${selectedIds.length} leilões atualizados para ${newStatus}!`, 'success')
+      showToast(`${data.length} leilões atualizados para ${newStatus}!`, 'success')
       setSelectedIds([])
+    } else if (!error) {
+      showToast('Nenhum leilão foi atualizado — verifique permissões ou se os registros ainda existem.', 'error')
     } else {
       showToast('Erro ao atualizar leilões: ' + error.message, 'error')
     }

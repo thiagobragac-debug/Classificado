@@ -153,6 +153,11 @@ export function stripeAdapter(secretKey: string): GatewayAdapter {
       updateParams.append('items[0][price_data][unit_amount]', Math.round(plan.price * 100).toString())
       updateParams.append('proration_behavior', prorate ? 'always_invoice' : 'none')
       updateParams.append('metadata[plan_id]', plan.id)
+      // BUG CORRIGIDO (validação de 2026-08-26, 3ª rodada): faltava sincronizar
+      // metadata[billing_cycle] aqui — createSubscription já grava isso na
+      // criação, mas trocar de ciclo (mensal↔anual) via update deixava o
+      // metadata da Stripe com o valor da criação original.
+      updateParams.append('metadata[billing_cycle]', plan.billingCycle)
 
       const updateRes = await fetch(`https://api.stripe.com/v1/subscriptions/${gatewaySubscriptionId}`, {
         method: 'POST',
@@ -167,7 +172,16 @@ export function stripeAdapter(secretKey: string): GatewayAdapter {
         throw new Error(`Stripe erro ao trocar plano da assinatura: ${await updateRes.text()}`)
       }
       const updated = await updateRes.json()
-      return { gatewaySubscriptionId: updated.id }
+      // BUG CORRIGIDO (validação de 2026-08-26, 3ª rodada): a troca nativa
+      // nunca devolvia current_period_end — app/api/checkout/route.ts não
+      // tinha como manter subscriptions.current_period_end correto após uma
+      // troca de ciclo (que a Stripe realinha de verdade), deixando
+      // "Próxima Cobrança" no admin e o cálculo de downgradeNow do webhook
+      // presos no valor antigo.
+      const currentPeriodEnd = updated.current_period_end
+        ? new Date(updated.current_period_end * 1000).toISOString()
+        : undefined
+      return { gatewaySubscriptionId: updated.id, currentPeriodEnd }
     },
 
     async validateWebhook(body, headers, secret) {
@@ -214,6 +228,19 @@ export function stripeAdapter(secretKey: string): GatewayAdapter {
           type = 'subscription.activated'
         } else if (billingReason === 'subscription_cycle') {
           type = 'subscription.renewed'
+        } else if (billingReason === 'subscription_update') {
+          // BUG CORRIGIDO (validação de 2026-08-26, 3ª rodada): a fatura de
+          // proração de uma troca de plano nativa (upgrade,
+          // proration_behavior=always_invoice) caía aqui como 'unknown' e
+          // era ignorada — o checkout já aplicava o entitlement do plano
+          // novo na hora, sem esperar essa fatura ser paga de verdade. Se o
+          // pagamento da proração falhasse depois (cartão recusado), nada
+          // revertia o acesso (o safety-net de payment.failed só age se o
+          // período já tiver vencido, o que nunca é o caso no meio do
+          // ciclo). Agora o checkout NÃO aplica mais o entitlement na hora
+          // para troca nativa — só este evento (confirmação de pagamento
+          // real da proração) libera o plano novo.
+          type = 'subscription.plan_changed'
         } else {
           type = 'unknown'
         }
@@ -254,6 +281,7 @@ export function stripeAdapter(secretKey: string): GatewayAdapter {
         gatewayCustomerId: obj.customer,
         userEmail: obj.customer_email || obj.customer_details?.email,
         externalReference: obj.client_reference_id || invoiceMetadata?.subscription_id || invoiceMetadata?.user_id,
+        metadata: invoiceMetadata,
         raw: event
       }
     },

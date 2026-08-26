@@ -173,10 +173,12 @@ export default function AdminAuctionLots() {
   const handleDelete = async (id: string) => {
     if (!(await confirm('Tem certeza que deseja excluir este lote?'))) return
     const supabase = getSupabase()
-    const { error } = await supabase.from('auction_lots').delete().eq('id', id)
-    if (!error) {
+    const { data, error } = await supabase.from('auction_lots').delete().eq('id', id).select()
+    if (!error && data && data.length > 0) {
       setLots(lots.filter(l => l.id !== id))
       showToast('Lote excluído!', 'success')
+    } else if (!error) {
+      showToast('Nenhum lote foi excluído — verifique permissões ou se o registro ainda existe.', 'error')
     } else {
       showToast('Erro ao excluir: ' + error.message, 'error')
     }

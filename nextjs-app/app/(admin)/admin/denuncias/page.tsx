@@ -42,10 +42,12 @@ export default function AdminDenuncias() {
 
   const handleDismiss = async (id: string) => {
     const supabase = getSupabase()
-    const { error } = await supabase.from('reports').update({ status: 'dismissed', resolved_at: new Date().toISOString() }).eq('id', id)
-    if (!error) {
+    const { data, error } = await supabase.from('reports').update({ status: 'dismissed', resolved_at: new Date().toISOString() }).eq('id', id).select()
+    if (!error && data && data.length > 0) {
       setReports(reports.map(r => r.id === id ? { ...r, status: 'dismissed' } : r))
       showToast('Denúncia marcada como falso positivo.', 'success')
+    } else if (!error) {
+      showToast('Nenhuma linha foi atualizada — verifique permissões ou se o registro ainda existe.', 'error')
     } else {
       showToast('Erro ao atualizar: ' + error.message, 'error')
     }
@@ -54,20 +56,25 @@ export default function AdminDenuncias() {
   const handleBanAd = async (reportId: string, adId: string) => {
     if (!(await confirm('Tem certeza que deseja banir/rejeitar este anúncio permanentemente?'))) return
     const supabase = getSupabase()
-    
+
     // Primeiro banimos o anúncio (mudamos status para rejected)
-    const { error: adError } = await supabase.from('ads').update({ status: 'rejected' }).eq('id', adId)
-    
+    const { data: adData, error: adError } = await supabase.from('ads').update({ status: 'rejected' }).eq('id', adId).select()
+
     if (adError) {
       return showToast('Erro ao banir anúncio: ' + adError.message, 'error')
     }
-    
+    if (!adData || adData.length === 0) {
+      return showToast('Nenhum anúncio foi alterado — verifique permissões ou se o registro ainda existe.', 'error')
+    }
+
     // Depois, resolvemos automaticamente a denúncia
-    const { error: reportError } = await supabase.from('reports').update({ status: 'resolved', resolved_at: new Date().toISOString() }).eq('id', reportId)
-    
-    if (!reportError) {
+    const { data: reportData, error: reportError } = await supabase.from('reports').update({ status: 'resolved', resolved_at: new Date().toISOString() }).eq('id', reportId).select()
+
+    if (!reportError && reportData && reportData.length > 0) {
       setReports(reports.map(r => r.id === reportId ? { ...r, status: 'resolved' } : r))
       showToast('Anúncio banido e denúncia resolvida com sucesso!', 'success')
+    } else if (!reportError) {
+      showToast('Anúncio banido, mas a denúncia não foi encontrada para ser fechada — verifique permissões.', 'error')
     } else {
       showToast('Anúncio banido, mas houve erro ao fechar a denúncia.', 'error')
     }
@@ -79,14 +86,22 @@ export default function AdminDenuncias() {
     
     if (adId) {
       // Volta o anúncio para pending para ser analisado novamente
-      await supabase.from('ads').update({ status: 'pending' }).eq('id', adId)
+      const { data: adData, error: adError } = await supabase.from('ads').update({ status: 'pending' }).eq('id', adId).select()
+      if (adError) {
+        return showToast('Erro ao reverter anúncio: ' + adError.message, 'error')
+      }
+      if (!adData || adData.length === 0) {
+        return showToast('Nenhum anúncio foi revertido — verifique permissões ou se o registro ainda existe.', 'error')
+      }
     }
-    
-    const { error } = await supabase.from('reports').update({ status: 'pending', resolved_at: null }).eq('id', id)
-    
-    if (!error) {
+
+    const { data, error } = await supabase.from('reports').update({ status: 'pending', resolved_at: null }).eq('id', id).select()
+
+    if (!error && data && data.length > 0) {
       setReports(reports.map(r => r.id === id ? { ...r, status: 'pending' } : r))
       showToast('Decisão revertida! Denúncia e anúncio de volta para análise.', 'success')
+    } else if (!error) {
+      showToast('Nenhuma linha foi atualizada — verifique permissões ou se o registro ainda existe.', 'error')
     } else {
       showToast('Erro ao reverter: ' + error.message, 'error')
     }
@@ -98,10 +113,12 @@ export default function AdminDenuncias() {
     const idsToResolve = filteredReports.filter(r => r.status === 'pending').map(r => r.id)
     if (idsToResolve.length === 0) return showToast('Nenhuma denúncia pendente nos filtros atuais.', 'success')
 
-    const { error } = await supabase.from('reports').update({ status: 'resolved', resolved_at: new Date().toISOString() }).in('id', idsToResolve)
-    if (!error) {
+    const { data, error } = await supabase.from('reports').update({ status: 'resolved', resolved_at: new Date().toISOString() }).in('id', idsToResolve).select()
+    if (!error && data && data.length > 0) {
       setReports(reports.map(r => idsToResolve.includes(r.id) ? { ...r, status: 'resolved' } : r))
-      showToast(`${idsToResolve.length} denúncias resolvidas!`, 'success')
+      showToast(`${data.length} denúncias resolvidas!`, 'success')
+    } else if (!error) {
+      showToast('Nenhuma denúncia foi atualizada — verifique permissões ou se os registros ainda existem.', 'error')
     } else {
       showToast('Erro ao atualizar denúncia: ' + error.message, 'error')
     }
@@ -143,9 +160,12 @@ export default function AdminDenuncias() {
       const selectedReports = reports.filter(r => selectedIds.includes(r.id))
       const adIds = selectedReports.map(r => r.ad_id).filter(Boolean)
       if (adIds.length > 0) {
-        const { error: adsError } = await supabase.from('ads').update({ status: 'rejected' }).in('id', adIds)
+        const { data: adsData, error: adsError } = await supabase.from('ads').update({ status: 'rejected' }).in('id', adIds).select()
         if (adsError) {
           return showToast('Erro ao banir anúncios em massa: ' + adsError.message, 'error')
+        }
+        if (!adsData || adsData.length === 0) {
+          return showToast('Nenhum anúncio foi banido — verifique permissões ou se os registros ainda existem.', 'error')
         }
       }
     }
@@ -153,14 +173,17 @@ export default function AdminDenuncias() {
     const updates: Record<string, any> = { status: newStatus }
     if (newStatus === 'resolved') updates.resolved_at = new Date().toISOString()
 
-    const { error } = await supabase.from('reports')
+    const { data, error } = await supabase.from('reports')
       .update(updates)
       .in('id', selectedIds)
+      .select()
 
-    if (!error) {
+    if (!error && data && data.length > 0) {
       setReports(reports.map(r => selectedIds.includes(r.id) ? { ...r, status: newStatus } : r))
-      showToast(`${selectedIds.length} denúncias marcadas como ${newStatus}!`, 'success')
+      showToast(`${data.length} denúncias marcadas como ${newStatus}!`, 'success')
       setSelectedIds([])
+    } else if (!error) {
+      showToast('Nenhuma denúncia foi atualizada — verifique permissões ou se os registros ainda existem.', 'error')
     } else {
       showToast('Erro ao atualizar denúncias: ' + error.message, 'error')
     }

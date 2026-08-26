@@ -98,7 +98,11 @@ export default async function AuctionPage(props: { params: Promise<{ id: string 
   ] = await Promise.all([
     supabase
       .from('auction_events')
-      .select('id, title, date, cover, status, youtube, catalog')
+      // BUG CORRIGIDO (3ª varredura): não buscava a coluna `step` — o valor
+      // real de incremento mínimo exigido pelo servidor
+      // (place_lot_bid_atomic: lance >= currentBid + step) nunca chegava à
+      // UI, que calculava os "lances rápidos" só a partir do current_bid.
+      .select('id, title, date, cover, status, youtube, catalog, step')
       .eq('id', auctionId)
       .single(),
     supabase
@@ -110,7 +114,10 @@ export default async function AuctionPage(props: { params: Promise<{ id: string 
       // vinha vazio e a página mostrava "Nenhum lote cadastrado" mesmo
       // quando existiam lotes reais — o erro nem era logado, só a
       // desestruturação `{ data: lots }` descartava o error.
-      .select('id, lot_number, title, description, image, video, sire, dam, min_bid, current_bid, auction_id')
+      // BUG CORRIGIDO (3ª varredura): não buscava winner_id — a coluna já
+      // existe e é populada por place_lot_bid_atomic, mas o lado público
+      // nunca mostrava "você está vencendo" (só o admin usava essa coluna).
+      .select('id, lot_number, title, description, image, video, sire, dam, min_bid, current_bid, winner_id, auction_id')
       .eq('auction_id', auctionId)
       .order('lot_number', { ascending: true }),
   ]);
@@ -203,7 +210,14 @@ export default async function AuctionPage(props: { params: Promise<{ id: string 
         {/* Lista de Lotes */}
         <div>
           <h2 className="section-title">Catálogo de Lotes</h2>
-          <LotGrid lots={((lots || []) as unknown as LotData[])} isLive={isLive} isCancelled={isCancelled} userId={userId} />
+          <LotGrid
+            lots={((lots || []) as unknown as LotData[])}
+            isLive={isLive}
+            isCancelled={isCancelled}
+            userId={userId}
+            step={auction.step || 0}
+            auctionId={auctionId}
+          />
         </div>
 
         {/* Patrocínio */}
