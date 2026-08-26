@@ -82,7 +82,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ received: true, handled: false })
     }
 
-    // --- Idempotency Check ---
+    // --- Idempotency Check (read-only) ---
     if (event.eventId) {
       const { data: existingEvent } = await supabase
         .from('webhook_events')
@@ -93,17 +93,6 @@ export async function POST(req: Request) {
       if (existingEvent) {
         console.info(`[Webhook:${gateway}] Event ${event.eventId} already processed. Skipping.`)
         return NextResponse.json({ received: true, handled: true, duplicate: true })
-      }
-
-      // Log event to prevent future processing
-      const { error: insertError } = await supabase
-        .from('webhook_events')
-        .insert({ id: event.eventId, gateway, event_type: event.type })
-      
-      if (insertError) {
-        console.error(`[Webhook:${gateway}] Idempotency race condition blocked for event ${event.eventId}:`, insertError.message)
-        // If it fails to insert (likely a duplicate unique key due to concurrent request), we MUST ABORT!
-        return NextResponse.json({ error: 'Duplicate webhook processing' }, { status: 409 })
       }
     }
 
@@ -134,13 +123,49 @@ export async function POST(req: Request) {
 
     if (!sub) {
       // Unknown subscription — return 404 to force gateway retry (race condition with checkout)
+      // BUG CORRIGIDO (validação do zero, 4ª rodada): o INSERT em
+      // webhook_events acontecia ANTES desta checagem — um 404 legítimo
+      // (corrida com o checkout, evento chegando antes do INSERT local
+      // commitar) já tinha gravado o evento como "processado". Qualquer
+      // reenvio automático da Stripe pro MESMO evento (até 3 dias de
+      // tentativas) caía no bloco de duplicata acima e nunca era
+      // processado de verdade — o evento morria pra sempre na 1ª falha
+      // transitória. Não registra nada aqui; só registra depois de achar
+      // a assinatura, pra um retry real da Stripe poder de fato reprocessar.
       console.warn(`[Webhook:${gateway}] Subscription not found for event`, event.type, event.gatewaySubscriptionId)
       return NextResponse.json({ error: 'Subscription not found' }, { status: 404 })
+    }
+
+    // --- Idempotency: only mark as processed once we know we CAN process it ---
+    if (event.eventId) {
+      const { error: insertError } = await supabase
+        .from('webhook_events')
+        .insert({ id: event.eventId, gateway, event_type: event.type })
+
+      if (insertError) {
+        console.error(`[Webhook:${gateway}] Idempotency race condition blocked for event ${event.eventId}:`, insertError.message)
+        // If it fails to insert (likely a duplicate unique key due to concurrent request), we MUST ABORT!
+        return NextResponse.json({ error: 'Duplicate webhook processing' }, { status: 409 })
+      }
     }
 
     // --- Apply update based on event type ---
     const now = new Date()
     let updateData: Record<string, any> = {}
+
+    // BUG CORRIGIDO (validação do zero, 4ª rodada): invoice.payment_failed
+    // não distinguia billing_reason — uma fatura de PRORAÇÃO recusada
+    // (troca de plano nativa) caía no mesmo tratamento de uma renovação
+    // recusada, marcando a assinatura e o cliente como "past_due" mesmo com
+    // o plano ATUAL (que ele continua pagando em dia) intocado. O acesso
+    // real nunca era perdido (o entitlement de upgrade já espera o webhook
+    // de sucesso, então uma falha aqui simplesmente não concede nada), mas
+    // o status ficava enganoso pro admin. Uma proração falha não deveria
+    // mexer em status nenhum — só logar.
+    const isProrationFailure = event.type === 'payment.failed' && event.billingReason === 'subscription_update'
+    if (isProrationFailure) {
+      console.warn(`[Webhook:${gateway}] Proration invoice failed for sub ${sub.id} — plan switch not applied, current plan unaffected`)
+    }
 
     // Smart activation vs renewal:
     // Asaas and MP send the same event for first payment and recurring payments.
@@ -176,7 +201,7 @@ export async function POST(req: Request) {
       updateData.cancel_at_period_end = true
       updateData.updated_at = now.toISOString()
 
-    } else if (effectiveType === 'payment.failed') {
+    } else if (effectiveType === 'payment.failed' && !isProrationFailure) {
       updateData.status = 'past_due'
       updateData.updated_at = now.toISOString()
     }
@@ -250,29 +275,68 @@ export async function POST(req: Request) {
     // event.metadata.plan_id (gravado em updateSubscriptionPlan) em vez de
     // casar por nome, que é mais frágil.
     if (effectiveType === 'subscription.plan_changed') {
-      const planId = event.metadata?.plan_id
-      if (planId) {
-        const { data: planRow } = await supabase.from('plans').select('id, name').eq('id', planId).maybeSingle()
-        if (planRow) {
-          let planEnum = 'free'
-          if (planRow.name.toLowerCase().includes('premium')) planEnum = 'premium'
-          else if (planRow.name.toLowerCase().includes('pro')) planEnum = 'pro'
+      // BUG CORRIGIDO (validação do zero, 4ª rodada): a Stripe não garante
+      // ordem de entrega de webhook. Duas trocas de plano rápidas geram
+      // duas faturas de proração pagas em sequência — se os dois eventos
+      // chegarem fora de ordem, "o último PROCESSADO" (não o
+      // cronologicamente mais recente) vencia, aplicando o plano ERRADO.
+      // Reproduzido de forma determinística.
+      //
+      // BUG CORRIGIDO (validação do zero, revisão do fix acima): comparar
+      // sub.plan_changed_event_created_at (lido no TOPO desta requisição)
+      // e só DEPOIS escrever é um TOCTOU — duas entregas HTTP verdadeiramente
+      // concorrentes pro mesmo evento podiam ler o mesmo valor antigo antes
+      // de qualquer uma escrever, e a mais lenta venceria mesmo sendo mais
+      // antiga. A "reivindicação" (claim) abaixo é um UPDATE ATÔMICO com a
+      // condição de ordem embutida no próprio WHERE — o Postgres serializa
+      // duas escritas concorrentes na mesma linha, então só uma pode
+      // vencer a condição por vez.
+      const eventCreatedAt = event.eventCreatedAt ?? 0
+      const { data: claimed } = await supabase
+        .from('subscriptions')
+        .update({ plan_changed_event_created_at: eventCreatedAt })
+        .eq('id', sub.id)
+        .or(`plan_changed_event_created_at.is.null,plan_changed_event_created_at.lt.${eventCreatedAt}`)
+        .select('id')
 
-          await supabase.from('profiles').update({ subscription_status: 'active' }).eq('id', sub.user_id)
-          const { error: secErr2 } = await supabase
-            .from('user_secrets')
-            .update({ plan: planEnum, plan_id: planRow.id })
-            .eq('id', sub.user_id)
-          if (secErr2) console.warn(`[Webhook:${gateway}] Could not update user_secrets on plan_changed (non-critical):`, secErr2.message)
-        } else {
-          console.warn(`[Webhook:${gateway}] plan_changed event references unknown plan_id ${planId}`)
-        }
+      if (!claimed || claimed.length === 0) {
+        console.warn(`[Webhook:${gateway}] Discarding out-of-order plan_changed event for sub ${sub.id} (event=${eventCreatedAt}, last applied=${sub.plan_changed_event_created_at})`)
       } else {
-        console.warn(`[Webhook:${gateway}] plan_changed event without plan_id in metadata — cannot grant entitlement`)
+        const planId = event.metadata?.plan_id
+        if (planId) {
+          const { data: planRow } = await supabase.from('plans').select('id, name').eq('id', planId).maybeSingle()
+          if (planRow) {
+            let planEnum = 'free'
+            if (planRow.name.toLowerCase().includes('premium')) planEnum = 'premium'
+            else if (planRow.name.toLowerCase().includes('pro')) planEnum = 'pro'
+
+            // BUG CORRIGIDO (validação do zero, 4ª rodada): plan_expires_at
+            // nunca era tocado aqui — ficava preso na data da assinatura
+            // ANTERIOR à troca. enforce_plan_expiration() (chamada em toda
+            // visita a /painel) rebaixava pra Grátis um assinante pago em
+            // dia assim que essa data velha vencesse. sub.current_period_end
+            // já é atualizado corretamente por app/api/checkout/route.ts no
+            // momento da troca (agora que o bug do campo errado da Stripe
+            // também foi corrigido).
+            await supabase.from('profiles').update({
+              subscription_status: 'active',
+              plan_expires_at: sub.current_period_end || null,
+            }).eq('id', sub.user_id)
+            const { error: secErr2 } = await supabase
+              .from('user_secrets')
+              .update({ plan: planEnum, plan_id: planRow.id })
+              .eq('id', sub.user_id)
+            if (secErr2) console.warn(`[Webhook:${gateway}] Could not update user_secrets on plan_changed (non-critical):`, secErr2.message)
+          } else {
+            console.warn(`[Webhook:${gateway}] plan_changed event references unknown plan_id ${planId}`)
+          }
+        } else {
+          console.warn(`[Webhook:${gateway}] plan_changed event without plan_id in metadata — cannot grant entitlement`)
+        }
       }
     }
 
-    if (effectiveType === 'subscription.cancelled' || effectiveType === 'payment.failed') {
+    if (effectiveType === 'subscription.cancelled' || (effectiveType === 'payment.failed' && !isProrationFailure)) {
       // Logic for cancellation/failure: DO NOT downgrade immediately if they still have paid days left.
       let downgradeNow = true
       if (sub.current_period_end) {
@@ -304,14 +368,23 @@ export async function POST(req: Request) {
 
   } catch (err: any) {
     console.error('[Webhook] Error:', err.message)
-    // Return 400 on auth/signature/token errors so gateway will retry
+    // Return 400 on auth/signature/token/config errors so gateway will retry
     // Return 200 on logic errors to stop infinite retries
+    //
+    // BUG CORRIGIDO (validação do zero, 4ª rodada): "webhook secret not
+    // configured" e "timestamp outside tolerance" não batiam em nenhum
+    // padrão daqui — caíam no ramo 200 "sucesso", a Stripe nunca reenviava,
+    // e o evento se perdia em silêncio pra sempre. Isso já era grave antes;
+    // ficou crítico na 3ª/4ª rodada porque o entitlement de troca nativa
+    // de plano passou a depender 100% deste webhook chegar de verdade.
     const isAuthError = err.message?.includes('Invalid signature') ||
       err.message?.includes('Invalid Stripe') ||
       err.message?.includes('Invalid MP') ||
       err.message?.includes('Invalid Asaas') ||
       err.message?.includes('Invalid Pagar') ||
-      err.message?.includes('Missing') && err.message?.includes('signature')
+      err.message?.includes('not configured') ||
+      err.message?.includes('outside tolerance') ||
+      (err.message?.includes('Missing') && err.message?.includes('signature'))
     const status = isAuthError ? 400 : 200
     return NextResponse.json({ error: err.message }, { status })
   }

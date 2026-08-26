@@ -32,6 +32,14 @@ export async function GET() {
   const { data, error } = await admin
     .from('subscriptions')
     .select('*, profiles!user_id(name, user_secrets(email))')
+    // BUG CORRIGIDO (validação do zero, 4ª rodada): 'switch_applied' é o
+    // marcador terminal que o lock de idempotência do checkout deixa pra
+    // trás depois de uma troca nativa de plano bem-sucedida (nunca mais é
+    // apagado, de propósito — ver comentário em app/api/checkout/route.ts).
+    // Sem este filtro, cada troca de plano nativa infla "Total" com uma
+    // linha zumbi (sem gateway_subscription_id, sem ação disponível) para
+    // sempre.
+    .neq('status', 'switch_applied')
     .order('created_at', { ascending: false })
     .limit(100)
 

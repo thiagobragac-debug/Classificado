@@ -172,14 +172,17 @@ export function stripeAdapter(secretKey: string): GatewayAdapter {
         throw new Error(`Stripe erro ao trocar plano da assinatura: ${await updateRes.text()}`)
       }
       const updated = await updateRes.json()
-      // BUG CORRIGIDO (validação de 2026-08-26, 3ª rodada): a troca nativa
-      // nunca devolvia current_period_end — app/api/checkout/route.ts não
-      // tinha como manter subscriptions.current_period_end correto após uma
-      // troca de ciclo (que a Stripe realinha de verdade), deixando
-      // "Próxima Cobrança" no admin e o cálculo de downgradeNow do webhook
-      // presos no valor antigo.
-      const currentPeriodEnd = updated.current_period_end
-        ? new Date(updated.current_period_end * 1000).toISOString()
+      // BUG CORRIGIDO (validação do zero, 4ª rodada): a "correção" da 3ª
+      // rodada lia updated.current_period_end (nível raiz do objeto
+      // Subscription) — mas nesta versão de API da Stripe (a mesma migração
+      // "basil e além" que este arquivo já trata para invoice.subscription
+      // em validateWebhook) esse campo não existe mais na raiz, só em
+      // items.data[0].current_period_end. Confirmado ao vivo, 5x de forma
+      // independente: o campo lido era sempre undefined, current_period_end
+      // nunca sincronizava de verdade — a correção era um no-op silencioso.
+      const currentPeriodEndRaw = updated.items?.data?.[0]?.current_period_end
+      const currentPeriodEnd = currentPeriodEndRaw
+        ? new Date(currentPeriodEndRaw * 1000).toISOString()
         : undefined
       return { gatewaySubscriptionId: updated.id, currentPeriodEnd }
     },
@@ -282,6 +285,15 @@ export function stripeAdapter(secretKey: string): GatewayAdapter {
         userEmail: obj.customer_email || obj.customer_details?.email,
         externalReference: obj.client_reference_id || invoiceMetadata?.subscription_id || invoiceMetadata?.user_id,
         metadata: invoiceMetadata,
+        // BUG CORRIGIDO (validação do zero, 4ª rodada): invoice.payment_failed
+        // não checava billing_reason — uma fatura de proração recusada (troca
+        // de plano) marcava profiles.subscription_status='past_due' como se a
+        // assinatura REGULAR do cliente (que continua em dia) tivesse falhado.
+        billingReason: obj.billing_reason,
+        // BUG CORRIGIDO (validação do zero, 4ª rodada): base para o webhook
+        // conseguir descartar um evento subscription.plan_changed entregue
+        // fora de ordem (a Stripe não garante ordem de entrega).
+        eventCreatedAt: event.created,
         raw: event
       }
     },

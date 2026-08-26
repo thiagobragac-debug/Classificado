@@ -34,6 +34,15 @@ export interface WebhookEvent {
   // 'subscription.plan_changed' usa isto pra saber pra qual plano aplicar
   // o entitlement, sem depender de casar por nome.
   metadata?: Record<string, any>
+  // billing_reason da invoice (Stripe: subscription_create/subscription_cycle/
+  // subscription_update/...) — usado por 'payment.failed' pra não tratar uma
+  // fatura de proração recusada (troca de plano) como se fosse a assinatura
+  // regular do cliente que falhou.
+  billingReason?: string
+  // Timestamp Unix (segundos) do evento na origem — usado por
+  // 'subscription.plan_changed' pra descartar eventos entregues fora de
+  // ordem (a Stripe não garante ordem de entrega de webhook).
+  eventCreatedAt?: number
   raw: any
 }
 

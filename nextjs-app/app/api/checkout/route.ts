@@ -119,6 +119,17 @@ export async function POST(req: Request) {
     const cycleForCompare: 'monthly' | 'annual' = billingCycle === 'annual' ? 'annual' : 'monthly'
     const isPlanSwitch = !!(existingActiveSub && (existingActiveSub.plan !== plan.name || existingActiveSub.billing_cycle !== cycleForCompare))
 
+    // BUG CORRIGIDO (validação do zero, 4ª rodada): quando o plano+ciclo
+    // pedido já é EXATAMENTE o que está ativo (isPlanSwitch=false com
+    // existingActiveSub existente — ex.: reabrir o checkout, F5, clique
+    // duplo), o código pulava os dois blocos de proteção (troca nativa e
+    // cancelar-e-recriar) e caía direto em adapter.createSubscription sem
+    // checagem nenhuma. Confirmado ao vivo: cobrança real duplicada, 2ª
+    // assinatura Stripe ativa em paralelo à primeira.
+    if (existingActiveSub && !isPlanSwitch) {
+      return NextResponse.json({ error: 'Você já tem este plano ativo.' }, { status: 409 })
+    }
+
     // --- Build adapter with keys from DB ---
     let adapter: GatewayAdapter
     switch (gatewayName) {
@@ -273,7 +284,16 @@ export async function POST(req: Request) {
     // Pros demais gateways (sem essa API) ou troca entre gateways
     // diferentes, cai no caminho antigo: cancela a assinatura anterior e
     // cria uma nova.
-    if (isPlanSwitch && existingActiveSub!.gateway_subscription_id && existingActiveSub!.gateway === gatewayName && gatewayName === 'stripe' && adapter.updateSubscriptionPlan) {
+    //
+    // BUG CORRIGIDO (validação do zero, 4ª rodada): um cupom de 100% off
+    // aplicado numa troca nativa entrava aqui com finalPrice=0 e
+    // proration_behavior=always_invoice (upgrade) gravava unit_amount=0
+    // como preço RECORRENTE PERMANENTE da assinatura na Stripe — sem
+    // nenhum mecanismo de restaurar o preço depois. Confirmado ao vivo.
+    // Excluir finalPrice<=0 daqui empurra pro caminho de baixo (cancela a
+    // assinatura antiga de verdade + bypass local), que é o mesmo
+    // tratamento que uma assinatura nova com cupom 100% já recebe.
+    if (isPlanSwitch && finalPrice > 0 && existingActiveSub!.gateway_subscription_id && existingActiveSub!.gateway === gatewayName && gatewayName === 'stripe' && adapter.updateSubscriptionPlan) {
       const prorate = finalPrice > Number(existingActiveSub!.price ?? 0)
       try {
         if (appliedCoupon) {
@@ -322,7 +342,24 @@ export async function POST(req: Request) {
         //      Como subscriptions.plan já foi atualizado acima, o entitlement
         //      novo é aplicado sozinho quando a renovação natural chegar
         //      (webhook 'subscription.renewed' já lê sub.plan em produção).
-        await supabase.from('subscriptions').delete().eq('id', phantomSub.id)
+        //
+        // BUG CORRIGIDO (validação do zero, 4ª rodada — CRÍTICO): este
+        // bloco fazia DELETE do lock aqui, reabrindo a PK checkoutId pra um
+        // INSERT futuro. Um retry genuíno com o MESMO checkoutId depois do
+        // sucesso (ex.: resposta perdida por timeout, exatamente o cenário
+        // que motivou o design deste lock) passava pelo INSERT sem
+        // conflito, achava existingActiveSub.plan já igual ao alvo
+        // (isPlanSwitch=false) e caía em createSubscription — que SEMPRE
+        // cria Customer+Subscription novos e cobra na hora. Confirmado ao
+        // vivo, 3x de forma independente: segunda assinatura Stripe real
+        // criada e cobrada, assinatura original ficando ativa em paralelo.
+        // Marcar como status terminal (em vez de apagar) mantém a PK
+        // ocupada pra sempre — um retry com o mesmo checkoutId esbarra de
+        // novo no 23505, como deveria.
+        await supabase.from('subscriptions').update({
+          status: 'switch_applied',
+          updated_at: new Date().toISOString(),
+        }).eq('id', phantomSub.id)
 
         return NextResponse.json({
           success: true,

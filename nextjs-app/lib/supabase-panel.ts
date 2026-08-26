@@ -57,8 +57,14 @@ export async function getMyBilling(): Promise<any[]> {
 export async function getMySubscription() {
   const session = await getSession();
   if (!session) return null;
+  // BUG CORRIGIDO (validação do zero, 4ª rodada): sem filtrar
+  // 'switch_applied' (marcador terminal deixado pelo lock de checkout após
+  // uma troca nativa de plano — nunca é apagado, de propósito), esta
+  // função passaria a devolver essa linha morta como "a assinatura mais
+  // recente" em vez da assinatura real ativa.
   const { data } = await getSupabase()
     .from('subscriptions').select('*').eq('user_id', session.user.id)
+    .neq('status', 'switch_applied')
     .order('created_at', { ascending: false }).limit(1).maybeSingle();
   return data;
 }
