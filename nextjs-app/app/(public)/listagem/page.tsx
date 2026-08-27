@@ -1,8 +1,22 @@
 import { Metadata } from 'next';
+import { cookies } from 'next/headers';
 import AdsBrowser from '@/components/ads/AdsBrowser';
-import { getGeoParams, getCategoryName, getAllCategories } from '@/lib/listagem-utils';
+import { getGeoParams, getAllCategories } from '@/lib/listagem-utils';
 import { getAdsListagem, adsSearchParamsSchema } from '@/lib/services/ads.service';
 import { logError } from '@/lib/monitoring';
+
+const METADATA_TRANSLATIONS = {
+  pt: {
+    defaultTitle: 'Anúncios',
+    locationSuffix: (place: string) => ` em ${place}`,
+    description: (title: string) => `Encontre os melhores ${title.toLowerCase()} na Tauze Class. O maior classificado premium agro.`,
+  },
+  es: {
+    defaultTitle: 'Anuncios',
+    locationSuffix: (place: string) => ` en ${place}`,
+    description: (title: string) => `Encuentra los mejores ${title.toLowerCase()} en Tauze Class. El clasificado premium agro más grande.`,
+  }
+};
 
 export async function generateMetadata({
   searchParams,
@@ -11,8 +25,11 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const rawParams = await Promise.resolve(searchParams);
   const parsedParams = adsSearchParamsSchema.parse(rawParams);
-  
-  let baseTitle = 'Anúncios';
+
+  const lang = (await cookies()).get('tc_lang')?.value === 'es' ? 'es' : 'pt';
+  const T = METADATA_TRANSLATIONS[lang];
+
+  let baseTitle = T.defaultTitle;
   let location = '';
 
   const { pais, estado, cidade } = await getGeoParams({
@@ -21,18 +38,24 @@ export async function generateMetadata({
     cidade: parsedParams.cidade
   });
 
-  if (cidade) location = ` em ${cidade}`;
-  else if (estado) location = ` em ${estado}`;
-  else if (pais) location = ` em ${pais}`;
+  if (cidade) location = T.locationSuffix(cidade);
+  else if (estado) location = T.locationSuffix(estado);
+  else if (pais) location = T.locationSuffix(pais);
 
   if (parsedParams.categoria) {
-    const categoryName = await getCategoryName(parsedParams.categoria);
+    // getAllCategories() já traz name_pt/name_es e é memoizada por request
+    // (React cache) — reaproveita a mesma chamada feita por AdsBrowserWrapper
+    // abaixo, sem precisar tocar em getCategoryName (fora do escopo deste
+    // agente, só devolve name_pt).
+    const allCategories = await getAllCategories();
+    const category = allCategories.find((c: any) => c.id === parsedParams.categoria);
+    const categoryName = category ? (lang === 'es' ? category.name_es : category.name_pt) : null;
     if (categoryName) baseTitle = categoryName;
   }
 
   return {
     title: `${baseTitle}${location}`,
-    description: `Encontre os melhores ${baseTitle.toLowerCase()} na Tauze Class. O maior classificado premium agro.`,
+    description: T.description(baseTitle),
     alternates: {
       canonical: `https://tauzeclass.com.br/listagem`,
     }

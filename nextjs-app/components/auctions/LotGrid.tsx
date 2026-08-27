@@ -4,8 +4,38 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { imageUrl } from '@/lib/storage';
 import { getSupabase } from '@/lib/supabase';
+import { useLang } from '@/lib/lang-context';
 import { LotData } from './LotBiddingModal';
 import LotBiddingModal from './LotBiddingModal';
+
+// BUG CORRIGIDO (auditoria de i18n, 2026-08-26/27): componente inteiro
+// (estado vazio, "LOTE N", indicador de vencedor, LANCE ATUAL/INICIAL,
+// botão "Dar Lance"/"Ver Lote") ficava fixo em português mesmo com ES
+// selecionado — nunca importava useLang(). Strings novas que não existem
+// no dicionário global (lib/constants.ts) seguem o mesmo padrão local já
+// usado em components/ads/AdsSidebar.tsx.
+const TRANSLATIONS = {
+  pt: {
+    empty: 'Nenhum lote cadastrado para este leilão.',
+    lot: 'LOTE',
+    winning: 'Você está vencendo!',
+    currentBid: 'LANCE ATUAL',
+    initialBid: 'LANCE INICIAL',
+    placeBid: 'Dar Lance',
+    viewLot: 'Ver Lote',
+    lotPhotoAlt: (num: string, title: string) => `Foto do lote ${num}: ${title}`,
+  },
+  es: {
+    empty: 'Ningún lote registrado para este remate.',
+    lot: 'LOTE',
+    winning: '¡Estás ganando!',
+    currentBid: 'PUJA ACTUAL',
+    initialBid: 'PUJA INICIAL',
+    placeBid: 'Pujar',
+    viewLot: 'Ver Lote',
+    lotPhotoAlt: (num: string, title: string) => `Foto del lote ${num}: ${title}`,
+  },
+} as const;
 
 interface LotGridProps {
   lots: LotData[];
@@ -21,6 +51,9 @@ interface LotGridProps {
 }
 
 export default function LotGrid({ lots, isLive, isCancelled = false, userId, step = 0, auctionId }: LotGridProps) {
+  const { lang } = useLang();
+  const T = TRANSLATIONS[lang as keyof typeof TRANSLATIONS] || TRANSLATIONS.pt;
+  const currencyLocale = lang === 'es' ? 'es-AR' : 'pt-BR';
   const [selectedLot, setSelectedLot] = useState<LotData | null>(null);
   // BUG CORRIGIDO (3ª varredura): a página é Server Component (ISR de 30s) —
   // sem estado local aqui, current_bid/winner_id só atualizavam com um F5
@@ -86,7 +119,7 @@ export default function LotGrid({ lots, isLive, isCancelled = false, userId, ste
   if (!lotsState || lotsState.length === 0) {
     return (
       <div style={{ textAlign: 'center', padding: '4rem 0', color: 'var(--clr-text-light)' }}>
-        Nenhum lote cadastrado para este leilão.
+        {T.empty}
       </div>
     );
   }
@@ -100,32 +133,34 @@ export default function LotGrid({ lots, isLive, isCancelled = false, userId, ste
           // BUG CORRIGIDO (3ª varredura): winner_id nunca era comparado com
           // o usuário logado no lado público — só o admin mostrava vencedor.
           const isWinning = !!(userId && lot.winner_id && lot.winner_id === userId);
+          // Coluna nova (auditoria de i18n, 2026-08-26/27) — fallback pra title.
+          const lotTitle = lang === 'es' && lot.title_es ? lot.title_es : lot.title;
 
           return (
             <article key={lot.id} className="ad-card" style={{ display: 'flex', flexDirection: 'column' }}>
               <div className="ad-card__image" style={{ position: 'relative', height: '200px' }}>
                 <div style={{ position: 'absolute', top: '1rem', left: '1rem', background: '#020617', color: '#fff', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.85rem', fontWeight: 700, zIndex: 10 }}>
-                  LOTE {lot.lot_number}
+                  {T.lot} {lot.lot_number}
                 </div>
                 {isWinning && (
                   <div style={{ position: 'absolute', top: '1rem', right: '1rem', background: '#22c55e', color: '#000', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700, zIndex: 10 }}>
-                    Você está vencendo!
+                    {T.winning}
                   </div>
                 )}
                 <Image
                   src={imageUrl(lot.image)}
-                  alt={`Foto do lote ${lot.lot_number}: ${lot.title}`}
+                  alt={T.lotPhotoAlt(lot.lot_number, lotTitle)}
                   fill
                   sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 280px"
                   style={{ objectFit: 'cover', filter: imgFilter }}
                 />
               </div>
-              
+
               <div className="ad-card__body" style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '1.25rem' }}>
                 <h3 className="ad-card__title" style={{ fontSize: '1.1rem', marginBottom: '1rem', lineHeight: 1.3 }}>
-                  {lot.title}
+                  {lotTitle}
                 </h3>
-                
+
                 <div style={{ background: 'var(--clr-bg-alt)', padding: '0.75rem', borderRadius: '6px', marginBottom: '1rem' }}>
                   <div style={{ fontSize: '0.75rem', color: 'var(--clr-text-light)', marginBottom: '0.2rem' }}>
                     {/* BUG CORRIGIDO (validação do zero, 3ª rodada): o rótulo
@@ -134,20 +169,20 @@ export default function LotGrid({ lots, isLive, isCancelled = false, userId, ste
                         "LANCE INICIAL" sobre um valor que na verdade é o
                         último lance de verdade. Depende de existir lance
                         real, não do status do leilão. */}
-                    {lot.current_bid ? 'LANCE ATUAL' : 'LANCE INICIAL'}
+                    {lot.current_bid ? T.currentBid : T.initialBid}
                   </div>
                   <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#22c55e' }}>
-                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(currentBid)}
+                    {new Intl.NumberFormat(currencyLocale, { style: 'currency', currency: 'BRL' }).format(currentBid)}
                   </div>
                 </div>
-                
+
                 <div style={{ display: 'flex', gap: '0.5rem', marginTop: 'auto' }}>
-                  <button 
+                  <button
                     onClick={() => setSelectedLot(lot)}
-                    className="btn btn--accent" 
+                    className="btn btn--accent"
                     style={{ flex: 1, justifyContent: 'center' }}
                   >
-                    {isLive ? 'Dar Lance' : 'Ver Lote'}
+                    {isLive ? T.placeBid : T.viewLot}
                   </button>
                 </div>
               </div>

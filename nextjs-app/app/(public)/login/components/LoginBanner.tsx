@@ -1,17 +1,48 @@
 import Link from 'next/link'
 import Image from 'next/image'
+import { cookies } from 'next/headers'
 
 interface LoginBannerProps {
   logoUrl: string | null
 }
 
-export function LoginBanner({ logoUrl }: LoginBannerProps) {
+// Strings exclusivas deste banner (não usadas em nenhuma outra parte do
+// site) — seguindo o padrão de TRANSLATIONS local já usado em
+// components/ads/AdsSidebar.tsx, sem poluir o dicionário global I18N.
+const TRANSLATIONS = {
+  pt: {
+    alt: 'Fundo rural agro',
+    titleLine1: 'O agronegócio do',
+    titleHighlight: 'Brasil',
+    titleLine2: 'em um só lugar.',
+    subtitle: 'Anuncie gratuitamente para milhares de compradores no Brasil, Argentina, Paraguai e Uruguai.',
+    badgeFree: 'Gratuito para anunciar',
+    badgeMercosul: 'Mercosul completo',
+    badgeAds: '62.000+ anúncios',
+  },
+  es: {
+    alt: 'Fondo rural agro',
+    titleLine1: 'El agronegocio de',
+    titleHighlight: 'Brasil',
+    titleLine2: 'en un solo lugar.',
+    subtitle: 'Publica gratis para miles de compradores en Brasil, Argentina, Paraguay y Uruguay.',
+    badgeFree: 'Gratis para publicar',
+    badgeMercosul: 'Mercosur completo',
+    badgeAds: '62.000+ anuncios',
+  },
+} as const
+
+export async function LoginBanner({ logoUrl }: LoginBannerProps) {
+  const cookieStore = await cookies()
+  const lang = cookieStore.get('tc_lang')?.value === 'es' ? 'es' : 'pt'
+  const tr = TRANSLATIONS[lang]
+
   return (
     <div className="login-banner">
       <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-        <Image 
-          src="/assets/hero_farm.webp" 
-          alt="Fundo rural agro" 
+        <Image
+          src="/assets/hero_farm.webp"
+          alt={tr.alt}
           fill
           priority
           style={{ objectFit: 'cover' }}
@@ -38,16 +69,16 @@ export function LoginBanner({ logoUrl }: LoginBannerProps) {
         </div>
       </Link>
 
-      <h2>O agronegócio do <br/><span style={{ color: '#F59E0B' }}>Brasil</span><br/> em um só lugar.</h2>
-      <p>Anuncie gratuitamente para milhares de compradores no Brasil, Argentina, Paraguai e Uruguai.</p>
+      <h2>{tr.titleLine1} <br/><span style={{ color: '#F59E0B' }}>{tr.titleHighlight}</span><br/> {tr.titleLine2}</h2>
+      <p>{tr.subtitle}</p>
 
       <div className="login-badges">
         <span className="badge">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> 
-          Gratuito para anunciar
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+          {tr.badgeFree}
         </span>
-        <span className="badge"><span style={{fontSize:'14px'}}>🌎</span> Mercosul completo</span>
-        <span className="badge"><span style={{fontSize:'14px'}}>🏷️</span> 62.000+ anúncios</span>
+        <span className="badge"><span style={{fontSize:'14px'}}>🌎</span> {tr.badgeMercosul}</span>
+        <span className="badge"><span style={{fontSize:'14px'}}>🏷️</span> {tr.badgeAds}</span>
       </div>
       </div>
     </div>

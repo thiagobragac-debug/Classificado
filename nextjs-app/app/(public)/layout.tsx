@@ -25,34 +25,65 @@ const sora = Sora({
   display: 'swap',
 });
 
-export const metadata: Metadata = {
-  title: { default: 'Tauze Class — Classificados do Agronegócio Mercosul', template: '%s | Tauze Class' },
-  description: 'Tauze Class — O maior portal de classificados do agronegocio do Mercosul. Compre e venda animais, insumos, maquinas e imoveis rurais no Brasil, Argentina, Paraguai e Uruguai.',
-  keywords: ['classificados agronegocio', 'venda animais', 'bovinos', 'equinos', 'maquinas agricolas', 'imoveis rurais', 'mercosul'],
-  robots: { index: true, follow: true },
-  openGraph: {
-    type: 'website',
-    title: 'Tauze Class — Classificados do Agronegocio Mercosul',
-    description: 'O maior portal de classificados do agronegocio do Mercosul. Bovinos, equinos, maquinas, insumos e imoveis rurais.',
-    url: 'https://tauzeclass.com.br',
-    images: [{ url: 'https://tauzeclass.com.br/assets/og-home.jpg', width: 1200, height: 630, alt: 'Tauze Class — Classificados do Agronegócio' }],
+const METADATA_TRANSLATIONS = {
+  pt: {
+    title: { default: 'Tauze Class — Classificados do Agronegócio Mercosul', template: '%s | Tauze Class' },
+    description: 'Tauze Class — O maior portal de classificados do agronegocio do Mercosul. Compre e venda animais, insumos, maquinas e imoveis rurais no Brasil, Argentina, Paraguai e Uruguai.',
+    keywords: ['classificados agronegocio', 'venda animais', 'bovinos', 'equinos', 'maquinas agricolas', 'imoveis rurais', 'mercosul'],
+    ogTitle: 'Tauze Class — Classificados do Agronegocio Mercosul',
+    ogDescription: 'O maior portal de classificados do agronegocio do Mercosul. Bovinos, equinos, maquinas, insumos e imoveis rurais.',
+    ogImageAlt: 'Tauze Class — Classificados do Agronegócio',
     locale: 'pt_BR',
-    siteName: 'Tauze Class',
+    twitterTitle: 'Tauze Class — Classificados do Agronegocio',
+    twitterDescription: 'Compre e venda no maior classificado agro do Mercosul.',
   },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'Tauze Class — Classificados do Agronegocio',
-    description: 'Compre e venda no maior classificado agro do Mercosul.',
-    images: ['https://tauzeclass.com.br/assets/og-home.jpg'],
+  es: {
+    title: { default: 'Tauze Class — Clasificados del Agronegocio Mercosur', template: '%s | Tauze Class' },
+    description: 'Tauze Class — El mayor portal de clasificados del agronegocio del Mercosur. Compra y vende animales, insumos, maquinaria e inmuebles rurales en Brasil, Argentina, Paraguay y Uruguay.',
+    keywords: ['clasificados agronegocio', 'venta animales', 'bovinos', 'equinos', 'maquinaria agricola', 'inmuebles rurales', 'mercosur'],
+    ogTitle: 'Tauze Class — Clasificados del Agronegocio Mercosur',
+    ogDescription: 'El mayor portal de clasificados del agronegocio del Mercosur. Bovinos, equinos, maquinaria, insumos e inmuebles rurales.',
+    ogImageAlt: 'Tauze Class — Clasificados del Agronegocio',
+    locale: 'es_AR',
+    twitterTitle: 'Tauze Class — Clasificados del Agronegocio',
+    twitterDescription: 'Compra y vende en el mayor clasificado agro del Mercosur.',
   },
-  alternates: { canonical: 'https://tauzeclass.com.br' },
-  manifest: '/manifest.json',
-  icons: {
-    icon: [{ url: '/api/favicon', type: 'image/png' }],
-    apple: '/icon-192.svg',
-    shortcut: '/api/favicon',
-  },
-};
+} as const;
+
+export async function generateMetadata(): Promise<Metadata> {
+  const cookieStore = await cookies();
+  const lang = (cookieStore.get('tc_lang')?.value === 'es' ? 'es' : 'pt') as 'pt' | 'es';
+  const m = METADATA_TRANSLATIONS[lang];
+
+  return {
+    title: m.title,
+    description: m.description,
+    keywords: [...m.keywords],
+    robots: { index: true, follow: true },
+    openGraph: {
+      type: 'website',
+      title: m.ogTitle,
+      description: m.ogDescription,
+      url: 'https://tauzeclass.com.br',
+      images: [{ url: 'https://tauzeclass.com.br/assets/og-home.jpg', width: 1200, height: 630, alt: m.ogImageAlt }],
+      locale: m.locale,
+      siteName: 'Tauze Class',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: m.twitterTitle,
+      description: m.twitterDescription,
+      images: ['https://tauzeclass.com.br/assets/og-home.jpg'],
+    },
+    alternates: { canonical: 'https://tauzeclass.com.br' },
+    manifest: '/manifest.json',
+    icons: {
+      icon: [{ url: '/api/favicon', type: 'image/png' }],
+      apple: '/icon-192.svg',
+      shortcut: '/api/favicon',
+    },
+  };
+}
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -60,9 +91,15 @@ export const viewport: Viewport = {
   themeColor: '#16A34A',
 };
 
+const LAYOUT_TRANSLATIONS = {
+  pt: { skipToContent: 'Pular para o conteúdo principal' },
+  es: { skipToContent: 'Saltar al contenido principal' },
+} as const;
+
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = await cookies();
   const tcLang = (cookieStore.get('tc_lang')?.value || 'pt') as 'pt' | 'es';
+  const lt = LAYOUT_TRANSLATIONS[tcLang];
 
   // Ler nonce gerado pelo proxy para usar nos scripts inline
   const headersList = await headers();
@@ -110,7 +147,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   zIndex: 100000,
                   transition: 'top 0.2s'
                 }}>
-                  Pular para o conteúdo principal
+                  {lt.skipToContent}
                 </a>
                 <CommandPalette />
                 <Header initialIsLoggedIn={isLogged} initialUserInitials={userInitials} />

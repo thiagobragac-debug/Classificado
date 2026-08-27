@@ -1,4 +1,5 @@
 import { cache, Suspense } from 'react';
+import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
 import AdsBrowser from '@/components/ads/AdsBrowser';
@@ -6,6 +7,7 @@ import SellerProfileHeader from '@/components/seller/SellerProfileHeader';
 import { getAdsListagem, adsSearchParamsSchema } from '@/lib/services/ads.service';
 import { getAllCategories } from '@/lib/listagem-utils';
 import { createAnonClient } from '@/lib/supabase-server';
+import { t as _t } from '@/lib/constants';
 
 type Props = { 
   params: Promise<{ id: string }> | { id: string }, 
@@ -24,28 +26,34 @@ const getProfile = cache(async (id: string) => {
 
 export async function generateMetadata(props: Props): Promise<Metadata> {
   const params = await props.params;
+  const cookieStore = await cookies();
+  const lang = (cookieStore.get('tc_lang')?.value === 'es' ? 'es' : 'pt') as 'pt' | 'es';
   const profile = await getProfile(params.id);
-  
-  if (!profile) return { title: 'Vendedor não encontrado' };
+
+  if (!profile) return { title: lang === 'es' ? 'Vendedor no encontrado' : 'Vendedor não encontrado' };
 
   const sellerName = profile.display_name || profile.name || 'Vendedor';
 
   return {
-    title: `Produtos de ${sellerName}`,
-    description: `Confira os anúncios e avaliações de ${sellerName} no maior classificado agro do Mercosul.`,
+    title: lang === 'es' ? `Productos de ${sellerName}` : `Produtos de ${sellerName}`,
+    description: lang === 'es'
+      ? `Consulta los anuncios y valoraciones de ${sellerName} en el mayor clasificado agro del Mercosur.`
+      : `Confira os anúncios e avaliações de ${sellerName} no maior classificado agro do Mercosul.`,
     alternates: { canonical: `https://tauzeclass.com.br/vendedor/${params.id}` },
     openGraph: {
-      title: `${sellerName} — Classificados Agro | Tauze Class`,
-      description: `Veja os produtos de ${sellerName} e confira sua reputação.`,
+      title: `${sellerName} — ${lang === 'es' ? 'Clasificados Agro' : 'Classificados Agro'} | Tauze Class`,
+      description: lang === 'es'
+        ? `Mira los productos de ${sellerName} y consulta su reputación.`
+        : `Veja os produtos de ${sellerName} e confira sua reputação.`,
       url: `https://tauzeclass.com.br/vendedor/${params.id}`,
       type: 'profile',
-      locale: 'pt_BR',
+      locale: lang === 'es' ? 'es_AR' : 'pt_BR',
       images: [{ url: 'https://tauzeclass.com.br/assets/og-home.jpg', width: 1200, height: 630, alt: `${sellerName} | Tauze Class` }],
     },
     twitter: {
       card: 'summary',
       title: `${sellerName} — Tauze Class`,
-      description: `Confira os anúncios de ${sellerName}.`,
+      description: lang === 'es' ? `Consulta los anuncios de ${sellerName}.` : `Confira os anúncios de ${sellerName}.`,
     },
   };
 }
@@ -53,6 +61,9 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
 export default async function VendedorPage(props: Props) {
   const params = await props.params;
   const searchParams = await props.searchParams;
+  const cookieStore = await cookies();
+  const lang = (cookieStore.get('tc_lang')?.value === 'es' ? 'es' : 'pt') as 'pt' | 'es';
+  const t = (key: string) => _t(key, lang);
 
   const sp = { ...searchParams, seller_id: params.id };
   const parsedParams = adsSearchParamsSchema.parse(sp);
@@ -84,7 +95,7 @@ export default async function VendedorPage(props: Props) {
     notFound();
   }
 
-  const sellerName = profile.display_name || profile.name || 'Vendedor Anônimo';
+  const sellerName = profile.display_name || profile.name || (lang === 'es' ? 'Vendedor Anónimo' : 'Vendedor Anônimo');
 
   return (
     <main className="flex-1 flex flex-col" style={{ marginTop: 'var(--header-h)' }}>
@@ -93,15 +104,15 @@ export default async function VendedorPage(props: Props) {
           <div className="list-hero-inner">
             <div>
               <nav aria-label="Breadcrumb" className="breadcrumb">
-                <a href="/">Início</a>
+                <a href="/">{t('nav_home')}</a>
                 <span aria-hidden="true">›</span>
                 <span>Vendedores</span>
               </nav>
               <h1 className="list-hero-title">
-                Produtos de {sellerName}
+                {lang === 'es' ? `Productos de ${sellerName}` : `Produtos de ${sellerName}`}
               </h1>
               <p className="list-hero-count" style={{ opacity: 0.9, marginTop: '4px' }}>
-                Confira todos os anúncios e reputação deste vendedor
+                {lang === 'es' ? 'Consulta todos los anuncios y la reputación de este vendedor' : 'Confira todos os anúncios e reputação deste vendedor'}
               </p>
             </div>
           </div>

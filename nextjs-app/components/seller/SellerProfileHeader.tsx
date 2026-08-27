@@ -4,6 +4,32 @@ import { useState, useMemo } from 'react';
 import ReviewModal from './ReviewModal';
 import { Star, Share2, ShieldCheck } from 'lucide-react';
 import styles from './SellerProfileHeader.module.css';
+import { useLang } from '@/lib/lang-context';
+
+const TRANSLATIONS = {
+  pt: {
+    stars: 'Estrelas', reviews: 'Avaliações', yearsSelling: 'Anos vendendo',
+    noReviewsYet: '(Nenhuma avaliação ainda)',
+    ratingSummary: (total: number, avg: number) => `(${total} avaliação${total > 1 ? 'ões' : ''}) • Média ${avg.toFixed(1)}`,
+    share: 'Compartilhar', shareProfile: 'Compartilhar perfil', evaluate: 'Avaliar',
+    verifiedSeller: 'Vendedor Verificado', verified: 'Verificado',
+    shareTitle: (name: string) => `Perfil de ${name}`,
+    shareText: (name: string) => `Confira os anúncios de ${name} no Classificados.`,
+    linkCopied: 'Link copiado para a área de transferência!',
+    avatarOf: (name: string) => `Avatar de ${name}`,
+  },
+  es: {
+    stars: 'Estrellas', reviews: 'Valoraciones', yearsSelling: 'Años vendiendo',
+    noReviewsYet: '(Aún sin valoraciones)',
+    ratingSummary: (total: number, avg: number) => `(${total} valoraci${total > 1 ? 'ones' : 'ón'}) • Promedio ${avg.toFixed(1)}`,
+    share: 'Compartir', shareProfile: 'Compartir perfil', evaluate: 'Valorar',
+    verifiedSeller: 'Vendedor Verificado', verified: 'Verificado',
+    shareTitle: (name: string) => `Perfil de ${name}`,
+    shareText: (name: string) => `Consulta los anuncios de ${name} en Clasificados.`,
+    linkCopied: '¡Enlace copiado al portapapeles!',
+    avatarOf: (name: string) => `Avatar de ${name}`,
+  },
+};
 
 export default function SellerProfileHeader({
   sellerId,
@@ -21,23 +47,25 @@ export default function SellerProfileHeader({
   bannerUrl?: string | null;
 }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { lang } = useLang();
+  const tr = TRANSLATIONS[lang];
 
   const { total_reviews: total, avg_rating: avg } = stats;
-  const ratingText = total > 0 
-    ? `(${total} avaliação${total > 1 ? 'ões' : ''}) • Média ${avg.toFixed(1)}` 
-    : '(Nenhuma avaliação ainda)';
+  const ratingText = total > 0
+    ? tr.ratingSummary(total, avg)
+    : tr.noReviewsYet;
 
   const handleShare = async () => {
     try {
       if (navigator.share) {
         await navigator.share({
-          title: `Perfil de ${sellerName}`,
-          text: `Confira os anúncios de ${sellerName} no Classificados.`,
+          title: tr.shareTitle(sellerName),
+          text: tr.shareText(sellerName),
           url: window.location.href,
         });
       } else {
         await navigator.clipboard.writeText(window.location.href);
-        alert('Link copiado para a área de transferência!');
+        alert(tr.linkCopied);
       }
     } catch {
       // silent — share/clipboard errors are user-initiated cancellations
@@ -71,7 +99,7 @@ export default function SellerProfileHeader({
             {avatarUrl ? (
               <img
                 src={avatarUrl}
-                alt={`Avatar de ${sellerName}`}
+                alt={tr.avatarOf(sellerName)}
                 className={styles.sellerAvatar}
                 style={{ objectFit: 'cover' }}
               />
@@ -80,37 +108,37 @@ export default function SellerProfileHeader({
                 className={styles.sellerAvatar}
                 style={avatarColorStyle}
                 role="img"
-                aria-label={`Avatar de ${sellerName}`}
+                aria-label={tr.avatarOf(sellerName)}
               >
                 {sellerName.charAt(0).toUpperCase()}
               </div>
             )}
-            
+
             <div className={styles.sellerInfo}>
               <div className={styles.sellerNameRow}>
                 <h2 className={styles.sellerName}>{sellerName}</h2>
                 {stats.verified && (
-                  <div className={styles.sellerBadge} title="Vendedor Verificado">
+                  <div className={styles.sellerBadge} title={tr.verifiedSeller}>
                     <ShieldCheck size={12} />
-                    <span>Verificado</span>
+                    <span>{tr.verified}</span>
                   </div>
                 )}
               </div>
-              
+
               <div className={styles.statsGrid}>
                 <div className={styles.statItem}>
                   <span className={styles.statValue}>{avg.toFixed(1)}</span>
-                  <span className={styles.statLabel}>Estrelas</span>
+                  <span className={styles.statLabel}>{tr.stars}</span>
                 </div>
                 <div className={styles.statItem}>
                   <span className={styles.statValue}>{total}</span>
-                  <span className={styles.statLabel}>Avaliações</span>
+                  <span className={styles.statLabel}>{tr.reviews}</span>
                 </div>
                 <div className={styles.statItem}>
                   <span className={styles.statValue}>
                     {yearsActive !== null ? (yearsActive > 0 ? `${yearsActive}+` : '<1') : '—'}
                   </span>
-                  <span className={styles.statLabel}>Anos vendendo</span>
+                  <span className={styles.statLabel}>{tr.yearsSelling}</span>
                 </div>
 
                 {/* Estrelas inline */}
@@ -132,12 +160,12 @@ export default function SellerProfileHeader({
             </div>
             
             <div className={styles.sellerActions}>
-              <button onClick={handleShare} className={styles.btnShare} aria-label="Compartilhar perfil">
-                <Share2 size={16} /> 
-                <span>Compartilhar</span>
+              <button onClick={handleShare} className={styles.btnShare} aria-label={tr.shareProfile}>
+                <Share2 size={16} />
+                <span>{tr.share}</span>
               </button>
               <button onClick={() => setIsModalOpen(true)} className={styles.btnReview}>
-                <Star size={16} fill="currentColor" strokeWidth={0} /> Avaliar
+                <Star size={16} fill="currentColor" strokeWidth={0} /> {tr.evaluate}
               </button>
             </div>
           </div>

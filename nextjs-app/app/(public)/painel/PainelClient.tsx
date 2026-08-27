@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { logout } from '@/lib/supabase';
+import { logout, getSupabase } from '@/lib/supabase';
+import { useLang } from '@/lib/lang-context';
 import styles from './painel.module.css';
 
 import { MyAdsTab } from './_components/MyAdsTab';
@@ -13,12 +14,40 @@ import { BillingTab } from './_components/BillingTab';
 
 type Tab = 'ads' | 'messages' | 'favorites' | 'profile' | 'billing';
 
+const TRANSLATIONS = {
+  pt: {
+    myAds: 'Meus Anúncios', messages: 'Mensagens', favorites: 'Favoritos',
+    myProfile: 'Meu Perfil', billing: 'Assinatura e Faturas', logout: 'Sair',
+    adsUsed: 'Anúncios usados', unlimited: 'Ilimitado',
+    sections: 'Seções do painel',
+    cancelledBanner: 'Assinatura não concluída. Você pode tentar novamente em Assinatura e Faturas.',
+    successBanner: 'Assinatura ativada com sucesso! Seu plano já está ativo.',
+    close: 'Fechar',
+  },
+  es: {
+    myAds: 'Mis Anuncios', messages: 'Mensajes', favorites: 'Favoritos',
+    myProfile: 'Mi Perfil', billing: 'Suscripción y Facturas', logout: 'Salir',
+    adsUsed: 'Anuncios usados', unlimited: 'Ilimitado',
+    sections: 'Secciones del panel',
+    cancelledBanner: 'Suscripción no completada. Puedes intentarlo de nuevo en Suscripción y Facturas.',
+    successBanner: '¡Suscripción activada con éxito! Tu plan ya está activo.',
+    close: 'Cerrar',
+  },
+};
+
 export default function PainelClient({ initialUser, initialStats, initialPlanMeta }: { initialUser: any, initialStats: any, initialPlanMeta: any }) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { lang } = useLang()
+  const t = TRANSLATIONS[lang as keyof typeof TRANSLATIONS] || TRANSLATIONS.pt
   const validTabs: Tab[] = ['ads', 'messages', 'favorites', 'profile', 'billing']
   const [subscriptionSuccess, setSubscriptionSuccess] = useState(false)
   const [checkoutCancelled, setCheckoutCancelled] = useState(false)
+  // planMeta vem do servidor (page.tsx) só com a coluna PT (plans.name).
+  // Busca aqui a linha correspondente em `plans` só pra pegar o name_es —
+  // plano gratuito/PRO/Premium são poucas linhas, cacheáveis, sem custo de
+  // um novo endpoint dedicado.
+  const [planLabelEs, setPlanLabelEs] = useState<string | null>(null)
 
   // Sempre nasce em 'ads', igual ao servidor (fragmentos de URL nunca chegam
   // ao servidor, então ele não tem como saber qual aba a URL pedia). A
@@ -68,8 +97,8 @@ export default function PainelClient({ initialUser, initialStats, initialPlanMet
         window.history.replaceState(null, '', url.toString())
       }
       // Auto-hide after 8 seconds
-      const t = setTimeout(() => setSubscriptionSuccess(false), 8000)
-      return () => clearTimeout(t)
+      const timer = setTimeout(() => setSubscriptionSuccess(false), 8000)
+      return () => clearTimeout(timer)
     }
     if (searchParams.get('cancelled') === '1') {
       setCheckoutCancelled(true)
@@ -78,14 +107,26 @@ export default function PainelClient({ initialUser, initialStats, initialPlanMet
         url.searchParams.delete('cancelled')
         window.history.replaceState(null, '', url.toString())
       }
-      const t = setTimeout(() => setCheckoutCancelled(false), 6000)
-      return () => clearTimeout(t)
+      const timer = setTimeout(() => setCheckoutCancelled(false), 6000)
+      return () => clearTimeout(timer)
     }
   }, [searchParams])
+
+  // planMeta vem do servidor só com o nome PT (plans.name) — busca a
+  // tradução ES da mesma linha (mesma fonte de verdade, `plans`) pra
+  // mostrar o nome do plano corretamente com ES ativo.
+  useEffect(() => {
+    let cancelled = false
+    if (!initialPlanMeta?.label) return
+    getSupabase().from('plans').select('name_es').eq('name', initialPlanMeta.label).maybeSingle()
+      .then((res: { data: { name_es?: string | null } | null }) => { if (!cancelled) setPlanLabelEs(res.data?.name_es || null) })
+    return () => { cancelled = true }
+  }, [initialPlanMeta?.label])
 
   // Props vindas do SSR — sem loading state necessário
   const user = initialUser;
   const adStats = initialStats;
+  const planLabel = lang === 'es' && planLabelEs ? planLabelEs : initialPlanMeta?.label;
 
   const switchTab = (tab: Tab) => {
     setActiveTab(tab);
@@ -99,23 +140,23 @@ export default function PainelClient({ initialUser, initialStats, initialPlanMet
 
   const sidebarBtns: { id: Tab; icon: React.ReactNode; label: string }[] = [
     {
-      id: 'ads', label: 'Meus Anúncios',
+      id: 'ads', label: t.myAds,
       icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
     },
     {
-      id: 'messages', label: 'Mensagens',
+      id: 'messages', label: t.messages,
       icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
     },
     {
-      id: 'favorites', label: 'Favoritos',
+      id: 'favorites', label: t.favorites,
       icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
     },
     {
-      id: 'profile', label: 'Meu Perfil',
+      id: 'profile', label: t.myProfile,
       icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
     },
     {
-      id: 'billing', label: 'Assinatura e Faturas',
+      id: 'billing', label: t.billing,
       icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="5" width="20" height="14" rx="2" ry="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
     },
   ];
@@ -132,8 +173,8 @@ export default function PainelClient({ initialUser, initialStats, initialPlanMet
           display: 'flex', alignItems: 'center', gap: 10
         }}>
           <span>⚠️</span>
-          <span>Assinatura não concluída. Você pode tentar novamente em Assinatura e Faturas.</span>
-          <button onClick={() => setCheckoutCancelled(false)}
+          <span>{t.cancelledBanner}</span>
+          <button onClick={() => setCheckoutCancelled(false)} aria-label={t.close}
             style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '1.2rem', lineHeight: 1 }}>
             ×
           </button>
@@ -148,8 +189,8 @@ export default function PainelClient({ initialUser, initialStats, initialPlanMet
           display: 'flex', alignItems: 'center', gap: 10
         }}>
           <span>✅</span>
-          <span>Assinatura ativada com sucesso! Seu plano já está ativo.</span>
-          <button onClick={() => setSubscriptionSuccess(false)}
+          <span>{t.successBanner}</span>
+          <button onClick={() => setSubscriptionSuccess(false)} aria-label={t.close}
             style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '1.2rem', lineHeight: 1 }}>
             ×
           </button>
@@ -161,13 +202,13 @@ export default function PainelClient({ initialUser, initialStats, initialPlanMet
             <div className={styles.sidebarAvatar}>{initials}</div>
             <div className={styles.sidebarName}>{name}</div>
             <div className={styles.sidebarEmail}>{user?.email}</div>
-            <div className={styles.sidebarPlan}>{planMeta.label}</div>
+            <div className={styles.sidebarPlan}>{planLabel}</div>
           </div>
 
           <div className={styles.sidebarUsage}>
             <div className={styles.sidebarUsageLabels}>
-              <span>Anúncios usados</span>
-              <span>{adStats.active} / {planMeta.unlimited ? 'Ilimitado' : planMeta.ads}</span>
+              <span>{t.adsUsed}</span>
+              <span>{adStats.active} / {planMeta.unlimited ? t.unlimited : planMeta.ads}</span>
             </div>
             <div className={styles.sidebarUsageBar}>
               <div
@@ -179,7 +220,7 @@ export default function PainelClient({ initialUser, initialStats, initialPlanMet
 
           <nav className={styles.sidebarNav}>
             {/* ARIA tablist on the nav button group */}
-            <div role="tablist" aria-label="Seções do painel">
+            <div role="tablist" aria-label={t.sections}>
               {sidebarBtns.map(btn => (
                 <button
                   key={btn.id}
@@ -198,7 +239,7 @@ export default function PainelClient({ initialUser, initialStats, initialPlanMet
             <div className={styles.sidebarDivider} />
             <button onClick={logout} className={styles.sidebarLogout}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-              Sair
+              {t.logout}
             </button>
           </nav>
         </aside>

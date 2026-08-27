@@ -82,11 +82,20 @@ export const I18N = {
     events_live: 'Ao Vivo',
     events_no_location: 'Local a definir',
     events_empty: 'Nenhum evento encontrado',
+    events_empty_for: 'para',
     events_clear_search: 'Limpar busca e ver todos',
     events_search_placeholder: 'Digite sua cidade...',
     events_locating: 'Localizando...',
     events_search_btn: 'Buscar',
+    events_use_gps: 'Usar GPS',
+    events_location_success: 'Localização detectada com sucesso!',
+    events_location_error: 'Não foi possível detectar a localização (GPS negado ou IP falhou).',
     err_invalid_credentials: 'E-mail ou senha incorretos.',
+
+    // Paginação (compartilhada entre listagem, painel etc.)
+    pagination_prev: 'Anterior',
+    pagination_next: 'Próxima',
+    pagination_page: 'Página',
   },
   es: {
     nav_home: 'Inicio', nav_ads: 'Anuncios', nav_events: 'Eventos',
@@ -163,11 +172,20 @@ export const I18N = {
     events_live: 'En Vivo',
     events_no_location: 'Local a definir',
     events_empty: 'Ningún evento encontrado',
+    events_empty_for: 'para',
     events_clear_search: 'Limpiar búsqueda y ver todos',
     events_search_placeholder: 'Ingresa tu ciudad...',
     events_locating: 'Localizando...',
     events_search_btn: 'Buscar',
+    events_use_gps: 'Usar GPS',
+    events_location_success: '¡Ubicación detectada con éxito!',
+    events_location_error: 'No fue posible detectar la ubicación (GPS denegado o IP falló).',
     err_invalid_credentials: 'Correo o contraseña incorrectos.',
+
+    // Paginación (compartida entre listado, panel, etc.)
+    pagination_prev: 'Anterior',
+    pagination_next: 'Siguiente',
+    pagination_page: 'Página',
   }
 };
 

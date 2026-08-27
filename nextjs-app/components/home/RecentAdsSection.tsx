@@ -8,7 +8,24 @@ import { useFavorites } from '@/lib/useFavorites';
 import { useRecentViews } from '@/lib/useRecentViews';
 import { AdCardHome } from './AdCardHome';
 
-export function RecentAdsSection({ 
+const TRANSLATIONS = {
+  pt: {
+    forYouLabel: 'Para Você',
+    forYouTitle: 'Recomendados para Você',
+    recentGridAria: 'Últimos anúncios publicados',
+    empty: 'Nenhum anúncio recente encontrado.',
+    emptyCta: 'Seja o primeiro a anunciar!',
+  },
+  es: {
+    forYouLabel: 'Para ti',
+    forYouTitle: 'Recomendados para ti',
+    recentGridAria: 'Últimos anuncios publicados',
+    empty: 'Ningún anuncio reciente encontrado.',
+    emptyCta: '¡Sé el primero en publicar!',
+  },
+} as const;
+
+export function RecentAdsSection({
   initialRecent, 
   initialHasMore,
   city,
@@ -24,6 +41,7 @@ export function RecentAdsSection({
   const { lang, t } = useLang();
   const { favs, toggleFav } = useFavorites();
   const { recentViews } = useRecentViews();
+  const tt = TRANSLATIONS[lang as 'pt' | 'es'];
 
   // UseMemo instead of sorting on every render
   const sortedRecentAds = useMemo(() => {
@@ -59,9 +77,9 @@ export function RecentAdsSection({
         <div className="container">
           <div className="section-header">
             <div>
-              <div className="section-label">{recentViews.length > 0 ? (lang === 'es' ? 'Para ti' : 'Para Você') : t('section_recent')}</div>
+              <div className="section-label">{recentViews.length > 0 ? tt.forYouLabel : t('section_recent')}</div>
               <h2 className="section-title" id="recent-heading">
-                {recentViews.length > 0 ? (lang === 'es' ? 'Recomendados para ti' : 'Recomendados para Você') : t('section_recent_title')}
+                {recentViews.length > 0 ? tt.forYouTitle : t('section_recent_title')}
               </h2>
             </div>
             <Link href="/listagem" className="view-all">
@@ -73,11 +91,11 @@ export function RecentAdsSection({
             </Link>
           </div>
           <LazyMotion features={domAnimation}>
-            <div className="ads-grid" id="recent-ads" role="list" aria-label="Últimos anúncios publicados">
+            <div className="ads-grid" id="recent-ads" role="list" aria-label={tt.recentGridAria}>
               {sortedRecentAds.length === 0 ? (
                 <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3rem', background: 'white', borderRadius: 16, border: '1px dashed var(--clr-border)' }}>
-                  <p style={{ color: 'var(--clr-text-muted)', marginBottom: '1rem' }}>Nenhum anúncio recente encontrado.</p>
-                  <Link href="/login?mode=register" className="btn btn--primary">Seja o primeiro a anunciar!</Link>
+                  <p style={{ color: 'var(--clr-text-muted)', marginBottom: '1rem' }}>{tt.empty}</p>
+                  <Link href="/login?mode=register" className="btn btn--primary">{tt.emptyCta}</Link>
                 </div>
               ) : (
                 sortedRecentAds.map(ad => (

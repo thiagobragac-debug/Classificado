@@ -1,51 +1,53 @@
 'use client';
 
 import { useAdsFilters } from '@/lib/useAdsFilters';
+import { useLang } from '@/lib/lang-context';
 import Link from 'next/link';
 
-export default function ListagemPagination({ 
-  hasMore 
-}: { 
-  hasMore: boolean 
+export default function ListagemPagination({
+  hasMore
+}: {
+  hasMore: boolean
 }) {
   const { page, getPageUrl } = useAdsFilters();
+  const { t } = useLang();
 
   return (
     <div style={{ marginTop: 'auto', paddingTop: 'var(--sp-10)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'var(--sp-4)', background: 'white', borderRadius: 'var(--r-lg)', border: '1px solid var(--clr-border)' }}>
         {page === 1 ? (
-          <span 
+          <span
             className="btn btn--ghost-dark btn--sm"
             style={{ opacity: 0.4, pointerEvents: 'none' }}
           >
-            ← Anterior
+            ← {t('pagination_prev')}
           </span>
         ) : (
-          <Link 
+          <Link
             href={getPageUrl(page - 1)}
             className="btn btn--ghost-dark btn--sm"
           >
-            ← Anterior
+            ← {t('pagination_prev')}
           </Link>
         )}
-        
+
         <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 600, color: 'var(--clr-text)' }}>
-          Página {page}
+          {t('pagination_page')} {page}
         </span>
 
         {!hasMore ? (
-          <span 
+          <span
             className="btn btn--ghost-dark btn--sm"
             style={{ opacity: 0.4, pointerEvents: 'none' }}
           >
-            Próxima →
+            {t('pagination_next')} →
           </span>
         ) : (
-          <Link 
+          <Link
             href={getPageUrl(page + 1)}
             className="btn btn--ghost-dark btn--sm"
           >
-            Próxima →
+            {t('pagination_next')} →
           </Link>
         )}
       </div>

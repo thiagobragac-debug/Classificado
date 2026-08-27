@@ -10,10 +10,24 @@ import { motion, AnimatePresence } from 'framer-motion'
 
 type AuthMode = 'login' | 'register' | 'forgot_password'
 
+// Mensagens exclusivas deste componente (sem equivalente no dicionário
+// global I18N) — padrão local de TRANSLATIONS, igual components/ads/AdsSidebar.tsx.
+const TRANSLATIONS = {
+  pt: {
+    resetPending: 'Você pode redefinir sua senha agora (implementação pendente na UI para token).',
+    accountBlocked: 'Sua conta foi suspensa temporariamente. Entre em contato com o suporte para mais informações.',
+  },
+  es: {
+    resetPending: 'Ya puedes restablecer tu contraseña ahora (implementación pendiente en la UI para el token).',
+    accountBlocked: 'Tu cuenta fue suspendida temporalmente. Contacta al soporte para más información.',
+  },
+} as const
+
 export function AuthContainer() {
   const searchParams = useSearchParams()
-  const { t } = useLang()
-  
+  const { t, lang } = useLang()
+  const tr = TRANSLATIONS[lang]
+
   const [mode, setMode] = useState<AuthMode>('login')
   const [alertInfo, setAlertInfo] = useState<{ msg: string; type: 'success' | 'error' } | null>(null)
   const [forgotEmail, setForgotEmail] = useState('')
@@ -22,17 +36,17 @@ export function AuthContainer() {
     if (searchParams.get('mode') === 'register') {
       setMode('register')
     } else if (searchParams.get('mode') === 'reset') {
-      setAlertInfo({ msg: 'Você pode redefinir sua senha agora (implementação pendente na UI para token).', type: 'success' })
+      setAlertInfo({ msg: tr.resetPending, type: 'success' })
     }
 
     if (searchParams.get('error') === 'blocked') {
-      setAlertInfo({ msg: 'Sua conta foi suspensa temporariamente. Entre em contato com o suporte para mais informações.', type: 'error' })
+      setAlertInfo({ msg: tr.accountBlocked, type: 'error' })
       // Tentar limpar a sessão via cliente também, para segurança extra
       import('@/lib/supabase').then(({ getSupabase }) => {
         getSupabase().auth.signOut();
       });
     }
-  }, [searchParams])
+  }, [searchParams, tr])
 
   const handleSetAlert = (msg: string, type: 'success' | 'error') => {
     if (!msg) {

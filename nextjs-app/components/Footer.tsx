@@ -6,10 +6,36 @@ import { FOOTER_LINKS } from '@/lib/constants';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 
+const TRANSLATIONS = {
+  pt: {
+    tagline: 'Classificados Agro',
+    allRightsReserved: 'Todos os direitos reservados.',
+    home: 'Início',
+    support: 'Suporte',
+    termsOfUse: 'Termos de Uso',
+    socialAria: 'Redes sociais',
+    privacy: 'Privacidade',
+    terms: 'Termos',
+    cookies: 'Cookies',
+  },
+  es: {
+    tagline: 'Clasificados Agro',
+    allRightsReserved: 'Todos los derechos reservados.',
+    home: 'Inicio',
+    support: 'Soporte',
+    termsOfUse: 'Términos de Uso',
+    socialAria: 'Redes sociales',
+    privacy: 'Privacidad',
+    terms: 'Términos',
+    cookies: 'Cookies',
+  },
+} as const;
+
 export default function Footer() {
   const { lang, t } = useLang();
   const pathname = usePathname();
   const links = FOOTER_LINKS[lang as 'pt' | 'es'];
+  const tt = TRANSLATIONS[lang as 'pt' | 'es'];
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -37,12 +63,12 @@ export default function Footer() {
         <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '.75rem' }}>
             <strong style={{ color: '#fff', fontSize: '.95rem' }}>Tauze Class</strong>
-            <span>&copy; {new Date().getFullYear()} Tauze Class. Todos os direitos reservados.</span>
+            <span>&copy; {new Date().getFullYear()} Tauze Class. {tt.allRightsReserved}</span>
           </div>
           <div style={{ display: 'flex', gap: '1.5rem', fontWeight: 500 }}>
-            <Link href="/" style={{ color: '#cbd5e1', textDecoration: 'none' }}>Início</Link>
-            <Link href="/suporte" style={{ color: '#cbd5e1', textDecoration: 'none' }}>Suporte</Link>
-            <Link href="/institucional?page=termos" style={{ color: '#cbd5e1', textDecoration: 'none' }}>Termos de Uso</Link>
+            <Link href="/" style={{ color: '#cbd5e1', textDecoration: 'none' }}>{tt.home}</Link>
+            <Link href="/suporte" style={{ color: '#cbd5e1', textDecoration: 'none' }}>{tt.support}</Link>
+            <Link href="/institucional?page=termos" style={{ color: '#cbd5e1', textDecoration: 'none' }}>{tt.termsOfUse}</Link>
           </div>
         </div>
       </footer>
@@ -61,11 +87,11 @@ export default function Footer() {
               </div>
               <div className="logo-text">
                 <span className="logo-name">Tauze Class</span>
-                <span className="logo-tagline">Classificados Agro</span>
+                <span className="logo-tagline">{tt.tagline}</span>
               </div>
             </div>
             <p className="footer-desc">{t('footer_desc')}</p>
-            <div className="footer-social" aria-label="Redes sociais">
+            <div className="footer-social" aria-label={tt.socialAria}>
               <a href="#" className="social-btn" aria-label="Instagram">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
@@ -119,9 +145,9 @@ export default function Footer() {
         <div className="footer-bottom">
           <span>{t('footer_copy')}</span>
           <div style={{ display: 'flex', gap: 'var(--sp-4)' }}>
-            <Link href="/institucional?page=privacidade">Privacidade</Link>
-            <Link href="/institucional?page=termos">Termos</Link>
-            <Link href="/institucional?page=cookies">Cookies</Link>
+            <Link href="/institucional?page=privacidade">{tt.privacy}</Link>
+            <Link href="/institucional?page=termos">{tt.terms}</Link>
+            <Link href="/institucional?page=cookies">{tt.cookies}</Link>
           </div>
         </div>
 

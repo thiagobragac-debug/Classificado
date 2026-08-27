@@ -1,7 +1,17 @@
 import React from 'react'
+import { cookies } from 'next/headers'
 import styles from './page.module.css'
+import { t as _t } from '@/lib/constants'
 
-export default function Loading() {
+// GAP CORRIGIDO (auditoria de i18n, 2026-08-26/27): skeleton ficava fixo em
+// português mesmo com ES selecionado. loading.tsx é um Server Component e
+// pode ser assíncrono como qualquer outro (mesmo padrão de cookies() já
+// usado em page.tsx desta mesma rota, inclusive coexistindo com `revalidate`).
+export default async function Loading() {
+  const cookieStore = await cookies()
+  const lang = cookieStore.get('tc_lang')?.value === 'es' ? 'es' : 'pt'
+  const t = (key: string) => _t(key, lang)
+
   return (
     <main style={{ marginTop: 'var(--header-h)', flex: 1, paddingBottom: '4rem' }}>
       <div className="list-hero">
@@ -9,12 +19,12 @@ export default function Loading() {
           <div className="list-hero-inner">
             <div>
               <nav aria-label="Breadcrumb" className="breadcrumb">
-                <span>Início</span>
+                <span>{t('nav_home')}</span>
                 <span aria-hidden="true">›</span>
-                <span>Agenda de Eventos</span>
+                <span>{t('events_title')}</span>
               </nav>
-              <h1 className="list-hero-title">Agenda de Eventos</h1>
-              <p className="list-hero-count">Encontre feiras, exposições e congressos do Agronegócio.</p>
+              <h1 className="list-hero-title">{t('events_title')}</h1>
+              <p className="list-hero-count">{t('events_subtitle')}</p>
             </div>
             
             <div className="hero-search-box" style={{ margin: 0, transform: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', width: '100%', maxWidth: '420px', height: '56px' }}>
@@ -27,7 +37,7 @@ export default function Loading() {
 
       <div className="container" style={{ paddingTop: 'var(--sp-6)' }}>
         <div className="events-section">
-          <h2 className="section-title">Grandes Destaques Nacionais</h2>
+          <h2 className="section-title">{t('events_highlights')}</h2>
           
           <div className="events-grid">
             {/* Render 6 skeleton cards */}

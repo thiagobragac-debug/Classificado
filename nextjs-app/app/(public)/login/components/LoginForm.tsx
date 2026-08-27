@@ -12,11 +12,30 @@ interface LoginFormProps {
   onNavigateToForgot: (email: string) => void
 }
 
+// Mensagens de erro genéricas e aria-labels exclusivos deste formulário —
+// padrão local de TRANSLATIONS (os labels de campo já usam o dicionário
+// global I18N via t()).
+const TRANSLATIONS = {
+  pt: {
+    loginError: 'Erro ao fazer login.',
+    googleError: 'Erro ao conectar com Google.',
+    hidePassword: 'Ocultar senha',
+    showPassword: 'Mostrar senha',
+  },
+  es: {
+    loginError: 'Error al iniciar sesión.',
+    googleError: 'Error al conectar con Google.',
+    hidePassword: 'Ocultar contraseña',
+    showPassword: 'Mostrar contraseña',
+  },
+} as const
+
 export function LoginForm({ onSetAlert, onNavigateToForgot }: LoginFormProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { t } = useLang()
-  
+  const { t, lang } = useLang()
+  const tr = TRANSLATIONS[lang]
+
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
@@ -55,7 +74,7 @@ export function LoginForm({ onSetAlert, onNavigateToForgot }: LoginFormProps) {
       // enquanto o resto do formulário é todo traduzido PT/ES.
       const msg = err.message === 'Invalid login credentials'
         ? t('err_invalid_credentials')
-        : err.message || 'Erro ao fazer login.'
+        : err.message || tr.loginError
       onSetAlert(msg, 'error')
       setLoading(false)
     }
@@ -71,7 +90,7 @@ export function LoginForm({ onSetAlert, onNavigateToForgot }: LoginFormProps) {
       }
       await loginWithGoogle(safeRedirect)
     } catch(err: any) {
-      onSetAlert(err.message || 'Erro ao conectar com Google.', 'error')
+      onSetAlert(err.message || tr.googleError, 'error')
     }
   }
 
@@ -119,7 +138,7 @@ export function LoginForm({ onSetAlert, onNavigateToForgot }: LoginFormProps) {
             />
             <button 
               type="button"
-              aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+              aria-label={showPassword ? tr.hidePassword : tr.showPassword}
               aria-pressed={showPassword}
               className="toggle-password" 
               onClick={() => setShowPassword(!showPassword)}

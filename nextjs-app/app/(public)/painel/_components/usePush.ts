@@ -1,13 +1,33 @@
 import { useState } from 'react';
 import { getSupabase } from '@/lib/supabase';
 import { showToast } from '@/lib/toast';
+import { useLang } from '@/lib/lang-context';
+
+const TRANSLATIONS = {
+  pt: {
+    unsupported: 'Push Notifications não são suportadas neste navegador.',
+    blocked: 'Você bloqueou as notificações.',
+    saveError: 'Erro ao salvar inscrição no banco.',
+    success: 'Notificações ativadas com sucesso!',
+    fail: 'Falha ao registrar Push.',
+  },
+  es: {
+    unsupported: 'Las Notificaciones Push no son compatibles con este navegador.',
+    blocked: 'Bloqueaste las notificaciones.',
+    saveError: 'Error al guardar la inscripción en la base de datos.',
+    success: '¡Notificaciones activadas con éxito!',
+    fail: 'Error al registrar el Push.',
+  },
+};
 
 export function usePushNotifications() {
   const [loading, setLoading] = useState(false);
+  const { lang } = useLang();
+  const t = TRANSLATIONS[lang as keyof typeof TRANSLATIONS] || TRANSLATIONS.pt;
 
   const subscribe = async () => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      showToast('Push Notifications não são suportadas neste navegador.', 'warning');
+      showToast(t.unsupported, 'warning');
       return;
     }
     setLoading(true);
@@ -16,7 +36,7 @@ export function usePushNotifications() {
       const permission = await Notification.requestPermission();
 
       if (permission !== 'granted') {
-        showToast('Você bloqueou as notificações.', 'warning');
+        showToast(t.blocked, 'warning');
         setLoading(false);
         return;
       }
@@ -45,11 +65,11 @@ export function usePushNotifications() {
           auth: btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(subscription.getKey('auth') || new ArrayBuffer(0)))))
         });
 
-        if (error) showToast('Erro ao salvar inscrição no banco.', 'error');
-        else showToast('Notificações ativadas com sucesso!', 'success');
+        if (error) showToast(t.saveError, 'error');
+        else showToast(t.success, 'success');
       }
     } catch (err) {
-      showToast('Falha ao registrar Push.', 'error');
+      showToast(t.fail, 'error');
     } finally {
       setLoading(false);
     }

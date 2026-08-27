@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
 import { useAuth } from '@/components/AuthProvider'
+import { useLang } from '@/lib/lang-context'
+import type { Lang } from '@/lib/constants'
 import CheckoutModal from '@/components/ui/CheckoutModal'
 import { useConfirm } from '@/components/ui/ConfirmProvider'
 import styles from './page.module.css'
@@ -12,7 +14,9 @@ export interface Plan {
   id: string
   name: string
   name_pt?: string
+  name_es?: string
   description?: string
+  description_es?: string
   price: number
   promotional_price?: number | null
   currency: string
@@ -23,16 +27,175 @@ export interface Plan {
   highlight_count: number
   sort_order: number
   featuresList: string[]
+  featuresListEs?: string[]
   tier: 'free' | 'pro' | 'premium' | string
+}
+
+// Strings desta página não existem no dicionário global I18N (lib/constants.ts)
+// — seguem o mesmo padrão local já usado em components/ads/AdsSidebar.tsx em
+// vez de poluir o dicionário compartilhado.
+const TRANSLATIONS = {
+  pt: {
+    heroTitlePre: 'Escolha seu',
+    heroTitleSpan: 'Plano',
+    heroSubtitle: 'Venda mais no maior classificado agro do Mercosul. Cancele quando quiser.',
+    badgeNoFidelity: 'Sem fidelidade',
+    badgeCancelAnytime: 'Cancele a qualquer momento',
+    badgeSecurePayment: 'Pagamento 100% Seguro',
+    billingMonthly: 'Mensal',
+    billingAnnual: 'Anual',
+    billingToggleAria: 'Alternar faturamento anual com desconto',
+    annualNote: 'Faturado anualmente (20% OFF)',
+    free: 'Grátis',
+    perMonth: '/mês',
+    unlimitedAds: 'Anúncios Ilimitados',
+    activeAds: (n: number) => `${n} anúncios ativos`,
+    upToPhotos: (n: number) => `Até ${n} fotos por anúncio`,
+    highlightsMonth: (n: number) => `${n} destaques mensais`,
+    popularBadge: '⭐ Mais Popular',
+    currentBadge: '✓ Plano Atual',
+    currentPlanBtn: 'Plano Atual',
+    processing: 'Processando...',
+    downgradeBtn: 'Fazer Downgrade',
+    startFreeBtn: 'Começar Grátis',
+    subscribeBtn: 'Assinar',
+    compareTitle: 'Comparação Completa',
+    compareSub: 'Tudo que cada plano inclui, sem surpresas.',
+    colFeature: 'Recurso',
+    colFree: 'Grátis',
+    colPro: 'PRO',
+    colPremium: 'Premium',
+    rowActiveAds: 'Anúncios ativos',
+    rowPhotos: 'Fotos por anúncio',
+    rowVideo: 'Vídeo no anúncio',
+    rowVideoDesc: 'Upload de vídeo demonstração',
+    rowSelo: 'Selo Verificado',
+    rowSeloDesc: 'Aumenta a confiança do comprador',
+    rowHighlights: 'Destaques na Home',
+    rowHighlightsDesc: 'Anúncios em posição privilegiada',
+    rowBanner: 'Banner de perfil',
+    rowBannerDesc: 'Sua marca em destaque no perfil',
+    rowSupport: 'Suporte',
+    rowAnalytics: 'Análise de desempenho',
+    rowAnalyticsDesc: 'Visualizações, cliques, conversões',
+    basic: 'Básica',
+    advanced: 'Avançada',
+    rowAuction: 'Participação em Leilões',
+    rowPrice: 'Preço',
+    unlimited: 'Ilimitado',
+    perMonthTable: '/mês',
+    supportEmail: 'Email',
+    faqTitle: 'Perguntas Frequentes',
+    faqCancelQ: 'Como faço para cancelar minha assinatura?',
+    faqCancelA: "Você pode cancelar a qualquer momento pelo seu painel, na aba 'Assinatura'. O acesso ao plano continua até o fim do período pago. Não há multa ou fidelidade.",
+    faqChangeQ: 'Posso mudar de plano no meio do mês?',
+    faqChangeA: 'Sim! Você pode fazer upgrade ou downgrade a qualquer momento — a troca é aplicada imediatamente. No upgrade, a cobrança do plano novo pode ser proporcional aos dias restantes (dependendo do seu método de pagamento) e a diferença aparece no seu histórico de faturas. No downgrade, nada é cobrado agora — o preço novo só vale a partir da próxima renovação.',
+    faqPaymentQ: 'Quais formas de pagamento são aceitas?',
+    faqPaymentA: 'Aceitamos cartão de crédito e débito.',
+    faqAdsQ: 'Meus anúncios somem se eu cancelar?',
+    faqAdsA: 'Não. Seus anúncios continuam visíveis, mas voltam ao limite do plano Grátis (3 ativos). Os demais ficam pausados automaticamente.',
+    confirmTitle: 'Confirmação',
+    confirmDowngradeMsg: 'Tem certeza que deseja voltar para o plano Grátis? Você continua com acesso ao plano atual até o fim do período já pago.',
+    sessionExpired: 'Sessão expirada. Faça login novamente.',
+    downgradeErrorGeneric: 'Erro ao processar downgrade',
+    downgradeSuccessDefault: 'Downgrade agendado — seu plano volta pro Grátis no fim do período já pago.',
+    downgradeErrorUnexpected: 'Erro inesperado ao processar downgrade',
+  },
+  es: {
+    heroTitlePre: 'Elige tu',
+    heroTitleSpan: 'Plan',
+    heroSubtitle: 'Vende más en el mayor clasificado agro del Mercosur. Cancela cuando quieras.',
+    badgeNoFidelity: 'Sin permanencia',
+    badgeCancelAnytime: 'Cancela en cualquier momento',
+    badgeSecurePayment: 'Pago 100% Seguro',
+    billingMonthly: 'Mensual',
+    billingAnnual: 'Anual',
+    billingToggleAria: 'Alternar facturación anual con descuento',
+    annualNote: 'Facturado anualmente (20% OFF)',
+    free: 'Gratis',
+    perMonth: '/mes',
+    unlimitedAds: 'Anuncios Ilimitados',
+    activeAds: (n: number) => `${n} anuncios activos`,
+    upToPhotos: (n: number) => `Hasta ${n} fotos por anuncio`,
+    highlightsMonth: (n: number) => `${n} destacados mensuales`,
+    popularBadge: '⭐ Más Popular',
+    currentBadge: '✓ Plan Actual',
+    currentPlanBtn: 'Plan Actual',
+    processing: 'Procesando...',
+    downgradeBtn: 'Bajar de Plan',
+    startFreeBtn: 'Comenzar Gratis',
+    subscribeBtn: 'Suscribirse',
+    compareTitle: 'Comparación Completa',
+    compareSub: 'Todo lo que incluye cada plan, sin sorpresas.',
+    colFeature: 'Función',
+    colFree: 'Gratis',
+    colPro: 'PRO',
+    colPremium: 'Premium',
+    rowActiveAds: 'Anuncios activos',
+    rowPhotos: 'Fotos por anuncio',
+    rowVideo: 'Video en el anuncio',
+    rowVideoDesc: 'Carga de video de demostración',
+    rowSelo: 'Sello Verificado',
+    rowSeloDesc: 'Aumenta la confianza del comprador',
+    rowHighlights: 'Destacados en el Inicio',
+    rowHighlightsDesc: 'Anuncios en posición privilegiada',
+    rowBanner: 'Banner de perfil',
+    rowBannerDesc: 'Tu marca destacada en el perfil',
+    rowSupport: 'Soporte',
+    rowAnalytics: 'Análisis de rendimiento',
+    rowAnalyticsDesc: 'Visualizaciones, clics, conversiones',
+    basic: 'Básico',
+    advanced: 'Avanzado',
+    rowAuction: 'Participación en Remates',
+    rowPrice: 'Precio',
+    unlimited: 'Ilimitado',
+    perMonthTable: '/mes',
+    supportEmail: 'Email',
+    faqTitle: 'Preguntas Frecuentes',
+    faqCancelQ: '¿Cómo hago para cancelar mi suscripción?',
+    faqCancelA: "Puedes cancelar en cualquier momento desde tu panel, en la pestaña 'Suscripción'. El acceso al plan continúa hasta el final del período ya pagado. No hay multa ni permanencia.",
+    faqChangeQ: '¿Puedo cambiar de plan a mitad de mes?',
+    faqChangeA: '¡Sí! Puedes hacer upgrade o downgrade en cualquier momento — el cambio se aplica de inmediato. En el upgrade, el cobro del plan nuevo puede ser proporcional a los días restantes (según tu método de pago) y la diferencia aparece en tu historial de facturas. En el downgrade, no se cobra nada ahora — el precio nuevo solo vale a partir de la próxima renovación.',
+    faqPaymentQ: '¿Qué formas de pago se aceptan?',
+    faqPaymentA: 'Aceptamos tarjeta de crédito y débito.',
+    faqAdsQ: '¿Mis anuncios desaparecen si cancelo?',
+    faqAdsA: 'No. Tus anuncios siguen visibles, pero vuelven al límite del plan Gratis (3 activos). Los demás quedan pausados automáticamente.',
+    confirmTitle: 'Confirmación',
+    confirmDowngradeMsg: '¿Estás seguro de que deseas volver al plan Gratis? Seguirás con acceso a tu plan actual hasta el final del período ya pagado.',
+    sessionExpired: 'Sesión expirada. Inicia sesión nuevamente.',
+    downgradeErrorGeneric: 'Error al procesar el cambio de plan',
+    downgradeSuccessDefault: 'Cambio de plan programado — tu plan vuelve a Gratis al final del período ya pagado.',
+    downgradeErrorUnexpected: 'Error inesperado al procesar el cambio de plan',
+  },
+} as const
+
+// Locale de formatação de moeda: mesmo padrão de components/ads/AdCard.tsx
+// (Intl.NumberFormat com es-AR/pt-BR conforme lang). Símbolo e número são
+// extraídos separadamente porque o layout mostra o símbolo (styles.currency)
+// e o valor (styles.amount) em tamanhos/estilos diferentes.
+function getCurrencySymbol(currency: string, lang: Lang) {
+  const locale = lang === 'es' ? 'es-AR' : 'pt-BR'
+  try {
+    const parts = new Intl.NumberFormat(locale, { style: 'currency', currency: currency || 'BRL', maximumFractionDigits: 0 }).formatToParts(0)
+    const symbol = parts.filter(p => p.type === 'currency').map(p => p.value).join('')
+    return symbol || currency || 'R$'
+  } catch {
+    return currency || 'R$'
+  }
+}
+
+function formatAmount(amount: number, lang: Lang) {
+  const locale = lang === 'es' ? 'es-AR' : 'pt-BR'
+  return new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)
 }
 
 function FAQItem({ question, answer, id }: { question: string, answer: string, id: string }) {
   const [isOpen, setIsOpen] = useState(false)
   return (
     <div className={`${styles.faqItem} ${isOpen ? styles.faqItemOpen : ''}`}>
-      <button 
-        className={styles.faqQ} 
-        onClick={() => setIsOpen(!isOpen)} 
+      <button
+        className={styles.faqQ}
+        onClick={() => setIsOpen(!isOpen)}
         aria-expanded={isOpen}
         aria-controls={`faq-answer-${id}`}
       >
@@ -50,6 +213,8 @@ export default function PricingClientUI({ initialPlans }: { initialPlans: Plan[]
   const router = useRouter()
   const searchParams = useSearchParams()
   const { session } = useAuth()
+  const { lang } = useLang()
+  const t = TRANSLATIONS[lang]
   const [userPlanId, setUserPlanId] = useState<string | null>(null)
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null)
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly')
@@ -109,22 +274,22 @@ export default function PricingClientUI({ initialPlans }: { initialPlans: Plan[]
       // pago continua até o fim do período já pago (cancel_at_period_end),
       // não perde na hora. Reaproveita a MESMA rota de cancelamento já
       // validada, em vez de duplicar a lógica.
-      if (!(await confirm('Tem certeza que deseja voltar para o plano Grátis? Você continua com acesso ao plano atual até o fim do período já pago.'))) return
+      if (!(await confirm(t.confirmDowngradeMsg, t.confirmTitle))) return
       setDowngrading(true)
       try {
         const sb = getSupabase()
         const { data: { session: freshSession } } = await sb.auth.getSession()
-        if (!freshSession?.access_token) throw new Error('Sessão expirada. Faça login novamente.')
+        if (!freshSession?.access_token) throw new Error(t.sessionExpired)
         const res = await fetch('/api/subscriptions/cancel', {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${freshSession.access_token}` },
         })
         const data = await res.json()
-        if (!res.ok) throw new Error(data.error || 'Erro ao processar downgrade')
-        alert(data.message || 'Downgrade agendado — seu plano volta pro Grátis no fim do período já pago.')
+        if (!res.ok) throw new Error(data.error || t.downgradeErrorGeneric)
+        alert(data.message || t.downgradeSuccessDefault)
         router.refresh()
       } catch (err: any) {
-        alert(err.message || 'Erro inesperado ao processar downgrade')
+        alert(err.message || t.downgradeErrorUnexpected)
       } finally {
         setDowngrading(false)
       }
@@ -141,16 +306,35 @@ export default function PricingClientUI({ initialPlans }: { initialPlans: Plan[]
   // GAP CORRIGIDO (revisão de regras de negócio, 2026-08-25): a tabela
   // comparativa hardcodava "R$" enquanto os cards logo acima já usavam
   // plan.currency dinamicamente — mesma classe do fix em CheckoutModal.tsx.
-  const currencySymbol = (p: Plan) => (p.currency === 'BRL' || !p.currency) ? 'R$' : p.currency
+  const currencySymbol = (p: Plan) => getCurrencySymbol(p.currency, lang)
+
+  // GAP CORRIGIDO (auditoria completa de i18n, 2026-08-26/27): nome/descrição/
+  // features vinham só da coluna _pt, mesmo com lang="es" — plans.name_es/
+  // description_es/features_es já foram traduzidas e populadas pros 3 planos
+  // reais (migration + script). Mesmo padrão de fallback já usado em `ads`
+  // (lang === 'es' && ad.title_es ? ad.title_es : ad.title_pt).
+  const planName = (p: Plan) => (lang === 'es' && p.name_es) ? p.name_es : (p.name_pt || p.name)
+  const planDescription = (p: Plan) => (lang === 'es' && p.description_es) ? p.description_es : (p.description || '')
+  const planFeatures = (p: Plan) => (lang === 'es' && p.featuresListEs && p.featuresListEs.length > 0) ? p.featuresListEs : p.featuresList
 
   const hasSelo = (p: Plan) => {
-    return p.featuresList?.some(feat => feat.toLowerCase().includes('selo')) || false
+    return planFeatures(p)?.some(feat => feat.toLowerCase().includes('selo') || feat.toLowerCase().includes('sello')) || false
   }
 
   const getSuporte = (p: Plan) => {
-    if (!p.featuresList) return 'Email'
-    const sup = p.featuresList.find(feat => feat.toLowerCase().includes('suporte'))
-    return sup ? sup.replace('Suporte por', '').replace('Suporte prioritário', '').replace('Suporte', '').trim() : 'Email'
+    const feats = planFeatures(p)
+    if (!feats) return t.supportEmail
+    const sup = feats.find(feat => feat.toLowerCase().includes('suporte') || feat.toLowerCase().includes('soporte'))
+    // BUG CORRIGIDO (teste ao vivo em ES, auditoria completa de i18n): a
+    // frase em espanhol popularizada por migration é "Soporte prioritario
+    // POR WhatsApp" (com "por"), diferente do PT "Suporte prioritário
+    // WhatsApp" (sem "por") — removendo só "Soporte prioritario" sobrava
+    // "por WhatsApp" na coluna PRO da tabela. Padrões mais específicos
+    // (com "por") precisam vir antes dos mais genéricos na cadeia.
+    return sup ? sup
+      .replace('Suporte prioritário por', '').replace('Suporte prioritário', '').replace('Suporte por', '').replace('Suporte', '')
+      .replace('Soporte prioritario por', '').replace('Soporte prioritario', '').replace('Soporte por', '').replace('Soporte', '')
+      .trim() : t.supportEmail
   }
 
   return (
@@ -158,36 +342,36 @@ export default function PricingClientUI({ initialPlans }: { initialPlans: Plan[]
       <section className={styles.pricingHero}>
         <div className="container" style={{ position: 'relative', zIndex: 2 }}>
           <h1>
-            Escolha seu <span>Plano</span>
+            {t.heroTitlePre} <span>{t.heroTitleSpan}</span>
           </h1>
           <p>
-            Venda mais no maior classificado agro do Mercosul. Cancele quando quiser.
+            {t.heroSubtitle}
           </p>
           <div className={styles.heroBadges}>
             <span className={styles.heroBadge}>
-              <span className={styles.hbCheck}>✓</span> Sem fidelidade
+              <span className={styles.hbCheck}>✓</span> {t.badgeNoFidelity}
             </span>
             <span className={styles.heroBadge}>
-              <span className={styles.hbCheck}>✓</span> Cancele a qualquer momento
+              <span className={styles.hbCheck}>✓</span> {t.badgeCancelAnytime}
             </span>
             <span className={styles.heroBadge}>
-              <span className={styles.hbCheck}>✓</span> Pagamento 100% Seguro
+              <span className={styles.hbCheck}>✓</span> {t.badgeSecurePayment}
             </span>
           </div>
 
           <div className={styles.billingToggleWrapper}>
-            <span className={`${styles.billingLabel} ${billingCycle === 'monthly' ? styles.billingLabelActive : ''}`}>Mensal</span>
-            <button 
+            <span className={`${styles.billingLabel} ${billingCycle === 'monthly' ? styles.billingLabelActive : ''}`}>{t.billingMonthly}</span>
+            <button
               role="switch"
               aria-checked={billingCycle === 'annual'}
-              aria-label="Alternar faturamento anual com desconto"
+              aria-label={t.billingToggleAria}
               className={`${styles.billingSwitch} ${billingCycle === 'annual' ? styles.billingSwitchActive : ''}`}
               onClick={() => setBillingCycle(c => c === 'monthly' ? 'annual' : 'monthly')}
             >
               <span className={`${styles.billingKnob} ${billingCycle === 'annual' ? styles.billingKnobActive : ''}`} />
             </button>
             <span className={`${styles.billingLabel} ${billingCycle === 'annual' ? styles.billingLabelActive : ''}`}>
-              Anual
+              {t.billingAnnual}
               <span className={styles.discountBadge}>-20%</span>
             </span>
           </div>
@@ -195,7 +379,7 @@ export default function PricingClientUI({ initialPlans }: { initialPlans: Plan[]
       </section>
 
       <main className="container" style={{ position: 'relative', zIndex: 10 }}>
-        
+
         <div className={styles.pricingGrid}>
           {initialPlans.map(plan => {
             const isFree = plan.price <= 0
@@ -210,59 +394,59 @@ export default function PricingClientUI({ initialPlans }: { initialPlans: Plan[]
 
             return (
               <div key={plan.id} className={`${styles.pricingCard} ${isPopular ? styles.popular : ''}`}>
-                {isPopular && <div className={styles.popularBadge}>⭐ Mais Popular</div>}
-                {isCurrent && <div className={styles.currentBadge}>✓ Plano Atual</div>}
-                
+                {isPopular && <div className={styles.popularBadge}>{t.popularBadge}</div>}
+                {isCurrent && <div className={styles.currentBadge}>{t.currentBadge}</div>}
+
                 <div className={styles.planHeader}>
-                  <h2>{plan.name_pt || plan.name}</h2>
-                  <p>{plan.description || ''}</p>
-                  
+                  <h2>{planName(plan)}</h2>
+                  <p>{planDescription(plan)}</p>
+
                   {isFree ? (
-                    <div className={styles.freePrice}><span className={styles.amount}>Grátis</span></div>
+                    <div className={styles.freePrice}><span className={styles.amount}>{t.free}</span></div>
                   ) : (
                     <div className={styles.proPrice}>
-                      <span className={styles.currency}>{plan.currency === 'BRL' ? 'R$' : plan.currency}</span>
-                      
+                      <span className={styles.currency}>{currencySymbol(plan)}</span>
+
                       {(plan.promotional_price ?? 0) > 0 ? (
                         <>
                           <span style={{ textDecoration: 'line-through', color: '#9ca3af', fontSize: '1.2rem', marginRight: '8px' }}>
-                            {billingCycle === 'monthly' ? plan.price : (plan.price * 0.8).toFixed(2).replace('.', ',')}
+                            {formatAmount(billingCycle === 'monthly' ? plan.price : plan.price * 0.8, lang)}
                           </span>
                           <span className={styles.amount} style={{ color: '#22c55e' }}>
-                            {billingCycle === 'monthly' ? Number(plan.promotional_price) : (Number(plan.promotional_price) * 0.8).toFixed(2).replace('.', ',')}
+                            {formatAmount(billingCycle === 'monthly' ? Number(plan.promotional_price) : Number(plan.promotional_price) * 0.8, lang)}
                           </span>
                         </>
                       ) : (
                         <span className={styles.amount}>
-                          {billingCycle === 'monthly' ? plan.price : (plan.price * 0.8).toFixed(2).replace('.', ',')}
+                          {formatAmount(billingCycle === 'monthly' ? plan.price : plan.price * 0.8, lang)}
                         </span>
                       )}
-                      
-                      <span className={styles.period}>/mês</span>
+
+                      <span className={styles.period}>{t.perMonth}</span>
                     </div>
                   )}
                   {billingCycle === 'annual' && !isFree && (
-                    <div className={styles.annualNote}>Faturado anualmente (20% OFF)</div>
+                    <div className={styles.annualNote}>{t.annualNote}</div>
                   )}
                 </div>
-                
+
                 <ul className={styles.planFeatures}>
-                  <li><span className={styles.featCheck} aria-hidden="true">✓</span> {plan.max_ads >= 9999 ? 'Anúncios Ilimitados' : `${plan.max_ads} anúncios ativos`}</li>
-                  <li><span className={styles.featCheck} aria-hidden="true">✓</span> Até {plan.max_photos} fotos por anúncio</li>
+                  <li><span className={styles.featCheck} aria-hidden="true">✓</span> {plan.max_ads >= 9999 ? t.unlimitedAds : t.activeAds(plan.max_ads)}</li>
+                  <li><span className={styles.featCheck} aria-hidden="true">✓</span> {t.upToPhotos(plan.max_photos)}</li>
                   {plan.highlight_count > 0 && (
-                    <li><span className={styles.featCheck} aria-hidden="true">✓</span> {plan.highlight_count} destaques mensais</li>
+                    <li><span className={styles.featCheck} aria-hidden="true">✓</span> {t.highlightsMonth(plan.highlight_count)}</li>
                   )}
-                  {plan.featuresList.map((f, i) => (
+                  {planFeatures(plan).map((f, i) => (
                     <li key={i}><span className={styles.featCheck} aria-hidden="true">✓</span> {f}</li>
                   ))}
                 </ul>
-                
+
                 <button
                   className={`${styles.btnPlan} ${isFree ? styles.btnFree : (isPopular ? styles.btnPro : styles.btnPremium)} ${isCurrent ? styles.btnCurrent : ''}`}
                   disabled={isCurrent || downgrading}
                   onClick={() => handlePlanClick(plan)}
                 >
-                  {isCurrent ? 'Plano Atual' : (isFree ? (userPlanId ? (downgrading ? 'Processando...' : 'Fazer Downgrade') : 'Começar Grátis') : 'Assinar')}
+                  {isCurrent ? t.currentPlanBtn : (isFree ? (userPlanId ? (downgrading ? t.processing : t.downgradeBtn) : t.startFreeBtn) : t.subscribeBtn)}
                 </button>
               </div>
             )
@@ -271,36 +455,36 @@ export default function PricingClientUI({ initialPlans }: { initialPlans: Plan[]
 
         {/* COMPARISON TABLE */}
         <section className={styles.compareSection}>
-          <h2>Comparação Completa</h2>
-          <p className={styles.compareSub}>Tudo que cada plano inclui, sem surpresas.</p>
-          
+          <h2>{t.compareTitle}</h2>
+          <p className={styles.compareSub}>{t.compareSub}</p>
+
           <div style={{ overflowX: 'auto' }}>
             <table className={styles.compareTable}>
               <thead>
                 <tr>
-                  <th scope="col" style={{textAlign: 'left'}}>Recurso</th>
-                  <th scope="col">Grátis</th>
-                  <th scope="col" style={{color: '#22c55e'}}>PRO</th>
-                  <th scope="col" style={{color: '#f59e0b'}}>Premium</th>
+                  <th scope="col" style={{textAlign: 'left'}}>{t.colFeature}</th>
+                  <th scope="col">{t.colFree}</th>
+                  <th scope="col" style={{color: '#22c55e'}}>{t.colPro}</th>
+                  <th scope="col" style={{color: '#f59e0b'}}>{t.colPremium}</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td><span className={styles.featName}>Anúncios ativos</span></td>
+                  <td><span className={styles.featName}>{t.rowActiveAds}</span></td>
                   <td><span className={`${styles.tblPill} ${styles.pillFree}`}>{free.max_ads}</span></td>
                   <td><span className={`${styles.tblPill} ${styles.pillPro}`}>{pro.max_ads}</span></td>
-                  <td><span className={`${styles.tblPill} ${styles.pillPremium}`}>Ilimitado</span></td>
+                  <td><span className={`${styles.tblPill} ${styles.pillPremium}`}>{t.unlimited}</span></td>
                 </tr>
                 <tr>
-                  <td><span className={styles.featName}>Fotos por anúncio</span></td>
+                  <td><span className={styles.featName}>{t.rowPhotos}</span></td>
                   <td><span className={`${styles.tblPill} ${styles.pillFree}`}>{free.max_photos}</span></td>
                   <td><span className={`${styles.tblPill} ${styles.pillPro}`}>{pro.max_photos}</span></td>
                   <td><span className={`${styles.tblPill} ${styles.pillPremium}`}>{premium.max_photos}</span></td>
                 </tr>
                 <tr>
                   <td>
-                    <span className={styles.featName}>Vídeo no anúncio</span>
-                    <span className={styles.featDesc}>Upload de vídeo demonstração</span>
+                    <span className={styles.featName}>{t.rowVideo}</span>
+                    <span className={styles.featDesc}>{t.rowVideoDesc}</span>
                   </td>
                   <td>{free.has_video ? <span className={styles.tblCheck} aria-hidden="true">✓</span> : <span className={styles.tblCross} aria-hidden="true">✕</span>}</td>
                   <td>{pro.has_video ? <span className={styles.tblCheck} aria-hidden="true">✓</span> : <span className={styles.tblCross} aria-hidden="true">✕</span>}</td>
@@ -308,8 +492,8 @@ export default function PricingClientUI({ initialPlans }: { initialPlans: Plan[]
                 </tr>
                 <tr>
                   <td>
-                    <span className={styles.featName}>Selo Verificado</span>
-                    <span className={styles.featDesc}>Aumenta a confiança do comprador</span>
+                    <span className={styles.featName}>{t.rowSelo}</span>
+                    <span className={styles.featDesc}>{t.rowSeloDesc}</span>
                   </td>
                   <td>{hasSelo(free) ? <span className={styles.tblCheck} aria-hidden="true">✓</span> : <span className={styles.tblCross} aria-hidden="true">✕</span>}</td>
                   <td>{hasSelo(pro) ? <span className={styles.tblCheck} aria-hidden="true">✓</span> : <span className={styles.tblCross} aria-hidden="true">✕</span>}</td>
@@ -317,48 +501,48 @@ export default function PricingClientUI({ initialPlans }: { initialPlans: Plan[]
                 </tr>
                 <tr>
                   <td>
-                    <span className={styles.featName}>Destaques na Home</span>
-                    <span className={styles.featDesc}>Anúncios em posição privilegiada</span>
+                    <span className={styles.featName}>{t.rowHighlights}</span>
+                    <span className={styles.featDesc}>{t.rowHighlightsDesc}</span>
                   </td>
                   <td><span className={styles.tblCross} aria-hidden="true">✕</span></td>
-                  <td><span className={`${styles.tblPill} ${styles.pillPro}`}>{pro.highlight_count}/mês</span></td>
-                  <td><span className={`${styles.tblPill} ${styles.pillPremium}`}>{premium.highlight_count}/mês</span></td>
+                  <td><span className={`${styles.tblPill} ${styles.pillPro}`}>{pro.highlight_count}{t.perMonthTable}</span></td>
+                  <td><span className={`${styles.tblPill} ${styles.pillPremium}`}>{premium.highlight_count}{t.perMonthTable}</span></td>
                 </tr>
                 <tr>
                   <td>
-                    <span className={styles.featName}>Banner de perfil</span>
-                    <span className={styles.featDesc}>Sua marca em destaque no perfil</span>
+                    <span className={styles.featName}>{t.rowBanner}</span>
+                    <span className={styles.featDesc}>{t.rowBannerDesc}</span>
                   </td>
                   <td>{free.has_banner ? <span className={styles.tblCheck} aria-hidden="true">✓</span> : <span className={styles.tblCross} aria-hidden="true">✕</span>}</td>
                   <td>{pro.has_banner ? <span className={styles.tblCheck} aria-hidden="true">✓</span> : <span className={styles.tblCross} aria-hidden="true">✕</span>}</td>
                   <td>{premium.has_banner ? <span className={styles.tblGold} aria-hidden="true">✓</span> : <span className={styles.tblCross} aria-hidden="true">✕</span>}</td>
                 </tr>
                 <tr>
-                  <td><span className={styles.featName}>Suporte</span></td>
+                  <td><span className={styles.featName}>{t.rowSupport}</span></td>
                   <td>{getSuporte(free)}</td>
                   <td>{getSuporte(pro)}</td>
                   <td><span className={styles.tblGold}>{getSuporte(premium)}</span></td>
                 </tr>
                 <tr>
                   <td>
-                    <span className={styles.featName}>Análise de desempenho</span>
-                    <span className={styles.featDesc}>Visualizações, cliques, conversões</span>
+                    <span className={styles.featName}>{t.rowAnalytics}</span>
+                    <span className={styles.featDesc}>{t.rowAnalyticsDesc}</span>
                   </td>
                   <td><span className={styles.tblCross} aria-hidden="true">✕</span></td>
-                  <td>Básica</td>
-                  <td><span className={styles.tblGold}>Avançada</span></td>
+                  <td>{t.basic}</td>
+                  <td><span className={styles.tblGold}>{t.advanced}</span></td>
                 </tr>
                 <tr>
-                  <td><span className={styles.featName}>Participação em Leilões</span></td>
+                  <td><span className={styles.featName}>{t.rowAuction}</span></td>
                   <td><span className={styles.tblCheck} aria-hidden="true">✓</span></td>
                   <td><span className={styles.tblCheck} aria-hidden="true">✓</span></td>
                   <td><span className={styles.tblGold} aria-hidden="true">✓</span></td>
                 </tr>
                 <tr>
-                  <td><span className={styles.featName}>Preço</span></td>
-                  <td><strong style={{color: '#818cf8'}}>{free.price <= 0 ? 'Grátis' : currencySymbol(free)+free.price+'/mês'}</strong></td>
-                  <td><strong style={{color: '#22c55e'}}>{currencySymbol(pro)}{pro.price}/mês</strong></td>
-                  <td><strong style={{color: '#f59e0b'}}>{currencySymbol(premium)}{premium.price}/mês</strong></td>
+                  <td><span className={styles.featName}>{t.rowPrice}</span></td>
+                  <td><strong style={{color: '#818cf8'}}>{free.price <= 0 ? t.free : currencySymbol(free) + formatAmount(free.price, lang) + t.perMonthTable}</strong></td>
+                  <td><strong style={{color: '#22c55e'}}>{currencySymbol(pro)}{formatAmount(pro.price, lang)}{t.perMonthTable}</strong></td>
+                  <td><strong style={{color: '#f59e0b'}}>{currencySymbol(premium)}{formatAmount(premium.price, lang)}{t.perMonthTable}</strong></td>
                 </tr>
               </tbody>
             </table>
@@ -367,15 +551,15 @@ export default function PricingClientUI({ initialPlans }: { initialPlans: Plan[]
 
         {/* FAQ SECTION */}
         <section className={styles.faqSection}>
-          <h2>Perguntas Frequentes</h2>
-          <FAQItem 
+          <h2>{t.faqTitle}</h2>
+          <FAQItem
             id="cancelamento"
-            question="Como faço para cancelar minha assinatura?" 
-            answer="Você pode cancelar a qualquer momento pelo seu painel, na aba 'Assinatura'. O acesso ao plano continua até o fim do período pago. Não há multa ou fidelidade." 
+            question={t.faqCancelQ}
+            answer={t.faqCancelA}
           />
           <FAQItem
             id="mudanca-plano"
-            question="Posso mudar de plano no meio do mês?"
+            question={t.faqChangeQ}
             // TEXTO AJUSTADO (revisão de regras de negócio, 2026-08-25): a
             // versão antiga prometia pro-rata no upgrade e "próximo ciclo"
             // no downgrade pra TODOS os métodos de pagamento — só a Stripe
@@ -387,30 +571,30 @@ export default function PricingClientUI({ initialPlans }: { initialPlans: Plan[]
             // seu histórico de faturas" dava a entender que sempre há algo
             // visível na hora — mas um downgrade via Stripe (prorate=false)
             // não gera fatura nenhuma agora, só na próxima renovação.
-            answer="Sim! Você pode fazer upgrade ou downgrade a qualquer momento — a troca é aplicada imediatamente. No upgrade, a cobrança do plano novo pode ser proporcional aos dias restantes (dependendo do seu método de pagamento) e a diferença aparece no seu histórico de faturas. No downgrade, nada é cobrado agora — o preço novo só vale a partir da próxima renovação."
+            answer={t.faqChangeA}
           />
           <FAQItem
             id="pagamento"
-            question="Quais formas de pagamento são aceitas?"
+            question={t.faqPaymentQ}
             // TEXTO CORRIGIDO (validação de 2026-08-26): prometia Pix e
             // boleto — nenhum dos 4 gateways aceita (todos rejeitam
             // qualquer método != 'card'). O seletor de método no
             // CheckoutModal (com essas opções) nunca foi conectado a nada.
-            answer="Aceitamos cartão de crédito e débito."
+            answer={t.faqPaymentA}
           />
-          <FAQItem 
+          <FAQItem
             id="anuncios-cancelamento"
-            question="Meus anúncios somem se eu cancelar?" 
-            answer="Não. Seus anúncios continuam visíveis, mas voltam ao limite do plano Grátis (3 ativos). Os demais ficam pausados automaticamente." 
+            question={t.faqAdsQ}
+            answer={t.faqAdsA}
           />
         </section>
       </main>
 
       {selectedPlan && (
-        <CheckoutModal 
-          plan={selectedPlan} 
+        <CheckoutModal
+          plan={selectedPlan}
           billingCycle={billingCycle}
-          onClose={() => setSelectedPlan(null)} 
+          onClose={() => setSelectedPlan(null)}
         />
       )}
     </>

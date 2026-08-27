@@ -6,17 +6,6 @@ import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
 import { HeroSearchBar } from './HeroSearchBar';
 import { getServerCategories } from '@/lib/supabase-server';
 
-const LOCATIONS = [
-  { name: 'Brasil', flag: '🇧🇷', id: 'BR' },
-  { name: 'Paraguai', flag: '🇵🇾', id: 'PY' },
-  { name: 'Argentina', flag: '🇦🇷', id: 'AR' },
-  { name: 'Uruguai', flag: '🇺🇾', id: 'UY' },
-  { name: 'Mato Grosso', flag: '📍', id: 'MT' },
-  { name: 'Goiás', flag: '📍', id: 'GO' },
-  { name: 'Mato Grosso do Sul', flag: '📍', id: 'MS' },
-  { name: 'São Paulo', flag: '📍', id: 'SP' },
-];
-
 export async function HeroSection({ stats }: { stats: any }) {
   const cookieStore = await cookies();
   const lang = (cookieStore.get('tc_lang')?.value || 'pt') as 'pt' | 'es';

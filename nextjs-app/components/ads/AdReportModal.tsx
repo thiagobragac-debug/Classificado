@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { getSupabase } from '@/lib/supabase';
 import { X, CheckCircle, AlertTriangle } from 'lucide-react';
+import { useLang } from '@/lib/lang-context';
 
 interface AdReportModalProps {
   adId: string;
@@ -10,17 +11,71 @@ interface AdReportModalProps {
   onClose: () => void;
 }
 
-const REPORT_REASONS = [
-  'Produto inexistente ou falso',
-  'Preço enganoso',
-  'Conteúdo inapropriado',
-  'Spam ou publicidade enganosa',
-  'Golpe ou fraude',
-  'Outro'
-];
+// Códigos internos estáveis pros motivos de denúncia — desacoplados do texto
+// exibido, que agora varia por idioma. O VALOR gravado em reports.reason
+// continua sendo exatamente o texto em português de antes (REASON_DB_VALUE),
+// pra não quebrar denúncias antigas nem qualquer filtro/relatório que já
+// compare esse campo por igualdade de string.
+const REPORT_REASON_CODES = [
+  'fake_product',
+  'misleading_price',
+  'inappropriate_content',
+  'spam',
+  'scam',
+  'other',
+] as const;
+type ReportReasonCode = typeof REPORT_REASON_CODES[number];
+
+const REASON_DB_VALUE: Record<ReportReasonCode, string> = {
+  fake_product: 'Produto inexistente ou falso',
+  misleading_price: 'Preço enganoso',
+  inappropriate_content: 'Conteúdo inapropriado',
+  spam: 'Spam ou publicidade enganosa',
+  scam: 'Golpe ou fraude',
+  other: 'Outro',
+};
+
+// Traduções locais deste componente (padrão de components/ads/AdsSidebar.tsx)
+// — o modal nunca importava useLang, então título, motivos, erros e botões
+// ficavam sempre em português independente do idioma selecionado.
+const TRANSLATIONS = {
+  pt: {
+    title: 'Denunciar Anúncio',
+    reasons: REASON_DB_VALUE,
+    close: 'Fechar',
+    sentTitle: 'Denúncia enviada!',
+    sentBody: 'Nossa equipe irá analisar em breve.',
+    rateLimited: 'Muitas denúncias em pouco tempo. Aguarde um momento.',
+    genericError: 'Erro ao enviar denúncia. Tente novamente.',
+    cancel: 'Cancelar',
+    send: 'Enviar Denúncia',
+    sending: 'Enviando...',
+  },
+  es: {
+    title: 'Denunciar Anuncio',
+    reasons: {
+      fake_product: 'Producto inexistente o falso',
+      misleading_price: 'Precio engañoso',
+      inappropriate_content: 'Contenido inapropiado',
+      spam: 'Spam o publicidad engañosa',
+      scam: 'Estafa o fraude',
+      other: 'Otro',
+    } satisfies Record<ReportReasonCode, string>,
+    close: 'Cerrar',
+    sentTitle: '¡Denuncia enviada!',
+    sentBody: 'Nuestro equipo la revisará pronto.',
+    rateLimited: 'Demasiadas denuncias en poco tiempo. Espera un momento.',
+    genericError: 'Error al enviar la denuncia. Inténtalo de nuevo.',
+    cancel: 'Cancelar',
+    send: 'Enviar Denuncia',
+    sending: 'Enviando...',
+  },
+} as const;
 
 export function AdReportModal({ adId, isOpen, onClose }: AdReportModalProps) {
-  const [reportReason, setReportReason] = useState('');
+  const { lang } = useLang();
+  const tr = TRANSLATIONS[lang as keyof typeof TRANSLATIONS] || TRANSLATIONS.pt;
+  const [reportReason, setReportReason] = useState<ReportReasonCode | ''>('');
   const [reportSent, setReportSent] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -65,7 +120,7 @@ export function AdReportModal({ adId, isOpen, onClose }: AdReportModalProps) {
     const bucket = session?.user?.id ? `report_user_${session.user.id}` : `report_ad_${adId}`
     const { data: dentroDoLimite } = await sb.rpc('check_rate_limit', { p_bucket: bucket, p_limit: 5, p_window_seconds: 60 })
     if (dentroDoLimite === false) {
-      setErrorMsg('Muitas denúncias em pouco tempo. Aguarde um momento.');
+      setErrorMsg(tr.rateLimited);
       setIsSending(false);
       return;
     }
@@ -73,12 +128,14 @@ export function AdReportModal({ adId, isOpen, onClose }: AdReportModalProps) {
     const { error } = await sb.from('reports').insert({
       ad_id: adId,
       reporter_id: session?.user?.id ?? null,
-      reason: reportReason,
+      // Valor gravado continua o código estável em PT (REASON_DB_VALUE),
+      // independente do idioma em que o motivo foi exibido/selecionado.
+      reason: REASON_DB_VALUE[reportReason],
       severity: 'low',
     });
 
     if (error) {
-      setErrorMsg('Erro ao enviar denúncia. Tente novamente.');
+      setErrorMsg(tr.genericError);
       setIsSending(false);
       return;
     }
@@ -128,7 +185,7 @@ export function AdReportModal({ adId, isOpen, onClose }: AdReportModalProps) {
       >
         <button
           onClick={handleClose}
-          aria-label="Fechar"
+          aria-label={tr.close}
           style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--clr-text-muted)' }}
         >
           <X className="w-6 h-6" />
@@ -139,10 +196,10 @@ export function AdReportModal({ adId, isOpen, onClose }: AdReportModalProps) {
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
               <CheckCircle className="w-16 h-16 text-green-500" />
             </div>
-            <h3 style={{ fontSize: '1.5rem', fontWeight: 700 }}>Denúncia enviada!</h3>
-            <p style={{ color: 'var(--clr-text-muted)', marginTop: '0.5rem', marginBottom: '1.5rem' }}>Nossa equipe irá analisar em breve.</p>
+            <h3 style={{ fontSize: '1.5rem', fontWeight: 700 }}>{tr.sentTitle}</h3>
+            <p style={{ color: 'var(--clr-text-muted)', marginTop: '0.5rem', marginBottom: '1.5rem' }}>{tr.sentBody}</p>
             <button className="btn btn-primary" style={{ width: '100%' }} onClick={handleClose}>
-              Fechar
+              {tr.close}
             </button>
           </div>
         ) : (
@@ -151,27 +208,27 @@ export function AdReportModal({ adId, isOpen, onClose }: AdReportModalProps) {
               id="report-modal-title"
               style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem' }}
             >
-              <AlertTriangle className="w-6 h-6 text-amber-500" /> Denunciar Anúncio
+              <AlertTriangle className="w-6 h-6 text-amber-500" /> {tr.title}
             </h3>
 
             <div className="report-reasons" style={{ display: 'grid', gap: '0.5rem', marginBottom: '1.5rem' }}>
-              {REPORT_REASONS.map(reason => (
+              {REPORT_REASON_CODES.map(code => (
                 <button
-                  key={reason}
-                  className={`report-reason-btn ${reportReason === reason ? 'selected' : ''}`}
-                  onClick={() => setReportReason(reason)}
+                  key={code}
+                  className={`report-reason-btn ${reportReason === code ? 'selected' : ''}`}
+                  onClick={() => setReportReason(code)}
                   style={{
                     padding: '0.75rem',
                     textAlign: 'left',
                     borderRadius: '0.5rem',
-                    border: `1px solid ${reportReason === reason ? 'var(--clr-primary)' : 'var(--clr-border)'}`,
-                    background: reportReason === reason ? 'var(--clr-primary-light, #f0fdf4)' : 'transparent',
+                    border: `1px solid ${reportReason === code ? 'var(--clr-primary)' : 'var(--clr-border)'}`,
+                    background: reportReason === code ? 'var(--clr-primary-light, #f0fdf4)' : 'transparent',
                     color: 'var(--clr-text)',
                     cursor: 'pointer',
                     transition: 'all 0.2s'
                   }}
                 >
-                  {reason}
+                  {tr.reasons[code]}
                 </button>
               ))}
             </div>
@@ -188,7 +245,7 @@ export function AdReportModal({ adId, isOpen, onClose }: AdReportModalProps) {
                 style={{ flex: 1, padding: '0.8rem', borderRadius: '0.8rem' }}
                 onClick={handleClose}
               >
-                Cancelar
+                {tr.cancel}
               </button>
               <button
                 className="btn btn-primary"
@@ -196,7 +253,7 @@ export function AdReportModal({ adId, isOpen, onClose }: AdReportModalProps) {
                 onClick={sendReport}
                 disabled={!reportReason || isSending}
               >
-                {isSending ? 'Enviando...' : 'Enviar Denúncia'}
+                {isSending ? tr.sending : tr.send}
               </button>
             </div>
           </>

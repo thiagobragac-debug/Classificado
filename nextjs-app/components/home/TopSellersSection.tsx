@@ -3,8 +3,14 @@
 import Link from 'next/link';
 import { useLang } from '@/lib/lang-context';
 
+const TRANSLATIONS = {
+  pt: { activeAds: 'anúncios ativos' },
+  es: { activeAds: 'anuncios activos' },
+} as const;
+
 export function TopSellersSection({ topSellers }: { topSellers: any[] }) {
-  const { t } = useLang();
+  const { lang, t } = useLang();
+  const tt = TRANSLATIONS[lang as 'pt' | 'es'];
 
   return (
     <section className="section" aria-labelledby="top-sellers-heading" style={{ background: '#f8fafc' }}>
@@ -48,7 +54,7 @@ export function TopSellersSection({ topSellers }: { topSellers: any[] }) {
                   )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '4px', fontSize: '0.85rem' }}>
-                  <span style={{ color: '#64748b' }}>{seller.active_ads || 0} anúncios ativos</span>
+                  <span style={{ color: '#64748b' }}>{seller.active_ads || 0} {tt.activeAds}</span>
                 </div>
               </div>
             </Link>

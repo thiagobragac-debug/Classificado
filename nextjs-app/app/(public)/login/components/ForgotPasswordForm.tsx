@@ -11,8 +11,23 @@ interface ForgotPasswordFormProps {
   initialEmail?: string
 }
 
+// Mensagens de toast/resultado de submissão exclusivas deste formulário —
+// padrão local de TRANSLATIONS (os labels de campo já usam o dicionário
+// global I18N via t()).
+const TRANSLATIONS = {
+  pt: {
+    successSent: 'E-mail de redefinição enviado com sucesso. Verifique sua caixa de entrada.',
+    sendError: 'Erro ao enviar e-mail de redefinição.',
+  },
+  es: {
+    successSent: 'Correo de restablecimiento enviado con éxito. Revisa tu bandeja de entrada.',
+    sendError: 'Error al enviar el correo de restablecimiento.',
+  },
+} as const
+
 export function ForgotPasswordForm({ onSetAlert, onBack, initialEmail = '' }: ForgotPasswordFormProps) {
-  const { t } = useLang()
+  const { t, lang } = useLang()
+  const tr = TRANSLATIONS[lang]
   const [loading, setLoading] = useState(false)
 
   const forgotSchema = useMemo(() => z.object({
@@ -31,9 +46,9 @@ export function ForgotPasswordForm({ onSetAlert, onBack, initialEmail = '' }: Fo
     setLoading(true)
     try {
       await resetPassword(data.email)
-      onSetAlert('E-mail de redefinição enviado com sucesso. Verifique sua caixa de entrada.', 'success')
+      onSetAlert(tr.successSent, 'success')
     } catch (err: any) {
-      onSetAlert(err.message || 'Erro ao enviar e-mail de redefinição.', 'error')
+      onSetAlert(err.message || tr.sendError, 'error')
     } finally {
       setLoading(false)
     }

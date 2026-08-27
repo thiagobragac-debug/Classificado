@@ -36,7 +36,7 @@ export default function EventCard({ ev, lang = 'pt' }: EventCardProps) {
     if (!isNaN(parsed)) {
       const dateObj = new Date(parsed);
       day = dateObj.getDate().toString().padStart(2, '0');
-      month = dateObj.toLocaleString('pt-BR', { month: 'short' }).replace('.', '').toUpperCase();
+      month = dateObj.toLocaleString(lang === 'es' ? 'es-AR' : 'pt-BR', { month: 'short' }).replace('.', '').toUpperCase();
     }
   }
 
@@ -64,7 +64,7 @@ export default function EventCard({ ev, lang = 'pt' }: EventCardProps) {
       <div className="event-card-body" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', flex: 1, background: 'white' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
           <div className="event-card-tag" style={{ background: 'var(--clr-primary-pale)', color: 'var(--clr-primary)', fontSize: '0.7rem', padding: '2px 8px', borderRadius: '4px', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>{t('events_featured_badge')}</div>
-          {ev.status === 'Ao Vivo' && (
+          {ev.status === 'live' && (
              <div style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#EF4444', fontSize: '0.7rem', padding: '2px 8px', borderRadius: '4px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#EF4444', display: 'inline-block', animation: 'pulse 1.5s infinite' }}></span>
                {t('events_live')}

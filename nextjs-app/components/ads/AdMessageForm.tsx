@@ -2,6 +2,31 @@
 
 import { useState } from 'react';
 import { getSupabase } from '@/lib/supabase';
+import { useLang } from '@/lib/lang-context';
+
+// Traduções locais deste componente (padrão de components/ads/AdsSidebar.tsx)
+// — o formulário nunca importava useLang, então placeholder, erros e o toast
+// de sucesso ficavam sempre em português independente do idioma selecionado.
+const TRANSLATIONS = {
+  pt: {
+    placeholder: 'Olá! Tenho interesse neste anúncio e gostaria de mais informações...',
+    needLogin: 'Você precisa estar logado para enviar mensagens.',
+    rateLimited: 'Muitas mensagens em pouco tempo. Aguarde um momento.',
+    genericError: 'Erro ao enviar. Tente novamente.',
+    success: '✓ Mensagem enviada com sucesso!',
+    sending: 'Enviando…',
+    send: 'Enviar Mensagem',
+  },
+  es: {
+    placeholder: '¡Hola! Estoy interesado en este anuncio y me gustaría más información...',
+    needLogin: 'Debes iniciar sesión para enviar mensajes.',
+    rateLimited: 'Demasiados mensajes en poco tiempo. Espera un momento.',
+    genericError: 'Error al enviar. Inténtalo de nuevo.',
+    success: '✓ ¡Mensaje enviado con éxito!',
+    sending: 'Enviando…',
+    send: 'Enviar Mensaje',
+  },
+} as const;
 
 interface AdMessageFormProps {
   adId: string;
@@ -9,21 +34,23 @@ interface AdMessageFormProps {
 }
 
 export function AdMessageForm({ adId, receiverId }: AdMessageFormProps) {
+  const { lang } = useLang();
+  const tr = TRANSLATIONS[lang as keyof typeof TRANSLATIONS] || TRANSLATIONS.pt;
   const [msgText, setMsgText] = useState('');
   const [msgStatus, setMsgStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [msgSending, setMsgSending] = useState(false);
 
   const sendMessage = async () => {
     if (!msgText.trim() || !receiverId) return;
-    
+
     setMsgSending(true);
     setMsgStatus(null);
-    
+
     const sb = getSupabase();
     const { data: { session } } = await sb.auth.getSession();
-    
+
     if (!session) {
-      setMsgStatus({ type: 'error', text: 'Você precisa estar logado para enviar mensagens.' });
+      setMsgStatus({ type: 'error', text: tr.needLogin });
       setMsgSending(false);
       return;
     }
@@ -33,7 +60,7 @@ export function AdMessageForm({ adId, receiverId }: AdMessageFormProps) {
     // check_rate_limit (janela no Postgres, liberado pra authenticated).
     const { data: dentroDoLimite } = await sb.rpc('check_rate_limit', { p_bucket: `message_user_${session.user.id}`, p_limit: 10, p_window_seconds: 60 })
     if (dentroDoLimite === false) {
-      setMsgStatus({ type: 'error', text: 'Muitas mensagens em pouco tempo. Aguarde um momento.' });
+      setMsgStatus({ type: 'error', text: tr.rateLimited });
       setMsgSending(false);
       return;
     }
@@ -46,12 +73,12 @@ export function AdMessageForm({ adId, receiverId }: AdMessageFormProps) {
     });
 
     if (error) {
-      setMsgStatus({ type: 'error', text: 'Erro ao enviar. Tente novamente.' });
+      setMsgStatus({ type: 'error', text: tr.genericError });
     } else {
-      setMsgStatus({ type: 'success', text: '✓ Mensagem enviada com sucesso!' });
+      setMsgStatus({ type: 'success', text: tr.success });
       setMsgText('');
     }
-    
+
     setMsgSending(false);
   };
 
@@ -75,7 +102,7 @@ export function AdMessageForm({ adId, receiverId }: AdMessageFormProps) {
       )}
       <textarea
         className="msg-textarea"
-        placeholder="Olá! Tenho interesse neste anúncio e gostaria de mais informações..."
+        placeholder={tr.placeholder}
         value={msgText}
         onChange={e => setMsgText(e.target.value)}
         style={{
@@ -95,7 +122,7 @@ export function AdMessageForm({ adId, receiverId }: AdMessageFormProps) {
         disabled={msgSending || !msgText.trim()}
         style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', opacity: (msgSending || !msgText.trim()) ? 0.7 : 1 }}
       >
-        {msgSending ? 'Enviando…' : 'Enviar Mensagem'}
+        {msgSending ? tr.sending : tr.send}
       </button>
     </div>
   );

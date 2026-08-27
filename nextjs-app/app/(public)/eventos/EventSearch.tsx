@@ -37,10 +37,10 @@ export default function EventSearch({ lang = 'pt' }: { lang?: Lang }) {
     if (loc && (loc.city || loc.state)) {
       const locationTerm = `${loc.city || ''}${loc.city && loc.state ? ', ' : ''}${loc.state || ''}`
       setSearchQuery(locationTerm)
-      showToast('Localização detectada com sucesso!', 'success')
+      showToast(t('events_location_success'), 'success')
       router.push(`/eventos?q=${encodeURIComponent(locationTerm)}`)
     } else {
-      showToast('Não foi possível detectar a localização (GPS negado ou IP falhou).', 'error')
+      showToast(t('events_location_error'), 'error')
     }
   }
 
@@ -51,7 +51,7 @@ export default function EventSearch({ lang = 'pt' }: { lang?: Lang }) {
           type="button"
           className="hero-search-btn" 
           style={{ background: 'transparent', color: 'var(--clr-primary)', boxShadow: 'none', padding: '0 16px', opacity: isLocating ? 0.5 : 1 }} 
-          title="Usar GPS"
+          title={t('events_use_gps')}
           onClick={handleGetLocation}
           disabled={isLocating}
         >

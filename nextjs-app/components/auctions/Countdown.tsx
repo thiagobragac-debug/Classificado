@@ -1,13 +1,23 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useLang } from '@/lib/lang-context';
 import styles from '@/app/(public)/leiloes/leiloes.module.css';
 
 interface CountdownProps {
   targetDateStr: string;
 }
 
+// BUG CORRIGIDO (auditoria de i18n, 2026-08-26/27): labels DIAS/HORAS/MIN/SEG
+// ficavam fixos em português mesmo com ES selecionado.
+const LABELS = {
+  pt: { days: 'DIAS', hours: 'HORAS', min: 'MIN', sec: 'SEG' },
+  es: { days: 'DÍAS', hours: 'HORAS', min: 'MIN', sec: 'SEG' },
+} as const;
+
 export default function Countdown({ targetDateStr }: CountdownProps) {
+  const { lang } = useLang();
+  const L = LABELS[lang as keyof typeof LABELS] || LABELS.pt;
   const [timeNow, setTimeNow] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -29,10 +39,10 @@ export default function Countdown({ targetDateStr }: CountdownProps) {
   return (
     <div className={styles.countdownContainer}>
       {[
-        { label: 'DIAS', value: d },
-        { label: 'HORAS', value: h },
-        { label: 'MIN', value: m },
-        { label: 'SEG', value: s, color: '#ef4444' }
+        { label: L.days, value: d },
+        { label: L.hours, value: h },
+        { label: L.min, value: m },
+        { label: L.sec, value: s, color: '#ef4444' }
       ].map((item, i) => (
         <div key={i} className={styles.countdownItem}>
           <div className={styles.countdownBox}>

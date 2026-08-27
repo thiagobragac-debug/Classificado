@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { createHash } from 'crypto';
-import { headers } from 'next/headers';
+import { headers, cookies } from 'next/headers';
 import Link from 'next/link';
 import DOMPurify from 'isomorphic-dompurify';
 import { AdGallery } from '@/components/ads/AdGallery';
@@ -10,6 +10,7 @@ import { ShareButton } from '@/components/ads/ShareButton';
 import { RecentViewTracker } from '@/components/ads/RecentViewTracker';
 import { createAnonClient } from '@/lib/supabase-server';
 import { getGeoParams } from '@/lib/listagem-utils';
+import { t as _t, type Lang } from '@/lib/constants';
 import '../../anuncio.css';
 
 // Sem singleton de módulo — cliente criado por-request dentro das funções
@@ -18,6 +19,55 @@ const SB_STORAGE = 'https://rfzuzuobwuanmbrcthqe.supabase.co/storage/v1/object/p
 
 // Regex de validação de UUID v4
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+// Strings específicas desta página (não compartilhadas o bastante pra entrar
+// no dicionário global I18N) — "Início" e "Anúncios" (fallback de categoria)
+// reaproveitam I18N.nav_home/footer_ads via _t() abaixo.
+const PAGE_TEXT: Record<Lang, {
+  notFoundTitle: string;
+  fallbackTitle: string;
+  metaDescFallback: (title: string) => string;
+  navAriaLabel: string;
+  breadcrumbCurrent: string;
+  backToResults: string;
+  sellerDescTitle: string;
+  tagsTitle: string;
+  priceOnRequest: string;
+  priceLabel: string;
+  talkToSeller: string;
+}> = {
+  pt: {
+    notFoundTitle: 'Anúncio não encontrado',
+    fallbackTitle: 'Anúncio',
+    metaDescFallback: (title) => `Veja detalhes do anúncio ${title}`,
+    navAriaLabel: 'Navegação',
+    breadcrumbCurrent: 'Anúncio',
+    backToResults: 'Voltar aos resultados',
+    sellerDescTitle: 'Descrição do Vendedor',
+    tagsTitle: 'Tags',
+    priceOnRequest: 'Sob consulta',
+    priceLabel: 'Valor sugerido',
+    talkToSeller: 'Falar com Vendedor',
+  },
+  es: {
+    notFoundTitle: 'Anuncio no encontrado',
+    fallbackTitle: 'Anuncio',
+    metaDescFallback: (title) => `Mira los detalles del anuncio ${title}`,
+    navAriaLabel: 'Navegación',
+    breadcrumbCurrent: 'Anuncio',
+    backToResults: 'Volver a los resultados',
+    sellerDescTitle: 'Descripción del Vendedor',
+    tagsTitle: 'Etiquetas',
+    priceOnRequest: 'A consultar',
+    priceLabel: 'Valor sugerido',
+    talkToSeller: 'Hablar con el Vendedor',
+  },
+};
+
+async function getCookieLang(): Promise<Lang> {
+  const cookieStore = await cookies();
+  return cookieStore.get('tc_lang')?.value === 'es' ? 'es' : 'pt';
+}
 
 function imageUrl(path: string): string {
   if (!path) return FALLBACK_IMG;
@@ -32,11 +82,23 @@ function escapeJsonLd(obj: object): string {
     .replace(/&/g, '\\u0026');
 }
 
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+export async function generateMetadata({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const { id } = await params;
 
+  // BUG CORRIGIDO (auditoria de i18n, 2026-08-26): generateMetadata nunca
+  // lia cookies() nem searchParams — o <title>/description ficavam sempre
+  // em pt mesmo com ES selecionado, e os links hreflang ?lang=pt/?lang=es
+  // já declarados abaixo eram só decorativos (não influenciavam o próprio
+  // meta gerado quando um crawler os seguia). searchParams.lang tem
+  // prioridade (é o que o link hreflang carrega); sem ele, cai no cookie
+  // tc_lang, igual ao resto do site.
+  const sp = await searchParams;
+  const spLang = typeof sp?.lang === 'string' ? sp.lang : undefined;
+  const lang: Lang = spLang === 'es' || spLang === 'pt' ? spLang : await getCookieLang();
+  const tx = PAGE_TEXT[lang];
+
   if (!UUID_REGEX.test(id)) {
-    return { title: 'Anúncio não encontrado' };
+    return { title: tx.notFoundTitle };
   }
 
   const supabase = createAnonClient();
@@ -59,14 +121,18 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   // loading do caminho feliz.
   if (!ad) notFound();
 
-  const title = ad.title_pt || ad.title_es || 'Anúncio';
+  // BUG CORRIGIDO (auditoria de i18n, 2026-08-26): ordem estava
+  // `ad.title_pt || ad.title_es` — nunca usava o título em espanhol mesmo
+  // com lang="es" e title_es preenchido. Agora prioriza a coluna do idioma
+  // ativo (com fallback pra pt quando a tradução ainda não existe).
+  const title = (lang === 'es' && ad.title_es) ? ad.title_es : (ad.title_pt || ad.title_es || tx.fallbackTitle);
   const imgUrl = ad.images?.[0] ? imageUrl(ad.images[0]) : null;
   // Remover tags HTML da description para o meta description
   const plainDescription = (ad.description || '').replace(/<[^>]*>/g, '').substring(0, 160);
 
   return {
     title: title,
-    description: plainDescription || `Veja detalhes do anúncio ${title}`,
+    description: plainDescription || tx.metaDescFallback(title),
     alternates: {
       canonical: `https://tauzeclass.com.br/anuncio/${id}`,
       languages: {
@@ -94,6 +160,9 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ id: 
   if (!UUID_REGEX.test(id)) {
     notFound();
   }
+
+  const lang = await getCookieLang();
+  const tx = PAGE_TEXT[lang];
 
   // ─── Cliente por-request (sem singleton de módulo) ──────────
   const supabase = createAnonClient();
@@ -128,8 +197,18 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ id: 
     console.error('[AdDetails] Failed to increment view:', e);
   }
 
-  const adTitle = ad.title_pt || ad.title_es || 'Anúncio';
-  const catName = ad.categories?.name_pt || ad.categories?.name_es || '';
+  // BUG CORRIGIDO (auditoria de i18n, 2026-08-26): mesma inversão de
+  // prioridade do generateMetadata — título e nome da categoria exibidos
+  // no corpo da página (breadcrumb, galeria, JSON-LD, sidebar) ignoravam
+  // completamente o idioma ativo.
+  const adTitle = (lang === 'es' && ad.title_es) ? ad.title_es : (ad.title_pt || ad.title_es || tx.fallbackTitle);
+  const catName = lang === 'es'
+    ? (ad.categories?.name_es || ad.categories?.name_pt || '')
+    : (ad.categories?.name_pt || ad.categories?.name_es || '');
+  // Mesmo padrão já correto de components/ads/AdCard.tsx pra tags_es
+  // (coluna adicionada na migration de i18n — texto livre digitado pelo
+  // vendedor, sem tradução automática, por isso o fallback pra tags_pt).
+  const tags = lang === 'es' && ad.tags_es && ad.tags_es.length > 0 ? ad.tags_es : ad.tags_pt;
 
   // ─── Geo do usuário para Anúncios Similares ──────────────────
   const geoContext = await getGeoParams({});
@@ -186,20 +265,20 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ id: 
       <div className="page-header ad-page-header">
         <div className="ad-page-header-pattern"></div>
         <div className="container ad-breadcrumb-container">
-          <nav className="breadcrumb ad-breadcrumb-nav" aria-label="Navegação">
-            <Link href="/">Início</Link>
+          <nav className="breadcrumb ad-breadcrumb-nav" aria-label={tx.navAriaLabel}>
+            <Link href="/">{_t('nav_home', lang)}</Link>
             <span aria-hidden>›</span>
             <Link href={`/listagem${ad.category_id ? `?categoria=${ad.category_id}` : ''}`}>
-              {catName || 'Anúncios'}
+              {catName || _t('footer_ads', lang)}
             </Link>
             <span aria-hidden>›</span>
-            <strong className="ad-breadcrumb-current">Anúncio</strong>
+            <strong className="ad-breadcrumb-current">{tx.breadcrumbCurrent}</strong>
 
             <div className="ad-breadcrumb-actions">
               <ShareButton title={adTitle} text={(ad.description || '').replace(/<[^>]*>/g, '').substring(0, 80)} />
               <Link href="/listagem" className="ad-breadcrumb-back">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
-                Voltar aos resultados
+                {tx.backToResults}
               </Link>
             </div>
           </nav>
@@ -216,7 +295,7 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ id: 
 
             {safeDescription && (
               <div className="details-section ad-details-section" style={{ border: '1px solid var(--clr-border)', boxShadow: 'none', marginTop: '1.5rem' }}>
-                <h3 className="ad-details-title">Descrição do Vendedor</h3>
+                <h3 className="ad-details-title">{tx.sellerDescTitle}</h3>
                 <div
                   className="desc-text text-gray-500 leading-relaxed"
                   dangerouslySetInnerHTML={{ __html: safeDescription }}
@@ -224,11 +303,11 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ id: 
               </div>
             )}
 
-            {ad.tags_pt && ad.tags_pt.length > 0 && (
+            {tags && tags.length > 0 && (
               <div className="details-section ad-details-section" style={{ border: 'none', boxShadow: 'none', marginTop: '1.5rem' }}>
-                <h3 className="ad-details-title">Tags</h3>
+                <h3 className="ad-details-title">{tx.tagsTitle}</h3>
                 <div className="product-tags ad-tags-container">
-                  {ad.tags_pt.map((tag: string) => (
+                  {tags.map((tag: string) => (
                     <span key={tag} className="product-tag ad-tag-item">{tag}</span>
                   ))}
                 </div>
@@ -252,11 +331,11 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ id: 
       <div className="sticky-cta-mobile">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <span className="ad-mobile-cta-price-label">Valor sugerido</span>
+            <span className="ad-mobile-cta-price-label">{tx.priceLabel}</span>
             <strong className="ad-mobile-cta-price-value">
               {ad.price
-                ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: ad.currency || 'BRL' }).format(ad.price)
-                : 'Sob consulta' /* BUG CORRIGIDO (reteste, 2026-08-25): 2ª ocorrência do texto de preço nulo, diferente do painel lateral — unificado */}
+                ? new Intl.NumberFormat(lang === 'es' ? 'es-AR' : 'pt-BR', { style: 'currency', currency: ad.currency || 'BRL' }).format(ad.price)
+                : tx.priceOnRequest /* BUG CORRIGIDO (reteste, 2026-08-25): 2ª ocorrência do texto de preço nulo, diferente do painel lateral — unificado */}
             </strong>
           </div>
           <a
@@ -265,7 +344,7 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ id: 
             rel="noopener noreferrer"
             className="btn btn--accent ad-mobile-cta-button"
           >
-            Falar com Vendedor
+            {tx.talkToSeller}
           </a>
         </div>
       </div>

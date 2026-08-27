@@ -28,6 +28,47 @@ function sanitizeCssColor(value: string | null): string | null {
   return null;
 }
 
+const TRANSLATIONS = {
+  pt: {
+    tagline: 'Classificados Agro',
+    homeAria: 'Tauze Class — Início',
+    navAria: 'Menu principal',
+    mobileNavAria: 'Menu mobile',
+    myMessages: 'Minhas Mensagens',
+    myAccountAria: 'Minha conta',
+    myPanel: 'Meu Painel',
+    myAds: 'Meus Anúncios',
+    mySubscription: 'Minha Assinatura',
+    signOut: 'Sair da Conta',
+    user: 'Usuário',
+    premiumUser: 'Usuário Premium',
+    langGroupAria: 'Selecionar idioma',
+    closeMenu: 'Fechar menu',
+    openMenu: 'Abrir menu',
+    myAccountMobile: 'Minha Conta',
+    registerSuffix: 'Cadastrar',
+  },
+  es: {
+    tagline: 'Clasificados Agro',
+    homeAria: 'Tauze Class — Inicio',
+    navAria: 'Menú principal',
+    mobileNavAria: 'Menú móvil',
+    myMessages: 'Mis Mensajes',
+    myAccountAria: 'Mi cuenta',
+    myPanel: 'Mi Panel',
+    myAds: 'Mis Anuncios',
+    mySubscription: 'Mi Suscripción',
+    signOut: 'Cerrar Sesión',
+    user: 'Usuario',
+    premiumUser: 'Usuario Premium',
+    langGroupAria: 'Seleccionar idioma',
+    closeMenu: 'Cerrar menú',
+    openMenu: 'Abrir menú',
+    myAccountMobile: 'Mi Cuenta',
+    registerSuffix: 'Registrarse',
+  },
+} as const;
+
 export default function Header({ 
   initialIsLoggedIn = false,
   initialUserInitials = ''
@@ -37,6 +78,7 @@ export default function Header({
 } = {}) {
   const pathname = usePathname();
   const { lang, setLang, t } = useLang();
+  const tt = TRANSLATIONS[lang];
 
   // ─── All hooks must be declared unconditionally before any early return ──
   const [scrolled, setScrolled]         = useState(false);
@@ -192,17 +234,17 @@ export default function Header({
       <header className={`site-header${scrolled ? ' scrolled' : ''}`} role="banner">
         <div className="container header-inner">
 
-          <Link href="/" className="logo" aria-label="Tauze Class — Início">
+          <Link href="/" className="logo" aria-label={tt.homeAria}>
             <div className="logo-mark" ref={logoMarkRef} style={logoMarkStyle}>
               {!logoUrl && 'TC'}
             </div>
             <div className="logo-text">
               <span className="logo-name">Tauze Class</span>
-              <span className="logo-tagline">Classificados Agro</span>
+              <span className="logo-tagline">{tt.tagline}</span>
             </div>
           </Link>
 
-          <nav className="header-nav" role="navigation" aria-label="Menu principal">
+          <nav className="header-nav" role="navigation" aria-label={tt.navAria}>
             <Link href="/"          className={isActive('/') && pathname === '/' ? 'active' : ''}>{t('nav_home')}</Link>
             <Link href="/listagem"  className={isActive('/listagem') ? 'active' : ''}>{t('nav_ads')}</Link>
             <Link href="/eventos"   className={isActive('/eventos') ? 'active' : ''}>{t('nav_events')}</Link>
@@ -216,7 +258,7 @@ export default function Header({
             <div className="auth-wrapper">
               {isLoggedIn ? (
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <Link href="/painel#messages" title="Minhas Mensagens"
+                  <Link href="/painel#messages" title={tt.myMessages}
                     onClick={() => window.dispatchEvent(new CustomEvent('painel:switchtab', { detail: 'messages' }))}
                     style={{
                       position: 'relative', cursor: 'pointer', display: 'flex', alignItems: 'center',
@@ -232,7 +274,7 @@ export default function Header({
                     {/* Badge could be dynamically visible later if we fetch unread count */}
                   </Link>
                   <div ref={userMenuRef} style={{ position: 'relative' }}>
-                    <button id="header-avatar" aria-label="Minha conta"
+                    <button id="header-avatar" aria-label={tt.myAccountAria}
                       onClick={() => setUserMenuOpen(!userMenuOpen)}
                       onMouseOver={e => { e.currentTarget.style.transform = 'scale(1.08) translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 14px rgba(22, 163, 74, 0.35)'; }}
                       onMouseOut={e => { e.currentTarget.style.transform = 'scale(1) translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 10px rgba(22, 163, 74, 0.25)'; }}
@@ -258,27 +300,27 @@ export default function Header({
                         }}>
                         <div style={{ padding: '12px 16px', marginBottom: 8, borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', gap: 2 }}>
                           <span style={{ fontWeight: 700, color: 'var(--clr-heading)', fontSize: '1rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {userSession?.user?.user_metadata?.name || userSession?.user?.user_metadata?.display_name || userSession?.user?.email?.split('@')[0] || 'Usuário'}
+                            {userSession?.user?.user_metadata?.name || userSession?.user?.user_metadata?.display_name || userSession?.user?.email?.split('@')[0] || tt.user}
                           </span>
                           <span style={{ fontSize: '0.8rem', color: 'var(--clr-text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {userSession?.user?.email || 'Usuário Premium'}
+                            {userSession?.user?.email || tt.premiumUser}
                           </span>
                         </div>
                         <Link href="/painel" onClick={() => { setUserMenuOpen(false); window.dispatchEvent(new CustomEvent('painel:switchtab', { detail: 'ads' })) }} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', color: 'var(--clr-text)', textDecoration: 'none', fontSize: '0.92rem', borderRadius: 10, fontWeight: 600 }}>
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.8 }}><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
-                          <span>Meu Painel</span>
+                          <span>{tt.myPanel}</span>
                         </Link>
                         <Link href="/painel#ads" onClick={() => { setUserMenuOpen(false); window.dispatchEvent(new CustomEvent('painel:switchtab', { detail: 'ads' })) }} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', color: 'var(--clr-text)', textDecoration: 'none', fontSize: '0.92rem', borderRadius: 10, fontWeight: 600 }}>
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.8 }}><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-                          <span>Meus Anúncios</span>
+                          <span>{tt.myAds}</span>
                         </Link>
                         <Link href="/painel#messages" onClick={() => { setUserMenuOpen(false); window.dispatchEvent(new CustomEvent('painel:switchtab', { detail: 'messages' })) }} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', color: 'var(--clr-text)', textDecoration: 'none', fontSize: '0.92rem', borderRadius: 10, fontWeight: 600 }}>
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.8 }}><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                          <span>Minhas Mensagens</span>
+                          <span>{tt.myMessages}</span>
                         </Link>
                         <Link href="/painel#billing" onClick={() => { setUserMenuOpen(false); window.dispatchEvent(new CustomEvent('painel:switchtab', { detail: 'billing' })) }} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', color: 'var(--clr-text)', textDecoration: 'none', fontSize: '0.92rem', borderRadius: 10, fontWeight: 600 }}>
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.8 }}><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
-                          <span>Minha Assinatura</span>
+                          <span>{tt.mySubscription}</span>
                         </Link>
                         <div style={{ height: 1, background: 'rgba(0,0,0,0.06)', margin: '4px 8px' }}></div>
                         <button onClick={async () => {
@@ -292,7 +334,7 @@ export default function Header({
                         }}
                           style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', color: '#DC2626', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.92rem', borderRadius: 10, fontWeight: 600 }}>
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.8 }}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-                          <span>Sair da Conta</span>
+                          <span>{tt.signOut}</span>
                         </button>
                       </div>
                     )}
@@ -304,7 +346,7 @@ export default function Header({
             </div>
           </nav>
 
-          <div className="lang-toggle" role="group" aria-label="Selecionar idioma">
+          <div className="lang-toggle" role="group" aria-label={tt.langGroupAria}>
             <button data-lang="pt" className={lang === 'pt' ? 'active' : ''} aria-label="Português" onClick={() => setLang('pt')}>PT</button>
             <button data-lang="es" className={lang === 'es' ? 'active' : ''} aria-label="Español"   onClick={() => setLang('es')}>ES</button>
           </div>
@@ -318,7 +360,7 @@ export default function Header({
 
           <button
             className={`hamburger${mobileOpen ? ' open' : ''}`}
-            aria-label={mobileOpen ? 'Fechar menu' : 'Abrir menu'}
+            aria-label={mobileOpen ? tt.closeMenu : tt.openMenu}
             aria-expanded={mobileOpen}
             aria-controls="mobile-menu"
             onClick={() => setMobileOpen(!mobileOpen)}
@@ -329,7 +371,7 @@ export default function Header({
       </header>
 
       {/* ─── MOBILE MENU ─────────────────────────── */}
-      <nav className={`mobile-menu${mobileOpen ? ' open' : ''}`} id="mobile-menu" aria-label="Menu mobile">
+      <nav className={`mobile-menu${mobileOpen ? ' open' : ''}`} id="mobile-menu" aria-label={tt.mobileNavAria}>
         <Link href="/"         className={pathname === '/' ? 'active' : ''}>{t('nav_home')}</Link>
         <Link href="/listagem" className={isActive('/listagem') ? 'active' : ''}>{t('nav_ads')}</Link>
         <Link href="/eventos"  className={isActive('/eventos') ? 'active' : ''}>{t('nav_events')}</Link>
@@ -342,7 +384,7 @@ export default function Header({
         )}
         <div className="auth-wrapper" style={{ width: '100%' }}>
           <Link href={isLoggedIn ? '/painel' : '/login'} className="btn-login-mobile">
-            {isLoggedIn ? 'Minha Conta' : `${t('nav_login')} / Cadastrar`}
+            {isLoggedIn ? tt.myAccountMobile : `${t('nav_login')} / ${tt.registerSuffix}`}
           </Link>
         </div>
       </nav>

@@ -2,13 +2,59 @@ import React from 'react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Metadata } from 'next';
+import { cookies } from 'next/headers';
 import DOMPurify from 'isomorphic-dompurify';
 import { createClient, createAnonClient } from '@/lib/supabase-server';
+import { t as _t } from '@/lib/constants';
 import './institucional.css';
 
 export const revalidate = 60; // ISR - revalida a cada minuto para as páginas mudarem rápido após edição no painel
 
 type SearchParams = { [key: string]: string | string[] | undefined };
+type Lang = 'pt' | 'es';
+
+// BUG CORRIGIDO (auditoria i18n, 2026-08-27): a página inteira — breadcrumb,
+// título/subtítulo/conteúdo vindos do banco, mensagens de fallback e
+// generateMetadata — ficava sempre em português: nunca lia o cookie tc_lang
+// nem usava as colunas _es de institutional_pages (title_es/subtitle_es/
+// content_es/group_name_es, adicionadas na migration 20260827100000).
+// Strings novas específicas desta página ficam num dicionário local, mesmo
+// padrão já usado em components/ads/AdsSidebar.tsx, pra não poluir o
+// dicionário global de lib/constants.ts com chaves usadas só aqui; "Início"
+// já existe lá (nav_home) e é reaproveitado via _t().
+const TRANSLATIONS = {
+  pt: {
+    breadcrumbInstitutional: 'Institucional',
+    emptyPages: 'Nenhuma página institucional configurada.',
+    emptyContent: 'Nenhum conteúdo disponível para esta página.',
+    fallbackTitle: 'Institucional',
+    fallbackDescription: 'Termos de uso, política de privacidade, cookies e demais informações institucionais do Tauze Class — o maior classificado do agronegócio do Mercosul.',
+    siteSuffix: 'Tauze Class, o maior classificado do agronegócio do Mercosul.',
+  },
+  es: {
+    breadcrumbInstitutional: 'Institucional',
+    emptyPages: 'No hay ninguna página institucional configurada.',
+    emptyContent: 'No hay contenido disponible para esta página.',
+    fallbackTitle: 'Institucional',
+    fallbackDescription: 'Términos de uso, política de privacidad, cookies y demás información institucional de Tauze Class — el clasificado más grande del agronegocio del Mercosur.',
+    siteSuffix: 'Tauze Class, el clasificado más grande del agronegocio del Mercosur.',
+  },
+} as const;
+
+// Escolhe a coluna _es quando o idioma é espanhol e ela está preenchida, com
+// fallback pra coluna em português — mesmo padrão já correto em `ads`
+// (lang === 'es' && ad.title_es ? ad.title_es : ad.title_pt). A maioria das
+// linhas de institutional_pages ainda não tem content_es preenchido
+// (tradução em andamento em paralelo); esse fallback é o comportamento
+// esperado até lá, não um bug.
+function localize(lang: Lang, pt: string, es?: string | null): string {
+  return lang === 'es' && es ? es : pt;
+}
+
+async function getLang(): Promise<Lang> {
+  const cookieStore = await cookies();
+  return cookieStore.get('tc_lang')?.value === 'es' ? 'es' : 'pt';
+}
 
 // BUG CORRIGIDO (3ª varredura pré-lançamento, 2026-08-26): faltava metadata
 // própria por página institucional — todas as 10 páginas (Termos, Privacidade,
@@ -24,12 +70,17 @@ export async function generateMetadata({
   const params = await searchParams;
   const pageParam = typeof params.page === 'string' ? params.page : 'sobre';
 
-  // Cliente anônimo (sem cookies) — mesma leitura pública que o corpo da
-  // página faz, mas cacheável e sem depender de sessão do visitante.
+  // BUG CORRIGIDO (auditoria i18n, 2026-08-27): usava createAnonClient(),
+  // cujo adaptador de cookies sempre retorna [] (getAll), então o
+  // title/description nunca trocavam de idioma mesmo com tc_lang=es. O
+  // cookie de idioma da aplicação é lido diretamente aqui; o cliente
+  // anônimo continua sendo usado só pra query em si (pública, cacheável).
+  const lang = await getLang();
+
   const supabase = createAnonClient();
   const { data: pageData } = await supabase
     .from('institutional_pages')
-    .select('id, title, subtitle')
+    .select('id, title, subtitle, title_es, subtitle_es')
     .eq('id', pageParam)
     .maybeSingle();
 
@@ -37,17 +88,18 @@ export async function generateMetadata({
     // Slug inexistente: a página em si faz redirect() pra pages[0] nesse
     // caso, mas mantemos uma metadata genérica e coerente de fallback.
     return {
-      title: 'Institucional',
-      description: 'Termos de uso, política de privacidade, cookies e demais informações institucionais do Tauze Class — o maior classificado do agronegócio do Mercosul.',
+      title: TRANSLATIONS[lang].fallbackTitle,
+      description: TRANSLATIONS[lang].fallbackDescription,
       alternates: { canonical: 'https://tauzeclass.com.br/institucional' },
     };
   }
 
-  const description = pageData.subtitle
-    || `${pageData.title} — Tauze Class, o maior classificado do agronegócio do Mercosul.`;
+  const title = localize(lang, pageData.title, pageData.title_es);
+  const subtitle = localize(lang, pageData.subtitle, pageData.subtitle_es);
+  const description = subtitle || `${title} — ${TRANSLATIONS[lang].siteSuffix}`;
 
   return {
-    title: pageData.title,
+    title,
     description,
     alternates: {
       canonical: `https://tauzeclass.com.br/institucional?page=${pageData.id}`,
@@ -88,6 +140,11 @@ export default async function InstitucionalPage({
   const params = await searchParams;
   const pageParam = typeof params.page === 'string' ? params.page : 'sobre';
 
+  // BUG CORRIGIDO (auditoria i18n, 2026-08-27): a página nunca lia o cookie
+  // tc_lang — título, subtítulo, conteúdo, navegação lateral e as mensagens
+  // de fallback abaixo ficavam sempre em português.
+  const lang = await getLang();
+
   const supabase = await createClient();
   // BUG CORRIGIDO (3ª varredura pré-lançamento, 2026-08-26): sem desempate,
   // a ordenação por order_idx sozinha não é determinística entre páginas
@@ -96,9 +153,9 @@ export default async function InstitucionalPage({
   // padrão — dependia de uma ordem que o SQL não garante entre empates.
   // 'id' (o slug) como segunda chave dá um resultado estável.
   const { data: pages } = await supabase.from('institutional_pages').select('*').order('order_idx', { ascending: true }).order('id', { ascending: true });
-  
+
   if (!pages || pages.length === 0) {
-    return <div style={{ padding: '100px', textAlign: 'center' }}>Nenhuma página institucional configurada.</div>;
+    return <div style={{ padding: '100px', textAlign: 'center' }}>{TRANSLATIONS[lang].emptyPages}</div>;
   }
 
   const currentPageData = pages.find(p => p.id === pageParam);
@@ -109,7 +166,10 @@ export default async function InstitucionalPage({
 
   const activePage = currentPageData || pages[0];
 
-  // Agrupar as páginas pelo group_name
+  // Agrupar as páginas pelo group_name em português (chave estável — evita
+  // grupos duplicados por pequena divergência de acentuação/maiúsculas na
+  // tradução) e guardar group_name_es do primeiro item de cada grupo pra
+  // exibição localizada.
   const groupedPages: Record<string, any[]> = {};
   pages.forEach(p => {
     if (!groupedPages[p.group_name]) groupedPages[p.group_name] = [];
@@ -117,8 +177,9 @@ export default async function InstitucionalPage({
   });
 
   // ─── Sanitização do HTML de conteúdo do banco ────────────────
-  const safeData = activePage.content
-    ? DOMPurify.sanitize(activePage.content, {
+  const activeContent = localize(lang, activePage.content, activePage.content_es);
+  const safeData = activeContent
+    ? DOMPurify.sanitize(activeContent, {
         ALLOWED_TAGS,
         ALLOWED_ATTR,
         ADD_ATTR: ['target'],
@@ -143,12 +204,12 @@ export default async function InstitucionalPage({
           <div className="list-hero-inner">
             <div>
               <nav aria-label="Breadcrumb" className="breadcrumb">
-                <Link href="/">Início</Link>
+                <Link href="/">{_t('nav_home', lang)}</Link>
                 <span aria-hidden="true">›</span>
-                <span>Institucional</span>
+                <span>{TRANSLATIONS[lang].breadcrumbInstitutional}</span>
               </nav>
-              <h1 className="list-hero-title">{activePage.title}</h1>
-              <p className="list-hero-count">{activePage.subtitle}</p>
+              <h1 className="list-hero-title">{localize(lang, activePage.title, activePage.title_es)}</h1>
+              <p className="list-hero-count">{localize(lang, activePage.subtitle, activePage.subtitle_es)}</p>
             </div>
           </div>
         </div>
@@ -159,9 +220,9 @@ export default async function InstitucionalPage({
           <aside className="inst-sidebar">
             {Object.keys(groupedPages).map(groupName => (
               <div className="inst-nav-group" key={groupName}>
-                <div className="inst-nav-title">{groupName}</div>
+                <div className="inst-nav-title">{localize(lang, groupName, groupedPages[groupName][0]?.group_name_es)}</div>
                 {groupedPages[groupName].map(p => (
-                  <NavLink key={p.id} id={p.id} label={p.title} icon_name={p.icon_name} />
+                  <NavLink key={p.id} id={p.id} label={localize(lang, p.title, p.title_es)} icon_name={p.icon_name} />
                 ))}
               </div>
             ))}
@@ -172,7 +233,7 @@ export default async function InstitucionalPage({
               <div className="inst-prose" dangerouslySetInnerHTML={{ __html: safeData }} />
             ) : (
               <div className="inst-prose">
-                <p>Nenhum conteúdo disponível para esta página.</p>
+                <p>{TRANSLATIONS[lang].emptyContent}</p>
               </div>
             )}
           </div>

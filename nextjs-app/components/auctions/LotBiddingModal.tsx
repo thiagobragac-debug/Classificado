@@ -5,18 +5,25 @@ import { useRouter } from 'next/navigation';
 import { NumericFormat } from 'react-number-format';
 import { placeLotBid } from '@/lib/supabase';
 import { showToast } from '@/lib/toast';
+import { useLang } from '@/lib/lang-context';
 
 export interface LotData {
   id: string;
   auction_id: string;
   lot_number: string;
   title: string;
+  // Colunas novas (auditoria de i18n, 2026-08-26/27) — fallback pra
+  // coluna _pt quando vazia/nula, igual ao padrão já usado em ads.
+  title_es?: string | null;
   min_bid: number;
   image: string | null;
   video: string | null;
   sire: string | null;
+  sire_es?: string | null;
   dam: string | null;
+  dam_es?: string | null;
   description: string | null;
+  description_es?: string | null;
   // Computed fields (if we have bid tracking later)
   current_bid?: number;
   // BUG CORRIGIDO (3ª varredura): winner_id já existe em auction_lots
@@ -59,10 +66,122 @@ function getBidIncrements(currentBid: number, step: number): number[] {
   return [5_000, 10_000, 25_000, 50_000];
 }
 
-const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+// BUG CORRIGIDO (auditoria de i18n, 2026-08-26/27): componente inteiro
+// (toasts, avisos, labels, aria-labels) ficava fixo em português mesmo com
+// ES selecionado — nunca importava useLang(). Strings novas que não existem
+// no dicionário global (lib/constants.ts) seguem o mesmo padrão local já
+// usado em components/ads/AdsSidebar.tsx.
+const TRANSLATIONS = {
+  pt: {
+    closeModal: 'Fechar modal',
+    noMedia: 'Sem mídia',
+    currentBid: 'LANCE ATUAL',
+    winning: 'Você está vencendo!',
+    notInformed: 'Não informado',
+    confirmBidQuestion: (amount: string) => `Confirmar lance de ${amount}?`,
+    sending: 'Enviando…',
+    confirm: 'Confirmar',
+    cancel: 'Cancelar',
+    cancelledNotice: 'Este leilão foi cancelado. Não é possível dar lances.',
+    notLiveNotice: 'Este leilão ainda não está ao vivo. Lances abrem quando a transmissão iniciar.',
+    quickBids: 'Lances Rápidos',
+    orManualBid: 'Ou dê um lance manual',
+    manualBidLabel: 'Valor do lance manual',
+    minLabel: (amount: string) => `Mínimo: ${amount}`,
+    placeBid: 'Dar Lance',
+    minValidBid: (amount: string) => `Lance mínimo válido: ${amount}`,
+    lotTitle: (num: string, title: string) => `LOTE ${num} — ${title}`,
+    lotVideoTitle: (num: string) => `Vídeo do lote ${num}`,
+    lotPhotoAlt: (num: string, title: string) => `Foto do lote ${num}: ${title}`,
+    sire: 'Pai',
+    dam: 'Mãe',
+    // Avisos antecipados de UI (o RPC continua sendo a validação real)
+    cancelledToast: 'Este leilão foi cancelado — não é possível dar lances.',
+    notLiveToast: 'Este leilão ainda não está ao vivo — lances abrem quando a transmissão iniciar.',
+    loginRequired: 'Você precisa estar logado para dar lances.',
+    minBidToast: (amount: string) => `O lance deve ser de pelo menos ${amount}.`,
+    emptyBid: 'Informe um valor de lance.',
+    bidSuccess: (amount: string) => `Lance de ${amount} registrado com sucesso!`,
+    bidGenericError: 'Erro ao registrar lance.',
+  },
+  es: {
+    closeModal: 'Cerrar modal',
+    noMedia: 'Sin contenido multimedia',
+    currentBid: 'PUJA ACTUAL',
+    winning: '¡Estás ganando!',
+    notInformed: 'No informado',
+    confirmBidQuestion: (amount: string) => `¿Confirmar puja de ${amount}?`,
+    sending: 'Enviando…',
+    confirm: 'Confirmar',
+    cancel: 'Cancelar',
+    cancelledNotice: 'Este remate fue cancelado. No es posible pujar.',
+    notLiveNotice: 'Este remate todavía no está en vivo. Las pujas abren cuando comience la transmisión.',
+    quickBids: 'Pujas Rápidas',
+    orManualBid: 'O hacé una puja manual',
+    manualBidLabel: 'Valor de la puja manual',
+    minLabel: (amount: string) => `Mínimo: ${amount}`,
+    placeBid: 'Pujar',
+    minValidBid: (amount: string) => `Puja mínima válida: ${amount}`,
+    lotTitle: (num: string, title: string) => `LOTE ${num} — ${title}`,
+    lotVideoTitle: (num: string) => `Video del lote ${num}`,
+    lotPhotoAlt: (num: string, title: string) => `Foto del lote ${num}: ${title}`,
+    sire: 'Padre',
+    dam: 'Madre',
+    cancelledToast: 'Este remate fue cancelado — no es posible pujar.',
+    notLiveToast: 'Este remate todavía no está en vivo — las pujas abren cuando comience la transmisión.',
+    loginRequired: 'Necesitás iniciar sesión para pujar.',
+    minBidToast: (amount: string) => `La puja debe ser de al menos ${amount}.`,
+    emptyBid: 'Ingresá un valor de puja.',
+    bidSuccess: (amount: string) => `¡Puja de ${amount} registrada con éxito!`,
+    bidGenericError: 'Error al registrar la puja.',
+  },
+} as const;
+
+// BUG CORRIGIDO (auditoria de i18n, 2026-08-26/27): as mensagens de erro do
+// RPC place_lot_bid_atomic (e do guard-clause equivalente em
+// lib/supabase.ts:placeLotBid) vêm cruas em português direto do Postgres —
+// não dá pra mudar a migration/RPC de leilão fora de coordenação com outras
+// frentes, então mapeamos as strings conhecidas pra uma versão em espanhol
+// aqui na UI antes de exibir no toast. Fallback: mostra a string crua se
+// não reconhecer (nunca esconde o erro real do usuário).
+const KNOWN_BID_ERRORS_ES: Record<string, string> = {
+  'Não autenticado': 'No autenticado',
+  'Lote não encontrado': 'Lote no encontrado',
+  'Este leilão não está ao vivo': 'Este remate no está en vivo',
+  'Este leilão não está aceitando lances no momento': 'Este remate no está aceptando pujas en este momento',
+  'Erro ao processar o lance. Tente novamente.': 'Error al procesar la puja. Intentá de nuevo.',
+  'Erro ao processar lance.': 'Error al procesar la puja.',
+  'Valor do lance inválido.': 'Valor de la puja inválido.',
+};
+
+function translateBidError(msg: string, lang: string): string {
+  if (lang !== 'es') return msg;
+  if (KNOWN_BID_ERRORS_ES[msg]) return KNOWN_BID_ERRORS_ES[msg];
+  // "Lance deve ser de pelo menos %s" (format() do Postgres, valor numérico
+  // cru — sem formatação de moeda, então só troca o prefixo da frase).
+  const m = msg.match(/^Lance deve ser de pelo menos (.+)$/);
+  if (m) return `La puja debe ser de al menos ${m[1]}`;
+  return msg;
+}
+
+// BUG CORRIGIDO (auditoria de i18n, 2026-08-26/27): auction_lots.sire/dam
+// (e sire_es/dam_es) já vêm do banco com o rótulo embutido no próprio texto
+// (ex.: sire = "Pai: REM Armador", sire_es = "Padre: REM Armador" —
+// confirmado contra produção) — o componente prefixava "Pai:"/"Mãe:" de
+// novo por cima, duplicando ("Pai: Pai: REM Armador"). Em vez de confiar
+// que o dado SEMPRE vem com o prefixo (frágil), removemos qualquer prefixo
+// pt/es já embutido no valor e deixamos só o componente controlar o rótulo
+// — funciona tanto com dado prefixado quanto sem prefixo.
+function stripLabelPrefix(value: string | null | undefined): string {
+  if (!value) return '';
+  return value.replace(/^\s*(pai|m[aã]e|padre|madre)\s*:\s*/i, '').trim();
+}
 
 export default function LotBiddingModal({ lot, onClose, userId, isLive = true, isCancelled = false, step = 0 }: LotBiddingModalProps) {
   const router = useRouter();
+  const { lang } = useLang();
+  const T = TRANSLATIONS[lang as keyof typeof TRANSLATIONS] || TRANSLATIONS.pt;
+  const BRL = new Intl.NumberFormat(lang === 'es' ? 'es-AR' : 'pt-BR', { style: 'currency', currency: 'BRL' });
   const [bidding, setBidding] = useState(false);
   const [pendingBid, setPendingBid] = useState<number | null>(null);
   const [manualBid, setManualBid] = useState<number | undefined>(undefined);
@@ -124,15 +243,15 @@ export default function LotBiddingModal({ lot, onClose, userId, isLive = true, i
     // vivo"). O RPC continua sendo a validação real — isto é só aviso
     // antecipado na UI, pra não fingir que o fluxo vai completar.
     if (isCancelled) {
-      showToast('Este leilão foi cancelado — não é possível dar lances.', 'error');
+      showToast(T.cancelledToast, 'error');
       return;
     }
     if (!isLive) {
-      showToast('Este leilão ainda não está ao vivo — lances abrem quando a transmissão iniciar.', 'warning');
+      showToast(T.notLiveToast, 'warning');
       return;
     }
     if (!userId) {
-      showToast('Você precisa estar logado para dar lances.', 'error');
+      showToast(T.loginRequired, 'error');
       return;
     }
     // BUG CORRIGIDO (3ª varredura): comparava só com currentBid, ignorando o
@@ -141,11 +260,11 @@ export default function LotBiddingModal({ lot, onClose, userId, isLive = true, i
     // mínimo (minValidBid) que o RPC calcula, tanto para os botões rápidos
     // (que já nascem válidos) quanto para o campo de valor manual.
     if (amount < minValidBid) {
-      showToast(`O lance deve ser de pelo menos ${BRL.format(minValidBid)}.`, 'warning');
+      showToast(T.minBidToast(BRL.format(minValidBid)), 'warning');
       return;
     }
     setPendingBid(amount);
-  }, [userId, minValidBid, isLive, isCancelled]);
+  }, [userId, minValidBid, isLive, isCancelled, T, BRL]);
 
   // BUG CORRIGIDO (3ª varredura): não existia nenhum campo de valor manual —
   // só os 4 botões de lance rápido. Um lote com step alto relativo ao
@@ -153,11 +272,11 @@ export default function LotBiddingModal({ lot, onClose, userId, isLive = true, i
   // desta correção (os tiers antigos ignoravam o step por completo).
   const requestManualBid = useCallback(() => {
     if (manualBid === undefined || !isFinite(manualBid) || manualBid <= 0) {
-      showToast('Informe um valor de lance.', 'warning');
+      showToast(T.emptyBid, 'warning');
       return;
     }
     requestBid(manualBid);
-  }, [manualBid, requestBid]);
+  }, [manualBid, requestBid, T]);
 
   const confirmBid = useCallback(async () => {
     if (pendingBid === null || !userId || !lot) return;
@@ -168,7 +287,7 @@ export default function LotBiddingModal({ lot, onClose, userId, isLive = true, i
       // anúncio individual) — todo lance falhava com "Leilão não
       // encontrado". Ver lib/supabase.ts:placeLotBid.
       await placeLotBid(lot.id, pendingBid);
-      showToast(`Lance de ${BRL.format(pendingBid)} registrado com sucesso!`, 'success');
+      showToast(T.bidSuccess(BRL.format(pendingBid)), 'success');
       setPendingBid(null);
       setManualBid(undefined);
       onClose();
@@ -178,12 +297,16 @@ export default function LotBiddingModal({ lot, onClose, userId, isLive = true, i
       // depois de um lance bem-sucedido.
       router.refresh();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Erro ao registrar lance.';
-      showToast(msg, 'error');
+      // BUG CORRIGIDO (auditoria de i18n, 2026-08-26/27): a mensagem vem
+      // crua em português direto do RPC (place_lot_bid_atomic) ou do
+      // guard-clause de lib/supabase.ts:placeLotBid — mapeia pra espanhol
+      // quando reconhecida, com fallback pra string crua.
+      const msg = err instanceof Error ? err.message : T.bidGenericError;
+      showToast(translateBidError(msg, lang), 'error');
     } finally {
       setBidding(false);
     }
-  }, [pendingBid, userId, lot, onClose]);
+  }, [pendingBid, userId, lot, onClose, T, BRL, lang]);
 
   const cancelBid = useCallback(() => setPendingBid(null), []);
 
@@ -194,6 +317,11 @@ export default function LotBiddingModal({ lot, onClose, userId, isLive = true, i
   const ytId = ytMatch ? ytMatch[1] : null;
 
   const increments = getBidIncrements(currentBid, step);
+
+  const lotTitle = lang === 'es' && lot.title_es ? lot.title_es : lot.title;
+  const lotSire = lang === 'es' && lot.sire_es ? lot.sire_es : lot.sire;
+  const lotDam = lang === 'es' && lot.dam_es ? lot.dam_es : lot.dam;
+  const lotDescription = lang === 'es' && lot.description_es ? lot.description_es : lot.description;
 
   return (
     <div
@@ -210,12 +338,12 @@ export default function LotBiddingModal({ lot, onClose, userId, isLive = true, i
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
           <h2 id={titleId} style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: 'white' }}>
-            LOTE {lot.lot_number} — {lot.title}
+            {T.lotTitle(lot.lot_number, lotTitle)}
           </h2>
           <button
             ref={closeButtonRef}
             onClick={onClose}
-            aria-label="Fechar modal"
+            aria-label={T.closeModal}
             style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
           >
             <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" strokeWidth="2" fill="none"><path d="M18 6 6 18M6 6l12 12"/></svg>
@@ -234,16 +362,16 @@ export default function LotBiddingModal({ lot, onClose, userId, isLive = true, i
                   src={`https://www.youtube.com/embed/${ytId}?autoplay=1`}
                   allow="autoplay; encrypted-media"
                   allowFullScreen
-                  title={`Vídeo do lote ${lot.lot_number}`}
+                  title={T.lotVideoTitle(lot.lot_number)}
                 ></iframe>
               ) : (
                 <video src={lot.video} controls autoPlay style={{ width: '100%', maxHeight: '400px' }}></video>
               )
             ) : lot.image ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={lot.image} alt={`Foto do lote ${lot.lot_number}: ${lot.title}`} style={{ width: '100%', maxHeight: '400px', objectFit: 'contain' }} />
+              <img src={lot.image} alt={T.lotPhotoAlt(lot.lot_number, lotTitle)} style={{ width: '100%', maxHeight: '400px', objectFit: 'contain' }} />
             ) : (
-              <span style={{ color: '#64748b' }}>Sem mídia</span>
+              <span style={{ color: '#64748b' }}>{T.noMedia}</span>
             )}
           </div>
 
@@ -252,13 +380,13 @@ export default function LotBiddingModal({ lot, onClose, userId, isLive = true, i
 
             <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '8px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>LANCE ATUAL</div>
+                <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>{T.currentBid}</div>
                 {/* BUG CORRIGIDO (3ª varredura): winner_id nunca era comparado
                     com o usuário logado na UI pública — nenhum indicador de
                     "você está vencendo". */}
                 {isWinning && (
                   <span style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.4)', borderRadius: '20px', padding: '0.15rem 0.6rem', fontSize: '0.75rem', fontWeight: 700 }}>
-                    Você está vencendo!
+                    {T.winning}
                   </span>
                 )}
               </div>
@@ -268,11 +396,16 @@ export default function LotBiddingModal({ lot, onClose, userId, isLive = true, i
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <div style={{ fontSize: '0.9rem', color: '#cbd5e1' }}><strong>Pai:</strong> {lot.sire || 'Não informado'}</div>
-              <div style={{ fontSize: '0.9rem', color: '#cbd5e1' }}><strong>Mãe:</strong> {lot.dam || 'Não informado'}</div>
-              {lot.description && (
+              {/* BUG CORRIGIDO (auditoria de i18n, 2026-08-26/27): sire/dam já
+                  vêm do banco com o rótulo embutido no texto ("Pai: REM
+                  Armador") — remove qualquer prefixo pt/es pré-existente e
+                  deixa só o componente controlar o rótulo, evitando
+                  duplicação ("Pai: Pai: REM Armador"). */}
+              <div style={{ fontSize: '0.9rem', color: '#cbd5e1' }}><strong>{T.sire}:</strong> {stripLabelPrefix(lotSire) || T.notInformed}</div>
+              <div style={{ fontSize: '0.9rem', color: '#cbd5e1' }}><strong>{T.dam}:</strong> {stripLabelPrefix(lotDam) || T.notInformed}</div>
+              {lotDescription && (
                 <div style={{ fontSize: '0.9rem', color: '#94a3b8', marginTop: '0.5rem', lineHeight: 1.5 }}>
-                  {lot.description}
+                  {lotDescription}
                 </div>
               )}
             </div>
@@ -282,7 +415,7 @@ export default function LotBiddingModal({ lot, onClose, userId, isLive = true, i
               {pendingBid !== null ? (
                 <div style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '8px', padding: '1rem', marginBottom: '1rem' }}>
                   <p style={{ color: 'white', marginBottom: '0.75rem', fontWeight: 600 }}>
-                    Confirmar lance de <span style={{ color: '#22c55e' }}>{BRL.format(pendingBid)}</span>?
+                    {T.confirmBidQuestion(BRL.format(pendingBid))}
                   </p>
                   <div style={{ display: 'flex', gap: '0.5rem' }}>
                     <button
@@ -292,7 +425,7 @@ export default function LotBiddingModal({ lot, onClose, userId, isLive = true, i
                       style={{ flex: 1, justifyContent: 'center', background: '#22c55e', color: '#000', border: 'none' }}
                       aria-busy={bidding}
                     >
-                      {bidding ? 'Enviando…' : 'Confirmar'}
+                      {bidding ? T.sending : T.confirm}
                     </button>
                     <button
                       onClick={cancelBid}
@@ -300,21 +433,21 @@ export default function LotBiddingModal({ lot, onClose, userId, isLive = true, i
                       className="btn btn--outline"
                       style={{ flex: 1, justifyContent: 'center' }}
                     >
-                      Cancelar
+                      {T.cancel}
                     </button>
                   </div>
                 </div>
               ) : isCancelled ? (
                 <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '1rem', color: '#f87171', fontSize: '0.9rem' }}>
-                  Este leilão foi cancelado. Não é possível dar lances.
+                  {T.cancelledNotice}
                 </div>
               ) : !isLive ? (
                 <div style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.3)', borderRadius: '8px', padding: '1rem', color: '#fbbf24', fontSize: '0.9rem' }}>
-                  Este leilão ainda não está ao vivo. Lances abrem quando a transmissão iniciar.
+                  {T.notLiveNotice}
                 </div>
               ) : (
                 <>
-                  <h4 style={{ marginBottom: '1rem', color: 'white', fontSize: '1rem' }}>Lances Rápidos</h4>
+                  <h4 style={{ marginBottom: '1rem', color: 'white', fontSize: '1rem' }}>{T.quickBids}</h4>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
                     {increments.map((inc) => {
                       const bidAmount = currentBid + inc;
@@ -338,7 +471,7 @@ export default function LotBiddingModal({ lot, onClose, userId, isLive = true, i
                       com o mínimo real (currentBid + step) validado aqui
                       antes de enviar (o servidor valida de novo de qualquer
                       forma). */}
-                  <h4 style={{ margin: '1.25rem 0 0.5rem', color: 'white', fontSize: '1rem' }}>Ou dê um lance manual</h4>
+                  <h4 style={{ margin: '1.25rem 0 0.5rem', color: 'white', fontSize: '1rem' }}>{T.orManualBid}</h4>
                   <div style={{ display: 'flex', gap: '0.5rem' }}>
                     <NumericFormat
                       value={manualBid ?? ''}
@@ -348,8 +481,8 @@ export default function LotBiddingModal({ lot, onClose, userId, isLive = true, i
                       prefix="R$ "
                       decimalScale={2}
                       allowNegative={false}
-                      placeholder={`Mínimo: ${BRL.format(minValidBid)}`}
-                      aria-label="Valor do lance manual"
+                      placeholder={T.minLabel(BRL.format(minValidBid))}
+                      aria-label={T.manualBidLabel}
                       disabled={bidding}
                       style={{ flex: 1, padding: '0.75rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.05)', color: 'white', fontSize: '0.9rem' }}
                     />
@@ -359,11 +492,11 @@ export default function LotBiddingModal({ lot, onClose, userId, isLive = true, i
                       className="btn btn--accent"
                       style={{ padding: '0.75rem 1rem', justifyContent: 'center', whiteSpace: 'nowrap' }}
                     >
-                      Dar Lance
+                      {T.placeBid}
                     </button>
                   </div>
                   <div style={{ color: '#64748b', fontSize: '0.8rem', marginTop: '0.35rem' }}>
-                    Lance mínimo válido: {BRL.format(minValidBid)}
+                    {T.minValidBid(BRL.format(minValidBid))}
                   </div>
                 </>
               )}

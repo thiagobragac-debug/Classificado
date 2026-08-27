@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useForm, FormProvider } from 'react-hook-form'
@@ -10,8 +10,9 @@ import dynamic from 'next/dynamic'
 
 import { createAd, updateAd } from '@/lib/supabase'
 import { showToast } from '@/lib/toast'
+import { useLang } from '@/lib/lang-context'
 import styles from './page.module.css'
-import { AnuncioSchema, AnuncioFormValues, InsertAdDTO } from './_components/schema'
+import { createAnuncioSchema, AnuncioFormValues, InsertAdDTO } from './_components/schema'
 import { StepData } from './_components/StepData'
 
 // Lazy load steps that are not immediately visible
@@ -43,8 +44,53 @@ interface AnunciarWizardProps {
   isEditMode: boolean;
 }
 
+// Strings exclusivas deste wizard (sem equivalente no dicionário global
+// I18N) — padrão local de TRANSLATIONS, igual components/ads/AdsSidebar.tsx.
+// "Início" usa o dicionário global (t('nav_home')) por ser texto genuinamente
+// compartilhado entre várias áreas do site.
+const TRANSLATIONS = {
+  pt: {
+    breadcrumbCreate: 'Novo Anúncio',
+    titleEdit: 'Editar Anúncio',
+    titleCreate: 'Criar Anúncio',
+    subtitle: 'Preencha os dados abaixo e alcance milhares de compradores no agronegócio.',
+    progressAria: 'Progresso do formulário',
+    step1: 'Dados do Anúncio',
+    step2: 'Localização',
+    step3: 'Fotos',
+    savingDraft: 'Salvando rascunho...',
+    draftSaved: 'Rascunho salvo',
+    saveError: 'Erro ao salvar:',
+    draftRestored: 'Rascunho recuperado. Você pode continuar de onde parou.',
+    draftPermError: 'Erro de permissão no rascunho. Reiniciando novo.',
+    almostThere: 'Quase lá! Faça login ou cadastre-se para publicar seu anúncio.',
+    submitSuccess: 'Anúncio enviado com sucesso!',
+    submitError: 'Erro ao publicar o anúncio. Tente novamente.',
+  },
+  es: {
+    breadcrumbCreate: 'Nuevo Anuncio',
+    titleEdit: 'Editar Anuncio',
+    titleCreate: 'Crear Anuncio',
+    subtitle: 'Completa los datos a continuación y llega a miles de compradores del agronegocio.',
+    progressAria: 'Progreso del formulario',
+    step1: 'Datos del Anuncio',
+    step2: 'Ubicación',
+    step3: 'Fotos',
+    savingDraft: 'Guardando borrador...',
+    draftSaved: 'Borrador guardado',
+    saveError: 'Error al guardar:',
+    draftRestored: 'Borrador recuperado. Puedes continuar donde lo dejaste.',
+    draftPermError: 'Error de permiso en el borrador. Reiniciando uno nuevo.',
+    almostThere: '¡Ya casi! Inicia sesión o regístrate para publicar tu anuncio.',
+    submitSuccess: '¡Anuncio publicado con éxito!',
+    submitError: 'Error al publicar el anuncio. Inténtalo de nuevo.',
+  },
+} as const
+
 export function AnunciarWizard({ initialData, userProfile, isEditMode }: AnunciarWizardProps) {
   const router = useRouter()
+  const { t, lang } = useLang()
+  const tr = TRANSLATIONS[lang]
 
   const [currentStep, setCurrentStep] = useState(1)
   const [direction, setDirection] = useState(1)
@@ -53,8 +99,10 @@ export function AnunciarWizard({ initialData, userProfile, isEditMode }: Anuncia
   const [draftId, setDraftId] = useState<string | null>(initialData?.id || null)
   const draftTimer = useRef<NodeJS.Timeout | null>(null)
 
+  const anuncioSchema = useMemo(() => createAnuncioSchema(lang), [lang])
+
   const methods = useForm<AnuncioFormValues>({
-    resolver: zodResolver(AnuncioSchema),
+    resolver: zodResolver(anuncioSchema),
     defaultValues: {
       titulo: initialData?.title_pt || '',
       categoria: initialData?.category_id || '',
@@ -105,7 +153,7 @@ export function AnunciarWizard({ initialData, userProfile, isEditMode }: Anuncia
           });
           // Após carregar, remover para não recarregar se o usuário começar novamente
           localStorage.removeItem('tc_draft_ad');
-          showToast('Rascunho recuperado. Você pode continuar de onde parou.', 'info');
+          showToast(tr.draftRestored, 'info');
         } catch(e) {
           // Draft corrompido — limpar
           localStorage.removeItem('tc_draft_ad');
@@ -113,7 +161,7 @@ export function AnunciarWizard({ initialData, userProfile, isEditMode }: Anuncia
         }
       }
     }
-  }, [initialData, isEditMode, reset, userProfile]);
+  }, [initialData, isEditMode, reset, userProfile, tr]);
 
   // Prevent accidental tab closing when saving or submitting
   useEffect(() => {
@@ -175,13 +223,13 @@ export function AnunciarWizard({ initialData, userProfile, isEditMode }: Anuncia
           // Prevenção contra spoofing/falha RLS: se não tem permissão para alterar este draft, limpa o ID
           if (e.code === '403' || e.message?.includes('RLS') || e.code === '42501') {
             setDraftId(null)
-            showToast('Erro de permissão no rascunho. Reiniciando novo.', 'error')
+            showToast(tr.draftPermError, 'error')
           }
         }
       }, 1500)
     })
     return () => subscription.unsubscribe()
-  }, [watch, draftId, isEditMode, initialData, getValues])
+  }, [watch, draftId, isEditMode, initialData, getValues, tr])
 
 
   const preparePayload = (data: AnuncioFormValues, status: InsertAdDTO['status']): InsertAdDTO => {
@@ -228,7 +276,7 @@ export function AnunciarWizard({ initialData, userProfile, isEditMode }: Anuncia
           expires: Date.now() + 24 * 60 * 60 * 1000, // 24 horas
         };
         localStorage.setItem('tc_draft_ad', JSON.stringify(draftWithExpiry));
-        showToast('Quase lá! Faça login ou cadastre-se para publicar seu anúncio.', 'info');
+        showToast(tr.almostThere, 'info');
         router.push('/login?redirectTo=/anunciar');
         return;
       }
@@ -238,11 +286,11 @@ export function AnunciarWizard({ initialData, userProfile, isEditMode }: Anuncia
       } else {
         await createAd(payload)
       }
-      
-      showToast('Anúncio enviado com sucesso!', 'success')
+
+      showToast(tr.submitSuccess, 'success')
       router.push('/painel?success=1')
     } catch (err: any) {
-      showToast(err.message || 'Erro ao publicar o anúncio. Tente novamente.', 'error')
+      showToast(err.message || tr.submitError, 'error')
       setIsSubmitting(false)
     }
   }
@@ -265,15 +313,15 @@ export function AnunciarWizard({ initialData, userProfile, isEditMode }: Anuncia
           <div className="list-hero-inner">
             <div>
               <nav aria-label="Breadcrumb" className="breadcrumb">
-                <Link href="/">Início</Link>
+                <Link href="/">{t('nav_home')}</Link>
                 <span aria-hidden="true">›</span>
-                <span>Novo Anúncio</span>
+                <span>{tr.breadcrumbCreate}</span>
               </nav>
               <h1 className="list-hero-title">
-                {isEditMode ? 'Editar Anúncio' : 'Criar Anúncio'}
+                {isEditMode ? tr.titleEdit : tr.titleCreate}
               </h1>
               <p className="list-hero-count">
-                Preencha os dados abaixo e alcance milhares de compradores no agronegócio.
+                {tr.subtitle}
               </p>
             </div>
           </div>
@@ -283,40 +331,40 @@ export function AnunciarWizard({ initialData, userProfile, isEditMode }: Anuncia
       <main className="container">
         <div className={styles.anunciarLayout}>
           
-          <div className={styles.stepProgress} role="tablist" aria-label="Progresso do formulário">
-            <button 
+          <div className={styles.stepProgress} role="tablist" aria-label={tr.progressAria}>
+            <button
               type="button"
               className={`${styles.stepItem} ${currentStep >= 1 ? styles.active : ''}`}
               onClick={() => currentStep > 1 && navigateToStep(1)}
               disabled={currentStep < 1}
               aria-current={currentStep === 1 ? 'step' : undefined}
             >
-              <div className={styles.stepNum}>1</div><span className={styles.stepLabel}>Dados do Anúncio</span>
+              <div className={styles.stepNum}>1</div><span className={styles.stepLabel}>{tr.step1}</span>
             </button>
-            <button 
+            <button
               type="button"
               className={`${styles.stepItem} ${currentStep >= 2 ? styles.active : ''}`}
               onClick={() => currentStep > 2 && navigateToStep(2)}
               disabled={currentStep < 2}
               aria-current={currentStep === 2 ? 'step' : undefined}
             >
-              <div className={styles.stepNum}>2</div><span className={styles.stepLabel}>Localização</span>
+              <div className={styles.stepNum}>2</div><span className={styles.stepLabel}>{tr.step2}</span>
             </button>
-            <button 
+            <button
               type="button"
               className={`${styles.stepItem} ${currentStep >= 3 ? styles.active : ''}`}
               onClick={() => currentStep > 3 && navigateToStep(3)}
               disabled={currentStep < 3}
               aria-current={currentStep === 3 ? 'step' : undefined}
             >
-              <div className={styles.stepNum}>3</div><span className={styles.stepLabel}>Fotos</span>
+              <div className={styles.stepNum}>3</div><span className={styles.stepLabel}>{tr.step3}</span>
             </button>
           </div>
-          
+
           <div className={`${styles.saveStatusContainer} ${saveStatus === 'saving' ? styles.saving : (saveStatus === 'saved' ? styles.saved : (saveStatus !== 'idle' ? styles.error : ''))}`} aria-live="polite">
-            {saveStatus === 'saving' && <><span className={styles.spinner}></span> Salvando rascunho...</>}
-            {saveStatus === 'saved' && <>Rascunho salvo</>}
-            {saveStatus !== 'idle' && saveStatus !== 'saving' && saveStatus !== 'saved' && <>Erro ao salvar: {saveStatus}</>}
+            {saveStatus === 'saving' && <><span className={styles.spinner}></span> {tr.savingDraft}</>}
+            {saveStatus === 'saved' && <>{tr.draftSaved}</>}
+            {saveStatus !== 'idle' && saveStatus !== 'saving' && saveStatus !== 'saved' && <>{tr.saveError} {saveStatus}</>}
           </div>
 
           <FormProvider {...methods}>

@@ -325,7 +325,11 @@ export async function getMyMessages() {
   if (!session) return [];
   const { data, error } = await getSupabase()
     .from('messages')
-    .select('*, ads(title_pt, images), sender:profiles!messages_sender_id_fkey(name, avatar_url), receiver:profiles!messages_receiver_id_fkey(name, avatar_url)')
+    // BUG CORRIGIDO (auditoria de i18n, verificação independente 2026-08-27):
+    // só buscava title_pt — MessagesTab.tsx já sabia escolher title_es
+    // quando lang='es', mas a query nunca trazia essa coluna, então o
+    // título do anúncio na conversa ficava sempre em português.
+    .select('*, ads(title_pt, title_es, images), sender:profiles!messages_sender_id_fkey(name, avatar_url), receiver:profiles!messages_receiver_id_fkey(name, avatar_url)')
     .or(`sender_id.eq.${session.user.id},receiver_id.eq.${session.user.id}`)
     .order('created_at', { ascending: false })
     .limit(100);

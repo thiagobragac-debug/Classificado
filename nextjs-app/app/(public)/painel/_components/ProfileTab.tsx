@@ -7,11 +7,101 @@ import { z } from 'zod';
 import { updateProfile, getSupabase } from '@/lib/supabase';
 import { resendVerificationEmail } from '@/lib/supabase-panel';
 import { showToast } from '@/lib/toast';
+import { useLang } from '@/lib/lang-context';
 import styles from '../painel.module.css';
 import { Lock } from 'lucide-react';
 
+const TRANSLATIONS = {
+  pt: {
+    title: 'Meu Perfil', subtitle: 'Informações da sua conta',
+    profileBanner: 'Banner de Perfil',
+    bannerLocked: 'Banner de perfil é um recurso do plano Premium.',
+    upgrade: 'Fazer upgrade',
+    sending: 'Enviando...', changeBanner: 'Trocar banner', sendBanner: 'Enviar banner',
+    personalData: 'Dados Pessoais',
+    fullName: 'Nome completo', namePh: 'Seu nome',
+    displayName: 'Nome de Exibição / Fazenda', displayNamePh: 'Ex: Fazenda São João',
+    document: 'CPF / CNPJ', documentPh: '000.000.000-00',
+    whatsapp: 'WhatsApp / Telefone', whatsappPh: '+55 (99) 9 9999-9999',
+    zip: 'CEP', zipOther: 'Código Postal', zipPh: '00000-000',
+    street: 'Endereço (Rua/Av)', streetPh: 'Ex: Av. Brasil',
+    number: 'Número', numberPh: 'Ex: 1000',
+    complement: 'Complemento', complementPh: 'Apto, Sala, Bloco...',
+    neighborhood: 'Bairro', neighborhoodPh: 'Seu bairro',
+    city: 'Cidade', cityPh: 'Sua cidade',
+    state: 'Estado (UF)', province: 'Província', statePh: 'Ex: SP, MT...',
+    country: 'País',
+    countries: { BR: '🇧🇷 Brasil', AR: '🇦🇷 Argentina', PY: '🇵🇾 Paraguai', UY: '🇺🇾 Uruguai', BO: '🇧🇴 Bolívia' },
+    bio: 'Bio / Apresentação', bioPh: 'Conte sobre você ou sua propriedade…',
+    saving: 'Salvando...', save: 'Salvar Perfil',
+    kycTitle: 'Verificação KYC',
+    kycDesc: 'Complete as verificações abaixo para ganhar o selo de Vendedor Ouro e aumentar suas vendas.',
+    email: 'E-mail', verified: 'Verificado', pending: 'Pendente',
+    emailDesc: 'Verifique seu e-mail para receber notificações.',
+    resendEmail: 'Reenviar e-mail',
+    whatsappTitle: 'WhatsApp',
+    verifyWhatsapp: 'Verificar WhatsApp',
+    whatsappMsg: 'Olá, quero verificar meu WhatsApp no Tauze Class. Meu e-mail é: ',
+    identity: 'Identidade', approved: 'Aprovado', inReview: 'Em Análise', notSent: 'Não Enviado',
+    identityDesc: 'Envie RG/CNH e selfie.',
+    sendDocs: 'Enviar Documentos',
+    imageError: 'Envie uma imagem (PNG, JPEG ou WebP).',
+    bannerUpdated: 'Banner de perfil atualizado!',
+    bannerError: 'Erro ao enviar banner: ',
+    docExists: 'Este CPF/CNPJ já está cadastrado em outra conta.',
+    saveError: 'Erro ao salvar perfil.',
+    saveSuccess: 'Perfil salvo com sucesso!',
+    resendSuccess: 'E-mail de confirmação reenviado!',
+    resendError: 'Erro ao reenviar e-mail.',
+    nameTooShort: 'Nome muito curto',
+  },
+  es: {
+    title: 'Mi Perfil', subtitle: 'Información de tu cuenta',
+    profileBanner: 'Banner de Perfil',
+    bannerLocked: 'El banner de perfil es una función del plan Premium.',
+    upgrade: 'Hacer upgrade',
+    sending: 'Enviando...', changeBanner: 'Cambiar banner', sendBanner: 'Enviar banner',
+    personalData: 'Datos Personales',
+    fullName: 'Nombre completo', namePh: 'Tu nombre',
+    displayName: 'Nombre Público / Estancia', displayNamePh: 'Ej: Estancia San Juan',
+    document: 'Documento de Identidad', documentPh: 'Número de documento',
+    whatsapp: 'WhatsApp / Teléfono', whatsappPh: '+00 (00) 0000-0000',
+    zip: 'Código Postal', zipOther: 'Código Postal', zipPh: '0000',
+    street: 'Dirección (Calle/Av)', streetPh: 'Ej: Av. Brasil',
+    number: 'Número', numberPh: 'Ej: 1000',
+    complement: 'Complemento', complementPh: 'Depto, Piso, Bloque...',
+    neighborhood: 'Barrio', neighborhoodPh: 'Tu barrio',
+    city: 'Ciudad', cityPh: 'Tu ciudad',
+    state: 'Estado (UF)', province: 'Provincia', statePh: '',
+    country: 'País',
+    countries: { BR: '🇧🇷 Brasil', AR: '🇦🇷 Argentina', PY: '🇵🇾 Paraguay', UY: '🇺🇾 Uruguay', BO: '🇧🇴 Bolivia' },
+    bio: 'Bio / Presentación', bioPh: 'Cuéntanos sobre ti o tu propiedad…',
+    saving: 'Guardando...', save: 'Guardar Perfil',
+    kycTitle: 'Verificación KYC',
+    kycDesc: 'Completa las verificaciones a continuación para ganar el sello de Vendedor Oro y aumentar tus ventas.',
+    email: 'Correo Electrónico', verified: 'Verificado', pending: 'Pendiente',
+    emailDesc: 'Verifica tu correo electrónico para recibir notificaciones.',
+    resendEmail: 'Reenviar correo',
+    whatsappTitle: 'WhatsApp',
+    verifyWhatsapp: 'Verificar WhatsApp',
+    whatsappMsg: 'Hola, quiero verificar mi WhatsApp en Tauze Class. Mi correo es: ',
+    identity: 'Identidad', approved: 'Aprobado', inReview: 'En Revisión', notSent: 'No Enviado',
+    identityDesc: 'Envía tu documento de identidad y una selfie.',
+    sendDocs: 'Enviar Documentos',
+    imageError: 'Envía una imagen (PNG, JPEG o WebP).',
+    bannerUpdated: '¡Banner de perfil actualizado!',
+    bannerError: 'Error al enviar el banner: ',
+    docExists: 'Este documento ya está registrado en otra cuenta.',
+    saveError: 'Error al guardar el perfil.',
+    saveSuccess: '¡Perfil guardado con éxito!',
+    resendSuccess: '¡Correo de confirmación reenviado!',
+    resendError: 'Error al reenviar el correo.',
+    nameTooShort: 'Nombre muy corto',
+  },
+};
+
 const profileSchema = z.object({
-  name: z.string().min(2, 'Nome muito curto'),
+  name: z.string().min(2),
   display_name: z.string().optional(),
   phone_whatsapp: z.string().optional(),
   document_number: z.string().optional(),
@@ -29,6 +119,8 @@ const profileSchema = z.object({
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
 export function ProfileTab({ user }: { user: any }) {
+  const { lang } = useLang();
+  const t = TRANSLATIONS[lang as keyof typeof TRANSLATIONS] || TRANSLATIONS.pt;
   const [saving, setSaving] = useState(false);
   const [kycStatus] = useState<string | undefined>(user.profile?.kyc_status);
 
@@ -63,7 +155,7 @@ export function ProfileTab({ user }: { user: any }) {
   const handleBannerUpload = async (file: File | null) => {
     if (!file) return;
     if (!file.type.startsWith('image/')) {
-      showToast('Envie uma imagem (PNG, JPEG ou WebP).', 'error');
+      showToast(t.imageError, 'error');
       return;
     }
     setUploadingBanner(true);
@@ -77,7 +169,7 @@ export function ProfileTab({ user }: { user: any }) {
       const { data: { publicUrl } } = sb.storage.from('profile-banners').getPublicUrl(path);
       await updateProfile(user.id, { banner_url: publicUrl });
       setBannerUrl(publicUrl);
-      showToast('Banner de perfil atualizado!', 'success');
+      showToast(t.bannerUpdated, 'success');
 
       // BUG CORRIGIDO (validação de 2026-08-26): cada troca de banner
       // deixava o arquivo anterior órfão no bucket — nunca era apagado,
@@ -91,7 +183,7 @@ export function ProfileTab({ user }: { user: any }) {
         }
       }
     } catch (err: any) {
-      showToast('Erro ao enviar banner: ' + (err.message || ''), 'error');
+      showToast(t.bannerError + (err.message || ''), 'error');
     } finally {
       setUploadingBanner(false);
     }
@@ -154,12 +246,12 @@ export function ProfileTab({ user }: { user: any }) {
         document_number: data.document_number ? data.document_number.replace(/\D/g, '') : data.document_number,
       };
       await updateProfile(user.id, payload);
-      showToast('Perfil salvo com sucesso!', 'success');
+      showToast(t.saveSuccess, 'success');
     } catch (err: any) {
       if (err?.code === '23505') {
-        showToast('Este CPF/CNPJ já está cadastrado em outra conta.', 'error');
+        showToast(t.docExists, 'error');
       } else {
-        showToast('Erro ao salvar perfil.', 'error');
+        showToast(t.saveError, 'error');
       }
     } finally {
       setSaving(false);
@@ -170,127 +262,127 @@ export function ProfileTab({ user }: { user: any }) {
     if (!user.email) return;
     try {
       await resendVerificationEmail(user.email);
-      showToast('E-mail de confirmação reenviado!', 'success');
+      showToast(t.resendSuccess, 'success');
     } catch {
-      showToast('Erro ao reenviar e-mail.', 'error');
+      showToast(t.resendError, 'error');
     }
   };
 
   return (
     <div className={styles.fadeIn}>
       <div style={{ marginBottom: '1.5rem' }}>
-        <h1 className={styles.headerTitle}>Meu Perfil</h1>
-        <p className={styles.headerSubtitle}>Informações da sua conta</p>
+        <h1 className={styles.headerTitle}>{t.title}</h1>
+        <p className={styles.headerSubtitle}>{t.subtitle}</p>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 1fr)', gap: '1.5rem', alignItems: 'start' }} className="profile-two-col">
         {/* Formulário de Dados */}
         <div className={styles.card} style={{ padding: '1.5rem' }}>
-          <p style={{ fontSize: '.75rem', fontWeight: 700, letterSpacing: '.06em', color: 'var(--clr-text-light)', textTransform: 'uppercase', marginBottom: '1rem' }}>Banner de Perfil</p>
+          <p style={{ fontSize: '.75rem', fontWeight: 700, letterSpacing: '.06em', color: 'var(--clr-text-light)', textTransform: 'uppercase', marginBottom: '1rem' }}>{t.profileBanner}</p>
           {!hasBannerPlan ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '.6rem', padding: '.9rem 1rem', background: 'var(--clr-bg-alt)', borderRadius: '.75rem', color: 'var(--clr-text-muted)', fontSize: '.88rem', marginBottom: '1.5rem' }}>
               <Lock size={16} />
-              Banner de perfil é um recurso do plano Premium. <a href="/planos" style={{ color: 'var(--clr-primary)', fontWeight: 600 }}>Fazer upgrade</a>
+              {t.bannerLocked} <a href="/planos" style={{ color: 'var(--clr-primary)', fontWeight: 600 }}>{t.upgrade}</a>
             </div>
           ) : (
             <div style={{ marginBottom: '1.5rem' }}>
               {bannerUrl && (
-                <img src={bannerUrl} alt="Banner do perfil" style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: '.75rem', marginBottom: '.75rem' }} />
+                <img src={bannerUrl} alt={t.profileBanner} style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: '.75rem', marginBottom: '.75rem' }} />
               )}
               <label style={{ display: 'inline-flex', alignItems: 'center', gap: '.5rem', padding: '.6rem 1.1rem', border: '1.5px dashed var(--clr-border-light)', borderRadius: '.75rem', cursor: uploadingBanner ? 'not-allowed' : 'pointer', background: 'var(--clr-bg-alt)', fontSize: '.85rem', fontWeight: 700 }}>
-                {uploadingBanner ? 'Enviando...' : bannerUrl ? 'Trocar banner' : 'Enviar banner'}
+                {uploadingBanner ? t.sending : bannerUrl ? t.changeBanner : t.sendBanner}
                 <input type="file" accept="image/png,image/jpeg,image/webp" style={{ display: 'none' }} disabled={uploadingBanner} onChange={e => handleBannerUpload(e.target.files?.[0] || null)} />
               </label>
             </div>
           )}
 
-          <p style={{ fontSize: '.75rem', fontWeight: 700, letterSpacing: '.06em', color: 'var(--clr-text-light)', textTransform: 'uppercase', marginBottom: '1rem' }}>Dados Pessoais</p>
+          <p style={{ fontSize: '.75rem', fontWeight: 700, letterSpacing: '.06em', color: 'var(--clr-text-light)', textTransform: 'uppercase', marginBottom: '1rem' }}>{t.personalData}</p>
 
           <form onSubmit={handleSubmit(onSubmit)}>
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: '1.25rem' }}>
               <div>
-                <label className={styles.formLabel}>Nome completo</label>
-                <input {...register('name')} placeholder="Seu nome" className={styles.formInput} />
-                {errors.name && <span className={styles.formError}>{errors.name.message}</span>}
-              </div>
-              
-              <div>
-                <label className={styles.formLabel}>Nome de Exibição / Fazenda</label>
-                <input {...register('display_name')} placeholder="Ex: Fazenda São João" className={styles.formInput} />
+                <label className={styles.formLabel}>{t.fullName}</label>
+                <input {...register('name')} placeholder={t.namePh} className={styles.formInput} />
+                {errors.name && <span className={styles.formError}>{t.nameTooShort}</span>}
               </div>
 
               <div>
-                <label className={styles.formLabel}>CPF / CNPJ</label>
-                <input {...register('document_number')} placeholder="000.000.000-00" className={styles.formInput} />
+                <label className={styles.formLabel}>{t.displayName}</label>
+                <input {...register('display_name')} placeholder={t.displayNamePh} className={styles.formInput} />
               </div>
 
               <div>
-                <label className={styles.formLabel}>WhatsApp / Telefone</label>
-                <input {...register('phone_whatsapp')} placeholder="+55 (99) 9 9999-9999" type="tel" className={styles.formInput} />
+                <label className={styles.formLabel}>{t.document}</label>
+                <input {...register('document_number')} placeholder={t.documentPh} className={styles.formInput} />
               </div>
 
               <div>
-                <label className={styles.formLabel}>{country === 'BR' ? 'CEP' : 'Código Postal'}</label>
-                <input {...register('zip_code')} onBlur={handleCep} placeholder="00000-000" className={styles.formInput} />
+                <label className={styles.formLabel}>{t.whatsapp}</label>
+                <input {...register('phone_whatsapp')} placeholder={t.whatsappPh} type="tel" className={styles.formInput} />
               </div>
 
               <div>
-                <label className={styles.formLabel}>Endereço (Rua/Av)</label>
-                <input {...register('street')} placeholder="Ex: Av. Brasil" className={styles.formInput} />
+                <label className={styles.formLabel}>{country === 'BR' ? t.zip : t.zipOther}</label>
+                <input {...register('zip_code')} onBlur={handleCep} placeholder={t.zipPh} className={styles.formInput} />
               </div>
 
               <div>
-                <label className={styles.formLabel}>Número</label>
-                <input {...register('number')} placeholder="Ex: 1000" className={styles.formInput} />
+                <label className={styles.formLabel}>{t.street}</label>
+                <input {...register('street')} placeholder={t.streetPh} className={styles.formInput} />
               </div>
 
               <div>
-                <label className={styles.formLabel}>Complemento</label>
-                <input {...register('complement')} placeholder="Apto, Sala, Bloco..." className={styles.formInput} />
+                <label className={styles.formLabel}>{t.number}</label>
+                <input {...register('number')} placeholder={t.numberPh} className={styles.formInput} />
               </div>
 
               <div>
-                <label className={styles.formLabel}>Bairro</label>
-                <input {...register('neighborhood')} placeholder="Seu bairro" className={styles.formInput} />
+                <label className={styles.formLabel}>{t.complement}</label>
+                <input {...register('complement')} placeholder={t.complementPh} className={styles.formInput} />
               </div>
 
               <div>
-                <label className={styles.formLabel}>Cidade</label>
-                <input {...register('city')} placeholder="Sua cidade" className={styles.formInput} />
+                <label className={styles.formLabel}>{t.neighborhood}</label>
+                <input {...register('neighborhood')} placeholder={t.neighborhoodPh} className={styles.formInput} />
               </div>
 
               <div>
-                <label className={styles.formLabel}>{country === 'BR' ? 'Estado (UF)' : 'Província'}</label>
-                <input {...register('state')} placeholder={country === 'BR' ? 'Ex: SP, MT...' : ''} className={styles.formInput} />
+                <label className={styles.formLabel}>{t.city}</label>
+                <input {...register('city')} placeholder={t.cityPh} className={styles.formInput} />
               </div>
 
               <div>
-                <label className={styles.formLabel}>País</label>
+                <label className={styles.formLabel}>{country === 'BR' ? t.state : t.province}</label>
+                <input {...register('state')} placeholder={country === 'BR' ? t.statePh : ''} className={styles.formInput} />
+              </div>
+
+              <div>
+                <label className={styles.formLabel}>{t.country}</label>
                 <select {...register('country')} className={styles.formInput} style={{ cursor: 'pointer' }}>
-                  <option value="BR">🇧🇷 Brasil</option>
-                  <option value="AR">🇦🇷 Argentina</option>
-                  <option value="PY">🇵🇾 Paraguai</option>
-                  <option value="UY">🇺🇾 Uruguai</option>
-                  <option value="BO">🇧🇴 Bolívia</option>
+                  <option value="BR">{t.countries.BR}</option>
+                  <option value="AR">{t.countries.AR}</option>
+                  <option value="PY">{t.countries.PY}</option>
+                  <option value="UY">{t.countries.UY}</option>
+                  <option value="BO">{t.countries.BO}</option>
                 </select>
               </div>
 
               <div style={{ gridColumn: '1 / -1' }}>
-                <label className={styles.formLabel}>Bio / Apresentação</label>
-                <textarea {...register('bio')} rows={3} placeholder="Conte sobre você ou sua propriedade…" className={styles.formInput} style={{ resize: 'vertical' }} />
+                <label className={styles.formLabel}>{t.bio}</label>
+                <textarea {...register('bio')} rows={3} placeholder={t.bioPh} className={styles.formInput} style={{ resize: 'vertical' }} />
               </div>
             </div>
 
             <button type="submit" disabled={saving} className={styles.primaryButton} style={{ marginTop: '1.5rem', width: '100%', justifyContent: 'center' }}>
-              {saving ? 'Salvando...' : 'Salvar Perfil'}
+              {saving ? t.saving : t.save}
             </button>
           </form>
         </div>
 
         {/* Verificações */}
         <div className={styles.card} style={{ padding: '2rem' }}>
-          <p style={{ fontSize: '.75rem', fontWeight: 700, letterSpacing: '.06em', color: 'var(--clr-text-light)', textTransform: 'uppercase', marginBottom: '1rem' }}>Verificação KYC</p>
-          <p style={{ color: 'var(--clr-text-muted)', marginBottom: '1.5rem', fontSize: '0.9rem' }}>Complete as verificações abaixo para ganhar o selo de Vendedor Ouro e aumentar suas vendas.</p>
+          <p style={{ fontSize: '.75rem', fontWeight: 700, letterSpacing: '.06em', color: 'var(--clr-text-light)', textTransform: 'uppercase', marginBottom: '1rem' }}>{t.kycTitle}</p>
+          <p style={{ color: 'var(--clr-text-muted)', marginBottom: '1.5rem', fontSize: '0.9rem' }}>{t.kycDesc}</p>
 
           <div style={{ display: 'flex', gap: '1.5rem', flexDirection: 'column' }}>
             {/* EMAIL */}
@@ -300,17 +392,17 @@ export function ProfileTab({ user }: { user: any }) {
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '.25rem' }}>
-                  <h3 style={{ fontWeight: 700, margin: 0, fontSize: '1rem' }}>E-mail</h3>
+                  <h3 style={{ fontWeight: 700, margin: 0, fontSize: '1rem' }}>{t.email}</h3>
                   {user.email_confirmed_at ? (
-                    <span className={`${styles.statusBadge} ${styles.statusActive}`}>Verificado</span>
+                    <span className={`${styles.statusBadge} ${styles.statusActive}`}>{t.verified}</span>
                   ) : (
-                    <span className={`${styles.statusBadge} ${styles.statusPending}`}>Pendente</span>
+                    <span className={`${styles.statusBadge} ${styles.statusPending}`}>{t.pending}</span>
                   )}
                 </div>
-                <p style={{ color: 'var(--clr-text-muted)', fontSize: '.9rem', marginBottom: '1rem' }}>Verifique seu e-mail para receber notificações.</p>
+                <p style={{ color: 'var(--clr-text-muted)', fontSize: '.9rem', marginBottom: '1rem' }}>{t.emailDesc}</p>
                 {!user.email_confirmed_at && (
                   <button type="button" onClick={handleResendEmail} className={styles.secondaryButton} style={{ width: '100%' }}>
-                    Reenviar e-mail
+                    {t.resendEmail}
                   </button>
                 )}
               </div>
@@ -323,16 +415,16 @@ export function ProfileTab({ user }: { user: any }) {
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '.25rem' }}>
-                  <h3 style={{ fontWeight: 700, margin: 0, fontSize: '1rem' }}>WhatsApp</h3>
+                  <h3 style={{ fontWeight: 700, margin: 0, fontSize: '1rem' }}>{t.whatsappTitle}</h3>
                   {user.profile?.phone_whatsapp ? (
-                    <span className={`${styles.statusBadge} ${styles.statusActive}`}>Verificado</span>
+                    <span className={`${styles.statusBadge} ${styles.statusActive}`}>{t.verified}</span>
                   ) : (
-                    <span className={`${styles.statusBadge} ${styles.statusPending}`}>Pendente</span>
+                    <span className={`${styles.statusBadge} ${styles.statusPending}`}>{t.pending}</span>
                   )}
                 </div>
                 {!user.profile?.phone_whatsapp && (
-                  <a href={`https://wa.me/5500000000000?text=${encodeURIComponent('Olá, quero verificar meu WhatsApp no Tauze Class. Meu e-mail é: ' + (user.email || ''))}`} target="_blank" rel="noopener noreferrer" className={styles.primaryButton} style={{ width: '100%', justifyContent: 'center', marginTop: '1rem' }}>
-                    Verificar WhatsApp
+                  <a href={`https://wa.me/5500000000000?text=${encodeURIComponent(t.whatsappMsg + (user.email || ''))}`} target="_blank" rel="noopener noreferrer" className={styles.primaryButton} style={{ width: '100%', justifyContent: 'center', marginTop: '1rem' }}>
+                    {t.verifyWhatsapp}
                   </a>
                 )}
               </div>
@@ -345,16 +437,16 @@ export function ProfileTab({ user }: { user: any }) {
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '.25rem' }}>
-                  <h3 style={{ fontWeight: 700, margin: 0, fontSize: '1rem' }}>Identidade</h3>
+                  <h3 style={{ fontWeight: 700, margin: 0, fontSize: '1rem' }}>{t.identity}</h3>
                   {(kycStatus === 'approved') ? (
-                    <span className={`${styles.statusBadge} ${styles.statusActive}`}>Aprovado</span>
+                    <span className={`${styles.statusBadge} ${styles.statusActive}`}>{t.approved}</span>
                   ) : (kycStatus === 'pending') ? (
-                    <span className={`${styles.statusBadge} ${styles.statusPending}`}>Em Análise</span>
+                    <span className={`${styles.statusBadge} ${styles.statusPending}`}>{t.inReview}</span>
                   ) : (
-                    <span className={`${styles.statusBadge} ${styles.statusExpired}`}>Não Enviado</span>
+                    <span className={`${styles.statusBadge} ${styles.statusExpired}`}>{t.notSent}</span>
                   )}
                 </div>
-                <p style={{ color: 'var(--clr-text-muted)', fontSize: '.9rem', marginBottom: '1rem' }}>Envie RG/CNH e selfie.</p>
+                <p style={{ color: 'var(--clr-text-muted)', fontSize: '.9rem', marginBottom: '1rem' }}>{t.identityDesc}</p>
 
                 {/* BUG CORRIGIDO (revisão de regras de negócio, 2026-08-25):
                     esta tela tinha seu PRÓPRIO formulário de envio de KYC,
@@ -370,7 +462,7 @@ export function ProfileTab({ user }: { user: any }) {
                     fim, este vira um link pro que já funciona. */}
                 {(!kycStatus || !['pending', 'approved'].includes(kycStatus)) && (
                   <a href="/painel/verificacao" className={styles.primaryButton} style={{ width: '100%', justifyContent: 'center', background: '#0f172a', textDecoration: 'none' }}>
-                    Enviar Documentos
+                    {t.sendDocs}
                   </a>
                 )}
               </div>

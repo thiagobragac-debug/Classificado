@@ -4,20 +4,44 @@ import React, { useState, useMemo, useEffect } from 'react';
 import useSWR from 'swr';
 import { getMyMessages, sendMessage, getSupabase } from '@/lib/supabase';
 import { showToast } from '@/lib/toast';
+import { useLang } from '@/lib/lang-context';
 import styles from '../painel.module.css';
 
-function fDate(iso: string) {
+const TRANSLATIONS = {
+  pt: {
+    title: 'Mensagens', subtitle: 'Conversas sobre seus anúncios',
+    search: 'Buscar conversas...',
+    user: 'Usuário', ad: 'Anúncio',
+    typeMessage: 'Digite sua mensagem…',
+    sendError: 'Erro ao enviar mensagem.',
+    noMessages: 'Nenhuma mensagem', noConversations: 'Você ainda não tem conversas.',
+    back: 'Voltar',
+  },
+  es: {
+    title: 'Mensajes', subtitle: 'Conversaciones sobre tus anuncios',
+    search: 'Buscar conversaciones...',
+    user: 'Usuario', ad: 'Anuncio',
+    typeMessage: 'Escribe tu mensaje…',
+    sendError: 'Error al enviar el mensaje.',
+    noMessages: 'Ningún mensaje', noConversations: 'Todavía no tienes conversaciones.',
+    back: 'Volver',
+  },
+};
+
+function fDate(iso: string, lang = 'pt') {
   const d = new Date(iso);
   const now = new Date();
   const diff = Math.floor((now.getTime() - d.getTime()) / 1000);
-  if (diff < 60) return 'agora';
+  if (diff < 60) return lang === 'es' ? 'ahora' : 'agora';
   if (diff < 3600) return Math.floor(diff / 60) + 'min';
   if (diff < 86400) return Math.floor(diff / 3600) + 'h';
   if (diff < 2592000) return Math.floor(diff / 86400) + 'd';
-  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+  return d.toLocaleDateString(lang === 'es' ? 'es-AR' : 'pt-BR', { day: '2-digit', month: 'short' });
 }
 
 export function MessagesTab({ userId }: { userId: string }) {
+  const { lang } = useLang();
+  const t = TRANSLATIONS[lang as keyof typeof TRANSLATIONS] || TRANSLATIONS.pt;
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [inputMsg, setInputMsg] = useState('');
@@ -72,21 +96,26 @@ export function MessagesTab({ userId }: { userId: string }) {
       const key = `${msg.ad_id}__${otherId}`;
       const otherProfile = msg.sender_id === userId ? msg.receiver : msg.sender;
       if (!convs[key]) {
-        convs[key] = { 
-          key, 
-          adId: msg.ad_id, 
-          otherId, 
-          otherName: otherProfile?.name || 'Usuário', 
-          adTitle: msg.ads?.title_pt || 'Anúncio', 
-          messages: [], 
-          lastDate: msg.created_at 
+        convs[key] = {
+          key,
+          adId: msg.ad_id,
+          otherId,
+          otherName: otherProfile?.name || t.user,
+          // BUG CORRIGIDO (auditoria i18n, 2026-08-27): checava title_pt
+          // primeiro sem olhar o idioma ativo — com ES selecionado, um
+          // anúncio com title_es preenchido continuava mostrando o título
+          // em português na lista de conversas. Mesmo padrão de fallback
+          // já usado em AdCard.tsx (title_es só se existir, senão title_pt).
+          adTitle: (lang === 'es' && msg.ads?.title_es ? msg.ads.title_es : msg.ads?.title_pt) || t.ad,
+          messages: [],
+          lastDate: msg.created_at
         };
       }
       convs[key].messages.push(msg);
       if (msg.created_at > convs[key].lastDate) convs[key].lastDate = msg.created_at;
     });
     return convs;
-  }, [messages, userId]);
+  }, [messages, userId, lang, t.user, t.ad]);
 
   const sendMsg = async () => {
     const txt = inputMsg.trim();
@@ -100,7 +129,7 @@ export function MessagesTab({ userId }: { userId: string }) {
       mutate(); // Trigger a refetch
       setInputMsg('');
     } catch {
-      showToast('Erro ao enviar mensagem.', 'error');
+      showToast(t.sendError, 'error');
     } finally {
       setSending(false);
     }
@@ -116,16 +145,16 @@ export function MessagesTab({ userId }: { userId: string }) {
     <div className={styles.fadeIn}>
       <div className={styles.flexBetween}>
         <div>
-          <h1 className={styles.headerTitle}>Mensagens</h1>
-          <p className={styles.headerSubtitle}>Conversas sobre seus anúncios</p>
+          <h1 className={styles.headerTitle}>{t.title}</h1>
+          <p className={styles.headerSubtitle}>{t.subtitle}</p>
         </div>
         {!activeConv && (
           <div style={{ position: 'relative', width: '100%', maxWidth: 320 }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--clr-text-light)" strokeWidth="2.5" style={{ position: 'absolute', left: '1.2rem', top: '50%', transform: 'translateY(-50%)' }}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input 
-              value={search} 
-              onChange={e => setSearch(e.target.value)} 
-              placeholder="Buscar conversas..."
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder={t.search}
               className={styles.formInput}
               style={{ paddingLeft: '2.8rem', borderRadius: '2rem' }}
             />
@@ -136,7 +165,7 @@ export function MessagesTab({ userId }: { userId: string }) {
       {activeConv ? (
         <div className={styles.card} style={{ display: 'flex', flexDirection: 'column', height: 520, overflow: 'hidden' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '.75rem', padding: '1rem 1.25rem', borderBottom: '1px solid var(--clr-border-light)' }}>
-            <button onClick={() => setActiveKey(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--clr-text-muted)', padding: '.3rem', borderRadius: '.4rem' }}>
+            <button onClick={() => setActiveKey(null)} aria-label={t.back} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--clr-text-muted)', padding: '.3rem', borderRadius: '.4rem' }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
             </button>
             <div>
@@ -159,17 +188,17 @@ export function MessagesTab({ userId }: { userId: string }) {
                     boxShadow: 'var(--shadow-xs)' 
                   }}>
                     {m.content}
-                    <div style={{ fontSize: '.7rem', opacity: .7, marginTop: '.3rem', textAlign: isMine ? 'right' : 'left' }}>{fDate(m.created_at)}</div>
+                    <div style={{ fontSize: '.7rem', opacity: .7, marginTop: '.3rem', textAlign: isMine ? 'right' : 'left' }}>{fDate(m.created_at, lang)}</div>
                   </div>
                 </div>
               );
             })}
           </div>
           <div style={{ display: 'flex', gap: '.5rem', alignItems: 'center', padding: '.75rem 1.25rem', borderTop: '1px solid var(--clr-border-light)', background: 'var(--clr-bg)' }}>
-            <textarea 
-              value={inputMsg} 
-              onChange={e => setInputMsg(e.target.value)} 
-              placeholder="Digite sua mensagem…" 
+            <textarea
+              value={inputMsg}
+              onChange={e => setInputMsg(e.target.value)}
+              placeholder={t.typeMessage}
               rows={1}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); } }}
               className={styles.formInput}
@@ -195,8 +224,8 @@ export function MessagesTab({ userId }: { userId: string }) {
           <div className={styles.emptyStateIcon}>
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" color="var(--clr-text-light)"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           </div>
-          <h3 className={styles.emptyStateTitle}>Nenhuma mensagem</h3>
-          <p className={styles.emptyStateDesc}>Você ainda não tem conversas.</p>
+          <h3 className={styles.emptyStateTitle}>{t.noMessages}</h3>
+          <p className={styles.emptyStateDesc}>{t.noConversations}</p>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '.75rem' }}>
@@ -218,7 +247,7 @@ export function MessagesTab({ userId }: { userId: string }) {
                   <div style={{ fontSize: '.78rem', color: 'var(--clr-text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{conv.adTitle}</div>
                   <div style={{ fontSize: '.78rem', color: 'var(--clr-text-light)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '.1rem' }}>{lastMsg?.content}</div>
                 </div>
-                <div style={{ fontSize: '.75rem', color: 'var(--clr-text-light)', flexShrink: 0 }}>{fDate(conv.lastDate)}</div>
+                <div style={{ fontSize: '.75rem', color: 'var(--clr-text-light)', flexShrink: 0 }}>{fDate(conv.lastDate, lang)}</div>
               </div>
             );
           })}

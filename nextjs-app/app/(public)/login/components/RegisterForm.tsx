@@ -10,8 +10,29 @@ interface RegisterFormProps {
   onSuccess: () => void
 }
 
+// Mensagens de toast/resultado de submissão e aria-labels exclusivos deste
+// formulário — padrão local de TRANSLATIONS (os labels de campo já usam o
+// dicionário global I18N via t(), isso aqui cobre só o que faltava).
+const TRANSLATIONS = {
+  pt: {
+    successCreated: 'Conta criada com sucesso! Você já pode fazer login.',
+    emailTaken: 'Este e-mail já está cadastrado.',
+    createError: 'Erro ao criar conta.',
+    hidePassword: 'Ocultar senha',
+    showPassword: 'Mostrar senha',
+  },
+  es: {
+    successCreated: '¡Cuenta creada con éxito! Ya puedes iniciar sesión.',
+    emailTaken: 'Este correo ya está registrado.',
+    createError: 'Error al crear la cuenta.',
+    hidePassword: 'Ocultar contraseña',
+    showPassword: 'Mostrar contraseña',
+  },
+} as const
+
 export function RegisterForm({ onSetAlert, onSuccess }: RegisterFormProps) {
-  const { t } = useLang()
+  const { t, lang } = useLang()
+  const tr = TRANSLATIONS[lang]
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
@@ -54,11 +75,11 @@ export function RegisterForm({ onSetAlert, onSuccess }: RegisterFormProps) {
         })
       }
 
-      onSetAlert('Conta criada com sucesso! Você já pode fazer login.', 'success')
+      onSetAlert(tr.successCreated, 'success')
       onSuccess()
     } catch (err: any) {
-      const msg = err.message?.includes('already registered') ? 'Este e-mail já está cadastrado.' : err.message
-      onSetAlert(msg || 'Erro ao criar conta.', 'error')
+      const msg = err.message?.includes('already registered') ? tr.emailTaken : err.message
+      onSetAlert(msg || tr.createError, 'error')
     } finally {
       setLoading(false)
     }
@@ -184,7 +205,7 @@ export function RegisterForm({ onSetAlert, onSuccess }: RegisterFormProps) {
           />
           <button 
             type="button"
-            aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+            aria-label={showPassword ? tr.hidePassword : tr.showPassword}
             className="toggle-password" 
             onClick={() => setShowPassword(!showPassword)}
             style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}

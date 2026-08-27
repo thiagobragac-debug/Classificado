@@ -1,26 +1,46 @@
 import { Suspense } from 'react';
+import { cookies } from 'next/headers';
+import type { Metadata } from 'next';
 import AuctionsBrowser from '@/components/auctions/AuctionsBrowser';
 import { createAnonClient } from '@/lib/supabase-server';
 
-export const metadata = {
-  title: 'Leilões Virtuais',
-  description: 'Acompanhe os próximos leilões virtuais de animais, máquinas e imóveis rurais. Dê seus lances e faça ótimos negócios no Mercosul.',
-  alternates: { canonical: 'https://tauzeclass.com.br/leiloes' },
-  openGraph: {
-    title: 'Leilões Virtuais | Tauze Class',
-    description: 'Acompanhe os próximos leilões virtuais de animais, máquinas e imóveis rurais no Mercosul.',
-    url: 'https://tauzeclass.com.br/leiloes',
-    type: 'website',
-    locale: 'pt_BR',
-    images: [{ url: 'https://tauzeclass.com.br/assets/og-home.jpg', width: 1200, height: 630, alt: 'Leilões Agro | Tauze Class' }],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'Leilões Virtuais | Tauze Class',
-    description: 'Acompanhe os próximos leilões virtuais de animais, máquinas e imóveis rurais.',
-    images: ['https://tauzeclass.com.br/assets/og-home.jpg'],
-  },
-};
+// BUG CORRIGIDO (auditoria de i18n, 2026-08-26/27): metadata era um objeto
+// estático sempre em português — o <title>/description da aba nunca mudava
+// com o idioma selecionado. generateMetadata lendo o cookie tc_lang segue o
+// mesmo padrão já usado em app/(public)/layout.tsx e app/(public)/eventos/page.tsx.
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = (await cookies()).get('tc_lang')?.value === 'es' ? 'es' : 'pt';
+
+  const title = lang === 'es' ? 'Remates Virtuales' : 'Leilões Virtuais';
+  const description = lang === 'es'
+    ? 'Seguí los próximos remates virtuales de animales, máquinas e inmuebles rurales. Ofertá y hacé excelentes negocios en el Mercosur.'
+    : 'Acompanhe os próximos leilões virtuais de animais, máquinas e imóveis rurais. Dê seus lances e faça ótimos negócios no Mercosul.';
+  const ogTitle = lang === 'es' ? 'Remates Virtuales | Tauze Class' : 'Leilões Virtuais | Tauze Class';
+  const ogDescription = lang === 'es'
+    ? 'Seguí los próximos remates virtuales de animales, máquinas e inmuebles rurales en el Mercosur.'
+    : 'Acompanhe os próximos leilões virtuais de animais, máquinas e imóveis rurais no Mercosul.';
+  const ogAlt = lang === 'es' ? 'Remates Agro | Tauze Class' : 'Leilões Agro | Tauze Class';
+
+  return {
+    title,
+    description,
+    alternates: { canonical: 'https://tauzeclass.com.br/leiloes' },
+    openGraph: {
+      title: ogTitle,
+      description: ogDescription,
+      url: 'https://tauzeclass.com.br/leiloes',
+      type: 'website',
+      locale: lang === 'es' ? 'es_AR' : 'pt_BR',
+      images: [{ url: 'https://tauzeclass.com.br/assets/og-home.jpg', width: 1200, height: 630, alt: ogAlt }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: ogTitle,
+      description: ogDescription,
+      images: ['https://tauzeclass.com.br/assets/og-home.jpg'],
+    },
+  };
+}
 
 export const revalidate = 60; // ISR 1 minuto
 
@@ -41,7 +61,8 @@ async function fetchAuctions(searchParams: any) {
   const sb = createAnonClient();
 
   // Selecionar apenas as colunas necessárias para o card
-  let query = sb.from('auction_events').select('id, title, date, cover, status, youtube, catalog');
+  // (title_es: auditoria de i18n — coluna nova, com fallback pra title)
+  let query = sb.from('auction_events').select('id, title, title_es, date, cover, status, youtube, catalog');
 
   // BUG CORRIGIDO (achado desde a 1ª rodada do teste completo, 2026-08-24,
   // só agora corrigido): o valor real de status para leilão encerrado é
@@ -99,6 +120,7 @@ async function fetchAuctions(searchParams: any) {
 
 export default async function LeiloesPage({ searchParams }: { searchParams: Promise<any> }) {
   const events = await fetchAuctions(searchParams);
+  const lang = (await cookies()).get('tc_lang')?.value === 'es' ? 'es' : 'pt';
 
   const ORGANIZER = {
     '@type': 'Organization',
@@ -112,9 +134,10 @@ export default async function LeiloesPage({ searchParams }: { searchParams: Prom
       const startDate = ev.date;
       const endDate = new Date(new Date(ev.date).getTime() + 4 * 60 * 60 * 1000).toISOString();
       const isOnline = !ev.location || ev.location.toLowerCase().includes('online');
+      const evTitle = lang === 'es' && ev.title_es ? ev.title_es : ev.title;
       return {
         '@type': 'Event',
-        name: ev.title,
+        name: evTitle,
         startDate,
         endDate,
         url: `https://tauzeclass.com.br/leiloes/${ev.id}`,
@@ -141,7 +164,7 @@ export default async function LeiloesPage({ searchParams }: { searchParams: Prom
                 addressCountry: 'BR',
               },
             },
-        description: ev.description || ev.title,
+        description: ev.description || evTitle,
         image: ev.cover
           ? ev.cover.startsWith('http')
             ? ev.cover

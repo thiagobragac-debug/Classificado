@@ -7,10 +7,15 @@ import { CAT_COLORS } from '@/lib/constants';
 import { useCategories } from '@/lib/categories-context';
 import { imageUrl } from '@/lib/storage';
 
-function formatRelativeTime(dateStr: string): string {
+const TRANSLATIONS = {
+  pt: { now: 'agora', favorite: 'Favoritar', noTitle: 'Sem título' },
+  es: { now: 'ahora', favorite: 'Marcar como favorito', noTitle: 'Sin título' },
+} as const;
+
+function formatRelativeTime(dateStr: string, lang: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const m = Math.floor(diff / 60000);
-  if (m < 1) return 'agora';
+  if (m < 1) return TRANSLATIONS[lang === 'es' ? 'es' : 'pt'].now;
   if (m < 60) return `${m}min`;
   const h = Math.floor(m / 60);
   if (h < 24) return `${h}h`;
@@ -37,6 +42,8 @@ export function AdCardHome({ ad, lang, favs, toggleFav, priority = false }: { ad
   const colors = CAT_COLORS[cat] || { bg: '#F8FAFC', clr: '#475569' };
   const img = ad.images?.[0] ? imageUrl(ad.images[0], '') : '';
   const isFav = !!favs[ad.id];
+  const tt = TRANSLATIONS[lang === 'es' ? 'es' : 'pt'];
+  const adTitle = lang === 'es' && ad.title_es ? ad.title_es : (ad.title_pt || tt.noTitle);
 
   return (
     <m.div
@@ -48,7 +55,7 @@ export function AdCardHome({ ad, lang, favs, toggleFav, priority = false }: { ad
       <Link href={`/anuncio/${ad.id}`} className={`ad-card${ad.featured ? ' ad-card--featured' : ''}`} style={{ flex: 1, width: '100%' }}>
       <div className="ad-card__image" style={{ position: 'relative' }}>
         {img ? (
-          <Image src={img} alt={ad.title_pt || ''} fill style={{ objectFit: 'cover' }} sizes="(max-width: 768px) 100vw, 300px" priority={priority} />
+          <Image src={img} alt={adTitle} fill style={{ objectFit: 'cover' }} sizes="(max-width: 768px) 100vw, 300px" priority={priority} />
         ) : (
           <div style={{ position: 'absolute', inset: 0, background: colors.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem' }}>
             🌿
@@ -57,7 +64,7 @@ export function AdCardHome({ ad, lang, favs, toggleFav, priority = false }: { ad
         {/* Favorite button */}
         <button
           className={`ad-card__fav ${isFav ? 'active' : ''}`}
-          aria-label="Favoritar"
+          aria-label={tt.favorite}
           onClick={(e) => { e.preventDefault(); toggleFav(ad.id); }}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -74,7 +81,7 @@ export function AdCardHome({ ad, lang, favs, toggleFav, priority = false }: { ad
         )}
       </div>
       <div className="ad-card__body">
-        <p className="ad-card__title">{lang === 'es' && ad.title_es ? ad.title_es : (ad.title_pt || 'Sem título')}</p>
+        <p className="ad-card__title">{adTitle}</p>
         <div className="ad-card__price">
           {formatPrice(ad.price, ad.currency, lang)}
         </div>
@@ -86,7 +93,7 @@ export function AdCardHome({ ad, lang, favs, toggleFav, priority = false }: { ad
             </svg>
             <span>{[ad.city, ad.state].filter(Boolean).join(', ') || '—'}</span>
           </div>
-          <span className="ad-card__time" suppressHydrationWarning>{formatRelativeTime(ad.created_at)}</span>
+          <span className="ad-card__time" suppressHydrationWarning>{formatRelativeTime(ad.created_at, lang)}</span>
         </div>
       </div>
     </Link>

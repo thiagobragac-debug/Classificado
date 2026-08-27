@@ -4,8 +4,48 @@ import { useState, useEffect, useRef } from 'react';
 import { getSupabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { showToast } from '@/lib/toast';
+import { useLang } from '@/lib/lang-context';
+
+const TRANSLATIONS = {
+  pt: {
+    selectStar: 'Selecione pelo menos 1 estrela.',
+    maxComment: 'O comentário deve ter no máximo 500 caracteres.',
+    mustBeLoggedIn: 'Você precisa estar logado para avaliar.',
+    alreadyReviewed: 'Você já avaliou este vendedor.',
+    cannotReviewSelf: 'Você não pode avaliar a si mesmo.',
+    genericError: 'Erro ao enviar avaliação',
+    reviewSent: 'Avaliação enviada com sucesso! Obrigado.',
+    closeModal: 'Fechar modal de avaliação',
+    title: 'Avaliar Vendedor',
+    subtitle: 'Sua avaliação ajuda a construir um ambiente seguro para todos.',
+    selectRating: 'Selecione uma avaliação',
+    starLabel: (val: number) => `${val} estrela${val > 1 ? 's' : ''}`,
+    commentPlaceholder: 'Deixe um comentário curto (opcional)',
+    sending: 'Enviando...',
+    sendReview: 'Enviar Avaliação',
+  },
+  es: {
+    selectStar: 'Selecciona al menos 1 estrella.',
+    maxComment: 'El comentario debe tener como máximo 500 caracteres.',
+    mustBeLoggedIn: 'Debes iniciar sesión para valorar.',
+    alreadyReviewed: 'Ya valoraste a este vendedor.',
+    cannotReviewSelf: 'No puedes valorarte a ti mismo.',
+    genericError: 'Error al enviar la valoración',
+    reviewSent: '¡Valoración enviada con éxito! Gracias.',
+    closeModal: 'Cerrar modal de valoración',
+    title: 'Valorar Vendedor',
+    subtitle: 'Tu valoración ayuda a construir un ambiente seguro para todos.',
+    selectRating: 'Selecciona una valoración',
+    starLabel: (val: number) => `${val} estrella${val > 1 ? 's' : ''}`,
+    commentPlaceholder: 'Deja un comentario corto (opcional)',
+    sending: 'Enviando...',
+    sendReview: 'Enviar Valoración',
+  },
+};
 
 export default function ReviewModal({ sellerId, onClose }: { sellerId: string; onClose: () => void }) {
+  const { lang } = useLang();
+  const tr = TRANSLATIONS[lang];
   const [selectedRating, setSelectedRating] = useState(0);
   const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(false);
@@ -47,11 +87,11 @@ export default function ReviewModal({ sellerId, onClose }: { sellerId: string; o
   const submitReview = async () => {
     if (isSubmitting.current) return;
     if (selectedRating === 0) {
-      showToast('Selecione pelo menos 1 estrela.', 'warning');
+      showToast(tr.selectStar, 'warning');
       return;
     }
     if (comment.trim().length > 500) {
-      showToast('O comentário deve ter no máximo 500 caracteres.', 'warning');
+      showToast(tr.maxComment, 'warning');
       return;
     }
 
@@ -62,7 +102,7 @@ export default function ReviewModal({ sellerId, onClose }: { sellerId: string; o
     try {
       const sb = getSupabase();
       const { data: { user }, error: authError } = await sb.auth.getUser();
-      if (authError || !user) throw new Error('Você precisa estar logado para avaliar.');
+      if (authError || !user) throw new Error(tr.mustBeLoggedIn);
 
       const { error } = await sb.from('seller_reviews').insert({
         seller_id: sellerId,
@@ -75,17 +115,17 @@ export default function ReviewModal({ sellerId, onClose }: { sellerId: string; o
         // 23505 = unique_violation (par seller_id/reviewer_id repetido).
         // seller_reviews_nao_autoavaliar = CHECK que impede autoavaliação.
         // Ambos em supabase/migrations/20260823090000_guard_seller_reviews.sql
-        if (error.message.includes('duplicate')) throw new Error('Você já avaliou este vendedor.');
-        if (error.message.includes('seller_reviews_nao_autoavaliar')) throw new Error('Você não pode avaliar a si mesmo.');
+        if (error.message.includes('duplicate')) throw new Error(tr.alreadyReviewed);
+        if (error.message.includes('seller_reviews_nao_autoavaliar')) throw new Error(tr.cannotReviewSelf);
         throw error;
       }
 
-      showToast('Avaliação enviada com sucesso! Obrigado.', 'success');
+      showToast(tr.reviewSent, 'success');
       onClose();
       router.refresh();
 
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Erro ao enviar avaliação';
+      const msg = e instanceof Error ? e.message : tr.genericError;
       setErrorMsg(msg);
     } finally {
       setLoading(false);
@@ -107,21 +147,21 @@ export default function ReviewModal({ sellerId, onClose }: { sellerId: string; o
       >
         <button
           onClick={onClose}
-          aria-label="Fechar modal de avaliação"
+          aria-label={tr.closeModal}
           style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--clr-text-light)' }}
         >
           &times;
         </button>
-        <h3 id="review-modal-title" style={{ marginTop: 0, color: 'var(--clr-text)', fontSize: '1.5rem' }}>Avaliar Vendedor</h3>
-        <p style={{ color: '#64748b', fontSize: '0.95rem', marginBottom: '1.5rem' }}>Sua avaliação ajuda a construir um ambiente seguro para todos.</p>
+        <h3 id="review-modal-title" style={{ marginTop: 0, color: 'var(--clr-text)', fontSize: '1.5rem' }}>{tr.title}</h3>
+        <p style={{ color: '#64748b', fontSize: '0.95rem', marginBottom: '1.5rem' }}>{tr.subtitle}</p>
 
-        <div role="radiogroup" aria-label="Selecione uma avaliação" style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
+        <div role="radiogroup" aria-label={tr.selectRating} style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
           {[1, 2, 3, 4, 5].map((val) => (
             <button
               key={val}
               role="radio"
               aria-checked={val === selectedRating}
-              aria-label={`${val} estrela${val > 1 ? 's' : ''}`}
+              aria-label={tr.starLabel(val)}
               onClick={() => setSelectedRating(val)}
               style={{
                 fontSize: '2.5rem',
@@ -140,7 +180,7 @@ export default function ReviewModal({ sellerId, onClose }: { sellerId: string; o
         </div>
 
         <textarea
-          placeholder="Deixe um comentário curto (opcional)"
+          placeholder={tr.commentPlaceholder}
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           maxLength={500}
@@ -161,7 +201,7 @@ export default function ReviewModal({ sellerId, onClose }: { sellerId: string; o
           disabled={loading}
           style={{ width: '100%', background: '#16a34a', border: 'none', color: 'white', fontSize: '1.1rem', fontWeight: 800, padding: '1rem', borderRadius: '.75rem', cursor: loading ? 'not-allowed' : 'pointer', boxShadow: '0 8px 20px rgba(22,163,74,0.4)', opacity: loading ? 0.7 : 1 }}
         >
-          {loading ? 'Enviando...' : 'Enviar Avaliação'}
+          {loading ? tr.sending : tr.sendReview}
         </button>
       </div>
     </div>

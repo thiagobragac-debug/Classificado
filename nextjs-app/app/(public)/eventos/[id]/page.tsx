@@ -1,11 +1,52 @@
 import { notFound } from 'next/navigation'
+import { cookies } from 'next/headers'
 import { createAnonClient } from '@/lib/supabase-server'
 import Image from 'next/image'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import { imageUrl } from '@/lib/storage'
+import { t as _t } from '@/lib/constants'
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+type Lang = 'pt' | 'es';
+
+// Strings específicas desta página de detalhe — não existem no dicionário
+// global I18N (lib/constants.ts), então seguem o mesmo padrão local já usado
+// em components/ads/AdsSidebar.tsx em vez de poluir o dicionário compartilhado.
+const TRANSLATIONS = {
+  pt: {
+    notFound: 'Evento não encontrado',
+    eventOn: 'Evento em',
+    breadcrumbDetails: 'Detalhes',
+    eventInfo: 'Informações do Evento',
+    date: 'Data:',
+    location: 'Local:',
+    online: 'Online',
+    organization: 'Organização:',
+    officialSite: 'Site oficial do evento →',
+    description: 'Descrição',
+    noDescription: 'Nenhuma descrição disponível para este evento.',
+  },
+  es: {
+    notFound: 'Evento no encontrado',
+    eventOn: 'Evento el',
+    breadcrumbDetails: 'Detalles',
+    eventInfo: 'Información del Evento',
+    date: 'Fecha:',
+    location: 'Lugar:',
+    online: 'Online',
+    organization: 'Organización:',
+    officialSite: 'Sitio oficial del evento →',
+    description: 'Descripción',
+    noDescription: 'No hay descripción disponible para este evento.',
+  },
+} as const;
+
+async function getLang(): Promise<Lang> {
+  const cookieStore = await cookies();
+  return cookieStore.get('tc_lang')?.value === 'es' ? 'es' : 'pt';
+}
 
 export const revalidate = 3600; // ISR — eventos raramente mudam
 
@@ -15,28 +56,32 @@ export const revalidate = 3600; // ISR — eventos raramente mudam
 // leilões) sempre devolviam 404 ao clicar. Agora tenta auction_events
 // primeiro e cai para `eventos` se não achar, igual à normalização já feita
 // em app/(public)/eventos/page.tsx.
-async function findEvent(id: string) {
+async function findEvent(id: string, lang: Lang) {
   const sb = createAnonClient();
 
   const { data: auction } = await sb
     .from('auction_events')
-    .select('id, title, date, cover, status')
+    .select('id, title, title_es, date, cover, status')
     .eq('id', id)
     .neq('status', 'draft')
     .maybeSingle();
 
   if (auction) {
-    return { title: auction.title, date: auction.date, cover: auction.cover, location: undefined, organizer: undefined, link: undefined };
+    const title = lang === 'es' && auction.title_es ? auction.title_es : auction.title;
+    return { title, date: auction.date, cover: auction.cover, location: undefined, organizer: undefined, link: undefined };
   }
 
   const { data: evento } = await sb
     .from('eventos')
-    .select('id, title, date, image, location_str, organizer, link')
+    .select('id, title, title_es, date, image, location_str, location_str_es, organizer, organizer_es, link')
     .eq('id', id)
     .maybeSingle();
 
   if (evento) {
-    return { title: evento.title, date: evento.date, cover: evento.image, location: evento.location_str, organizer: evento.organizer, link: evento.link };
+    const title = lang === 'es' && evento.title_es ? evento.title_es : evento.title;
+    const location = lang === 'es' && evento.location_str_es ? evento.location_str_es : evento.location_str;
+    const organizer = lang === 'es' && evento.organizer_es ? evento.organizer_es : evento.organizer;
+    return { title, date: evento.date, cover: evento.image, location, organizer, link: evento.link };
   }
 
   return null;
@@ -44,9 +89,9 @@ async function findEvent(id: string) {
 
 // eventos.date é texto livre ("30 ago - 7 set 2026"), não ISO — só formatar
 // como data quando for de fato parseável (auction_events.date, ISO).
-function formatEventDate(date: string): string {
+function formatEventDate(date: string, lang: Lang): string {
   const parsed = new Date(date);
-  return isNaN(parsed.getTime()) ? date : parsed.toLocaleDateString('pt-BR');
+  return isNaN(parsed.getTime()) ? date : parsed.toLocaleDateString(lang === 'es' ? 'es-AR' : 'pt-BR');
 }
 
 export async function generateMetadata({
@@ -55,10 +100,12 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  if (!UUID_REGEX.test(id)) return { title: 'Evento não encontrado' };
+  const lang = await getLang();
+  const tt = TRANSLATIONS[lang];
+  if (!UUID_REGEX.test(id)) return { title: tt.notFound };
 
-  const data = await findEvent(id);
-  if (!data) return { title: 'Evento não encontrado' };
+  const data = await findEvent(id, lang);
+  if (!data) return { title: tt.notFound };
 
   const coverUrl = data.cover
     ? data.cover.startsWith('http')
@@ -66,7 +113,7 @@ export async function generateMetadata({
       : `https://rfzuzuobwuanmbrcthqe.supabase.co/storage/v1/object/public/ad-images/${data.cover}`
     : undefined;
 
-  const description = `Evento em ${formatEventDate(data.date)}`;
+  const description = `${tt.eventOn} ${formatEventDate(data.date, lang)}`;
 
   return {
     title: data.title,
@@ -77,7 +124,7 @@ export async function generateMetadata({
       description,
       url: `https://tauzeclass.com.br/eventos/${id}`,
       type: 'website',
-      locale: 'pt_BR',
+      locale: lang === 'es' ? 'es_AR' : 'pt_BR',
       images: coverUrl
         ? [{ url: coverUrl, width: 1200, height: 630, alt: data.title }]
         : [],
@@ -113,13 +160,15 @@ export default async function EventDetailPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
+  const lang = await getLang()
+  const tt = TRANSLATIONS[lang]
 
   // Validar formato UUID antes de qualquer query
   if (!UUID_REGEX.test(id)) {
     notFound()
   }
 
-  const event = await findEvent(id)
+  const event = await findEvent(id, lang)
 
   if (!event) {
     notFound()
@@ -132,11 +181,11 @@ export default async function EventDetailPage({
           <div className="list-hero-inner">
             <div>
               <nav aria-label="Breadcrumb" className="breadcrumb">
-                <Link href="/">Início</Link>
+                <Link href="/">{_t('nav_home', lang)}</Link>
                 <span aria-hidden="true">›</span>
-                <Link href="/eventos">Agenda de Eventos</Link>
+                <Link href="/eventos">{_t('events_title', lang)}</Link>
                 <span aria-hidden="true">›</span>
-                <span aria-current="page">Detalhes</span>
+                <span aria-current="page">{tt.breadcrumbDetails}</span>
               </nav>
               <h1 className="list-hero-title">{event.title}</h1>
             </div>
@@ -158,29 +207,29 @@ export default async function EventDetailPage({
         )}
 
         <div style={{ background: 'var(--clr-surface)', padding: '2rem', borderRadius: '1rem', border: '1px solid var(--clr-border)' }}>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '1rem' }}>Informações do Evento</h2>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '1rem' }}>{tt.eventInfo}</h2>
           <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-            <strong>Data:</strong> {formatEventDate(event.date)}
+            <strong>{tt.date}</strong> {formatEventDate(event.date, lang)}
           </p>
           <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: event.organizer || event.link ? '0.5rem' : '1.5rem' }}>
-            <strong>Local:</strong> {event.location || 'Online'}
+            <strong>{tt.location}</strong> {event.location || tt.online}
           </p>
           {event.organizer && (
             <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-              <strong>Organização:</strong> {event.organizer}
+              <strong>{tt.organization}</strong> {event.organizer}
             </p>
           )}
           {event.link && (
             <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
               <a href={event.link} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--clr-primary)' }}>
-                Site oficial do evento →
+                {tt.officialSite}
               </a>
             </p>
           )}
 
-          <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.5rem' }}>Descrição</h3>
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.5rem' }}>{tt.description}</h3>
           <p style={{ color: 'var(--clr-text-muted)', lineHeight: 1.6 }}>
-            Nenhuma descrição disponível para este evento.
+            {tt.noDescription}
           </p>
         </div>
       </div>

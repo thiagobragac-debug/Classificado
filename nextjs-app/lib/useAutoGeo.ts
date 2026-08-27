@@ -2,6 +2,18 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useGeoLocation, normalizeStr } from './useGeoLocation';
 import { getSupabase } from './supabase';
 
+const TRANSLATIONS = {
+  pt: {
+    nearYou: (place: string) => `Perto de você — ${place}`,
+    yourState: (place: string) => `Seu estado — ${place}`,
+    yourCountry: (place: string) => `Seu país — ${place}`,
+  },
+  es: {
+    nearYou: (place: string) => `Cerca de ti — ${place}`,
+    yourState: (place: string) => `Tu provincia — ${place}`,
+    yourCountry: (place: string) => `Tu país — ${place}`,
+  }
+};
 
 export function useAutoGeo(
   pais: string, setPais: (v: string) => void,
@@ -10,8 +22,10 @@ export function useAutoGeo(
   applyFilters: (overrides: any) => void,
   initialGeo: any,
   searchParams: URLSearchParams,
-  disabled?: boolean
+  disabled?: boolean,
+  lang?: string
 ) {
+  const T = TRANSLATIONS[lang as keyof typeof TRANSLATIONS] || TRANSLATIONS.pt;
   const { geo, loading: geoLoading } = useGeoLocation();
   const geoAppliedRef = useRef(false);
   // Guarda exatamente o que o auto-geo aplicou, pra distinguir de uma
@@ -46,13 +60,13 @@ export function useAutoGeo(
       geoAppliedRef.current = true;
       autoAppliedRef.current = { pais: initialGeo.pais || '', estado: initialGeo.estado || '', cidade: initialGeo.cidade || '' };
       if (initialGeo.cidade) {
-        setGeoLabel(`Perto de você — ${initialGeo.cidade}`);
+        setGeoLabel(T.nearYou(initialGeo.cidade));
         setGeoLevel('city');
       } else if (initialGeo.estado) {
-        setGeoLabel(`Seu estado — ${initialGeo.estado}`);
+        setGeoLabel(T.yourState(initialGeo.estado));
         setGeoLevel('state');
       } else if (initialGeo.pais) {
-        setGeoLabel(`Seu país — ${initialGeo.pais}`);
+        setGeoLabel(T.yourCountry(initialGeo.pais));
         setGeoLevel('country');
       }
       setGeoReady(true);
@@ -79,13 +93,13 @@ export function useAutoGeo(
       if (newCidade) setCidade(newCidade);
 
       if (newCidade) {
-        setGeoLabel(`Perto de você — ${newCidade}`);
+        setGeoLabel(T.nearYou(newCidade));
         setGeoLevel('city');
       } else if (newEstado) {
-        setGeoLabel(`Seu estado — ${newEstado}`);
+        setGeoLabel(T.yourState(newEstado));
         setGeoLevel('state');
       } else {
-        setGeoLabel(`Seu país — ${newPais}`);
+        setGeoLabel(T.yourCountry(newPais));
         setGeoLevel('country');
       }
 
@@ -95,7 +109,7 @@ export function useAutoGeo(
 
     doGeoFill();
 
-  }, [geo, geoLoading, hasSpecificManualLoc, initialGeo, setPais, setEstado, setCidade, applyFilters, disabled]);
+  }, [geo, geoLoading, hasSpecificManualLoc, initialGeo, setPais, setEstado, setCidade, applyFilters, disabled, T]);
 
   // BUG CORRIGIDO (reteste do site, 2026-08-25): o chip "Perto de você — X"
   // ficava preso no valor autodetectado mesmo depois do usuário trocar
@@ -118,7 +132,7 @@ export function useAutoGeo(
   const advanceGeoLevel = useCallback(() => {
     if (geoLevel === 'city') {
       setCidade(''); setGeoLevel('state');
-      setGeoLabel(estado ? `Seu estado — ${estado}` : null);
+      setGeoLabel(estado ? T.yourState(estado) : null);
       // Mantém a ref em sincronia com o novo nível — senão o efeito de
       // sincronização acima ia achar que isto também foi uma mudança
       // "manual" e apagar o rótulo "Seu estado — X" que acabamos de setar.
@@ -127,7 +141,7 @@ export function useAutoGeo(
     }
     else if (geoLevel === 'state') {
       setEstado(''); setCidade(''); setGeoLevel('country');
-      setGeoLabel(pais ? `Seu país — ${pais}` : null);
+      setGeoLabel(pais ? T.yourCountry(pais) : null);
       autoAppliedRef.current = { pais, estado: '', cidade: '' };
       applyFilters({ estado: '', cidade: '' });
     }
@@ -142,7 +156,7 @@ export function useAutoGeo(
       } catch { /* ignore */ }
       applyFilters({ pais: '', estado: '', cidade: '' });
     }
-  }, [geoLevel, pais, estado, setPais, setEstado, setCidade, applyFilters]);
+  }, [geoLevel, pais, estado, setPais, setEstado, setCidade, applyFilters, T]);
 
   return { geoLabel, advanceGeoLevel, geoReady };
 }

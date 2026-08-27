@@ -10,39 +10,82 @@ import { showToast } from '@/lib/toast';
 import { usePushNotifications } from './usePush';
 import { useConfirm } from '@/components/ui/ConfirmProvider';
 import { imageUrl } from '@/lib/storage';
+import { useLang } from '@/lib/lang-context';
 import styles from '../painel.module.css';
 
-const STATUS_LABELS: Record<string, { label: string; className: string }> = {
-  active:  { label: 'Ativo',     className: styles.statusActive },
-  pending: { label: 'Pendente',  className: styles.statusPending },
-  paused:  { label: 'Pausado',   className: styles.statusPaused },
-  expired: { label: 'Expirado',  className: styles.statusExpired },
+const TRANSLATIONS = {
+  pt: {
+    title: 'Meus Anúncios', notify: '🔔 Ativar Notificações', activating: 'Ativando...',
+    loading: 'Carregando...', noAds: 'Nenhum anúncio encontrado',
+    ad: 'anúncio', ads: 'anúncios',
+    allStatus: 'Todos os Status', active: 'Ativos', pending: 'Pendentes', paused: 'Pausados', expired: 'Expirados',
+    loadError: 'Erro ao carregar anúncios.',
+    emptyTitle: 'Crie seu primeiro anúncio',
+    emptyDesc: 'Alcance milhares de compradores em todo o Mercosul. Venda bovinos, máquinas e propriedades rurais com a melhor vitrine do agronegócio.',
+    publishNow: 'Publicar Anúncio Agora',
+    featured: '⭐ Destaque',
+    waitingSlot: 'Aguardando vaga — você atingiu o limite de anúncios ativos do seu plano',
+    views: 'visualizações',
+    edit: 'Editar', reactivate: 'Reativar', pause: 'Pausar', delete: 'Excluir',
+    confirmDelete: 'Tem certeza que deseja excluir este anúncio?',
+    deleteError: 'Erro ao excluir.',
+    toggleError: 'Erro ao alterar status.',
+    prev: '← Anterior', next: 'Próxima →',
+    statusActive: 'Ativo', statusPending: 'Pendente', statusPaused: 'Pausado', statusExpired: 'Expirado',
+  },
+  es: {
+    title: 'Mis Anuncios', notify: '🔔 Activar Notificaciones', activating: 'Activando...',
+    loading: 'Cargando...', noAds: 'Ningún anuncio encontrado',
+    ad: 'anuncio', ads: 'anuncios',
+    allStatus: 'Todos los Estados', active: 'Activos', pending: 'Pendientes', paused: 'Pausados', expired: 'Expirados',
+    loadError: 'Error al cargar los anuncios.',
+    emptyTitle: 'Crea tu primer anuncio',
+    emptyDesc: 'Llega a miles de compradores en todo el Mercosur. Vende bovinos, máquinas y propiedades rurales con la mejor vitrina del agronegocio.',
+    publishNow: 'Publicar Anuncio Ahora',
+    featured: '⭐ Destacado',
+    waitingSlot: 'Esperando lugar — alcanzaste el límite de anuncios activos de tu plan',
+    views: 'visualizaciones',
+    edit: 'Editar', reactivate: 'Reactivar', pause: 'Pausar', delete: 'Eliminar',
+    confirmDelete: '¿Estás seguro de que deseas eliminar este anuncio?',
+    deleteError: 'Error al eliminar.',
+    toggleError: 'Error al cambiar el estado.',
+    prev: '← Anterior', next: 'Siguiente →',
+    statusActive: 'Activo', statusPending: 'Pendiente', statusPaused: 'Pausado', statusExpired: 'Expirado',
+  },
 };
 
-function fMoney(price: number | null | undefined, currency = 'BRL') {
+function fMoney(price: number | null | undefined, currency = 'BRL', lang = 'pt') {
   if (price == null) return '—';
   const sym: Record<string, string> = { BRL: 'R$', USD: 'US$', ARS: 'AR$', PYG: '₲', UYU: '$U' };
   const s = sym[currency] || currency;
-  return `${s} ${price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+  return `${s} ${price.toLocaleString(lang === 'es' ? 'es-AR' : 'pt-BR', { minimumFractionDigits: 2 })}`;
 }
 
-function fDate(iso: string) {
+function fDate(iso: string, lang = 'pt') {
   const d = new Date(iso);
   const now = new Date();
   const diff = Math.floor((now.getTime() - d.getTime()) / 1000);
-  if (diff < 60) return 'agora';
+  if (diff < 60) return lang === 'es' ? 'ahora' : 'agora';
   if (diff < 3600) return Math.floor(diff / 60) + 'min';
   if (diff < 86400) return Math.floor(diff / 3600) + 'h';
   if (diff < 2592000) return Math.floor(diff / 86400) + 'd';
-  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+  return d.toLocaleDateString(lang === 'es' ? 'es-AR' : 'pt-BR', { day: '2-digit', month: 'short' });
 }
 
 export function MyAdsTab({ userId, adStats, planMeta }: { userId: string, adStats?: { active: number }, planMeta?: { ads: number, unlimited: boolean } }) {
   const { confirm } = useConfirm();
+  const { lang } = useLang();
+  const t = TRANSLATIONS[lang as keyof typeof TRANSLATIONS] || TRANSLATIONS.pt;
+  const STATUS_LABELS: Record<string, { label: string; className: string }> = {
+    active:  { label: t.statusActive,  className: styles.statusActive },
+    pending: { label: t.statusPending, className: styles.statusPending },
+    paused:  { label: t.statusPaused,  className: styles.statusPaused },
+    expired: { label: t.statusExpired, className: styles.statusExpired },
+  };
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState('all');
   const { subscribe, loading: pushLoading } = usePushNotifications();
-  
+
   // SWR for data fetching
   const { data, error, isLoading, mutate } = useSWR(
     ['myAds', statusFilter, page],
@@ -61,12 +104,12 @@ export function MyAdsTab({ userId, adStats, planMeta }: { userId: string, adStat
   const atQuota = !!planMeta && !planMeta.unlimited && !!adStats && adStats.active >= planMeta.ads;
 
   const handleDelete = async (id: string) => {
-    if (!(await confirm('Tem certeza que deseja excluir este anúncio?'))) return;
+    if (!(await confirm(t.confirmDelete))) return;
     try {
       await deleteAd(id);
       mutate(); // Refetch
     } catch {
-      showToast('Erro ao excluir.', 'error');
+      showToast(t.deleteError, 'error');
     }
   };
 
@@ -80,7 +123,7 @@ export function MyAdsTab({ userId, adStats, planMeta }: { userId: string, adStat
       // esbarra na cota de anúncios do plano (trigger enforce_ad_quota,
       // P0001), esse é o ÚNICO caminho self-service que alcança esse erro, e
       // o usuário nunca via a mensagem real explicando o motivo.
-      showToast(err?.message || 'Erro ao alterar status.', 'error');
+      showToast(err?.message || t.toggleError, 'error');
     }
   };
 
@@ -88,36 +131,36 @@ export function MyAdsTab({ userId, adStats, planMeta }: { userId: string, adStat
     <div className={styles.fadeIn}>
       <div className={styles.flexBetween}>
         <div>
-          <h1 className={styles.headerTitle}>Meus Anúncios</h1>
-          <button 
-            onClick={subscribe} 
+          <h1 className={styles.headerTitle}>{t.title}</h1>
+          <button
+            onClick={subscribe}
             disabled={pushLoading}
-            className={styles.secondaryButton} 
+            className={styles.secondaryButton}
             style={{ marginTop: '0.5rem' }}
           >
-            {pushLoading ? 'Ativando...' : '🔔 Ativar Notificações'}
+            {pushLoading ? t.activating : t.notify}
           </button>
           <p className={styles.headerSubtitle}>
-            {isLoading ? 'Carregando...' : total === 0 ? 'Nenhum anúncio encontrado' : `${total} anúncio${total > 1 ? 's' : ''}`}
+            {isLoading ? t.loading : total === 0 ? t.noAds : `${total} ${total > 1 ? t.ads : t.ad}`}
           </p>
         </div>
-        <select 
-          value={statusFilter} 
+        <select
+          value={statusFilter}
           onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
           className={styles.inputSelect}
         >
-          <option value="all">Todos os Status</option>
-          <option value="active">Ativos</option>
-          <option value="pending">Pendentes</option>
-          <option value="paused">Pausados</option>
-          <option value="expired">Expirados</option>
+          <option value="all">{t.allStatus}</option>
+          <option value="active">{t.active}</option>
+          <option value="pending">{t.pending}</option>
+          <option value="paused">{t.paused}</option>
+          <option value="expired">{t.expired}</option>
         </select>
       </div>
 
       {isLoading && ads.length === 0 ? (
         <div className={styles.spinner} />
       ) : error ? (
-        <div className={styles.emptyState}>Erro ao carregar anúncios.</div>
+        <div className={styles.emptyState}>{t.loadError}</div>
       ) : ads.length === 0 ? (
         <div className={styles.emptyState} style={{ padding: '4rem 2rem', border: '1px dashed var(--clr-border)', borderRadius: '1rem', background: 'white' }}>
           <div className={styles.emptyStateIcon} style={{ width: '80px', height: '80px', background: 'linear-gradient(135deg, var(--clr-primary), #0ea5e9)', color: 'white', border: 'none', boxShadow: '0 10px 25px rgba(22,163,74,0.2)' }}>
@@ -125,12 +168,12 @@ export function MyAdsTab({ userId, adStats, planMeta }: { userId: string, adStat
               <rect x="3" y="3" width="18" height="18" rx="2" /><path d="M12 8v8"/><path d="M8 12h8"/>
             </svg>
           </div>
-          <h3 className={styles.emptyStateTitle} style={{ fontSize: '1.5rem', marginTop: '1.5rem', fontWeight: 800 }}>Crie seu primeiro anúncio</h3>
+          <h3 className={styles.emptyStateTitle} style={{ fontSize: '1.5rem', marginTop: '1.5rem', fontWeight: 800 }}>{t.emptyTitle}</h3>
           <p className={styles.emptyStateDesc} style={{ fontSize: '1rem', maxWidth: '420px', lineHeight: 1.6, color: 'var(--clr-text-muted)' }}>
-            Alcance milhares de compradores em todo o Mercosul. Venda bovinos, máquinas e propriedades rurais com a melhor vitrine do agronegócio.
+            {t.emptyDesc}
           </p>
           <Link href="/anunciar" className={styles.primaryButton} style={{ marginTop: '1.5rem', padding: '0.85rem 2.5rem', fontSize: '1.1rem', borderRadius: '2rem' }}>
-            Publicar Anúncio Agora
+            {t.publishNow}
           </Link>
         </div>
       ) : (
@@ -158,31 +201,31 @@ export function MyAdsTab({ userId, adStats, planMeta }: { userId: string, adStat
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '.6rem', marginBottom: '.35rem', flexWrap: 'wrap' }}>
                     <span className={`${styles.statusBadge} ${status.className}`}>{status.label}</span>
-                    {ad.featured && <span className={`${styles.statusBadge} ${styles.statusFeatured}`}>⭐ Destaque</span>}
+                    {ad.featured && <span className={`${styles.statusBadge} ${styles.statusFeatured}`}>{t.featured}</span>}
                     {ad.status === 'pending' && atQuota && (
                       <span style={{ fontSize: '.75rem', color: 'var(--clr-text-muted)' }}>
-                        Aguardando vaga — você atingiu o limite de anúncios ativos do seu plano
+                        {t.waitingSlot}
                       </span>
                     )}
                   </div>
                   <div className={styles.adCardTitle}>
-                    {ad.title_pt || ad.title_es}
+                    {lang === 'es' && ad.title_es ? ad.title_es : ad.title_pt}
                   </div>
                   <div className={styles.adCardMeta}>
-                    <span className={styles.adCardPrice}>{fMoney(ad.price, ad.currency)}</span>
+                    <span className={styles.adCardPrice}>{fMoney(ad.price, ad.currency, lang)}</span>
                     {ad.city && <span>{ad.city}{ad.state ? `, ${ad.state}` : ''}</span>}
-                    <span>👁 {ad.views_count || 0} views</span>
-                    <span>{fDate(ad.created_at)}</span>
+                    <span>👁 {ad.views_count || 0} {t.views}</span>
+                    <span>{fDate(ad.created_at, lang)}</span>
                   </div>
                 </div>
-                
+
                 {/* Actions */}
                 <div className={styles.adCardActions}>
-                  <Link href={`/anunciar?id=${ad.id}`} title="Editar" className={styles.actionBtn}>
+                  <Link href={`/anunciar?id=${ad.id}`} title={t.edit} className={styles.actionBtn}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                   </Link>
-                  <button 
-                    title={ad.status === 'paused' ? 'Reativar' : 'Pausar'}
+                  <button
+                    title={ad.status === 'paused' ? t.reactivate : t.pause}
                     onClick={() => handleToggle(ad.id, ad.status)}
                     className={styles.actionBtn}
                   >
@@ -191,7 +234,7 @@ export function MyAdsTab({ userId, adStats, planMeta }: { userId: string, adStat
                       : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
                     }
                   </button>
-                  <button title="Excluir" onClick={() => handleDelete(ad.id)} className={`${styles.actionBtn} ${styles.actionBtnDanger}`}>
+                  <button title={t.delete} onClick={() => handleDelete(ad.id)} className={`${styles.actionBtn} ${styles.actionBtnDanger}`}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                   </button>
                 </div>
@@ -204,11 +247,11 @@ export function MyAdsTab({ userId, adStats, planMeta }: { userId: string, adStat
       {totalPages > 1 && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', marginTop: '1.5rem' }}>
           <button disabled={page <= 1} onClick={() => setPage(p => p - 1)} className={styles.secondaryButton}>
-            ← Anterior
+            {t.prev}
           </button>
           <span style={{ fontSize: '.85rem', fontWeight: 700, color: 'var(--clr-text-muted)' }}>{page} / {totalPages}</span>
           <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)} className={styles.secondaryButton}>
-            Próxima →
+            {t.next}
           </button>
         </div>
       )}

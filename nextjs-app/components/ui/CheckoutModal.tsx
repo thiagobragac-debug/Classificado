@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/components/AuthProvider'
+import { useLang } from '@/lib/lang-context'
+import type { Lang } from '@/lib/constants'
 
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
@@ -17,13 +19,141 @@ import { initMercadoPago, CardPayment } from '@mercadopago/sdk-react'
 // Pix/boleto em /planos.
 type PaymentMethod = 'card'
 
+// Strings deste modal não existem no dicionário global I18N (lib/constants.ts)
+// — seguem o mesmo padrão local já usado em components/ads/AdsSidebar.tsx em
+// vez de poluir o dicionário compartilhado.
+const TRANSLATIONS = {
+  pt: {
+    title: 'Pagamento Seguro',
+    close: 'Fechar',
+    planPrefix: 'Plano',
+    annualSuffix: '(Anual)',
+    perMonth: '/mês',
+    perYear: '/ano',
+    couponQuestion: 'Possui cupom de desconto?',
+    couponPlaceholder: 'Código do cupom',
+    couponApply: 'Aplicar',
+    couponApplying: '...',
+    couponAppliedPrefix: '✅ Cupom',
+    couponAppliedSuffix: 'aplicado!',
+    couponDiscount: 'Desconto de',
+    couponRemove: 'Remover',
+    couponInvalid: 'Cupom inválido ou inativo.',
+    couponError: 'Erro ao validar cupom.',
+    billingIntro: 'Precisamos de alguns dados extras para emitir sua fatura.',
+    fullName: 'Nome Completo',
+    doc: 'CPF/CNPJ',
+    phone: 'Celular',
+    billingAddress: 'Endereço de Cobrança',
+    cep: 'CEP',
+    street: 'Rua',
+    number: 'Número',
+    neighborhood: 'Bairro',
+    city: 'Cidade',
+    state: 'Estado (UF)',
+    continueToPayment: 'Continuar para Pagamento',
+    initializing: 'Inicializando Seguro...',
+    cardOption: '💳 Cartão de Crédito',
+    cardUnavailableTitle: 'Cartão indisponível no momento',
+    cardUnavailableBody: 'O meio de pagamento configurado não aceita cartão por aqui. Fale com o suporte para concluir a assinatura.',
+    goToCheckout: 'Ir para o Checkout Seguro →',
+    processing: 'Processando...',
+    back: '← Voltar',
+    sslBadge: '🔒 SSL',
+    pciBadge: '🛡️ PCI-DSS',
+    secureBadge: '✅ Compra Segura',
+    errDocInvalid: 'CPF ou CNPJ inválido. Digite 11 ou 14 números.',
+    errPhoneInvalid: 'Telefone inválido. Inclua o DDD (ex: 11999999999).',
+    errNotLoggedIn: 'Você precisa estar logado para assinar um plano.',
+    errCheckoutInit: 'Erro ao iniciar o checkout.',
+    errSubscriptionFail: 'Falha ao processar assinatura.',
+    errUnexpected: 'Erro inesperado. Tente novamente.',
+    errCardUnavailable: 'Pagamento por cartão indisponível para este gateway. Fale com o suporte.',
+    stripeCardError: 'Erro ao validar cartão no Stripe.',
+    stripeUnexpected: 'Erro inesperado no Stripe.',
+    stripeProcessing: 'Processando Stripe...',
+    stripePayButton: 'Pagar com Stripe →',
+  },
+  es: {
+    title: 'Pago Seguro',
+    close: 'Cerrar',
+    planPrefix: 'Plan',
+    annualSuffix: '(Anual)',
+    perMonth: '/mes',
+    perYear: '/año',
+    couponQuestion: '¿Tienes un cupón de descuento?',
+    couponPlaceholder: 'Código del cupón',
+    couponApply: 'Aplicar',
+    couponApplying: '...',
+    couponAppliedPrefix: '✅ Cupón',
+    couponAppliedSuffix: 'aplicado!',
+    couponDiscount: 'Descuento de',
+    couponRemove: 'Quitar',
+    couponInvalid: 'Cupón inválido o inactivo.',
+    couponError: 'Error al validar el cupón.',
+    billingIntro: 'Necesitamos algunos datos adicionales para emitir tu factura.',
+    fullName: 'Nombre Completo',
+    doc: 'CPF/CNPJ',
+    phone: 'Celular',
+    billingAddress: 'Dirección de Facturación',
+    cep: 'CEP',
+    street: 'Calle',
+    number: 'Número',
+    neighborhood: 'Barrio',
+    city: 'Ciudad',
+    state: 'Estado (UF)',
+    continueToPayment: 'Continuar al Pago',
+    initializing: 'Inicializando Seguro...',
+    cardOption: '💳 Tarjeta de Crédito',
+    cardUnavailableTitle: 'Tarjeta no disponible en este momento',
+    cardUnavailableBody: 'El medio de pago configurado no acepta tarjeta aquí. Habla con soporte para completar la suscripción.',
+    goToCheckout: 'Ir al Checkout Seguro →',
+    processing: 'Procesando...',
+    back: '← Volver',
+    sslBadge: '🔒 SSL',
+    pciBadge: '🛡️ PCI-DSS',
+    secureBadge: '✅ Compra Segura',
+    errDocInvalid: 'CPF o CNPJ inválido. Ingresa 11 o 14 números.',
+    errPhoneInvalid: 'Teléfono inválido. Incluye el código de área (ej: 11999999999).',
+    errNotLoggedIn: 'Debes iniciar sesión para suscribirte a un plan.',
+    errCheckoutInit: 'Error al iniciar el checkout.',
+    errSubscriptionFail: 'Error al procesar la suscripción.',
+    errUnexpected: 'Error inesperado. Inténtalo de nuevo.',
+    errCardUnavailable: 'Pago con tarjeta no disponible para este gateway. Habla con soporte.',
+    stripeCardError: 'Error al validar la tarjeta en Stripe.',
+    stripeUnexpected: 'Error inesperado en Stripe.',
+    stripeProcessing: 'Procesando Stripe...',
+    stripePayButton: 'Pagar con Stripe →',
+  },
+} as const
+
 // GAP CORRIGIDO (revisão de regras de negócio, 2026-08-25): "R$" estava
 // hardcoded em 4 lugares deste modal, enquanto os cards de /planos (fora
 // deste modal) já mostravam plan.currency dinamicamente. Sem efeito prático
 // hoje (plans.currency é sempre 'BRL' em produção), mas se um dia um plano
 // for cadastrado em outra moeda, o valor cobrado mostrado aqui ficaria
 // errado silenciosamente.
-const CURRENCY_SYMBOLS: Record<string, string> = { BRL: 'R$', USD: 'US$', ARS: 'AR$', PYG: '₲', UYU: '$U' }
+//
+// GAP CORRIGIDO (auditoria completa de i18n, 2026-08-26/27): o mapa estático
+// CURRENCY_SYMBOLS não variava por idioma. Trocado por Intl.NumberFormat com
+// locale conforme lang (es-AR/pt-BR) — mesmo padrão de components/ads/AdCard.tsx
+// — e o valor numérico agora também é formatado via Intl em vez de
+// `.toFixed(2).replace('.', ',')` fixo (que sempre usava separador decimal PT).
+function getCurrencySymbol(currency: string, lang: Lang) {
+  const locale = lang === 'es' ? 'es-AR' : 'pt-BR'
+  try {
+    const parts = new Intl.NumberFormat(locale, { style: 'currency', currency: currency || 'BRL', maximumFractionDigits: 0 }).formatToParts(0)
+    const symbol = parts.filter(p => p.type === 'currency').map(p => p.value).join('')
+    return symbol || currency || 'R$'
+  } catch {
+    return currency || 'R$'
+  }
+}
+
+function formatAmount(amount: number, lang: Lang) {
+  const locale = lang === 'es' ? 'es-AR' : 'pt-BR'
+  return new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)
+}
 
 // Gateways que tokenizam o cartão no browser. Só eles podem receber pagamento
 // por cartão: os dados vão do navegador direto para o gateway, dentro de um
@@ -39,6 +169,8 @@ const TOKENIZED_GATEWAYS = ['stripe', 'mercadopago']
 export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose }: { plan: any, billingCycle?: 'monthly' | 'annual', onClose: () => void }) {
   const { session } = useAuth()
   const router = useRouter()
+  const { lang } = useLang()
+  const t = TRANSLATIONS[lang]
   const [step, setStep] = useState(1)
   const [paymentMethod] = useState<PaymentMethod>('card')
   const [loading, setLoading] = useState(false)
@@ -50,7 +182,7 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
   const [name, setName] = useState(session?.user?.user_metadata?.full_name || '')
   const [doc, setDoc] = useState('')
   const [phone, setPhone] = useState('')
-  
+
   // Billing Address
   const [cep, setCep] = useState('')
   const [street, setStreet] = useState('')
@@ -65,9 +197,13 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
   const [couponError, setCouponError] = useState('')
   const [loadingCoupon, setLoadingCoupon] = useState(false)
 
+  // Nome do plano localizado — mesmo padrão de fallback já usado em `ads`
+  // (lang === 'es' && ad.title_es ? ad.title_es : ad.title_pt).
+  const planName = (lang === 'es' && plan.name_es) ? plan.name_es : (plan.name_pt || plan.name)
+
   // --- Price calculation ---
-  let basePrice = (plan.promotional_price !== null && plan.promotional_price !== undefined) 
-    ? Number(plan.promotional_price) 
+  let basePrice = (plan.promotional_price !== null && plan.promotional_price !== undefined)
+    ? Number(plan.promotional_price)
     : Number(plan.price)
   if (billingCycle === 'annual') {
     basePrice = (basePrice * 0.8) * 12
@@ -77,7 +213,7 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
         ? basePrice * (1 - coupon.discount_value / 100)
         : Math.max(0, basePrice - coupon.discount_value))
     : basePrice
-  const currencySymbol = CURRENCY_SYMBOLS[plan.currency] || plan.currency || 'R$'
+  const currencySymbol = getCurrencySymbol(plan.currency, lang)
 
   // --- Idempotency nonce ---
   // BUG CORRIGIDO (validação do zero, 3ª rodada): antes era gerado dentro
@@ -97,9 +233,15 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
     if (gatewayConfig?.gateway === 'stripe' && gatewayConfig.publicKey) {
       setStripePromise(loadStripe(gatewayConfig.publicKey))
     } else if (gatewayConfig?.gateway === 'mercadopago' && gatewayConfig.publicKey) {
-      initMercadoPago(gatewayConfig.publicKey, { locale: 'pt-BR' })
+      // GAP CORRIGIDO (auditoria completa de i18n, 2026-08-26/27): locale do
+      // Brick do Mercado Pago vinha fixo em 'pt-BR' mesmo com tc_lang=es. O
+      // SDK (@mercadopago/sdk-react) só aceita um conjunto fechado de
+      // variantes regionais — es-AR é a mais comum pro público platino
+      // (Argentina/Uruguai/Paraguai), mesma convenção já usada em
+      // components/ads/AdCard.tsx pra Intl.NumberFormat/toLocaleDateString.
+      initMercadoPago(gatewayConfig.publicKey, { locale: lang === 'es' ? 'es-AR' : 'pt-BR' })
     }
-  }, [gatewayConfig])
+  }, [gatewayConfig, lang])
 
   // --- Coupon ---
   // BUG CORRIGIDO (revisão de regras de negócio, 2026-08-25): lia a tabela
@@ -119,13 +261,13 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
       })
       const data = await res.json()
       if (!data.valid) {
-        setCouponError(data.error || 'Cupom inválido ou inativo.')
+        setCouponError(data.error || t.couponInvalid)
         setCoupon(null)
       } else {
         setCoupon({ code: couponCode.toUpperCase(), discount_type: data.discount_type, discount_value: data.discount_value })
       }
     } catch {
-      setCouponError('Erro ao validar cupom.')
+      setCouponError(t.couponError)
       setCoupon(null)
     }
     setLoadingCoupon(false)
@@ -155,7 +297,7 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
   // --- Step 2: Unified checkout API caller ---
   const handleServerCheckout = async (paymentData: any) => {
     if (!session?.access_token) {
-      setError('Você precisa estar logado para assinar um plano.')
+      setError(t.errNotLoggedIn)
       return
     }
     setLoading(true)
@@ -163,12 +305,12 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
     try {
       const docClean = doc.replace(/\D/g, '')
       if (docClean.length !== 11 && docClean.length !== 14) {
-        throw new Error('CPF ou CNPJ inválido. Digite 11 ou 14 números.')
+        throw new Error(t.errDocInvalid)
       }
 
       const phoneClean = phone.replace(/\D/g, '')
       if (phoneClean.length < 10) {
-        throw new Error('Telefone inválido. Inclua o DDD (ex: 11999999999).')
+        throw new Error(t.errPhoneInvalid)
       }
 
       const billingAddress = {
@@ -202,7 +344,7 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
       const data = await res.json()
 
       if (!res.ok) {
-        throw new Error(data.error || 'Erro ao iniciar o checkout.')
+        throw new Error(data.error || t.errCheckoutInit)
       }
 
       if (data.success) {
@@ -212,10 +354,10 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
           window.location.href = '/painel?subscribed=1'
         }
       } else {
-        throw new Error('Falha ao processar assinatura.')
+        throw new Error(t.errSubscriptionFail)
       }
     } catch (err: any) {
-      setError(err.message || 'Erro inesperado. Tente novamente.')
+      setError(err.message || t.errUnexpected)
     } finally {
       setLoading(false)
     }
@@ -250,7 +392,7 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
   // devolvem um token — nenhum dado de cartão passa por aqui.
   const handleNativeCheckout = () => {
     if (paymentMethod === 'card' && !TOKENIZED_GATEWAYS.includes(gatewayConfig?.gateway || '')) {
-      setError('Pagamento por cartão indisponível para este gateway. Fale com o suporte.')
+      setError(t.errCardUnavailable)
       return
     }
     if (paymentMethod === 'card') {
@@ -280,9 +422,9 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
           background: '#f8fafc', position: 'sticky', top: 0, zIndex: 1
         }}>
           <h3 style={{ fontSize: '1.25rem', margin: 0, fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span>💳</span> Pagamento Seguro
+            <span>💳</span> {t.title}
           </h3>
-          <button onClick={onClose} aria-label="Fechar" style={{
+          <button onClick={onClose} aria-label={t.close} style={{
             background: 'none', border: 'none', fontSize: '1.5rem', color: '#64748b',
             cursor: 'pointer', width: '32px', height: '32px', display: 'flex',
             alignItems: 'center', justifyContent: 'center', borderRadius: '50%'
@@ -296,21 +438,21 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
             marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
           }}>
             <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '1.1rem' }}>
-              Plano {plan.name} {billingCycle === 'annual' && <span style={{ fontSize: '0.8em', color: '#10b981' }}>(Anual)</span>}
+              {t.planPrefix} {planName} {billingCycle === 'annual' && <span style={{ fontSize: '0.8em', color: '#10b981' }}>{t.annualSuffix}</span>}
             </div>
             <div style={{ textAlign: 'right' }}>
               {coupon ? (
                 <>
                   <div style={{ textDecoration: 'line-through', color: '#94a3b8', fontSize: '0.9rem' }}>
-                    {currencySymbol} {basePrice.toFixed(2).replace('.', ',')} {billingCycle === 'annual' ? '/ano' : '/mês'}
+                    {currencySymbol} {formatAmount(basePrice, lang)} {billingCycle === 'annual' ? t.perYear : t.perMonth}
                   </div>
                   <div style={{ fontWeight: 800, color: '#10b981', fontSize: '1.3rem' }}>
-                    {currencySymbol} {finalPrice.toFixed(2).replace('.', ',')} {billingCycle === 'annual' ? '/ano' : '/mês'}
+                    {currencySymbol} {formatAmount(finalPrice, lang)} {billingCycle === 'annual' ? t.perYear : t.perMonth}
                   </div>
                 </>
               ) : (
                 <div style={{ fontWeight: 800, color: '#10b981', fontSize: '1.3rem' }}>
-                  {currencySymbol} {finalPrice.toFixed(2).replace('.', ',')} {billingCycle === 'annual' ? '/ano' : '/mês'}
+                  {currencySymbol} {formatAmount(finalPrice, lang)} {billingCycle === 'annual' ? t.perYear : t.perMonth}
                 </div>
               )}
             </div>
@@ -322,18 +464,18 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
               {!coupon ? (
                 <>
                   <label htmlFor="coupon" style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
-                    Possui cupom de desconto?
+                    {t.couponQuestion}
                   </label>
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <input
                       id="coupon" type="text" value={couponCode}
                       onChange={e => setCouponCode(e.target.value)}
-                      placeholder="Código do cupom"
+                      placeholder={t.couponPlaceholder}
                       style={{ flex: 1, padding: '10px 14px', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '8px' }}
                     />
                     <button type="button" onClick={handleApplyCoupon} disabled={loadingCoupon || !couponCode}
                       style={{ padding: '0 16px', background: '#334155', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>
-                      {loadingCoupon ? '...' : 'Aplicar'}
+                      {loadingCoupon ? t.couponApplying : t.couponApply}
                     </button>
                   </div>
                   {couponError && <p style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '6px' }}>{couponError}</p>}
@@ -341,14 +483,14 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
               ) : (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <div style={{ fontSize: '0.85rem', color: '#10b981', fontWeight: 700 }}>✅ Cupom {coupon.code} aplicado!</div>
+                    <div style={{ fontSize: '0.85rem', color: '#10b981', fontWeight: 700 }}>{t.couponAppliedPrefix} {coupon.code} {t.couponAppliedSuffix}</div>
                     <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                      Desconto de {coupon.discount_type === 'percentage' ? `${coupon.discount_value}%` : `${currencySymbol} ${coupon.discount_value}`}
+                      {t.couponDiscount} {coupon.discount_type === 'percentage' ? `${coupon.discount_value}%` : `${currencySymbol} ${formatAmount(coupon.discount_value, lang)}`}
                     </div>
                   </div>
                   <button type="button" onClick={() => { setCoupon(null); setCouponCode('') }}
                     style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600, textDecoration: 'underline' }}>
-                    Remover
+                    {t.couponRemove}
                   </button>
                 </div>
               )}
@@ -359,11 +501,11 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
           {step === 1 ? (
             <form onSubmit={handleBillingSubmit}>
               <p style={{ marginBottom: '1rem', fontSize: '0.9rem', color: '#475569' }}>
-                Precisamos de alguns dados extras para emitir sua fatura.
+                {t.billingIntro}
               </p>
               <div style={{ marginBottom: '1rem' }}>
                 <label htmlFor="checkout-name" style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
-                  Nome Completo
+                  {t.fullName}
                 </label>
                 <input
                   id="checkout-name" type="text" required value={name} onChange={e => setName(e.target.value)}
@@ -372,50 +514,50 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
                 <div>
-                  <label htmlFor="checkout-doc" style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>CPF/CNPJ</label>
+                  <label htmlFor="checkout-doc" style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>{t.doc}</label>
                   <input
                     id="checkout-doc" type="text" required value={doc} onChange={e => setDoc(e.target.value)}
                     style={{ width: '100%', padding: '14px 16px', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '10px', background: '#f8fafc', boxSizing: 'border-box' }}
                   />
                 </div>
                 <div>
-                  <label htmlFor="checkout-phone" style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Celular</label>
+                  <label htmlFor="checkout-phone" style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>{t.phone}</label>
                   <input
                     id="checkout-phone" type="tel" required value={phone} onChange={e => setPhone(e.target.value)}
                     style={{ width: '100%', padding: '14px 16px', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '10px', background: '#f8fafc', boxSizing: 'border-box' }}
                   />
                 </div>
               </div>
-              <p style={{ marginBottom: '1rem', fontSize: '0.9rem', color: '#475569', fontWeight: 600 }}>Endereço de Cobrança</p>
+              <p style={{ marginBottom: '1rem', fontSize: '0.9rem', color: '#475569', fontWeight: 600 }}>{t.billingAddress}</p>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
                 <div>
-                  <label htmlFor="checkout-cep" style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>CEP</label>
+                  <label htmlFor="checkout-cep" style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>{t.cep}</label>
                   <input id="checkout-cep" type="text" required value={cep} onChange={e => setCep(e.target.value)} style={{ width: '100%', padding: '10px', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '10px', background: '#f8fafc', boxSizing: 'border-box' }} />
                 </div>
                 <div>
-                  <label htmlFor="checkout-street" style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Rua</label>
+                  <label htmlFor="checkout-street" style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>{t.street}</label>
                   <input id="checkout-street" type="text" required value={street} onChange={e => setStreet(e.target.value)} style={{ width: '100%', padding: '10px', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '10px', background: '#f8fafc', boxSizing: 'border-box' }} />
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
                 <div>
-                  <label htmlFor="checkout-num" style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Número</label>
+                  <label htmlFor="checkout-num" style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>{t.number}</label>
                   <input id="checkout-num" type="text" required value={addressNumber} onChange={e => setAddressNumber(e.target.value)} style={{ width: '100%', padding: '10px', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '10px', background: '#f8fafc', boxSizing: 'border-box' }} />
                 </div>
                 <div>
-                  <label htmlFor="checkout-neigh" style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Bairro</label>
+                  <label htmlFor="checkout-neigh" style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>{t.neighborhood}</label>
                   <input id="checkout-neigh" type="text" required value={neighborhood} onChange={e => setNeighborhood(e.target.value)} style={{ width: '100%', padding: '10px', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '10px', background: '#f8fafc', boxSizing: 'border-box' }} />
                 </div>
                 <div>
-                  <label htmlFor="checkout-city" style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Cidade</label>
+                  <label htmlFor="checkout-city" style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>{t.city}</label>
                   <input id="checkout-city" type="text" required value={city} onChange={e => setCity(e.target.value)} style={{ width: '100%', padding: '10px', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '10px', background: '#f8fafc', boxSizing: 'border-box' }} />
                 </div>
                 <div>
-                  <label htmlFor="checkout-state" style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Estado (UF)</label>
+                  <label htmlFor="checkout-state" style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>{t.state}</label>
                   <input id="checkout-state" type="text" required value={state} onChange={e => setState(e.target.value)} maxLength={2} style={{ width: '100%', padding: '10px', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '10px', background: '#f8fafc', boxSizing: 'border-box' }} />
                 </div>
               </div>
-              
+
               {error && (
                 <div style={{ color: '#991b1b', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', padding: '12px', fontSize: '0.875rem', marginBottom: '1rem' }}>
                   ⚠️ {error}
@@ -426,7 +568,7 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
                 width: '100%', padding: '1rem', background: loading ? '#cbd5e1' : '#10b981', color: '#ffffff',
                 border: 'none', borderRadius: '10px', fontSize: '1.1rem', fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer'
               }}>
-                {loading ? 'Inicializando Seguro...' : 'Continuar para Pagamento'}
+                {loading ? t.initializing : t.continueToPayment}
               </button>
             </form>
           ) : (
@@ -443,7 +585,7 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
                     fontWeight: 700, fontSize: '0.85rem', cursor: 'default'
                   }}
                 >
-                  💳 Cartão de Crédito
+                  {t.cardOption}
                 </button>
               </div>
 
@@ -451,8 +593,16 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
 
               {paymentMethod === 'card' && gatewayConfig?.gateway === 'stripe' && stripePromise && gatewayConfig.clientSecret && (
                 <div style={{ marginBottom: '1.5rem' }}>
-                  <Elements stripe={stripePromise} options={{ clientSecret: gatewayConfig.clientSecret }}>
-                    <StripeCheckoutForm 
+                  {/* GAP CORRIGIDO (auditoria completa de i18n, 2026-08-26/27):
+                      o SDK do Stripe (@stripe/stripe-js) aceita `locale` nas
+                      options do Elements — sem ele, o PaymentElement usava
+                      auto-detect do navegador, inconsistente com o idioma
+                      escolhido no site (tc_lang). 'es-419' é a variante de
+                      espanhol latino-americano do Stripe — mais adequada pro
+                      público do Mercosul do que o 'es' genérico (Espanha). */}
+                  <Elements stripe={stripePromise} options={{ clientSecret: gatewayConfig.clientSecret, locale: lang === 'es' ? 'es-419' : 'pt-BR' }}>
+                    <StripeCheckoutForm
+                      lang={lang}
                       onSuccess={(paymentMethodId) => handleServerCheckout({ gatewayToken: paymentMethodId })}
                       onError={setError}
                     />
@@ -471,9 +621,9 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
 
               {paymentMethod === 'card' && gatewayConfig && !TOKENIZED_GATEWAYS.includes(gatewayConfig.gateway) && (
                 <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '10px', padding: '1.25rem', marginBottom: '1.5rem' }}>
-                  <p style={{ fontWeight: 700, color: '#92400e', marginBottom: '0.5rem' }}>Cartão indisponível no momento</p>
+                  <p style={{ fontWeight: 700, color: '#92400e', marginBottom: '0.5rem' }}>{t.cardUnavailableTitle}</p>
                   <p style={{ fontSize: '0.875rem', color: '#78350f', margin: 0 }}>
-                    O meio de pagamento configurado não aceita cartão por aqui. Fale com o suporte para concluir a assinatura.
+                    {t.cardUnavailableBody}
                   </p>
                 </div>
               )}
@@ -500,7 +650,7 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
                     cursor: loading ? 'not-allowed' : 'pointer', transition: 'background 200ms'
                   }}
                 >
-                  {loading ? 'Processando...' : 'Ir para o Checkout Seguro →'}
+                  {loading ? t.processing : t.goToCheckout}
                 </button>
               )}
 
@@ -508,14 +658,14 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
                 width: '100%', padding: '0.5rem', background: 'transparent', color: '#64748b',
                 border: 'none', fontSize: '0.9rem', cursor: loading ? 'not-allowed' : 'pointer', marginTop: '0.5rem'
               }}>
-                ← Voltar
+                {t.back}
               </button>
             </div>
           )}
 
           {/* Security badges */}
           <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
-            {['🔒 SSL', '🛡️ PCI-DSS', '✅ Compra Segura'].map(badge => (
+            {[t.sslBadge, t.pciBadge, t.secureBadge].map(badge => (
               <span key={badge} style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 600 }}>{badge}</span>
             ))}
           </div>
@@ -526,10 +676,11 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
   )
 }
 
-function StripeCheckoutForm({ onSuccess, onError }: { onSuccess: (pmId: string) => void, onError: (msg: string) => void }) {
+function StripeCheckoutForm({ onSuccess, onError, lang }: { onSuccess: (pmId: string) => void, onError: (msg: string) => void, lang: Lang }) {
   const stripe = useStripe()
   const elements = useElements()
   const [loading, setLoading] = useState(false)
+  const t = TRANSLATIONS[lang]
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -537,9 +688,9 @@ function StripeCheckoutForm({ onSuccess, onError }: { onSuccess: (pmId: string) 
 
     setLoading(true)
     onError('')
-    
+
     // Instead of confirming SetupIntent fully with redirect, we just use it to generate the PaymentMethod.
-    // wait, Stripe SetupIntent confirm Setup requires redirect mostly. 
+    // wait, Stripe SetupIntent confirm Setup requires redirect mostly.
     // BUT we can use `stripe.createPaymentMethod` with Elements!
     // Or we use confirmSetup with redirect: 'if_required'. Let's do confirmSetup to follow 3D Secure rules.
     const { error, setupIntent } = await stripe.confirmSetup({
@@ -551,13 +702,13 @@ function StripeCheckoutForm({ onSuccess, onError }: { onSuccess: (pmId: string) 
     })
 
     if (error) {
-      onError(error.message || 'Erro ao validar cartão no Stripe.')
+      onError(error.message || t.stripeCardError)
       setLoading(false)
     } else if (setupIntent && setupIntent.status === 'succeeded') {
       // payment_method is created and attached
       onSuccess(setupIntent.payment_method as string)
     } else {
-      onError('Erro inesperado no Stripe.')
+      onError(t.stripeUnexpected)
       setLoading(false)
     }
   }
@@ -569,7 +720,7 @@ function StripeCheckoutForm({ onSuccess, onError }: { onSuccess: (pmId: string) 
         marginTop: '1.5rem', width: '100%', padding: '1rem', background: loading ? '#cbd5e1' : '#10b981', color: '#ffffff',
         border: 'none', borderRadius: '10px', fontSize: '1.1rem', fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer'
       }}>
-        {loading ? 'Processando Stripe...' : 'Pagar com Stripe →'}
+        {loading ? t.stripeProcessing : t.stripePayButton}
       </button>
     </form>
   )

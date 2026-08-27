@@ -11,7 +11,8 @@ const TRANSLATIONS = {
     allStates: 'Todos os Estados', allCities: 'Todas as Cidades',
     priceRange: 'Faixa de Preço', min: 'Mínimo', max: 'Máximo', upTo: 'Até',
     offerType: 'Tipo de Oferta', onlyFeatured: 'Apenas Destaques',
-    negotiable: 'Negociável', apply: 'Aplicar Filtros', closeFilters: 'Fechar filtros'
+    negotiable: 'Negociável', apply: 'Aplicar Filtros', closeFilters: 'Fechar filtros',
+    searchPlaceholder: 'Buscar raça, marca...', priceShortcutsAria: 'Atalhos de preço'
   },
   es: {
     filters: 'Filtros', clear: 'Limpiar', search: 'Buscar anuncios...',
@@ -20,7 +21,8 @@ const TRANSLATIONS = {
     allStates: 'Todos los Estados', allCities: 'Todas las Ciudades',
     priceRange: 'Rango de Precio', min: 'Mínimo', max: 'Máximo', upTo: 'Hasta',
     offerType: 'Tipo de Oferta', onlyFeatured: 'Solo Destacados',
-    negotiable: 'Negociable', apply: 'Aplicar Filtros', closeFilters: 'Cerrar filtros'
+    negotiable: 'Negociable', apply: 'Aplicar Filtros', closeFilters: 'Cerrar filtros',
+    searchPlaceholder: 'Buscar raza, marca...', priceShortcutsAria: 'Atajos de precio'
   }
 };
 
@@ -89,7 +91,7 @@ export default function AdsSidebar() {
           <span className="search-icon" style={{ color: 'var(--clr-text-muted)', display: 'flex', alignItems: 'center' }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
           </span>
-          <input type="search" className="filter-select-clean" placeholder="Buscar raça, marca..."
+          <input type="search" className="filter-select-clean" placeholder={t.searchPlaceholder}
             value={busca} onChange={e => handleSearch(e.target.value)} />
         </div>
       </div>
@@ -165,7 +167,7 @@ export default function AdsSidebar() {
           <input type="number" className="price-input-clean" placeholder={t.max} aria-label={t.max}
             value={precoMax} onChange={e => setPrecoMax(e.target.value)} />
         </div>
-        <div className="price-shortcuts" role="group" aria-label="Atalhos de preço">
+        <div className="price-shortcuts" role="group" aria-label={t.priceShortcutsAria}>
           <button className="price-shortcut" onClick={() => { setPrice('', '5000'); applyFilters({ precoMin: '', precoMax: '5000' }); }}>{t.upTo} 5k</button>
           <button className="price-shortcut" onClick={() => { setPrice('5000', '20000'); applyFilters({ precoMin: '5000', precoMax: '20000' }); }}>5k–20k</button>
           <button className="price-shortcut" onClick={() => { setPrice('20000', '100000'); applyFilters({ precoMin: '20000', precoMax: '100000' }); }}>20k–100k</button>

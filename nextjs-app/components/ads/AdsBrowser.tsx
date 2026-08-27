@@ -10,7 +10,38 @@ import ActiveFiltersList from './ActiveFiltersList';
 import AdsGrid from './AdsGrid';
 import ListagemPagination from './ListagemPagination';
 
-export default function AdsBrowser({ 
+const TRANSLATIONS = {
+  pt: {
+    allAds: 'Todos os Anúncios',
+    sortGroupAria: 'Ordenação',
+    sortLabel: 'Ordenar:',
+    sortAria: 'Ordenar por',
+    sortRecent: 'Mais Recentes',
+    sortPriceAsc: 'Menor Preço',
+    sortPriceDesc: 'Maior Preço',
+    sortFeatured: 'Destaques Primeiro',
+    found: 'encontrados',
+    emptyTitle: 'Nenhum anúncio encontrado',
+    emptyDesc: 'Não encontramos resultados exatos para estes filtros. Que tal ajustar as categorias ou remover o filtro de localização?',
+    emptyBtn: 'Limpar Filtros e Tentar Novamente',
+  },
+  es: {
+    allAds: 'Todos los Anuncios',
+    sortGroupAria: 'Ordenar',
+    sortLabel: 'Ordenar:',
+    sortAria: 'Ordenar por',
+    sortRecent: 'Más Recientes',
+    sortPriceAsc: 'Menor Precio',
+    sortPriceDesc: 'Mayor Precio',
+    sortFeatured: 'Destacados Primero',
+    found: 'encontrados',
+    emptyTitle: 'Ningún anuncio encontrado',
+    emptyDesc: 'No encontramos resultados exactos para estos filtros. ¿Qué tal ajustar las categorías o quitar el filtro de ubicación?',
+    emptyBtn: 'Limpiar Filtros e Intentar de Nuevo',
+  }
+};
+
+export default function AdsBrowser({
   initialAds = [], 
   initialTotal = 0, 
   initialGeo,
@@ -32,7 +63,8 @@ export default function AdsBrowser({
   nextCursor?: string,
   children?: React.ReactNode
 }) {
-  const { lang } = useLang();
+  const { lang, t } = useLang();
+  const T = TRANSLATIONS[lang as keyof typeof TRANSLATIONS] || TRANSLATIONS.pt;
   const filtersHook = useAdsFilters(initialGeo);
   
   const {
@@ -81,26 +113,26 @@ export default function AdsBrowser({
                 <div>
                   {!hideHeroBreadcrumb && (
                     <nav aria-label="Breadcrumb" className="breadcrumb">
-                      <a href="/">Início</a>
+                      <a href="/">{t('nav_home')}</a>
                       <span aria-hidden="true">›</span>
-                      <span>{currentCatName || 'Todos os Anúncios'}</span>
+                      <span>{currentCatName || T.allAds}</span>
                     </nav>
                   )}
                   <h1 className="list-hero-title">
-                    {heroTitle || currentCatName || 'Todos os Anúncios'}
+                    {heroTitle || currentCatName || T.allAds}
                   </h1>
                   <p className="list-hero-count">
-                    {`${initialTotal} encontrados`}
+                    {`${initialTotal} ${T.found}`}
                   </p>
                 </div>
-                <div className="list-sort-row" role="group" aria-label="Ordenação">
-                  <label htmlFor="sort-select" className="sort-label">Ordenar:</label>
-                  <select id="sort-select" className="sort-select" aria-label="Ordenar por"
+                <div className="list-sort-row" role="group" aria-label={T.sortGroupAria}>
+                  <label htmlFor="sort-select" className="sort-label">{T.sortLabel}</label>
+                  <select id="sort-select" className="sort-select" aria-label={T.sortAria}
                     value={ordem} onChange={e => { applyFilters({ ordem: e.target.value, page: 1 }); }}>
-                    <option value="recent">Mais Recentes</option>
-                    <option value="price_asc">Menor Preço</option>
-                    <option value="price_desc">Maior Preço</option>
-                    <option value="featured">Destaques Primeiro</option>
+                    <option value="recent">{T.sortRecent}</option>
+                    <option value="price_asc">{T.sortPriceAsc}</option>
+                    <option value="price_desc">{T.sortPriceDesc}</option>
+                    <option value="featured">{T.sortFeatured}</option>
                   </select>
                 </div>
               </div>
@@ -135,11 +167,11 @@ export default function AdsBrowser({
               {initialAds.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: 'var(--sp-20) var(--sp-8)', background: 'var(--clr-surface)', borderRadius: 'var(--r-2xl)', border: '1px dashed var(--clr-border)', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: 'var(--shadow-sm)' }}>
                   <div style={{ width: '80px', height: '80px', background: 'var(--clr-primary-pale)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2.5rem', marginBottom: 'var(--sp-6)', color: 'var(--clr-primary)', boxShadow: '0 0 0 10px rgba(34,197,94,0.05)' }}>🔍</div>
-                  <h3 style={{ fontSize: 'var(--fs-xl)', fontWeight: 800, color: 'var(--clr-text)', marginBottom: 'var(--sp-2)', letterSpacing: '-0.02em' }}>Nenhum anúncio encontrado</h3>
-                  <p style={{ color: 'var(--clr-text-muted)', fontSize: 'var(--fs-base)', maxWidth: '360px', marginBottom: 'var(--sp-8)', lineHeight: 1.6 }}>Não encontramos resultados exatos para estes filtros. Que tal ajustar as categorias ou remover o filtro de localização?</p>
+                  <h3 style={{ fontSize: 'var(--fs-xl)', fontWeight: 800, color: 'var(--clr-text)', marginBottom: 'var(--sp-2)', letterSpacing: '-0.02em' }}>{T.emptyTitle}</h3>
+                  <p style={{ color: 'var(--clr-text-muted)', fontSize: 'var(--fs-base)', maxWidth: '360px', marginBottom: 'var(--sp-8)', lineHeight: 1.6 }}>{T.emptyDesc}</p>
                   <button onClick={clearFilters} className="btn btn--primary" style={{ padding: '12px 32px' }}>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-                    <span>Limpar Filtros e Tentar Novamente</span>
+                    <span>{T.emptyBtn}</span>
                   </button>
                 </div>
               ) : (

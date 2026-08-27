@@ -5,6 +5,50 @@ import { useFormContext } from 'react-hook-form'
 import { MapPin, Target } from 'lucide-react'
 import styles from '../page.module.css'
 import { AnuncioFormValues } from './schema'
+import { useLang } from '@/lib/lang-context'
+
+// Strings exclusivas deste passo do wizard — padrão local de TRANSLATIONS,
+// igual components/ads/AdsSidebar.tsx. Os `value` dos países permanecem em
+// PT (canônicos no banco — ver normalizeCountry abaixo); só o texto exibido
+// muda com o idioma, mesmo padrão já usado em components/home/MercosulSection.tsx.
+const TRANSLATIONS = {
+  pt: {
+    header: 'Localização',
+    headerDesc: 'Onde está o produto ou serviço anunciado?',
+    locating: 'Buscando...',
+    useLocation: 'Usar minha localização',
+    countryLabel: 'País',
+    selectPlaceholder: 'Selecione...',
+    brasil: 'Brasil',
+    argentina: 'Argentina',
+    uruguai: 'Uruguai',
+    paraguai: 'Paraguai',
+    stateLabel: 'Estado',
+    statePh: 'Ex: Mato Grosso do Sul',
+    cityLabel: 'Cidade',
+    cityPh: 'Ex: Campo Grande',
+    back: 'Voltar',
+    nextStep: 'Próximo Passo',
+  },
+  es: {
+    header: 'Ubicación',
+    headerDesc: '¿Dónde está el producto o servicio anunciado?',
+    locating: 'Buscando...',
+    useLocation: 'Usar mi ubicación',
+    countryLabel: 'País',
+    selectPlaceholder: 'Seleccionar...',
+    brasil: 'Brasil',
+    argentina: 'Argentina',
+    uruguai: 'Uruguay',
+    paraguai: 'Paraguay',
+    stateLabel: 'Estado / Provincia',
+    statePh: 'Ej: Mato Grosso do Sul',
+    cityLabel: 'Ciudad',
+    cityPh: 'Ej: Campo Grande',
+    back: 'Volver',
+    nextStep: 'Siguiente Paso',
+  },
+} as const
 
 interface StepLocationProps {
   onNext: () => void;
@@ -43,6 +87,8 @@ const BR_STATES: Record<string, string> = {
 
 export function StepLocation({ onNext, onPrev }: StepLocationProps) {
   const { register, trigger, setValue, formState: { errors } } = useFormContext<AnuncioFormValues>()
+  const { lang } = useLang()
+  const tr = TRANSLATIONS[lang]
   const [isLocating, setIsLocating] = useState(false)
 
   const fetchLocation = async () => {
@@ -113,8 +159,8 @@ export function StepLocation({ onNext, onPrev }: StepLocationProps) {
             <MapPin size={24} />
           </div>
           <div>
-            <h2>Localização</h2>
-            <p>Onde está o produto ou serviço anunciado?</p>
+            <h2>{tr.header}</h2>
+            <p>{tr.headerDesc}</p>
           </div>
         </div>
         <button
@@ -125,37 +171,37 @@ export function StepLocation({ onNext, onPrev }: StepLocationProps) {
           disabled={isLocating}
         >
           <Target size={16} />
-          {isLocating ? 'Buscando...' : 'Usar minha localização'}
+          {isLocating ? tr.locating : tr.useLocation}
         </button>
       </div>
 
       <div className={styles.formGrid3}>
         <div>
-          <label htmlFor="step-pais" className={styles.inputLabel}>País <span>*</span></label>
+          <label htmlFor="step-pais" className={styles.inputLabel}>{tr.countryLabel} <span>*</span></label>
           <select id="step-pais" className={styles.formInput} {...register('pais')}>
-            <option value="">Selecione...</option>
-            <option value="Brasil">Brasil</option>
-            <option value="Argentina">Argentina</option>
-            <option value="Uruguai">Uruguai</option>
-            <option value="Paraguai">Paraguai</option>
+            <option value="">{tr.selectPlaceholder}</option>
+            <option value="Brasil">{tr.brasil}</option>
+            <option value="Argentina">{tr.argentina}</option>
+            <option value="Uruguai">{tr.uruguai}</option>
+            <option value="Paraguai">{tr.paraguai}</option>
           </select>
           {errors.pais && <span className={styles.errorText}>{errors.pais.message}</span>}
         </div>
         <div>
-          <label htmlFor="step-estado" className={styles.inputLabel}>Estado <span>*</span></label>
-          <input id="step-estado" type="text" className={styles.formInput} placeholder="Ex: Mato Grosso do Sul" {...register('estado')} />
+          <label htmlFor="step-estado" className={styles.inputLabel}>{tr.stateLabel} <span>*</span></label>
+          <input id="step-estado" type="text" className={styles.formInput} placeholder={tr.statePh} {...register('estado')} />
           {errors.estado && <span className={styles.errorText}>{errors.estado.message}</span>}
         </div>
         <div>
-          <label htmlFor="step-cidade" className={styles.inputLabel}>Cidade <span>*</span></label>
-          <input id="step-cidade" type="text" className={styles.formInput} placeholder="Ex: Campo Grande" {...register('cidade')} />
+          <label htmlFor="step-cidade" className={styles.inputLabel}>{tr.cityLabel} <span>*</span></label>
+          <input id="step-cidade" type="text" className={styles.formInput} placeholder={tr.cityPh} {...register('cidade')} />
           {errors.cidade && <span className={styles.errorText}>{errors.cidade.message}</span>}
         </div>
       </div>
 
       <div className={styles.wizardActions}>
-        <button type="button" className={`${styles.btnOutline} btn--lg`} onClick={onPrev} style={{ padding: '0.8rem 2rem' }}>Voltar</button>
-        <button type="button" className="btn btn--accent btn--lg" onClick={handleNext}>Próximo Passo</button>
+        <button type="button" className={`${styles.btnOutline} btn--lg`} onClick={onPrev} style={{ padding: '0.8rem 2rem' }}>{tr.back}</button>
+        <button type="button" className="btn btn--accent btn--lg" onClick={handleNext}>{tr.nextStep}</button>
       </div>
     </div>
   )

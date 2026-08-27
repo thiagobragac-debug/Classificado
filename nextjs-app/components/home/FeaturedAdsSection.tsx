@@ -6,9 +6,23 @@ import { useLang } from '@/lib/lang-context';
 import { useFavorites } from '@/lib/useFavorites';
 import { AdCardHome } from './AdCardHome';
 
+const TRANSLATIONS = {
+  pt: {
+    gridAria: 'Anúncios em destaque',
+    empty: 'Nenhum anúncio destacado encontrado no momento.',
+    emptyCta: 'Anuncie e ganhe destaque!',
+  },
+  es: {
+    gridAria: 'Anuncios destacados',
+    empty: 'Ningún anuncio destacado encontrado por el momento.',
+    emptyCta: '¡Publica y gana destaque!',
+  },
+} as const;
+
 export function FeaturedAdsSection({ featuredAds }: { featuredAds: any[] }) {
   const { lang, t } = useLang();
   const { favs, toggleFav } = useFavorites();
+  const tt = TRANSLATIONS[lang as 'pt' | 'es'];
 
   return (
     <section className="section" aria-labelledby="featured-heading">
@@ -27,11 +41,11 @@ export function FeaturedAdsSection({ featuredAds }: { featuredAds: any[] }) {
           </Link>
         </div>
         <LazyMotion features={domAnimation}>
-          <div className="ads-grid" id="featured-ads" role="list" aria-label="Anúncios em destaque">
+          <div className="ads-grid" id="featured-ads" role="list" aria-label={tt.gridAria}>
             {featuredAds.length === 0 ? (
               <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3rem', background: 'white', borderRadius: 16, border: '1px dashed var(--clr-border)' }}>
-                <p style={{ color: 'var(--clr-text-muted)', marginBottom: '1rem' }}>Nenhum anúncio destacado encontrado no momento.</p>
-                <Link href="/login?mode=register" className="btn btn--primary">Anuncie e ganhe destaque!</Link>
+                <p style={{ color: 'var(--clr-text-muted)', marginBottom: '1rem' }}>{tt.empty}</p>
+                <Link href="/login?mode=register" className="btn btn--primary">{tt.emptyCta}</Link>
               </div>
             ) : (
               featuredAds.slice(0, 4).map((ad: any, index: number) => (

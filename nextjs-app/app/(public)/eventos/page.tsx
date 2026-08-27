@@ -241,7 +241,7 @@ export default async function EventosPage({
             {events.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-gray-500 mb-4">
-                  {t('events_empty')}{searchQuery ? ` para "${searchQuery}"` : ''}.
+                  {t('events_empty')}{searchQuery ? ` ${t('events_empty_for')} "${searchQuery}"` : ''}.
                 </p>
                 {searchQuery && (
                   <Link href="/eventos" className="text-green-600 hover:underline font-medium">
