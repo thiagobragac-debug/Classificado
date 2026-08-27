@@ -63,6 +63,7 @@ export const adSchema = z.object({
   price: z.number().nullable().optional(),
   currency: z.string().nullable().optional(),
   price_unit_pt: z.string().nullable().optional(),
+  price_unit_es: z.string().nullable().optional(),
   negotiable: z.boolean().nullable().optional(),
   country: z.string().nullable().optional(),
   state: z.string().nullable().optional(),
@@ -70,6 +71,7 @@ export const adSchema = z.object({
   location_text: z.string().nullable().optional(),
   images: z.array(z.string()).nullable().optional(),
   tags_pt: z.array(z.string()).nullable().optional(),
+  tags_es: z.array(z.string()).nullable().optional(),
   status: z.string().nullable().optional(),
   featured: z.boolean().nullable().optional(),
   created_at: z.string(),
@@ -83,7 +85,13 @@ export async function getAdsListagem(params: AdsSearchParams, geoContext: any) {
   const sb = await createClient();
   
   let q = sb.from('ads')
-    .select('id, title_pt, title_es, price, currency, price_unit_pt, negotiable, country, state, city, location_text, images, tags_pt, status, featured, created_at, category_id', { count: 'exact' })
+    // BUG CORRIGIDO (achado durante a validação do zero de i18n): a
+    // migration 20260827100000_i18n_colunas_es.sql adicionou price_unit_es
+    // e tags_es especificamente pra AdCard.tsx poder mostrar essas colunas
+    // em espanhol (mesmo padrão já usado pra title_es) — mas este select
+    // explícito nunca as buscava, então a listagem sempre caía no fallback
+    // _pt, mesmo pra anúncios com tradução real preenchida.
+    .select('id, title_pt, title_es, price, currency, price_unit_pt, price_unit_es, negotiable, country, state, city, location_text, images, tags_pt, tags_es, status, featured, created_at, category_id', { count: 'exact' })
     .eq('status', 'active');
 
   // Filtros geográficos e de categoria
