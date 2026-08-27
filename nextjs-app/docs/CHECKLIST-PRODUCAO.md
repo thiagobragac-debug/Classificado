@@ -9,6 +9,71 @@ diretamente. Reconfira antes do go-live.
 
 ---
 
+## ✅ i18n PT/ES — auditoria completa + implementação em todas as páginas de cliente — 2026-08-27
+
+Pedido do usuário: "revisar todas as paginas sem excessao detalhadamente" a troca
+de idioma. Auditoria (10 áreas, 20 agentes, 149 achados, 6 refutações — todas
+sobre nuances de evidência, não sobre o bug em si) encontrou que o mecanismo de
+i18n (cookie `tc_lang` + `router.refresh()` + dicionário `I18N`) funciona
+perfeitamente onde é usado — o problema real é que a maior parte do site nunca
+foi conectada a ele. Corrigido em: home, header/footer (incluindo a variante
+"simplificada" usada em /painel,/anunciar,/listagem,/eventos), listagem/busca,
+detalhe de anúncio + contato/denúncia, perfil público de vendedor + avaliação,
+leilões (listagem/detalhe/modal de lance/countdown), eventos, 10 páginas
+institucionais, planos + checkout, painel do usuário (todas as 6 abas +
+verificação KYC), login/cadastro/esqueci-senha, e wizard de anunciar (3 passos).
+
+### Schema — colunas `_es` que nunca existiram, adicionadas
+`testimonials.text_es`, `eventos.{title,location_str,organizer}_es`,
+`auction_events.title_es`, `auction_lots.{title,sire,dam,description}_es`,
+`institutional_pages.{title,subtitle,content,group_name}_es`,
+`plans.{name,description,features}_es`, `ads.{price_unit,tags}_es`. Todas
+nullable, com fallback pra coluna `_pt` no código — mesmo padrão já usado
+corretamente em `ads.title_pt/title_es`.
+
+### Conteúdo traduzido
+Depoimentos, nomes de evento/leilão, genealogia de lote, planos (nome/
+descrição/benefícios) e as 10 páginas institucionais completas (título,
+subtítulo, corpo HTML) — feito por mim e por um agente dedicado, verificado de
+forma independente (HTML válido, estrutura idêntica ao PT, espanhol rioplatense
+genuíno).
+
+**⚠️ Termos de Uso, Política de Privacidade e Política de Cookies (espanhol)
+são rascunho gerado por IA — precisam de revisão jurídica antes de valerem como
+versão oficial.** São documentos com efeito legal real, citam legislação
+brasileira (LGPD, Marco Civil, ANPD) que não foi adaptada às jurisdições da
+Argentina/Paraguai/Uruguai. Confirmado por 3 verificações independentes que essa
+ressalva está presente e clara no trabalho entregue — reforçando aqui para
+constar no checklist de produção também.
+
+### Achados de carona (não são i18n, achados durante a verificação)
+- `getMyMessages()` nunca buscava `title_es` do anúncio — corrigido.
+- Botão "Pagar" de fatura pendente em `/painel` apontava pra uma rota GET que
+  nunca existiu (sempre 405) — a tabela `transactions` de onde vem esse dado é
+  vestigial (23 linhas, todas de uma conta de teste de julho/2026, nenhum
+  código atual grava nela — é de um design de billing anterior ao atual). Sem
+  risco pra clientes reais (nunca alcançável hoje), mas corrigido: o botão
+  agora leva para `/planos`, o fluxo real de pagamento.
+- `EventCard.tsx`: badge "Ao Vivo" comparava com uma string que nunca é o
+  valor real de status (`'live'`, não `'Ao Vivo'`) — nunca aparecia, em nenhum
+  idioma. Corrigido de carona.
+- 3 páginas institucionais (`contato`, `cookies`, `api`) perdem 15-40% do HTML
+  na sanitização por causa de tags fora do allowlist do DOMPurify (`form`,
+  `script`, `svg`...) — confirmado **pré-existente, idêntico em PT e ES**, não
+  introduzido por esta rodada. Fica registrado, não corrigido aqui (fora do
+  escopo de i18n).
+- Símbolo de moeda BRL em locale `es-AR` mostra "BRL" em vez de "R$" (limitação
+  do `Intl.NumberFormat`, já era assim em `AdCard.tsx` antes desta rodada) —
+  cosmético, não afeta valor cobrado, deixado como está por consistência.
+
+### Nota operacional (mesma causa das rodadas anteriores)
+De novo, vários agentes relataram "sessão paralela" no mesmo navegador/banco —
+mesma causa raiz já diagnosticada nas rodadas 3 e 4: agentes do próprio
+workflow em `parallel()` dentro da mesma fase, mesmo servidor compartilhado
+(intencionalmente, pra evitar duplicar `next dev`). Não é uma sessão externa.
+
+---
+
 ## ✅ 4ª rodada — reescrita de billing sob revisão independente + sandbox Stripe real — 2026-08-26
 
 Pedido explícito do usuário, preocupado com a reescrita de billing da 3ª
