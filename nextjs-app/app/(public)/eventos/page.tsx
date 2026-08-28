@@ -75,7 +75,7 @@ export default async function EventosPage({
       .neq('status', 'draft')
       .limit(50)
 
-    const eventosFields = 'id, title, date, image, location_str'
+    const eventosFields = 'id, title, title_es, date, image, location_str, location_str_es'
 
     if (searchQuery) {
       qAuctions = qAuctions.ilike('title', `%${searchQuery}%`)
@@ -95,26 +95,49 @@ export default async function EventosPage({
     // filtro — não precisa escapar vírgula/parênteses), mescladas e
     // deduplicadas por id em memória. Leilões (auction_events) não têm
     // coluna de localização, continuam só por título.
+    // BUG CORRIGIDO (retomada da verificação independente, 2ª rodada de
+    // revisão adversarial): esta busca nunca olhava pra title_es/
+    // location_str_es — um visitante em espanhol via título em português na
+    // listagem (a página de detalhe já localizava corretamente) e buscar
+    // pelo termo traduzido pro espanhol voltava "Nenhum evento encontrado"
+    // mesmo com o evento existindo. Mesma técnica já usada acima pra
+    // title/location_str: uma query .ilike() separada por coluna, sem
+    // sanitizar o termo, mescladas e deduplicadas por id.
     const qEventosPorTitulo = searchQuery
       ? sb.from('eventos').select(eventosFields).ilike('title', `%${searchQuery}%`).limit(50)
       : sb.from('eventos').select(eventosFields).limit(50)
+    const qEventosPorTituloEs = searchQuery
+      ? sb.from('eventos').select(eventosFields).ilike('title_es', `%${searchQuery}%`).limit(50)
+      : null
     const qEventosPorLocal = searchQuery
       ? sb.from('eventos').select(eventosFields).ilike('location_str', `%${searchQuery}%`).limit(50)
       : null
+    const qEventosPorLocalEs = searchQuery
+      ? sb.from('eventos').select(eventosFields).ilike('location_str_es', `%${searchQuery}%`).limit(50)
+      : null
 
-    const [resAuctions, resEventosPorTitulo, resEventosPorLocal] = await Promise.all([
+    const [resAuctions, resEventosPorTitulo, resEventosPorTituloEs, resEventosPorLocal, resEventosPorLocalEs] = await Promise.all([
       qAuctions,
       qEventosPorTitulo,
+      qEventosPorTituloEs ?? Promise.resolve({ data: [], error: null }),
       qEventosPorLocal ?? Promise.resolve({ data: [], error: null }),
+      qEventosPorLocalEs ?? Promise.resolve({ data: [], error: null }),
     ])
 
     if (resAuctions.error) throw resAuctions.error
     if (resEventosPorTitulo.error) throw resEventosPorTitulo.error
+    if (resEventosPorTituloEs.error) throw resEventosPorTituloEs.error
     if (resEventosPorLocal.error) throw resEventosPorLocal.error
+    if (resEventosPorLocalEs.error) throw resEventosPorLocalEs.error
 
     const eventosVistos = new Set<string>()
     const eventosMesclados: any[] = []
-    for (const e of [...(resEventosPorTitulo.data || []), ...(resEventosPorLocal.data || [])]) {
+    for (const e of [
+      ...(resEventosPorTitulo.data || []),
+      ...(resEventosPorTituloEs.data || []),
+      ...(resEventosPorLocal.data || []),
+      ...(resEventosPorLocalEs.data || []),
+    ]) {
       if (!eventosVistos.has(e.id)) {
         eventosVistos.add(e.id)
         eventosMesclados.push(e)
@@ -133,10 +156,10 @@ export default async function EventosPage({
 
     const normalizedEventos = (resEventos.data || []).map(e => ({
       id: e.id,
-      title: e.title,
+      title: lang === 'es' && e.title_es ? e.title_es : e.title,
       date: e.date,
       cover: e.image,
-      location: e.location_str
+      location: lang === 'es' && e.location_str_es ? e.location_str_es : e.location_str
     }));
 
     events = [...normalizedAuctions, ...normalizedEventos];
