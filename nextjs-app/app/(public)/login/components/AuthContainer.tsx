@@ -18,10 +18,12 @@ const TRANSLATIONS = {
   pt: {
     accountBlocked: 'Sua conta foi suspensa temporariamente. Entre em contato com o suporte para mais informações.',
     recoverySessionBlocked: 'Este link é só para redefinir sua senha. Faça login normalmente para acessar sua conta.',
+    recoveryLinkFailed: 'Não foi possível validar este link. Abra-o no mesmo navegador em que você pediu a redefinição de senha, ou solicite um novo link.',
   },
   es: {
     accountBlocked: 'Tu cuenta fue suspendida temporalmente. Contacta al soporte para más información.',
     recoverySessionBlocked: 'Este enlace es solo para restablecer tu contraseña. Inicia sesión normalmente para acceder a tu cuenta.',
+    recoveryLinkFailed: 'No fue posible validar este enlace. Ábrelo en el mismo navegador en el que pediste el restablecimiento de contraseña, o solicita uno nuevo.',
   },
 } as const
 
@@ -53,6 +55,25 @@ export function AuthContainer() {
     // direto pelo link do e-mail.
     if (searchParams.get('error') === 'recovery_session') {
       setAlertInfo({ msg: tr.recoverySessionBlocked, type: 'error' })
+    }
+
+    // BUG CORRIGIDO (validação adversarial final): resetPassword() usa o
+    // flowType padrão do cliente (pkce, ver lib/supabase.ts) — o
+    // code_verifier gerado por resetPasswordForEmail() fica guardado só no
+    // navegador que pediu a redefinição. Se o link do e-mail for aberto em
+    // outro navegador/aparelho (o caso mais comum: pediu no notebook, abriu
+    // o e-mail no celular) ou já tiver sido usado, a troca do código pela
+    // sessão falha DENTRO do SDK, silenciosamente — nenhum evento
+    // PASSWORD_RECOVERY dispara e a pessoa só via a tela de login normal
+    // sem entender por quê. getSupabase().auth.initialize() reaproveita a
+    // mesma promise dessa troca (já iniciada na construção do client) e
+    // devolve o erro, se houver, sem repetir a chamada.
+    if (searchParams.get('mode') === 'reset') {
+      getSupabase().auth.initialize().then(({ error }: { error: unknown }) => {
+        if (error) {
+          setAlertInfo({ msg: tr.recoveryLinkFailed, type: 'error' })
+        }
+      })
     }
   }, [searchParams, tr])
 
