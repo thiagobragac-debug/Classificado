@@ -61,11 +61,19 @@ export const I18N = {
     auth_forgot_desc: 'Digite o e-mail associado à sua conta e enviaremos um link para redefinir sua senha.',
     auth_forgot_btn: 'Enviar link de recuperação', auth_forgot_ing: 'Enviando...',
     auth_back_login: 'Voltar para o login',
-    
+    auth_reset_title: 'Defina sua Nova Senha',
+    auth_reset_desc: 'Escolha uma nova senha para sua conta.',
+    auth_new_pass: 'Nova Senha', auth_new_pass_ph: '••••••••',
+    auth_confirm_pass: 'Confirmar Nova Senha', auth_confirm_pass_ph: '••••••••',
+    auth_reset_btn: 'Salvar Nova Senha', auth_reset_ing: 'Salvando...',
+    auth_reset_success: 'Senha redefinida com sucesso! Você já pode fazer login.',
+    auth_reset_error: 'Erro ao redefinir a senha. O link pode ter expirado — solicite um novo.',
+
     // Zod Validation (PT)
     err_email: 'Digite um e-mail válido.',
     err_pass_req: 'A senha é obrigatória.',
     err_pass_min: 'A senha deve ter pelo menos 8 caracteres.',
+    err_pass_mismatch: 'As senhas não coincidem.',
     err_name: 'O nome deve ter no mínimo 3 caracteres.',
     err_display: 'O nome de exibição é obrigatório.',
     err_doc: 'Documento inválido.',
@@ -172,11 +180,19 @@ export const I18N = {
     auth_forgot_desc: 'Ingresa el correo asociado a tu cuenta y te enviaremos un enlace para restablecer tu contraseña.',
     auth_forgot_btn: 'Enviar enlace de recuperación', auth_forgot_ing: 'Enviando...',
     auth_back_login: 'Volver al inicio de sesión',
-    
+    auth_reset_title: 'Define tu Nueva Contraseña',
+    auth_reset_desc: 'Elige una nueva contraseña para tu cuenta.',
+    auth_new_pass: 'Nueva Contraseña', auth_new_pass_ph: '••••••••',
+    auth_confirm_pass: 'Confirmar Nueva Contraseña', auth_confirm_pass_ph: '••••••••',
+    auth_reset_btn: 'Guardar Nueva Contraseña', auth_reset_ing: 'Guardando...',
+    auth_reset_success: '¡Contraseña restablecida con éxito! Ya puedes iniciar sesión.',
+    auth_reset_error: 'Error al restablecer la contraseña. El enlace puede haber expirado — solicita uno nuevo.',
+
     // Zod Validation (ES)
     err_email: 'Ingresa un correo electrónico válido.',
     err_pass_req: 'La contraseña es obligatoria.',
     err_pass_min: 'La contraseña debe tener al menos 8 caracteres.',
+    err_pass_mismatch: 'Las contraseñas no coinciden.',
     err_name: 'El nombre debe tener al menos 3 caracteres.',
     err_display: 'El nombre público es obligatorio.',
     err_doc: 'Documento inválido.',

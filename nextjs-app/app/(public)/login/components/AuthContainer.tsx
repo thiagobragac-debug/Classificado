@@ -5,20 +5,20 @@ import { useSearchParams } from 'next/navigation'
 import { LoginForm } from './LoginForm'
 import { RegisterForm } from './RegisterForm'
 import { ForgotPasswordForm } from './ForgotPasswordForm'
+import { ResetPasswordForm } from './ResetPasswordForm'
 import { useLang } from '@/lib/lang-context'
+import { getSupabase } from '@/lib/supabase'
 import { motion, AnimatePresence } from 'framer-motion'
 
-type AuthMode = 'login' | 'register' | 'forgot_password'
+type AuthMode = 'login' | 'register' | 'forgot_password' | 'reset_password'
 
 // Mensagens exclusivas deste componente (sem equivalente no dicionário
 // global I18N) — padrão local de TRANSLATIONS, igual components/ads/AdsSidebar.tsx.
 const TRANSLATIONS = {
   pt: {
-    resetPending: 'Você pode redefinir sua senha agora (implementação pendente na UI para token).',
     accountBlocked: 'Sua conta foi suspensa temporariamente. Entre em contato com o suporte para mais informações.',
   },
   es: {
-    resetPending: 'Ya puedes restablecer tu contraseña ahora (implementación pendiente en la UI para el token).',
     accountBlocked: 'Tu cuenta fue suspendida temporalmente. Contacta al soporte para más información.',
   },
 } as const
@@ -35,18 +35,33 @@ export function AuthContainer() {
   useEffect(() => {
     if (searchParams.get('mode') === 'register') {
       setMode('register')
-    } else if (searchParams.get('mode') === 'reset') {
-      setAlertInfo({ msg: tr.resetPending, type: 'success' })
     }
 
     if (searchParams.get('error') === 'blocked') {
       setAlertInfo({ msg: tr.accountBlocked, type: 'error' })
       // Tentar limpar a sessão via cliente também, para segurança extra
-      import('@/lib/supabase').then(({ getSupabase }) => {
-        getSupabase().auth.signOut();
-      });
+      getSupabase().auth.signOut();
     }
   }, [searchParams, tr])
+
+  // BUG CORRIGIDO (feature aprovada pelo usuário): `?mode=reset` só
+  // acionava uma mensagem de sucesso fixa admitindo que a UI pra trocar a
+  // senha não existia ("implementação pendente na UI para token") — o link
+  // do e-mail de recuperação levava a usuária de volta pro login normal,
+  // sem nenhum jeito de realmente definir a senha nova. O evento
+  // PASSWORD_RECOVERY do Supabase (disparado quando ele detecta e troca o
+  // código de recuperação da URL por uma sessão temporária) é o sinal
+  // confiável — a query string por si só não garante que o link era
+  // válido/não expirou.
+  useEffect(() => {
+    const { data: { subscription } } = getSupabase().auth.onAuthStateChange((event: string) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setMode('reset_password')
+        setAlertInfo(null)
+      }
+    })
+    return () => subscription.unsubscribe()
+  }, [])
 
   const handleSetAlert = (msg: string, type: 'success' | 'error') => {
     if (!msg) {
@@ -64,7 +79,7 @@ export function AuthContainer() {
 
   return (
     <div style={{ maxWidth: 400, width: '100%', margin: '0 auto' }}>
-      {mode !== 'forgot_password' && (
+      {mode !== 'forgot_password' && mode !== 'reset_password' && (
         <div className="auth-toggle">
           <button className={`toggle-btn ${mode === 'login' ? 'active' : ''}`} onClick={() => { setMode('login'); setAlertInfo(null); }}>
             {t('nav_login')}
@@ -114,10 +129,19 @@ export function AuthContainer() {
 
         {mode === 'forgot_password' && (
           <motion.div key="forgot" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.2 }}>
-            <ForgotPasswordForm 
-              onSetAlert={handleSetAlert} 
-              onBack={() => { setMode('login'); setAlertInfo(null); }} 
+            <ForgotPasswordForm
+              onSetAlert={handleSetAlert}
+              onBack={() => { setMode('login'); setAlertInfo(null); }}
               initialEmail={forgotEmail}
+            />
+          </motion.div>
+        )}
+
+        {mode === 'reset_password' && (
+          <motion.div key="reset" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.2 }}>
+            <ResetPasswordForm
+              onSetAlert={handleSetAlert}
+              onSuccess={() => setMode('login')}
             />
           </motion.div>
         )}
