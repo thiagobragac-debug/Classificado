@@ -23,7 +23,8 @@ const TRANSLATIONS = {
     titlePh: 'Ex: Trator Massey Ferguson 2018',
     categoryLabel: 'Categoria',
     selectPlaceholder: 'Selecione...',
-    categoriesError: 'Não foi possível carregar as categorias. Tente novamente.',
+    categoriesError: 'Não foi possível carregar as categorias.',
+    categoriesRetry: 'Tentar novamente',
     descLabel: 'Descrição',
     descPh: 'Descreva detalhes importantes...',
     valuesHeader: 'Valores e Condições',
@@ -56,7 +57,8 @@ const TRANSLATIONS = {
     titlePh: 'Ej: Tractor Massey Ferguson 2018',
     categoryLabel: 'Categoría',
     selectPlaceholder: 'Seleccionar...',
-    categoriesError: 'No se pudieron cargar las categorías. Inténtalo de nuevo.',
+    categoriesError: 'No se pudieron cargar las categorías.',
+    categoriesRetry: 'Intentar de nuevo',
     descLabel: 'Descripción',
     descPh: 'Describe detalles importantes...',
     valuesHeader: 'Valores y Condiciones',
@@ -97,22 +99,28 @@ export function StepData({ onNext }: StepDataProps) {
   // wizard inteiro sem explicação.
   const [categoriesError, setCategoriesError] = useState(false)
 
-  useEffect(() => {
-    async function loadCategories() {
-      const supabase = getSupabase()
-      const { data, error } = await supabase
-        .from('categories')
-        .select('*')
-        .eq('active', true)
-        .order('sort_order', { ascending: true })
+  // BUG CORRIGIDO (validação adversarial final): a mensagem de erro dizia
+  // "tente novamente" sem nenhum jeito real de tentar de novo — só recarregar
+  // a página inteira (perdendo o resto do formulário já preenchido).
+  // Extraída do efeito pra poder ser chamada de novo pelo botão de retry.
+  async function loadCategories() {
+    setCategoriesError(false)
+    const supabase = getSupabase()
+    const { data, error } = await supabase
+      .from('categories')
+      .select('*')
+      .eq('active', true)
+      .order('sort_order', { ascending: true })
 
-      if (!error && data) {
-        setCategories(data)
-      } else if (error) {
-        console.error('Erro ao carregar categorias:', error.message)
-        setCategoriesError(true)
-      }
+    if (!error && data) {
+      setCategories(data)
+    } else if (error) {
+      console.error('Erro ao carregar categorias:', error.message)
+      setCategoriesError(true)
     }
+  }
+
+  useEffect(() => {
     loadCategories()
   }, [])
 
@@ -175,7 +183,18 @@ export function StepData({ onNext }: StepDataProps) {
             {categories.map(c => <option key={c.id} value={c.id}>{lang === 'es' && c.name_es ? c.name_es : c.name_pt}</option>)}
           </select>
           {errors.categoria && <span className={styles.errorText}>{errors.categoria.message}</span>}
-          {categoriesError && <span className={styles.errorText}>{tr.categoriesError}</span>}
+          {categoriesError && (
+            <span className={styles.errorText}>
+              {tr.categoriesError}{' '}
+              <button
+                type="button"
+                onClick={() => loadCategories()}
+                style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', textDecoration: 'underline', cursor: 'pointer', font: 'inherit' }}
+              >
+                {tr.categoriesRetry}
+              </button>
+            </span>
+          )}
         </div>
 
         <div className={styles.colFull}>

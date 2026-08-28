@@ -32,8 +32,8 @@ describe('resolverIpConfiavel', () => {
     expect(resultados).toEqual(new Set([fixo]));
   });
 
-  it('volta para 127.0.0.1 quando nenhum header existe', () => {
-    expect(resolverIpConfiavel(headers({}))).toBe('127.0.0.1');
+  it('devolve null quando nenhum header confiável existe (não inventa um IP compartilhado)', () => {
+    expect(resolverIpConfiavel(headers({}))).toBeNull();
   });
 
   it('ignora espaços em volta do valor', () => {
@@ -56,6 +56,10 @@ describe('isValidIp', () => {
     '../../etc/passwd',
     '1.2.3.4/evil',
   ])('rejeita %s', (ip) => expect(isValidIp(ip)).toBe(false));
+
+  it('rejeita null (retorno de resolverIpConfiavel sem header confiável)', () => {
+    expect(isValidIp(null)).toBe(false);
+  });
 });
 
 describe('isLocalIp', () => {

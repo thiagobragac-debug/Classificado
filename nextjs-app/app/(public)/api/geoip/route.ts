@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
   // de geo (`https://ipwho.is/${ip}`), então também precisa ser um IP válido
   // — caso contrário dá para injetar path na requisição que o servidor faz.
   const candidate = resolverIpConfiavel(request.headers);
-  const ip = isValidIp(candidate) ? candidate : '127.0.0.1';
+  const ip: string = candidate && isValidIp(candidate) ? candidate : '127.0.0.1';
   const local = isLocalIp(ip);
   // BUG CORRIGIDO (propagação de idioma na geolocalização): país agora respeita tc_lang.
   const lang = request.nextUrl.searchParams.get('lang') === 'es' ? 'es' : 'pt';

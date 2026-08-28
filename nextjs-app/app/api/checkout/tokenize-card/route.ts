@@ -127,7 +127,12 @@ export async function POST(req: Request) {
       name: profile?.display_name || profile?.name || user.email,
       country: userCountry,
     }
-    const ip = resolverIpConfiavel(req.headers)
+    // resolverIpConfiavel devolve null sem header confiável (dev local) —
+    // tokenizeCard exige uma string (a Asaas marca remoteIp como
+    // obrigatório), e este valor não vira chave de rate limit, então um
+    // fallback fixo aqui não tem o problema de balde compartilhado que
+    // tinha em proxy.ts/contact/route.ts.
+    const ip = resolverIpConfiavel(req.headers) ?? '127.0.0.1'
 
     let gatewayToken: string
     try {

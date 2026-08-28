@@ -259,7 +259,11 @@ export async function POST(req: Request) {
       }
 
       if (couponData.discount_type === 'percentage') {
-        finalPrice = finalPrice * (1 - couponData.discount_value / 100)
+        // BUG CORRIGIDO: sem o Math.max(0, ...) que o ramo 'fixed' já tinha,
+        // um discount_value > 100 (cupom antigo, ou o cadastro no admin
+        // permitia isso antes da validação em admin/cupons/page.tsx) produz
+        // finalPrice negativo indo pro gateway de cobrança.
+        finalPrice = Math.max(0, finalPrice * (1 - couponData.discount_value / 100))
       } else {
         finalPrice = Math.max(0, finalPrice - couponData.discount_value)
       }
@@ -566,8 +570,9 @@ export async function POST(req: Request) {
       phone: billingData?.phone,
       // A Asaas marca `remoteIp` como obrigatório na criação de assinatura por
       // cartão (achado de auditoria contra a doc oficial). Os demais gateways
-      // ignoram este campo.
-      ip: resolverIpConfiavel(req.headers),
+      // ignoram este campo. resolverIpConfiavel devolve null sem header
+      // confiável (dev local) — campo opcional, undefined é aceitável aqui.
+      ip: resolverIpConfiavel(req.headers) ?? undefined,
     }
 
     // --- 100% OFF Bypass (Local Checkout) ---

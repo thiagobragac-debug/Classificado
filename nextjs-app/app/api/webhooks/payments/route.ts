@@ -407,6 +407,31 @@ export async function POST(req: Request) {
     }
 
     if (effectiveType === 'subscription.cancelled' || (effectiveType === 'payment.failed' && !isProrationFailure)) {
+      // BUG CORRIGIDO (validação adversarial final): sub é encontrado pelo
+      // gateway_subscription_id do evento — no cancelamento real de uma
+      // assinatura ANTIGA durante uma troca entre gateways diferentes
+      // (fallback "cancela e cria nova" logo acima em checkout/route.ts),
+      // esse ID nunca muda de linha, mas o usuário já pode ter uma
+      // assinatura NOVA e ativa por cima. Se este webhook de cancelamento
+      // chegar atrasado (comum: o gateway confirma o cancelamento de forma
+      // assíncrona), o downgrade abaixo sobrescreveria o entitlement da
+      // assinatura nova com 'free', mesmo o cliente pagando em dia. Descarta
+      // se já existe uma assinatura mais recente pra este usuário.
+      const { data: subMaisRecente } = await supabase
+        .from('subscriptions')
+        .select('id')
+        .eq('user_id', sub.user_id)
+        .neq('id', sub.id)
+        .neq('status', 'switch_applied')
+        .gt('created_at', sub.created_at)
+        .limit(1)
+        .maybeSingle()
+
+      if (subMaisRecente) {
+        console.warn(`[Webhook:${gateway}] Descartando downgrade de ${effectiveType} pra sub ${sub.id} — usuário ${sub.user_id} já tem a assinatura mais recente ${subMaisRecente.id} (provavelmente substituída por uma troca de plano)`)
+        return NextResponse.json({ received: true, handled: true, eventType: event.type })
+      }
+
       // Logic for cancellation/failure: DO NOT downgrade immediately if they still have paid days left.
       let downgradeNow = true
       if (sub.current_period_end) {

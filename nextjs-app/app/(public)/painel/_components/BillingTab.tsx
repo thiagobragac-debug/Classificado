@@ -149,7 +149,14 @@ export function BillingTab({ user, planMeta }: { user: any, planMeta: any }) {
     () => getMyBilling()
   );
 
-  const approvedStatuses = ['active', 'switch_applied'];
+  // BUG CORRIGIDO (validação adversarial final): 'switch_applied' é o
+  // marcador terminal deixado pelo lock de checkout depois de uma troca
+  // nativa de plano (ver app/api/checkout/route.ts) — a linha que
+  // continua realmente ativa é outra (a assinatura original, atualizada
+  // em lugar). Incluir 'switch_applied' aqui duplicava a linha "Ativa"
+  // nesta aba. Mesmo filtro já usado em lib/supabase-panel.ts e
+  // app/api/admin/subscriptions/route.ts.
+  const approvedStatuses = ['active'];
   const filtered = billing.filter((sub: any) => {
     if (filter === 'approved') return approvedStatuses.includes(sub.status);
     if (filter === 'pending') return sub.status === 'pending';

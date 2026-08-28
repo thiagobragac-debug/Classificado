@@ -232,7 +232,12 @@ export async function proxy(request: NextRequest) {
   const ip = resolverIpConfiavel(request.headers);
 
   // ─── Rate Limiting rotas críticas ────────────────────────────
-  if (pathname.startsWith('/login') || pathname.startsWith('/auth')) {
+  // BUG CORRIGIDO (validação adversarial final): sem nenhum header confiável
+  // de IP (dev local, ou produção atrás de proxy mal configurado), aplicar
+  // o limite por um balde compartilhado (ip=null) trancaria o login de todo
+  // mundo por causa de um único cliente agressivo. Falha aberta aqui, mesma
+  // filosofia já usada quando o Postgres do rate limit está indisponível.
+  if (ip && (pathname.startsWith('/login') || pathname.startsWith('/auth'))) {
     if (!(await dentroDoLimite(`login_${ip}`))) {
       return applySecurityHeaders(
         new NextResponse('Too Many Requests', {

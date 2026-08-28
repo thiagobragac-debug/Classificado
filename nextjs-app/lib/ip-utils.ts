@@ -22,8 +22,19 @@ export interface HeaderLike {
  *   1. x-vercel-forwarded-for — a plataforma sobrescreve, o cliente não forja
  *   2. x-real-ip              — idem, quando há proxy que o defina
  *   3. último item do x-forwarded-for
+ *
+ * BUG CORRIGIDO (validação adversarial final): retornava o literal
+ * '127.0.0.1' quando nenhum header confiável existia. Usado como chave de
+ * bucket de rate limit (`login_${ip}`, `contact_form_${ip}`), isso colapsava
+ * TODO cliente sem esses headers (dev local, ou produção atrás de um proxy
+ * que não os define) num único balde compartilhado — um cliente agressivo
+ * esgotava o limite de todo mundo nessa situação. Devolve `null` para o
+ * chamador decidir: rotas de rate limit devem tratar como "não dá pra saber
+ * o IP" e não aplicar o limite (mesma filosofia de falha aberta já usada
+ * quando o banco do rate limit está indisponível, ver proxy.ts), em vez de
+ * inventar um identificador compartilhado.
  */
-export function resolverIpConfiavel(headers: HeaderLike): string {
+export function resolverIpConfiavel(headers: HeaderLike): string | null {
   const vercel = headers.get('x-vercel-forwarded-for')?.trim();
   if (vercel) return vercel.split(',').pop()!.trim();
 
@@ -36,7 +47,7 @@ export function resolverIpConfiavel(headers: HeaderLike): string {
     if (ultimo) return ultimo;
   }
 
-  return '127.0.0.1';
+  return null;
 }
 
 const IPV4 = /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/;
@@ -49,7 +60,8 @@ const IPV6 = /^[0-9a-fA-F:]{2,45}$/;
  * busca (`https://ipwho.is/${ip}`) — sem isso, um header forjado poderia
  * injetar path na requisição que o servidor faz.
  */
-export function isValidIp(ip: string): boolean {
+export function isValidIp(ip: string | null | undefined): boolean {
+  if (!ip) return false;
   return IPV4.test(ip) || IPV6.test(ip);
 }
 

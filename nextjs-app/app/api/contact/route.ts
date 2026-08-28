@@ -52,15 +52,23 @@ export async function POST(request: NextRequest) {
 
   // Rate limit por IP (não há user_id — visitante pode estar deslogado).
   // Mesmo padrão de components/ads/AdMessageForm.tsx / AdReportModal.tsx.
-  const { data: dentroDoLimite, error: rateLimitError } = await admin.rpc('check_rate_limit', {
-    p_bucket: `contact_form_${ip}`,
-    p_limit: 3,
-    p_window_seconds: 600,
-  });
-  if (rateLimitError) {
-    console.error('[contact] Erro ao checar rate limit:', rateLimitError.message);
-  } else if (dentroDoLimite === false) {
-    return NextResponse.json({ error: 'Too Many Requests' }, { status: 429 });
+  //
+  // BUG CORRIGIDO (validação adversarial final): sem header confiável de IP,
+  // `contact_form_${null}` colapsava todo cliente nessa situação num único
+  // balde — um visitante sem esses headers travava o formulário pra todos os
+  // outros na mesma situação. Sem IP pra distinguir, não dá pra limitar por
+  // IP; falha aberta (mesma filosofia do rate limit de login em proxy.ts).
+  if (ip) {
+    const { data: dentroDoLimite, error: rateLimitError } = await admin.rpc('check_rate_limit', {
+      p_bucket: `contact_form_${ip}`,
+      p_limit: 3,
+      p_window_seconds: 600,
+    });
+    if (rateLimitError) {
+      console.error('[contact] Erro ao checar rate limit:', rateLimitError.message);
+    } else if (dentroDoLimite === false) {
+      return NextResponse.json({ error: 'Too Many Requests' }, { status: 429 });
+    }
   }
 
   const { error } = await admin.from('contact_messages').insert({

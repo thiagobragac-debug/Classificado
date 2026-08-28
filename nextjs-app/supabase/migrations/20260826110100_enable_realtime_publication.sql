@@ -17,5 +17,26 @@
 --  descoberto de carona ao investigar o leilão.
 -- ============================================================================
 
-alter publication supabase_realtime add table public.auction_lots;
-alter publication supabase_realtime add table public.messages;
+-- BUG CORRIGIDO (validação adversarial final): ALTER PUBLICATION ... ADD
+-- TABLE não é idempotente — falha com "already member of publication" se a
+-- tabela já estiver na publicação, derrubando QUALQUER replay desta
+-- migration inteira (supabase db reset local, CI, uma branch de preview
+-- cujo banco já tenha esse estado). Guarda por pg_publication_tables antes
+-- de cada ADD TABLE, mesmo padrão idiomático de "if not exists" usado nas
+-- outras migrations deste projeto.
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'auction_lots'
+  ) then
+    alter publication supabase_realtime add table public.auction_lots;
+  end if;
+
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'messages'
+  ) then
+    alter publication supabase_realtime add table public.messages;
+  end if;
+end $$;
