@@ -17,7 +17,7 @@ export async function CategoriesSection() {
             <div className="section-label">{t('section_cats')}</div>
             <h2 className="section-title" id="cat-heading">{t('section_cats_title')}</h2>
           </div>
-          <Link href="/listagem" className="view-all" aria-label="Ver todos os anúncios">
+          <Link href="/listagem" className="view-all" aria-label={t('view_all_aria')}>
             <span>{t('view_all')}</span>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <line x1="5" y1="12" x2="19" y2="12"/>
@@ -25,7 +25,7 @@ export async function CategoriesSection() {
             </svg>
           </Link>
         </div>
-        <div className="cat-grid" id="cat-grid" role="list" aria-label="Categorias de anúncios">
+        <div className="cat-grid" id="cat-grid" role="list" aria-label={t('cat_grid_aria')}>
           {categories.map((cat) => {
             // Check if it's a known SVG icon name, otherwise treat as an emoji/text icon
             const isSvg = !!CAT_SVG_PATHS[cat.icon];

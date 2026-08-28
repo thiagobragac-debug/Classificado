@@ -175,7 +175,7 @@ export const getServerTestimonials = cache(async () => {
   return data || [];
 });
 
-export async function getServerUpcomingEvents(city?: string, state?: string, country?: string, limit: number = 4) {
+export async function getServerUpcomingEvents(city?: string, state?: string, country?: string, limit: number = 4, lang: 'pt' | 'es' = 'pt') {
   const supabase = createAnonClient();
   const today = new Date().toISOString();
   const now = Date.now();
@@ -183,7 +183,7 @@ export async function getServerUpcomingEvents(city?: string, state?: string, cou
   // Buscar leilões
   const { data: auctionsData } = await supabase
     .from('auction_events')
-    .select('id, title, date, cover, status, youtube, catalog')
+    .select('id, title, title_es, date, cover, status, youtube, catalog')
     .in('status', ['live', 'scheduled'])
     .gte('date', today)
     .order('date', { ascending: true })
@@ -196,13 +196,13 @@ export async function getServerUpcomingEvents(city?: string, state?: string, cou
   // passados apareçam na home só porque calharam nas primeiras `limit` linhas.
   const { data: eventosData } = await supabase
     .from('eventos')
-    .select('id, title, date, image, location_str, link')
+    .select('id, title, title_es, date, image, location_str, location_str_es, link')
     .limit(50);
 
   // Normalizar e mesclar
   const normalizedAuctions = (auctionsData || []).map(a => ({
     id: a.id,
-    title: a.title,
+    title: lang === 'es' && a.title_es ? a.title_es : a.title,
     date: a.date,
     cover: a.cover,
     location: undefined,
@@ -225,10 +225,10 @@ export async function getServerUpcomingEvents(city?: string, state?: string, cou
     .filter(e => !isPastEvento(e.date))
     .map(e => ({
       id: e.id,
-      title: e.title,
+      title: lang === 'es' && e.title_es ? e.title_es : e.title,
       date: e.date, // pode ser string "30 ago - 7 set 2026"
       cover: e.image,
-      location: e.location_str,
+      location: lang === 'es' && e.location_str_es ? e.location_str_es : e.location_str,
       link: e.link,
       type: 'evento'
     }));

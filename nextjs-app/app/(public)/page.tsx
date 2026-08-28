@@ -12,7 +12,8 @@ import { CtaSection } from '@/components/home/CtaSection';
 import { EventsAuctionsSection } from '@/components/home/EventsAuctionsSection';
 import { AdBanner } from '@/components/AdBanner';
 import dynamic from 'next/dynamic';
-import { headers } from 'next/headers';
+import { headers, cookies } from 'next/headers';
+import { t } from '@/lib/constants';
 
 // Nota: A página agora é dinâmica automaticamente (pois usamos headers() no código)
 // Não podemos exportar 'dynamic' aqui pois dá conflito de nome com a importação 'next/dynamic'
@@ -68,15 +69,15 @@ async function RecentAdsWrapper({ city, state, country }: { city?: string; state
   );
 }
 
-async function EventsAuctionsWrapper({ city, state, country }: { city?: string; state?: string; country?: string }) {
+async function EventsAuctionsWrapper({ city, state, country, lang }: { city?: string; state?: string; country?: string; lang: 'pt' | 'es' }) {
   const { getServerUpcomingEvents } = await import('@/lib/supabase-server');
-  const upcomingEvents = await getServerUpcomingEvents(city, state, country, 3);
+  const upcomingEvents = await getServerUpcomingEvents(city, state, country, 3, lang);
   return <EventsAuctionsSection events={upcomingEvents} />;
 }
 
-function HeroSkeleton() {
+function HeroSkeleton({ lang }: { lang: 'pt' | 'es' }) {
   return (
-    <section className="hero skeleton-hero-wrapper" aria-busy="true" role="status" aria-label="Carregando portal...">
+    <section className="hero skeleton-hero-wrapper" aria-busy="true" role="status" aria-label={t('hero_loading', lang)}>
       <div className="container">
         <div className="hero-grid">
           <div className="hero-left skeleton-hero-left" aria-hidden="true">
@@ -101,6 +102,9 @@ export default async function Home() {
   const city    = headersList.get('x-vercel-ip-city')           || undefined;
   const state   = headersList.get('x-vercel-ip-country-region') || undefined;
   const country = headersList.get('x-vercel-ip-country')        || undefined;
+
+  const cookieStore = await cookies();
+  const lang = (cookieStore.get('tc_lang')?.value === 'es' ? 'es' : 'pt') as 'pt' | 'es';
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://tauzeclass.com.br";
   const jsonLd = {
@@ -137,7 +141,7 @@ export default async function Home() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: safeJsonLd }}
       />
-      <Suspense fallback={<HeroSkeleton />}>
+      <Suspense fallback={<HeroSkeleton lang={lang} />}>
         <HeroWrapper />
       </Suspense>
       
@@ -168,7 +172,7 @@ export default async function Home() {
       </Suspense>
 
       <Suspense fallback={<SectionSkeleton />}>
-        <EventsAuctionsWrapper city={city} state={state} country={country} />
+        <EventsAuctionsWrapper city={city} state={state} country={country} lang={lang} />
       </Suspense>
 
       <CtaSection />

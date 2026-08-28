@@ -18,7 +18,7 @@ export async function HeroSection({ stats }: { stats: any }) {
         <div className="hero-grid">
           {/* LEFT */}
           <div className="hero-left fade-in-up visible">
-            <div className="hero-badge" aria-label="Cobertura Mercosul">
+            <div className="hero-badge" aria-label={t('mercosul_label')}>
               <span className="hero-badge-dot" aria-hidden="true"></span>
               <span>{t('hero_badge')}</span>
             </div>
@@ -53,7 +53,7 @@ export async function HeroSection({ stats }: { stats: any }) {
             </div>
 
             {/* Mini Stats */}
-            <div className="hero-mini-stats" aria-label="Estatísticas">
+            <div className="hero-mini-stats" aria-label={t('hero_stats_aria')}>
               {[
                 { id: 'stat-ads',     target: stats?.total_ads      ?? 2520, suffix: '+', lbl: t('stats_0') },
                 { id: 'stat-users',   target: stats?.total_sellers   ?? 450,  suffix: '+', lbl: t('stats_3') },
@@ -118,7 +118,7 @@ export async function HeroSection({ stats }: { stats: any }) {
               <div className="hero-img-wrap">
                 <Image 
                   src="/assets/hero_farm.webp" 
-                  alt="Fazenda no agronegócio do Mercosul — paisagem verde com gado" 
+                  alt={t('hero_img_alt')}
                   fill
                   priority
                   fetchPriority="high"
