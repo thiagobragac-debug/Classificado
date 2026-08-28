@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { getSupabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { showToast } from '@/lib/toast';
@@ -133,7 +134,17 @@ export default function ReviewModal({ sellerId, onClose }: { sellerId: string; o
     }
   };
 
-  return (
+  // BUG CORRIGIDO (varredura cruzada de cenários): a página de vendedor
+  // envolve o conteúdo num wrapper com marginTop:-40px;position:relative;
+  // zIndex:10 — isso cria um stacking context próprio, e um position:fixed
+  // renderizado de DENTRO dele tem seu z-index:9999 comparado só contra
+  // esse contexto (nível 10), não contra o documento inteiro. No mobile,
+  // o .ads-sidebar-fab (z-index:400, fora desse wrapper) desenhava por
+  // cima do modal inteiro. Mesmo padrão já usado em AdGallery.tsx: portal
+  // pra document.body escapa desse aninhamento por completo.
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
     <div
       style={{ display: 'flex', position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 9999, alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
@@ -204,6 +215,7 @@ export default function ReviewModal({ sellerId, onClose }: { sellerId: string; o
           {loading ? tr.sending : tr.sendReview}
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
