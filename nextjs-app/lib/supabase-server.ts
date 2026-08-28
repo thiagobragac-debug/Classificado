@@ -235,9 +235,35 @@ export async function getServerUpcomingEvents(city?: string, state?: string, cou
 
   const merged = [...normalizedAuctions, ...normalizedEventos];
 
-  // Ordenar por data real de início — parseEventDate lida tanto com datas
-  // ISO (leilões) quanto com texto livre em português (feiras).
+  // BUG CORRIGIDO (mesma cascata do /listagem, aplicada automaticamente na
+  // home): igual às RPCs get_localized_* (rankeiam por cidade/estado/país
+  // sem NUNCA excluir — só CASE...ORDER BY), eventos/feiras locais sobem
+  // pro topo quando a cidade/estado do visitante bate com `location_str`,
+  // mas nada é descartado — leilões (sem coluna de localização, são
+  // transmissão ao vivo relevante nacionalmente) entram no mesmo nível do
+  // "match de país", nunca no pior nível. Sem isso a seção "Próximos
+  // Eventos" já nunca ficava vazia por localização (city/state/country
+  // eram parâmetros mortos, nunca usados) — só não priorizava o que é
+  // local, ao contrário das outras 3 seções da home.
+  const norm = (s?: string | null) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const nCity = norm(city);
+  const nState = norm(state);
+  const nCountry = norm(country);
+  const geoTier = (item: { location?: string; type: string }) => {
+    if (item.type === 'auction') return 2;
+    const loc = norm(item.location);
+    if (nCity && loc.includes(nCity)) return 0;
+    if (nState && loc.includes(nState)) return 1;
+    if (nCountry && loc.includes(nCountry)) return 2;
+    return 3;
+  };
+
+  // Ordenar por proximidade geográfica primeiro, depois por data real de
+  // início — parseEventDate lida tanto com datas ISO (leilões) quanto com
+  // texto livre em português (feiras).
   merged.sort((a, b) => {
+    const tierDiff = geoTier(a) - geoTier(b);
+    if (tierDiff !== 0) return tierDiff;
     const timeA = parseEventDate(a.date, now);
     const timeB = parseEventDate(b.date, now);
     const validA = !isNaN(timeA) ? timeA : now + 86400000; // joga pro final se inválido

@@ -34,7 +34,7 @@ export default function ActiveFiltersList({ categories, initialGeo, disableAutoG
     applyFilters, clearFilters, setCategoria, setPais, setEstado, setCidade, setPrice, setDestaque, setNegociavel, setBusca
   } = useAdsFilters(initialGeo);
 
-  const { geoLabel, advanceGeoLevel } = useAutoGeo(
+  const { geoLabel, advanceGeoLevel, suppressAutoGeo } = useAutoGeo(
     pais, setPais, estado, setEstado, cidade, setCidade, applyFilters, initialGeo, searchParams, disableAutoGeo, lang
   );
 
@@ -49,19 +49,45 @@ export default function ActiveFiltersList({ categories, initialGeo, disableAutoG
     if (geoLabel && (pais || estado || cidade)) {
       list.push({ key: 'geoLabel', label: geoLabel, action: advanceGeoLevel, isGeo: true });
     } else if (pais || estado || cidade) {
+      // BUG CORRIGIDO (achado ao vivo pelo usuário): este ramo (localização
+      // MANUAL — o usuário escolheu país/estado/cidade pelos selects, ou o
+      // rótulo "Perto de você" já foi invalidado pelo efeito de sincronismo
+      // de useAutoGeo.ts) fechava o filtro inteiro de uma vez (país+estado+
+      // cidade, todos limpos juntos). O fluxo pretendido é em cascata, igual
+      // ao que advanceGeoLevel já faz pro caminho de geo automática: fechar
+      // a cidade sobe pro estado, fechar o estado sobe pro país, fechar o
+      // país é que aí sim limpa tudo.
       const manualLabel = cidade || estado || pais;
-      list.push({ key: 'manualGeo', label: manualLabel as string, action: () => { 
-        try {
-          document.cookie = 'user_geo_v1=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-          localStorage.removeItem('user_loc_v8');
-        } catch { /* ignore */ }
-        applyFilters({ pais: '', estado: '', cidade: '' }); 
+      list.push({ key: 'manualGeo', label: manualLabel as string, action: () => {
+        if (cidade) {
+          applyFilters({ cidade: '' });
+        } else if (estado) {
+          applyFilters({ estado: '' });
+        } else {
+          // Último nível (país): usa clearFilters (igual "Limpar Todos").
+          // suppressAutoGeo() é essencial aqui — sem ela, assim que
+          // pais/estado/cidade ficam vazios na URL, o efeito principal de
+          // useAutoGeo.ts (ver BUG CORRIGIDO lá) reaplicava sozinho a mesma
+          // geo detectada por IP/GPS, fazendo o filtro "voltar" pro estado
+          // anterior um instante depois de parecer limpo.
+          suppressAutoGeo();
+          try {
+            document.cookie = 'user_geo_v1=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+            localStorage.removeItem('user_loc_v8');
+          } catch { /* ignore */ }
+          clearFilters();
+        }
       }, isGeo: true });
     }
 
-    if (precoMin && precoMax) list.push({ key: 'preco', label: `R$${precoMin} - R$${precoMax}`, action: () => { setPrice('', ''); }});
-    else if (precoMin) list.push({ key: 'precoMin', label: `${T.min} R$${precoMin}`, action: () => { setPrice('', precoMax); }});
-    else if (precoMax) list.push({ key: 'precoMax', label: `${T.max} R$${precoMax}`, action: () => { setPrice(precoMin, ''); }});
+    // BUG CORRIGIDO (validação do zero, rodada 6): "R$" fixo aqui era
+    // enganoso — mesmo problema já corrigido em AdsSidebar.tsx (o site tem
+    // anúncios reais em ARS/UYU/USD e este filtro compara o valor numérico
+    // cru, sem conversão de moeda). Removido pra não afirmar uma moeda
+    // errada, igual ao componente irmão.
+    if (precoMin && precoMax) list.push({ key: 'preco', label: `${precoMin} - ${precoMax}`, action: () => { setPrice('', ''); }});
+    else if (precoMin) list.push({ key: 'precoMin', label: `${T.min} ${precoMin}`, action: () => { setPrice('', precoMax); }});
+    else if (precoMax) list.push({ key: 'precoMax', label: `${T.max} ${precoMax}`, action: () => { setPrice(precoMin, ''); }});
 
     if (destaque) list.push({ key: 'destaque', label: t('section_featured'), action: () => { setDestaque(false); }});
     if (negociavel) list.push({ key: 'negociavel', label: t('negociable'), action: () => { setNegociavel(false); }});
@@ -94,7 +120,7 @@ export default function ActiveFiltersList({ categories, initialGeo, disableAutoG
             {b.label}
             <button
               aria-label={T.removeFilter(b.label)}
-              onClick={b.action} 
+              onClick={b.action}
               style={{ 
                 background: b.isGeo ? 'rgba(234, 179, 8, 0.15)' : 'rgba(22,163,74,0.15)', 
                 color: b.isGeo ? 'var(--clr-accent-dark)' : 'var(--clr-primary)', 
@@ -104,9 +130,19 @@ export default function ActiveFiltersList({ categories, initialGeo, disableAutoG
             >✕</button>
           </span>
         ))}
-        <button 
-          onClick={clearFilters} 
-          style={{ 
+        <button
+          onClick={() => {
+            // Mesmo BUG CORRIGIDO do ramo 'manualGeo' acima: sem suprimir o
+            // auto-geo, a localização detectada por IP/GPS voltava sozinha
+            // um instante depois de "Limpar Todos" parecer ter funcionado.
+            suppressAutoGeo();
+            try {
+              document.cookie = 'user_geo_v1=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+              localStorage.removeItem('user_loc_v8');
+            } catch { /* ignore */ }
+            clearFilters();
+          }}
+          style={{
             background: 'none', border: 'none', cursor: 'pointer', 
             fontSize: 'var(--fs-xs)', color: 'var(--clr-text-light)', 
             textDecoration: 'underline', fontWeight: 500, marginLeft: 'var(--sp-2)' 

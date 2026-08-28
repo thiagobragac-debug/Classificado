@@ -31,6 +31,16 @@ export function useAutoGeo(
   // Guarda exatamente o que o auto-geo aplicou, pra distinguir de uma
   // mudança manual do usuário (ver efeito de sincronização abaixo).
   const autoAppliedRef = useRef<{ pais: string; estado: string; cidade: string } | null>(null);
+  // BUG CORRIGIDO (revisão do processo de filtro cascata, 2026-08-27): ao
+  // limpar todo o filtro de localização (seja pelo último passo da cascata
+  // "Remover filtro de <país>", seja por "Limpar Todos"), a URL fica sem
+  // pais/estado/cidade — mas `geo` (detectado via IP/GPS em useGeoLocation,
+  // guardado em memória desde o mount) continua preenchido, e o efeito
+  // abaixo interpretava a ausência de filtro manual como "usuário ainda não
+  // escolheu localização" e reaplicava a mesma geo automaticamente. Este
+  // ref marca que o usuário limpou intencionalmente, suprimindo a
+  // reaplicação pro resto do ciclo de vida deste componente.
+  const suppressedRef = useRef(false);
 
   const [geoLabel, setGeoLabel] = useState<string | null>(null);
   const [geoLevel, setGeoLevel] = useState<'city'|'state'|'country'|null>(null);
@@ -43,6 +53,10 @@ export function useAutoGeo(
     // esse vendedor, geolocalização automática do visitante não deveria se
     // aplicar (ver comentário em AdsBrowser.tsx).
     if (disabled) {
+      setGeoReady(true);
+      return;
+    }
+    if (suppressedRef.current) {
       setGeoReady(true);
       return;
     }
@@ -149,6 +163,7 @@ export function useAutoGeo(
       setPais(''); setEstado(''); setCidade('');
       setGeoLevel(null); setGeoLabel(null);
       autoAppliedRef.current = null;
+      suppressedRef.current = true;
       // Delete the geo cookies so the server won't re-inject geo from cookie on next request
       try {
         document.cookie = 'user_geo_v1=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
@@ -158,5 +173,7 @@ export function useAutoGeo(
     }
   }, [geoLevel, pais, estado, setPais, setEstado, setCidade, applyFilters, T]);
 
-  return { geoLabel, advanceGeoLevel, geoReady };
+  const suppressAutoGeo = useCallback(() => { suppressedRef.current = true; }, []);
+
+  return { geoLabel, advanceGeoLevel, geoReady, suppressAutoGeo };
 }
