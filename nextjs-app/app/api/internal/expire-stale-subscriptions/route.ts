@@ -69,6 +69,36 @@ export async function GET(req: Request) {
   const results: Array<{ id: string; gatewayCancelled: boolean; error?: string }> = []
 
   for (const sub of staleRows || []) {
+    // BUG CORRIGIDO (retomada da verificação independente, 2ª rodada de
+    // revisão adversarial): sem uma reivindicação atômica aqui, um webhook
+    // de ativação podia commitar depois do SELECT acima mas antes deste
+    // ponto do loop — a assinatura já estaria 'active' de verdade no banco,
+    // mas esta rota cancelava ela mesmo assim no gateway (a condição
+    // .eq('status','pending') só protegia a ESCRITA local final, não a
+    // CHAMADA ao gateway, que já tinha disparado incondicionalmente).
+    // Reproduzido ao vivo: com uma corrida forçada, o código antigo chamava
+    // adapter.cancelSubscription() de verdade contra o gateway numa
+    // assinatura que o banco já mostrava 'active'. Agora a reivindicação é o
+    // próprio UPDATE final, feito ANTES do gateway: se 0 linhas forem
+    // afetadas, a linha não está mais 'pending' (provável ativação
+    // concorrente) e pulamos sem cancelar nada.
+    const { data: claimedRows, error: claimErr } = await supabase
+      .from('subscriptions')
+      .update({ status: 'expired', updated_at: new Date().toISOString() })
+      .eq('id', sub.id)
+      .eq('status', 'pending')
+      .select('id')
+
+    if (claimErr) {
+      console.error(`[ExpireStaleSubscriptions] Falha ao reivindicar ${sub.id}:`, claimErr.message)
+      results.push({ id: sub.id, gatewayCancelled: false, error: claimErr.message })
+      continue
+    }
+    if (!claimedRows || claimedRows.length === 0) {
+      console.info(`[ExpireStaleSubscriptions] ${sub.id} não está mais 'pending' — pulando (provável ativação concorrente).`)
+      continue
+    }
+
     let gatewayCancelled = false
     let errorMsg: string | undefined
 
@@ -107,20 +137,10 @@ export async function GET(req: Request) {
       gatewayCancelled = true
     }
 
-    // Marca como 'expired' independentemente do resultado do cancelamento no
-    // gateway — uma falha ali fica registrada em errorMsg pra acompanhamento
-    // manual, mas não deve deixar a conta travada pra sempre (mesmo
-    // propósito original da função SQL).
-    const { error: updateErr } = await supabase
-      .from('subscriptions')
-      .update({ status: 'expired', updated_at: new Date().toISOString() })
-      .eq('id', sub.id)
-      .eq('status', 'pending')
-
-    if (updateErr) {
-      console.error(`[ExpireStaleSubscriptions] Falha ao marcar ${sub.id} como expired:`, updateErr.message)
-    }
-
+    // A linha já foi marcada 'expired' pela reivindicação atômica acima,
+    // antes da chamada ao gateway — uma falha ali fica registrada em
+    // errorMsg pra acompanhamento manual, mas não deve deixar a conta
+    // travada pra sempre (mesmo propósito original da função SQL).
     results.push({ id: sub.id, gatewayCancelled, error: errorMsg })
   }
 
