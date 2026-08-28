@@ -21,8 +21,20 @@ const COUNTRY_MAP: Record<string, string> = {
   PA: 'Panamá',  CU: 'Cuba', PR: 'Porto Rico',
 };
 
-function normalizeCountry(code: string): string {
-  return COUNTRY_MAP[code?.toUpperCase()] ?? code;
+// BUG CORRIGIDO (propagação de idioma na geolocalização): mapa de países em espanhol.
+const COUNTRY_MAP_ES: Record<string, string> = {
+  BR: 'Brasil', UY: 'Uruguay', AR: 'Argentina',
+  PY: 'Paraguay', CL: 'Chile', CO: 'Colombia',
+  PE: 'Peru',    BO: 'Bolivia', VE: 'Venezuela',
+  EC: 'Ecuador', US: 'Estados Unidos', PT: 'Portugal',
+  MX: 'Mexico',  DO: 'República Dominicana', GT: 'Guatemala',
+  HN: 'Honduras', SV: 'El Salvador', NI: 'Nicaragua', CR: 'Costa Rica',
+  PA: 'Panama',  CU: 'Cuba', PR: 'Puerto Rico',
+};
+
+function normalizeCountry(code: string, lang: string): string {
+  const map = lang === 'es' ? COUNTRY_MAP_ES : COUNTRY_MAP;
+  return map[code?.toUpperCase()] ?? code;
 }
 
 type GeoResult = {
@@ -44,6 +56,8 @@ export async function GET(request: NextRequest) {
   const candidate = resolverIpConfiavel(request.headers);
   const ip = isValidIp(candidate) ? candidate : '127.0.0.1';
   const local = isLocalIp(ip);
+  // BUG CORRIGIDO (propagação de idioma na geolocalização): país agora respeita tc_lang.
+  const lang = request.nextUrl.searchParams.get('lang') === 'es' ? 'es' : 'pt';
 
   const HEADERS = { 'Cache-Control': 'private, max-age=3600' };
 
@@ -52,7 +66,7 @@ export async function GET(request: NextRequest) {
   // ─────────────────────────────────────────────────────────────────────────
   try {
     const ipParam = local ? '' : `/${ip}`;
-    const url = `http://ip-api.com/json${ipParam}?fields=status,city,regionName,regionCode,countryCode&lang=pt`;
+    const url = `http://ip-api.com/json${ipParam}?fields=status,city,regionName,regionCode,countryCode&lang=${lang}`;
 
     const res = await fetch(url, { signal: AbortSignal.timeout(2000) });
 
@@ -63,7 +77,7 @@ export async function GET(request: NextRequest) {
           city:      d.city       ?? null,
           state:     d.regionName ?? null,
           stateCode: d.regionCode ?? null,
-          country:   normalizeCountry(d.countryCode),
+          country:   normalizeCountry(d.countryCode, lang),
         };
         console.log('[geoip] ip-api.com:', result);
         return NextResponse.json(result, { headers: HEADERS });
@@ -88,7 +102,7 @@ export async function GET(request: NextRequest) {
           city:      d.city        ?? null,
           state:     d.region      ?? null,
           stateCode: d.region_code ?? null,
-          country:   normalizeCountry(d.country_code),
+          country:   normalizeCountry(d.country_code, lang),
         };
         console.log('[geoip] ipwho.is:', result);
         return NextResponse.json(result, { headers: HEADERS });
@@ -118,7 +132,7 @@ export async function GET(request: NextRequest) {
           city:      d.city        ?? null,
           state:     d.region      ?? null,
           stateCode: d.region_code ?? null,
-          country:   normalizeCountry(d.country_code),
+          country:   normalizeCountry(d.country_code, lang),
         };
         console.log('[geoip] ipapi.co:', result);
         return NextResponse.json(result, { headers: HEADERS });

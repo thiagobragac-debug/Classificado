@@ -2,6 +2,7 @@
 
 import { useAdsFilters } from '@/lib/useAdsFilters';
 import { useAutoGeo } from '@/lib/useAutoGeo';
+import { clearGeoCache } from '@/lib/useGeoLocation';
 import { Category } from '@/components/ads/AdCard';
 import { useLang } from '@/lib/lang-context';
 import { useSearchParams } from 'next/navigation';
@@ -73,7 +74,7 @@ export default function ActiveFiltersList({ categories, initialGeo, disableAutoG
           suppressAutoGeo();
           try {
             document.cookie = 'user_geo_v1=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-            localStorage.removeItem('user_loc_v8');
+            clearGeoCache();
           } catch { /* ignore */ }
           clearFilters();
         }
@@ -138,7 +139,7 @@ export default function ActiveFiltersList({ categories, initialGeo, disableAutoG
             suppressAutoGeo();
             try {
               document.cookie = 'user_geo_v1=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-              localStorage.removeItem('user_loc_v8');
+              clearGeoCache();
             } catch { /* ignore */ }
             clearFilters();
           }}

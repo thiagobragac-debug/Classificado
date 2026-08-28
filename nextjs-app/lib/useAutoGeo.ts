@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useGeoLocation, normalizeStr } from './useGeoLocation';
+import { useGeoLocation, normalizeStr, clearGeoCache } from './useGeoLocation';
 import { getSupabase } from './supabase';
 
 const TRANSLATIONS = {
@@ -26,7 +26,8 @@ export function useAutoGeo(
   lang?: string
 ) {
   const T = TRANSLATIONS[lang as keyof typeof TRANSLATIONS] || TRANSLATIONS.pt;
-  const { geo, loading: geoLoading } = useGeoLocation();
+  // BUG CORRIGIDO (propagação de idioma na geolocalização): lang não era repassado pro hook.
+  const { geo, loading: geoLoading } = useGeoLocation(lang);
   const geoAppliedRef = useRef(false);
   // Guarda exatamente o que o auto-geo aplicou, pra distinguir de uma
   // mudança manual do usuário (ver efeito de sincronização abaixo).
@@ -167,7 +168,7 @@ export function useAutoGeo(
       // Delete the geo cookies so the server won't re-inject geo from cookie on next request
       try {
         document.cookie = 'user_geo_v1=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-        localStorage.removeItem('user_loc_v8');
+        clearGeoCache();
       } catch { /* ignore */ }
       applyFilters({ pais: '', estado: '', cidade: '' });
     }

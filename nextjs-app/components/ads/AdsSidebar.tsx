@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { AdBanner } from '@/components/AdBanner';
 import { Category, COUNTRY_FLAGS } from './AdCard';
 import { useAdsFilter } from './AdsFilterContext';
+import { clearGeoCache } from '@/lib/useGeoLocation';
 
 const TRANSLATIONS = {
   pt: {
@@ -124,7 +125,7 @@ export default function AdsSidebar() {
                   // User chose "Todos os Países" — delete cookies so server doesn't re-inject geo
                   try {
                     document.cookie = 'user_geo_v1=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-                    localStorage.removeItem('user_loc_v8');
+                    clearGeoCache();
                   } catch { /* ignore */ }
                   applyFilters({ pais: '', estado: '', cidade: '' });
                 }

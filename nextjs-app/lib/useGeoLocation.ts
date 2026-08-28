@@ -16,8 +16,23 @@ export interface GeoLoc {
   _source?:  string;
 }
 
-const CACHE_KEY = 'user_loc_v8'; // v8 for GPS update
+// BUG CORRIGIDO (propagação de idioma na geolocalização): cache agora é indexado por lang.
+const CACHE_KEY = (lang: string) => `user_loc_v9_${lang}`;
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24h
+
+// BUG CORRIGIDO (revisão adversarial da propagação de idioma): a chave real
+// de cache virou versionada por idioma (user_loc_v9_pt/es), mas 3 outros
+// pontos do app que limpam esse cache manualmente (ao usuário remover o
+// filtro de país/localização) continuavam removendo a chave morta
+// 'user_loc_v8' — o cache real nunca era apagado, reabrindo o bug de
+// auto-geo reaplicar sozinho a localização após o usuário limpá-la.
+// Centralizado aqui pra não divergir de novo na próxima mudança de versão.
+export function clearGeoCache() {
+  try {
+    localStorage.removeItem(CACHE_KEY('pt'));
+    localStorage.removeItem(CACHE_KEY('es'));
+  } catch { /* ignore */ }
+}
 
 export const normalizeStr = (s: string | null | undefined): string =>
   s ? s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim() : '';
@@ -28,7 +43,7 @@ const withTimeout = <T>(promise: Promise<T>, ms: number) =>
     new Promise<null>(res => setTimeout(() => res(null), ms))
   ]);
 
-async function detectGps(): Promise<GeoLoc | null> {
+async function detectGps(lang: string = 'pt'): Promise<GeoLoc | null> {
   try {
     const coords = await withTimeout<{lat: number, lon: number} | null>(
       new Promise((res, rej) => {
@@ -45,7 +60,7 @@ async function detectGps(): Promise<GeoLoc | null> {
     if (!coords) return null;
 
     const geo: any = await withTimeout(
-      fetch(`https://nominatim.openstreetmap.org/reverse?lat=${coords.lat}&lon=${coords.lon}&format=json&accept-language=pt`)
+      fetch(`https://nominatim.openstreetmap.org/reverse?lat=${coords.lat}&lon=${coords.lon}&format=json&accept-language=${lang}`)
         .then(r => r.ok ? r.json() : null),
       5000
     );
@@ -63,9 +78,9 @@ async function detectGps(): Promise<GeoLoc | null> {
   return null;
 }
 
-async function detectIp(): Promise<GeoLoc | null> {
+async function detectIp(lang: string = 'pt'): Promise<GeoLoc | null> {
   try {
-    const res = await fetch('/api/geoip', { signal: AbortSignal.timeout(6000) });
+    const res = await fetch(`/api/geoip?lang=${lang}`, { signal: AbortSignal.timeout(6000) });
     if (res.ok) {
       const data: GeoLoc = await res.json();
       if (data && (data.city || data.state || data.country)) {
@@ -77,10 +92,10 @@ async function detectIp(): Promise<GeoLoc | null> {
   return null;
 }
 
-export async function detectLocation(): Promise<GeoLoc | null> {
+export async function detectLocation(lang: string = 'pt'): Promise<GeoLoc | null> {
   // 1. Cache localStorage
   try {
-    const cached = localStorage.getItem(CACHE_KEY);
+    const cached = localStorage.getItem(CACHE_KEY(lang));
     if (cached) {
       const { ts, loc } = JSON.parse(cached);
       if (loc && (loc.city || loc.state || loc.country) && (Date.now() - ts < CACHE_TTL)) {
@@ -88,13 +103,13 @@ export async function detectLocation(): Promise<GeoLoc | null> {
       }
     }
     // Clean old caches
-    ['user_loc_v7', 'user_loc_v6', 'user_loc_v5', 'user_loc_v4'].forEach(k => {
+    ['user_loc_v8', 'user_loc_v7', 'user_loc_v6', 'user_loc_v5', 'user_loc_v4'].forEach(k => {
       try { localStorage.removeItem(k); } catch { /* ignore */ }
     });
   } catch { /* ignore */ }
 
   const save = (loc: GeoLoc): GeoLoc => {
-    try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), loc })); } catch { /* ignore */ }
+    try { localStorage.setItem(CACHE_KEY(lang), JSON.stringify({ ts: Date.now(), loc })); } catch { /* ignore */ }
     return loc;
   };
 
@@ -102,8 +117,8 @@ export async function detectLocation(): Promise<GeoLoc | null> {
   // O GPS tenta detectar (precisão de metros), mas pede permissão do browser
   // O IP é fallback imediato se o usuário negar o GPS ou se demorar mais de 2s
   try {
-    const ipPromise = detectIp().catch(() => null);
-    const gpsPromise = detectGps().catch(() => null);
+    const ipPromise = detectIp(lang).catch(() => null);
+    const gpsPromise = detectGps(lang).catch(() => null);
 
     const winner = await Promise.race([
       gpsPromise,
@@ -131,14 +146,14 @@ export async function detectLocation(): Promise<GeoLoc | null> {
  * Hook que detecta a localização do usuário.
  * Retorna { geo, loading }.
  */
-export function useGeoLocation() {
+export function useGeoLocation(lang: string = 'pt') {
   const [geo, setGeo] = useState<GeoLoc | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // Tenta cache instantâneo
     try {
-      const cached = localStorage.getItem(CACHE_KEY);
+      const cached = localStorage.getItem(CACHE_KEY(lang));
       if (cached) {
         const { ts, loc } = JSON.parse(cached);
         if (loc && (loc.city || loc.state || loc.country) && (Date.now() - ts < CACHE_TTL)) {
@@ -150,11 +165,11 @@ export function useGeoLocation() {
     } catch { /* ignore */ }
 
     // Detecção assíncrona
-    detectLocation().then(loc => {
+    detectLocation(lang).then(loc => {
       setGeo(loc);
       setLoading(false);
     });
-  }, []);
+  }, [lang]);
 
   return { geo, loading };
 }
