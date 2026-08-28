@@ -19,6 +19,7 @@ const TRANSLATIONS = {
     removeFav: 'Remover dos favoritos',
     seeAd: 'Ver anúncio →',
     removeError: 'Ocorreu um erro ao remover o favorito.',
+    loadError: 'Erro ao carregar seus favoritos.',
   },
   es: {
     title: 'Favoritos', subtitle: 'Anuncios que guardaste',
@@ -29,6 +30,7 @@ const TRANSLATIONS = {
     removeFav: 'Quitar de favoritos',
     seeAd: 'Ver anuncio →',
     removeError: 'Ocurrió un error al quitar el favorito.',
+    loadError: 'Error al cargar tus favoritos.',
   },
 };
 
@@ -47,7 +49,11 @@ export function FavoritesTab({ userId }: { userId: string }) {
   const t = TRANSLATIONS[lang as keyof typeof TRANSLATIONS] || TRANSLATIONS.pt;
   const [search, setSearch] = useState('');
 
-  const { data: favs = [], isLoading, mutate } = useSWR(
+  // BUG CORRIGIDO (varredura cruzada de cenários): `error` do useSWR não
+  // era lido — uma falha real de fetch (rede, RLS) renderizava a MESMA UI
+  // de "nenhum favorito salvo", indistinguível de um usuário que realmente
+  // não tem favoritos. MyAdsTab.tsx já tinha esse tratamento correto.
+  const { data: favs = [], error, isLoading, mutate } = useSWR(
     'myFavorites',
     getMyFavorites
   );
@@ -102,6 +108,8 @@ export function FavoritesTab({ userId }: { userId: string }) {
 
       {isLoading ? (
         <div className={styles.spinner} />
+      ) : error ? (
+        <div className={styles.emptyState}>{t.loadError}</div>
       ) : filtered.length === 0 ? (
         <div className={styles.emptyState} style={{ padding: '4rem 2rem', border: '1px dashed var(--clr-border)', borderRadius: '1rem', background: 'white' }}>
           <div className={styles.emptyStateIcon} style={{ width: '80px', height: '80px', background: 'var(--clr-bg-alt)', color: 'var(--clr-text-light)', border: 'none' }}>

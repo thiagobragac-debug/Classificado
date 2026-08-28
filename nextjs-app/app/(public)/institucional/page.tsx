@@ -6,6 +6,7 @@ import { cookies } from 'next/headers';
 import DOMPurify from 'isomorphic-dompurify';
 import { createClient, createAnonClient } from '@/lib/supabase-server';
 import { t as _t } from '@/lib/constants';
+import { ContactForm } from './ContactForm';
 import './institucional.css';
 
 export const revalidate = 60; // ISR - revalida a cada minuto para as páginas mudarem rápido após edição no painel
@@ -30,6 +31,7 @@ const TRANSLATIONS = {
     fallbackTitle: 'Institucional',
     fallbackDescription: 'Termos de uso, política de privacidade, cookies e demais informações institucionais do Tauze Class — o maior classificado do agronegócio do Mercosul.',
     siteSuffix: 'Tauze Class, o maior classificado do agronegócio do Mercosul.',
+    loadError: 'Erro ao carregar as páginas institucionais. Tente novamente em instantes.',
   },
   es: {
     breadcrumbInstitutional: 'Institucional',
@@ -38,6 +40,7 @@ const TRANSLATIONS = {
     fallbackTitle: 'Institucional',
     fallbackDescription: 'Términos de uso, política de privacidad, cookies y demás información institucional de Tauze Class — el clasificado más grande del agronegocio del Mercosur.',
     siteSuffix: 'Tauze Class, el clasificado más grande del agronegocio del Mercosur.',
+    loadError: 'Error al cargar las páginas institucionales. Intentá de nuevo en unos instantes.',
   },
 } as const;
 
@@ -152,7 +155,15 @@ export default async function InstitucionalPage({
   // order_idx 1/2/3). pages[0] — usado no redirect de fallback e como página
   // padrão — dependia de uma ordem que o SQL não garante entre empates.
   // 'id' (o slug) como segunda chave dá um resultado estável.
-  const { data: pages } = await supabase.from('institutional_pages').select('*').order('order_idx', { ascending: true }).order('id', { ascending: true });
+  const { data: pages, error: pagesError } = await supabase.from('institutional_pages').select('*').order('order_idx', { ascending: true }).order('id', { ascending: true });
+
+  // BUG CORRIGIDO (varredura cruzada de cenários): uma falha real de fetch
+  // (rede, RLS) caía no mesmo `!pages` de "nenhuma página configurada" —
+  // indistinguível de uma falha genuína de indisponibilidade do banco.
+  if (pagesError) {
+    console.error('Erro ao carregar páginas institucionais:', pagesError.message);
+    return <div style={{ padding: '100px', textAlign: 'center' }}>{TRANSLATIONS[lang].loadError}</div>;
+  }
 
   if (!pages || pages.length === 0) {
     return <div style={{ padding: '100px', textAlign: 'center' }}>{TRANSLATIONS[lang].emptyPages}</div>;
@@ -236,6 +247,10 @@ export default async function InstitucionalPage({
                 <p>{TRANSLATIONS[lang].emptyContent}</p>
               </div>
             )}
+            {/* Substitui o <form> fake que vinha embutido no conteúdo do
+                banco (onsubmit cosmético, nunca enviava nada) — ver
+                ContactForm.tsx e app/api/contact/route.ts. */}
+            {activePage.id === 'contato' && <ContactForm />}
           </div>
         </div>
       </div>

@@ -16,6 +16,7 @@ const TRANSLATIONS = {
     sendError: 'Erro ao enviar mensagem.',
     noMessages: 'Nenhuma mensagem', noConversations: 'Você ainda não tem conversas.',
     back: 'Voltar',
+    loadError: 'Erro ao carregar suas mensagens.',
   },
   es: {
     title: 'Mensajes', subtitle: 'Conversaciones sobre tus anuncios',
@@ -25,6 +26,7 @@ const TRANSLATIONS = {
     sendError: 'Error al enviar el mensaje.',
     noMessages: 'Ningún mensaje', noConversations: 'Todavía no tienes conversaciones.',
     back: 'Volver',
+    loadError: 'Error al cargar tus mensajes.',
   },
 };
 
@@ -47,7 +49,11 @@ export function MessagesTab({ userId }: { userId: string }) {
   const [inputMsg, setInputMsg] = useState('');
   const [sending, setSending] = useState(false);
 
-  const { data: messages = [], isLoading, mutate } = useSWR(
+  // BUG CORRIGIDO (varredura cruzada de cenários): `error` do useSWR não
+  // era lido — uma falha real de fetch (rede, RLS) renderizava a MESMA UI
+  // de "você ainda não tem conversas", indistinguível de um usuário sem
+  // mensagens de verdade. MyAdsTab.tsx já tinha esse tratamento correto.
+  const { data: messages = [], error, isLoading, mutate } = useSWR(
     userId ? ['myMessages', userId] : null,
     () => getMyMessages()
   );
@@ -219,6 +225,8 @@ export function MessagesTab({ userId }: { userId: string }) {
         </div>
       ) : isLoading ? (
         <div className={styles.spinner} />
+      ) : error ? (
+        <div className={styles.emptyState}>{t.loadError}</div>
       ) : convList.length === 0 ? (
         <div className={styles.emptyState}>
           <div className={styles.emptyStateIcon}>
