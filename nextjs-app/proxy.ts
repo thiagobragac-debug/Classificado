@@ -287,6 +287,7 @@ export async function proxy(request: NextRequest) {
   // ─── Proteção de Rotas e Verificação de Bloqueio ───────────────────────────────
   let userId: string | null = null;
   let isBlocked: boolean | undefined;
+  let claims: any;
 
   const hasAuthCookie = request.cookies
     .getAll()
@@ -298,10 +299,55 @@ export async function proxy(request: NextRequest) {
     // simétrico ele cai num round-trip equivalente ao getUser() — ou seja,
     // nunca é pior do que era antes.
     const { data } = await supabase.auth.getClaims();
-    const claims = data?.claims;
+    claims = data?.claims;
     if (claims?.sub) {
       userId = claims.sub;
       if (typeof claims.is_blocked === 'boolean') isBlocked = claims.is_blocked;
+    }
+  }
+
+  // BUG CORRIGIDO (validação adversarial final, achado crítico): uma sessão
+  // criada a partir de um link de "esqueci minha senha" é uma sessão real e
+  // válida como qualquer outra — o Supabase não a distingue de um login
+  // normal no nível do cookie/JWT em si. Sem esta checagem, qualquer pessoa
+  // que obtivesse o link de recuperação de outra conta (e-mail encaminhado,
+  // computador compartilhado, histórico do navegador) e o abrisse ganhava
+  // acesso total à conta (painel, mensagens, admin se aplicável) simplesmente
+  // digitando /painel na barra de endereço, SEM NUNCA precisar trocar a
+  // senha — e se só fechasse a aba sem completar o formulário, a sessão
+  // continuava válida pra quem reabrisse o navegador depois.
+  //
+  // Tentativa inicial (descartada): checar o claim `amr` do JWT por
+  // method='recovery'. Testado ao vivo com supabase.auth.verifyOtp
+  // (type='recovery') real — o Supabase grava amr como [{"method":"otp"}],
+  // não distinguindo recuperação de outros fluxos de OTP. Sem sinal
+  // confiável no próprio JWT, a marcação vem de uma tabela dedicada
+  // (public.pending_password_recovery, ver migration 20260828140000):
+  // AuthContainer.tsx insere lá assim que o evento PASSWORD_RECOVERY do SDK
+  // dispara (sinal client-side confiável, só ocorre com um link válido de
+  // verdade); aqui checamos pelo session_id do JWT da requisição antes de
+  // liberar /painel ou /admin.
+  const isPainelOuAdmin = pathname.startsWith('/painel') || pathname.startsWith('/admin');
+  if (isPainelOuAdmin && userId && claims?.session_id) {
+    const { data: pendingRecovery } = await supabase
+      .from('pending_password_recovery')
+      .select('session_id')
+      .eq('session_id', claims.session_id)
+      .maybeSingle();
+
+    if (pendingRecovery) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = '/login';
+      redirectUrl.searchParams.set('error', 'recovery_session');
+      const redirectResponse = applySecurityHeaders(NextResponse.redirect(redirectUrl), csp);
+
+      request.cookies.getAll().forEach(cookie => {
+        if (cookie.name.includes('auth-token') || cookie.name.includes('sb-access-token') || cookie.name.startsWith('sb-')) {
+          redirectResponse.cookies.delete(cookie.name);
+        }
+      });
+
+      return redirectResponse;
     }
   }
 

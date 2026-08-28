@@ -17,9 +17,11 @@ type AuthMode = 'login' | 'register' | 'forgot_password' | 'reset_password'
 const TRANSLATIONS = {
   pt: {
     accountBlocked: 'Sua conta foi suspensa temporariamente. Entre em contato com o suporte para mais informações.',
+    recoverySessionBlocked: 'Este link é só para redefinir sua senha. Faça login normalmente para acessar sua conta.',
   },
   es: {
     accountBlocked: 'Tu cuenta fue suspendida temporalmente. Contacta al soporte para más información.',
+    recoverySessionBlocked: 'Este enlace es solo para restablecer tu contraseña. Inicia sesión normalmente para acceder a tu cuenta.',
   },
 } as const
 
@@ -42,6 +44,16 @@ export function AuthContainer() {
       // Tentar limpar a sessão via cliente também, para segurança extra
       getSupabase().auth.signOut();
     }
+
+    // BUG CORRIGIDO (validação adversarial final, achado crítico): proxy.ts
+    // agora barra e derruba sessões de recuperação de senha que tentam
+    // acessar /painel ou /admin, mandando de volta pra cá com este
+    // parâmetro — sem essa mensagem, o usuário só via a tela de login
+    // normal sem entender por que foi "deslogado" ao tentar acessar a conta
+    // direto pelo link do e-mail.
+    if (searchParams.get('error') === 'recovery_session') {
+      setAlertInfo({ msg: tr.recoverySessionBlocked, type: 'error' })
+    }
   }, [searchParams, tr])
 
   // BUG CORRIGIDO (feature aprovada pelo usuário): `?mode=reset` só
@@ -54,10 +66,29 @@ export function AuthContainer() {
   // confiável — a query string por si só não garante que o link era
   // válido/não expirou.
   useEffect(() => {
-    const { data: { subscription } } = getSupabase().auth.onAuthStateChange((event: string) => {
+    const { data: { subscription } } = getSupabase().auth.onAuthStateChange((event: string, session: any) => {
       if (event === 'PASSWORD_RECOVERY') {
         setMode('reset_password')
         setAlertInfo(null)
+
+        // BUG CORRIGIDO (validação adversarial final, achado crítico): o
+        // Supabase não marca uma sessão de recuperação de forma distinguível
+        // no JWT (testado ao vivo: amr vem como [{"method":"otp"}], igual
+        // qualquer outro fluxo de OTP) — sem isso, essa sessão dá acesso
+        // total à conta via /painel, sem nunca precisar trocar a senha.
+        // Marca explicitamente esta sessão (pelo session_id do próprio JWT)
+        // em pending_password_recovery; proxy.ts bloqueia /painel e /admin
+        // enquanto essa marcação existir. ResetPasswordForm.tsx apaga a
+        // linha ao trocar a senha com sucesso.
+        try {
+          const payload = JSON.parse(atob(session?.access_token?.split('.')[1] || ''))
+          const sessionId = payload?.session_id
+          if (sessionId && session?.user?.id) {
+            getSupabase().from('pending_password_recovery').insert({ session_id: sessionId, user_id: session.user.id }).then(() => {})
+          }
+        } catch (e) {
+          console.error('[AuthContainer] Falha ao marcar sessão de recuperação:', e)
+        }
       }
     })
     return () => subscription.unsubscribe()
@@ -142,6 +173,17 @@ export function AuthContainer() {
             <ResetPasswordForm
               onSetAlert={handleSetAlert}
               onSuccess={() => setMode('login')}
+              onBack={() => {
+                // BUG CORRIGIDO (validação adversarial final): sair desta
+                // tela sem completar a troca de senha deveria encerrar a
+                // sessão de recuperação (mesma postura de segurança do
+                // bloqueio em proxy.ts) — não deixar uma sessão de
+                // recuperação sem uso pendurada só porque a pessoa desistiu
+                // do formulário em vez de fechar a aba.
+                getSupabase().auth.signOut()
+                setMode('login')
+                setAlertInfo(null)
+              }}
             />
           </motion.div>
         )}

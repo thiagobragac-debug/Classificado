@@ -68,6 +68,7 @@ export const I18N = {
     auth_reset_btn: 'Salvar Nova Senha', auth_reset_ing: 'Salvando...',
     auth_reset_success: 'Senha redefinida com sucesso! Você já pode fazer login.',
     auth_reset_error: 'Erro ao redefinir a senha. O link pode ter expirado — solicite um novo.',
+    auth_reset_error_same_password: 'A nova senha deve ser diferente da senha atual.',
 
     // Zod Validation (PT)
     err_email: 'Digite um e-mail válido.',
@@ -187,6 +188,7 @@ export const I18N = {
     auth_reset_btn: 'Guardar Nueva Contraseña', auth_reset_ing: 'Guardando...',
     auth_reset_success: '¡Contraseña restablecida con éxito! Ya puedes iniciar sesión.',
     auth_reset_error: 'Error al restablecer la contraseña. El enlace puede haber expirado — solicita uno nuevo.',
+    auth_reset_error_same_password: 'La nueva contraseña debe ser diferente de la contraseña actual.',
 
     // Zod Validation (ES)
     err_email: 'Ingresa un correo electrónico válido.',

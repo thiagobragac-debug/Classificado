@@ -8,6 +8,7 @@ import { useLang } from '@/lib/lang-context'
 interface ResetPasswordFormProps {
   onSetAlert: (msg: string, type: 'success' | 'error') => void
   onSuccess: () => void
+  onBack: () => void
 }
 
 // Mensagens/aria-labels exclusivos deste formulário — padrão local de
@@ -24,7 +25,7 @@ const TRANSLATIONS = {
   },
 } as const
 
-export function ResetPasswordForm({ onSetAlert, onSuccess }: ResetPasswordFormProps) {
+export function ResetPasswordForm({ onSetAlert, onSuccess, onBack }: ResetPasswordFormProps) {
   const { t, lang } = useLang()
   const tr = TRANSLATIONS[lang]
   const [loading, setLoading] = useState(false)
@@ -50,6 +51,22 @@ export function ResetPasswordForm({ onSetAlert, onSuccess }: ResetPasswordFormPr
     try {
       const { error } = await getSupabase().auth.updateUser({ password: data.password })
       if (error) throw error
+
+      // BUG CORRIGIDO (validação adversarial final, achado crítico): apaga a
+      // marcação de pending_password_recovery (ver AuthContainer.tsx e
+      // proxy.ts) assim que a senha é trocada com sucesso — sem isso, a
+      // linha só some quando a tabela for limpa manualmente, embora o
+      // signOut() logo abaixo já invalide a sessão de qualquer forma.
+      try {
+        const { data: { session } } = await getSupabase().auth.getSession()
+        const payload = session?.access_token ? JSON.parse(atob(session.access_token.split('.')[1])) : null
+        if (payload?.session_id) {
+          await getSupabase().from('pending_password_recovery').delete().eq('session_id', payload.session_id)
+        }
+      } catch (cleanupErr) {
+        console.error('[ResetPassword] Falha ao limpar marcação de recuperação (não bloqueia o fluxo):', cleanupErr)
+      }
+
       // BUG CORRIGIDO (feature aprovada pelo usuário): a sessão de
       // recuperação usada pra trocar a senha é temporária e escopada só
       // pra essa ação — desloga explicitamente e manda de volta pro login
@@ -60,8 +77,17 @@ export function ResetPasswordForm({ onSetAlert, onSuccess }: ResetPasswordFormPr
       onSetAlert(t('auth_reset_success'), 'success')
       onSuccess()
     } catch (err: any) {
+      // BUG CORRIGIDO (validação adversarial final): antes qualquer erro
+      // (inclusive "nova senha igual à antiga", que não tem nada a ver com
+      // link expirado) mostrava a mesma mensagem genérica de link expirado,
+      // e não havia nenhum jeito de voltar pro login — só recarregando a
+      // página manualmente, com a sessão de recuperação ainda válida e sem
+      // uso nesse meio tempo.
       console.error('[ResetPassword] Erro ao redefinir senha:', err.message)
-      onSetAlert(t('auth_reset_error'), 'error')
+      const msg = err?.message?.toLowerCase?.().includes('different from the old password')
+        ? t('auth_reset_error_same_password')
+        : t('auth_reset_error')
+      onSetAlert(msg, 'error')
     } finally {
       setLoading(false)
     }
@@ -125,9 +151,23 @@ export function ResetPasswordForm({ onSetAlert, onSuccess }: ResetPasswordFormPr
         {errors.confirmPassword && <span id="reset-confirm-password-error" role="alert" style={{ color: '#dc2626', fontSize: '0.8rem', marginTop: '0.2rem', display: 'block' }}>{errors.confirmPassword.message}</span>}
       </div>
 
-      <button type="submit" className="btn btn--accent btn--lg" style={{ width: '100%', justifyContent: 'center' }} disabled={loading}>
+      <button type="submit" className="btn btn--accent btn--lg" style={{ width: '100%', justifyContent: 'center', marginBottom: '1rem' }} disabled={loading}>
         {loading ? t('auth_reset_ing') : t('auth_reset_btn')}
       </button>
+
+      {/* BUG CORRIGIDO (validação adversarial final): sem isso, um erro
+          diferente de "link expirado" deixava o usuário travado nesta tela
+          sem nenhum jeito de voltar ao login a não ser recarregar a
+          página manualmente. */}
+      <div style={{ textAlign: 'center' }}>
+        <button
+          type="button"
+          onClick={onBack}
+          style={{ background: 'none', border: 'none', color: 'var(--clr-text-muted)', cursor: 'pointer', fontSize: '0.9rem', textDecoration: 'underline' }}
+        >
+          {t('auth_back_login')}
+        </button>
+      </div>
     </form>
   )
 }
