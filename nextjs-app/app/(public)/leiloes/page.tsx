@@ -157,7 +157,7 @@ export default async function LeiloesPage({ searchParams }: { searchParams: Prom
           ? { '@type': 'VirtualLocation', url: `https://tauzeclass.com.br/leiloes/${ev.id}` }
           : {
               '@type': 'Place',
-              name: ev.location || 'Local do Leilão',
+              name: ev.location || (lang === 'es' ? 'Ubicación del Remate' : 'Local do Leilão'),
               address: {
                 '@type': 'PostalAddress',
                 addressLocality: ev.location || 'Brasil',

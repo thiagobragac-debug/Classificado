@@ -182,7 +182,7 @@ export function CommandPalette() {
               {matchedCats.map(cat => (
                 <div 
                   key={cat.id} 
-                  onClick={() => navigateTo(`/listagem?cat=${cat.id}`)}
+                  onClick={() => navigateTo(`/listagem?categoria=${cat.id}`)}
                   style={{ padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '1rem', cursor: 'pointer', borderRadius: '8px', transition: 'background 0.2s' }}
                   onMouseEnter={e => e.currentTarget.style.background = 'var(--clr-bg-alt)'}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
@@ -198,7 +198,7 @@ export function CommandPalette() {
                     {tt.quickAccess}
                   </div>
                   <div 
-                    onClick={() => navigateTo('/dashboard')}
+                    onClick={() => navigateTo('/painel')}
                     style={{ padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '1rem', cursor: 'pointer', borderRadius: '8px', transition: 'background 0.2s' }}
                     onMouseEnter={e => e.currentTarget.style.background = 'var(--clr-bg-alt)'}
                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
@@ -207,7 +207,7 @@ export function CommandPalette() {
                     <div style={{ fontWeight: 500, color: 'var(--clr-text)' }}>{tt.myPanel}</div>
                   </div>
                   <div 
-                    onClick={() => navigateTo('/novo-anuncio')}
+                    onClick={() => navigateTo('/anunciar')}
                     style={{ padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '1rem', cursor: 'pointer', borderRadius: '8px', transition: 'background 0.2s' }}
                     onMouseEnter={e => e.currentTarget.style.background = 'var(--clr-bg-alt)'}
                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}

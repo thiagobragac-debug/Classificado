@@ -112,7 +112,7 @@ export default function AdsBrowser({
               <div className="list-hero-inner">
                 <div>
                   {!hideHeroBreadcrumb && (
-                    <nav aria-label="Breadcrumb" className="breadcrumb">
+                    <nav aria-label={lang === 'es' ? 'Navegación' : 'Navegação'} className="breadcrumb">
                       <a href="/">{t('nav_home')}</a>
                       <span aria-hidden="true">›</span>
                       <span>{currentCatName || T.allAds}</span>

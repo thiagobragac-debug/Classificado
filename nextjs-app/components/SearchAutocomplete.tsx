@@ -10,15 +10,19 @@ const POPULAR = {
   es: ['nelore', 'angus', 'tractor', 'estancia', 'soja', 'maíz', 'novillo', 'vaquillona', 'caballo', 'porcino'],
 };
 
+// BUG CORRIGIDO (revalidação do zero da auditoria de i18n): nomes de país
+// hardcoded só em PT (Paraguai/Uruguai), sem variante ES — mesmo esses dois
+// nomes já sendo corretamente traduzidos em outro lugar do projeto
+// (app/(public)/layout.tsx, METADATA_TRANSLATIONS.es).
 const LOCATIONS = [
-  { name: 'Brasil', flag: '🇧🇷', id: 'BR' },
-  { name: 'Paraguai', flag: '🇵🇾', id: 'PY' },
-  { name: 'Argentina', flag: '🇦🇷', id: 'AR' },
-  { name: 'Uruguai', flag: '🇺🇾', id: 'UY' },
-  { name: 'Mato Grosso', flag: '📍', id: 'MT' },
-  { name: 'Goiás', flag: '📍', id: 'GO' },
-  { name: 'Mato Grosso do Sul', flag: '📍', id: 'MS' },
-  { name: 'São Paulo', flag: '📍', id: 'SP' },
+  { name_pt: 'Brasil', name_es: 'Brasil', flag: '🇧🇷', id: 'BR' },
+  { name_pt: 'Paraguai', name_es: 'Paraguay', flag: '🇵🇾', id: 'PY' },
+  { name_pt: 'Argentina', name_es: 'Argentina', flag: '🇦🇷', id: 'AR' },
+  { name_pt: 'Uruguai', name_es: 'Uruguay', flag: '🇺🇾', id: 'UY' },
+  { name_pt: 'Mato Grosso', name_es: 'Mato Grosso', flag: '📍', id: 'MT' },
+  { name_pt: 'Goiás', name_es: 'Goiás', flag: '📍', id: 'GO' },
+  { name_pt: 'Mato Grosso do Sul', name_es: 'Mato Grosso do Sul', flag: '📍', id: 'MS' },
+  { name_pt: 'São Paulo', name_es: 'São Paulo', flag: '📍', id: 'SP' },
 ];
 
 export function SearchAutocomplete() {
@@ -43,8 +47,11 @@ export function SearchAutocomplete() {
   const handleSearch = (term: string, catId?: string) => {
     setShow(false);
     const params = new URLSearchParams();
-    if (term) params.set('q', term);
-    if (catId) params.set('cat', catId);
+    // BUG CORRIGIDO (revalidação do zero da auditoria de i18n): nomes de
+    // parâmetro errados (o schema real de /listagem, lib/services/ads.service.ts,
+    // só reconhece 'busca'/'categoria') faziam essa busca nunca filtrar nada.
+    if (term) params.set('busca', term);
+    if (catId) params.set('categoria', catId);
     router.push(`/listagem?${params.toString()}`);
   };
 
@@ -60,7 +67,7 @@ export function SearchAutocomplete() {
 
   const activeCats = categories && categories.length > 0 ? categories : [];
   const matchedCats = q ? activeCats.filter((c: any) => norm(lang === 'es' ? (c.name_es || c.name_pt) : c.name_pt).includes(q)) : [];
-  const matchedLocs = q ? LOCATIONS.filter(l => norm(l.name).includes(q)) : [];
+  const matchedLocs = q ? LOCATIONS.filter(l => norm(l.name_pt).includes(q) || norm(l.name_es).includes(q)) : [];
   const popular = (POPULAR[lang as 'pt' | 'es'] || POPULAR.pt).filter(p => p.includes(q) && p !== q).slice(0, 4);
 
   return (
@@ -99,8 +106,8 @@ export function SearchAutocomplete() {
             <div style={{ padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}>
               <div style={{ padding: '4px 16px', fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>{t('search_locations')}</div>
               {matchedLocs.map(l => (
-                <div key={l.id} onClick={() => handleSearch(l.name)} style={{ padding: '8px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }} className="hover-bg-slate">
-                  <span>{l.flag}</span> <span style={{ fontSize: '0.9rem' }}>{l.name}</span>
+                <div key={l.id} onClick={() => handleSearch(lang === 'es' ? l.name_es : l.name_pt)} style={{ padding: '8px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }} className="hover-bg-slate">
+                  <span>{l.flag}</span> <span style={{ fontSize: '0.9rem' }}>{lang === 'es' ? l.name_es : l.name_pt}</span>
                 </div>
               ))}
             </div>

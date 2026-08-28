@@ -18,7 +18,7 @@ export default async function Loading() {
         <div className="container">
           <div className="list-hero-inner">
             <div>
-              <nav aria-label="Breadcrumb" className="breadcrumb">
+              <nav aria-label={lang === 'es' ? 'Navegación' : 'Navegação'} className="breadcrumb">
                 <span>{t('nav_home')}</span>
                 <span aria-hidden="true">›</span>
                 <span>{t('events_title')}</span>

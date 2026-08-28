@@ -203,7 +203,7 @@ export default async function InstitucionalPage({
         <div className="container">
           <div className="list-hero-inner">
             <div>
-              <nav aria-label="Breadcrumb" className="breadcrumb">
+              <nav aria-label={lang === 'es' ? 'Navegación' : 'Navegação'} className="breadcrumb">
                 <Link href="/">{_t('nav_home', lang)}</Link>
                 <span aria-hidden="true">›</span>
                 <span>{TRANSLATIONS[lang].breadcrumbInstitutional}</span>

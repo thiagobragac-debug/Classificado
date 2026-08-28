@@ -274,7 +274,7 @@ export default async function EventosPage({
           ? { '@type': 'VirtualLocation', url: `https://tauzeclass.com.br/eventos/${ev.id}` }
           : {
               '@type': 'Place',
-              name: ev.location || 'Local do Evento',
+              name: ev.location || (lang === 'es' ? 'Ubicación del Evento' : 'Local do Evento'),
               address: {
                 '@type': 'PostalAddress',
                 addressLocality: ev.location || 'Brasil',
@@ -303,7 +303,7 @@ export default async function EventosPage({
           <div className="container">
             <div className="list-hero-inner">
               <div>
-                <nav aria-label="Breadcrumb" className="breadcrumb">
+                <nav aria-label={lang === 'es' ? 'Navegación' : 'Navegação'} className="breadcrumb">
                   <Link href="/">{t('nav_home')}</Link>
                   <span aria-hidden="true">›</span>
                   <span aria-current="page">{t('events_title')}</span>

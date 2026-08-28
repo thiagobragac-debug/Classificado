@@ -312,7 +312,7 @@ export function AnunciarWizard({ initialData, userProfile, isEditMode }: Anuncia
         <div className="container">
           <div className="list-hero-inner">
             <div>
-              <nav aria-label="Breadcrumb" className="breadcrumb">
+              <nav aria-label={lang === 'es' ? 'Navegación' : 'Navegação'} className="breadcrumb">
                 <Link href="/">{t('nav_home')}</Link>
                 <span aria-hidden="true">›</span>
                 <span>{tr.breadcrumbCreate}</span>
