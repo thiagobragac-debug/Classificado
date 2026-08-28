@@ -36,6 +36,7 @@ const PAGE_TEXT: Record<Lang, {
   priceOnRequest: string;
   priceLabel: string;
   talkToSeller: string;
+  whatsappUnavailable: string;
 }> = {
   pt: {
     notFoundTitle: 'Anúncio não encontrado',
@@ -49,6 +50,7 @@ const PAGE_TEXT: Record<Lang, {
     priceOnRequest: 'Sob consulta',
     priceLabel: 'Valor sugerido',
     talkToSeller: 'Falar com Vendedor',
+    whatsappUnavailable: 'WhatsApp não disponível',
   },
   es: {
     notFoundTitle: 'Anuncio no encontrado',
@@ -62,6 +64,7 @@ const PAGE_TEXT: Record<Lang, {
     priceOnRequest: 'A consultar',
     priceLabel: 'Valor sugerido',
     talkToSeller: 'Hablar con el Vendedor',
+    whatsappUnavailable: 'WhatsApp no disponible',
   },
 };
 
@@ -342,14 +345,25 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ id: 
                 : tx.priceOnRequest /* BUG CORRIGIDO (reteste, 2026-08-25): 2ª ocorrência do texto de preço nulo, diferente do painel lateral — unificado */}
             </strong>
           </div>
-          <a
-            href={`/api/contact-seller?adId=${ad.id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn btn--accent ad-mobile-cta-button"
-          >
-            {tx.talkToSeller}
-          </a>
+          {hasWhatsapp ? (
+            <a
+              href={`/api/contact-seller?adId=${ad.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn--accent ad-mobile-cta-button"
+            >
+              {tx.talkToSeller}
+            </a>
+          ) : (
+            // BUG CORRIGIDO (varredura cruzada de cenários): CTA fixo mobile
+            // não checava hasWhatsapp antes de abrir o link (diferente do
+            // AdSidebar desktop, que já desabilita) — um vendedor sem
+            // WhatsApp cadastrado fazia esse botão abrir o JSON cru de erro
+            // de /api/contact-seller numa nova aba.
+            <button className="btn btn--accent ad-mobile-cta-button" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+              {tx.whatsappUnavailable}
+            </button>
+          )}
         </div>
       </div>
     </>

@@ -41,7 +41,15 @@ export function AdMessageForm({ adId, receiverId }: AdMessageFormProps) {
   const [msgSending, setMsgSending] = useState(false);
 
   const sendMessage = async () => {
-    if (!msgText.trim() || !receiverId) return;
+    if (!msgText.trim()) return;
+    // BUG CORRIGIDO (varredura cruzada de cenários): sem receiverId
+    // (ad.user_id nulo), o clique em "Enviar Mensagem" falhava em silêncio
+    // — nenhum status de erro era mostrado, o usuário não tinha como saber
+    // por que nada aconteceu.
+    if (!receiverId) {
+      setMsgStatus({ type: 'error', text: tr.genericError });
+      return;
+    }
 
     setMsgSending(true);
     setMsgStatus(null);

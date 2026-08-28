@@ -20,6 +20,22 @@ const FAV_TOAST = {
   es: 'Añadido a favoritos! Accede a tu panel para no perder esta oferta.',
 } as const;
 
+// BUG CORRIGIDO (varredura cruzada de cenários): a mensagem acima promete
+// persistência ("acesse seu painel") e é mostrada IGUAL pra visitante
+// deslogado — que só grava em localStorage (o RPC só roda "if session"),
+// então a promessa não se sustenta (o favorito some ao trocar de
+// dispositivo/navegador ou limpar dados do site) e "seu painel" nem é
+// acessível sem login.
+const FAV_TOAST_GUEST = {
+  pt: 'Adicionado aos favoritos neste dispositivo. Faça login para não perder esta oferta.',
+  es: 'Añadido a favoritos en este dispositivo. Inicia sesión para no perder esta oferta.',
+} as const;
+
+const FAV_SYNC_ERROR = {
+  pt: 'Favorito salvo neste dispositivo, mas houve um erro ao sincronizar com sua conta.',
+  es: 'Favorito guardado en este dispositivo, pero hubo un error al sincronizar con tu cuenta.',
+} as const;
+
 export function useFavorites() {
   const { lang } = useLang();
   const [favs, setFavs] = useState<Record<string, boolean>>({});
@@ -40,6 +56,12 @@ export function useFavorites() {
   }, []);
 
   const toggleFav = useCallback(async (adId: string) => {
+    // BUG CORRIGIDO (varredura cruzada de cenários): a sessão só era
+    // checada DEPOIS do toast de sucesso já ter disparado — a mesma
+    // mensagem (prometendo persistência) aparecia pra logado e deslogado.
+    // Checar antes permite escolher o texto certo pra cada caso.
+    const session = await getSession();
+
     let added = false;
     // 1. Otimistic UI Update
     setFavs(prev => {
@@ -50,27 +72,33 @@ export function useFavorites() {
         next[adId] = true;
         added = true;
       }
-      
+
       // Sync with localStorage
       try {
         localStorage.setItem(FAV_KEY, JSON.stringify(Object.keys(next)));
       } catch { /* ignore */ }
-      
+
       return next;
     });
 
     if (added) {
-      showToast(FAV_TOAST[lang], 'success');
+      showToast(session ? FAV_TOAST[lang] : FAV_TOAST_GUEST[lang], 'success');
     }
 
     // 2. Persist in backend if logged in
-    try {
-      const session = await getSession();
-      if (session) {
+    if (session) {
+      try {
         await rpcToggleFav(adId);
+      } catch (err) {
+        console.error('Erro ao favoritar no backend', err);
+        // BUG CORRIGIDO (varredura cruzada de cenários): falha real de
+        // persistência (sessão presente, mas a chamada falhou) era só
+        // logada no console — o usuário continuava vendo "Adicionado aos
+        // favoritos!" mesmo quando nada foi salvo no servidor, e só
+        // descobriria a divergência numa sessão futura em outro
+        // dispositivo.
+        if (added) showToast(FAV_SYNC_ERROR[lang], 'warning');
       }
-    } catch (err) {
-      console.error('Erro ao favoritar no backend', err);
     }
   }, [lang]);
 

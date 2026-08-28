@@ -255,7 +255,16 @@ export default function PricingClientUI({ initialPlans }: { initialPlans: Plan[]
 
   const handlePlanClick = async (plan: Plan) => {
     if (!session) {
-      router.push(`/login?redirect=/planos&plan_id=${plan.id}`)
+      // BUG CORRIGIDO (varredura cruzada de cenários): LoginForm.tsx só lê
+      // (e propaga de volta) o parâmetro redirect/next/redirectTo em si —
+      // um plan_id como parâmetro IRMÃO (?redirect=/planos&plan_id=X) era
+      // descartado no round-trip do login, então o efeito que reabre o
+      // CheckoutModal automaticamente (searchParams.get('plan_id') acima)
+      // nunca disparava: usuário deslogado clicava em "Assinar", logava, e
+      // caía numa /planos pelada, precisando escolher o plano de novo.
+      // Embutindo plan_id DENTRO do próprio valor de redirect (que
+      // sobrevive ao round-trip) resolve sem precisar mudar LoginForm.tsx.
+      router.push(`/login?redirect=${encodeURIComponent(`/planos?plan_id=${plan.id}`)}`)
       return
     }
 

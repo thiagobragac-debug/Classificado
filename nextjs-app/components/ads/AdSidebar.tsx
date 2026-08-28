@@ -205,30 +205,47 @@ export function AdSidebar({ ad, adTitle, catName, hasWhatsapp }: AdSidebarProps)
           )}
 
           {/* Seller card */}
-          <Link href={`/vendedor/${ad.user_id}`} className="seller-card-mini" style={{ display: 'flex', gap: '1rem', padding: '1rem', background: 'var(--clr-surface-alt)', borderRadius: '1rem', textDecoration: 'none', color: 'inherit' }}>
-            <div className="seller-avatar-lg" style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--clr-primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', fontWeight: 700, overflow: 'hidden', flexShrink: 0 }}>
-              {ad.profiles?.avatar_url ? (
-                <img src={ad.profiles.avatar_url} alt={sellerName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              ) : (
-                sellerInitial
-              )}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div className="seller-name" style={{ fontWeight: 700, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                {sellerName}
-                {ad.profiles?.verified && <CheckCircle className="w-4 h-4 text-green-600" />}
+          {/* BUG CORRIGIDO (varredura cruzada de cenários): ad.user_id é
+              tipado nullable (conta de vendedor excluída?) mas o Link nunca
+              tratava esse caso, montando href="/vendedor/null". Sem link
+              nenhum quando não há usuário associado. */}
+          {(() => {
+            const sellerCardContent = (
+              <>
+                <div className="seller-avatar-lg" style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--clr-primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', fontWeight: 700, overflow: 'hidden', flexShrink: 0 }}>
+                  {ad.profiles?.avatar_url ? (
+                    <img src={ad.profiles.avatar_url} alt={sellerName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    sellerInitial
+                  )}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="seller-name" style={{ fontWeight: 700, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    {sellerName}
+                    {ad.profiles?.verified && <CheckCircle className="w-4 h-4 text-green-600" />}
+                  </div>
+
+                  <div className="seller-badges" style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
+                    {ad.profiles?.email_verified && <span style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', background: '#e0f2fe', color: '#0369a1', padding: '4px 8px', borderRadius: '999px', display: 'flex', alignItems: 'center', gap: '4px' }}>✓ {tr.emailVerified}</span>}
+                    {ad.profiles?.phone_verified && <span style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', background: '#dcfce7', color: '#15803d', padding: '4px 8px', borderRadius: '999px', display: 'flex', alignItems: 'center', gap: '4px' }}>✓ {tr.phoneVerified}</span>}
+                    {ad.profiles?.kyc_status === 'approved' && <span style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', background: 'linear-gradient(to right, #fef3c7, #fde68a)', color: '#92400e', padding: '4px 8px', borderRadius: '999px', display: 'flex', alignItems: 'center', gap: '4px' }}><ShieldCheck className="w-3 h-3"/> {tr.identityConfirmed}</span>}
+                  </div>
+                  <div className="seller-member" style={{ fontSize: '0.85rem', color: 'var(--clr-text-muted)', marginTop: '0.75rem' }}>
+                    {tr.memberSince} {ad.profiles?.created_at ? memberSince(ad.profiles.created_at, lang as SidebarLang) : '—'}
+                  </div>
+                </div>
+              </>
+            );
+            return ad.user_id ? (
+              <Link href={`/vendedor/${ad.user_id}`} className="seller-card-mini" style={{ display: 'flex', gap: '1rem', padding: '1rem', background: 'var(--clr-surface-alt)', borderRadius: '1rem', textDecoration: 'none', color: 'inherit' }}>
+                {sellerCardContent}
+              </Link>
+            ) : (
+              <div className="seller-card-mini" style={{ display: 'flex', gap: '1rem', padding: '1rem', background: 'var(--clr-surface-alt)', borderRadius: '1rem', color: 'inherit' }}>
+                {sellerCardContent}
               </div>
-              
-              <div className="seller-badges" style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
-                {ad.profiles?.email_verified && <span style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', background: '#e0f2fe', color: '#0369a1', padding: '4px 8px', borderRadius: '999px', display: 'flex', alignItems: 'center', gap: '4px' }}>✓ {tr.emailVerified}</span>}
-                {ad.profiles?.phone_verified && <span style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', background: '#dcfce7', color: '#15803d', padding: '4px 8px', borderRadius: '999px', display: 'flex', alignItems: 'center', gap: '4px' }}>✓ {tr.phoneVerified}</span>}
-                {ad.profiles?.kyc_status === 'approved' && <span style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', background: 'linear-gradient(to right, #fef3c7, #fde68a)', color: '#92400e', padding: '4px 8px', borderRadius: '999px', display: 'flex', alignItems: 'center', gap: '4px' }}><ShieldCheck className="w-3 h-3"/> {tr.identityConfirmed}</span>}
-              </div>
-              <div className="seller-member" style={{ fontSize: '0.85rem', color: 'var(--clr-text-muted)', marginTop: '0.75rem' }}>
-                {tr.memberSince} {ad.profiles?.created_at ? memberSince(ad.profiles.created_at, lang as SidebarLang) : '—'}
-              </div>
-            </div>
-          </Link>
+            );
+          })()}
 
           {/* Action buttons */}
           <div className="action-column" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
