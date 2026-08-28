@@ -7,7 +7,6 @@ import { SUPABASE_URL, SUPABASE_ANON } from '@/lib/supabase'
 import { LoginBanner } from './components/LoginBanner'
 import { AuthContainer } from './components/AuthContainer'
 import { LangToggle } from './components/LangToggle'
-import './page.module.css'
 
 // BUG CORRIGIDO (auditoria completa de i18n): metadata era um objeto estático
 // sempre em português — visitantes com tc_lang=es viam title/description em

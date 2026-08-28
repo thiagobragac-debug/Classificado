@@ -1790,6 +1790,36 @@ textarea.form-input { resize: vertical; min-height: 140px; }
   .tc-toast { min-width: 0; max-width: 100%; width: 100%; box-sizing: border-box; }
 }
 
+/* --- SKELETON PULSE & SPINNER (globais) --- */
+/* BUG CORRIGIDO (varredura cruzada de cenários): estas duas classes
+   viviam em app/(public)/login/page.module.css, importado só por efeito
+   colateral (`import './page.module.css'`, sem `import styles from`) —
+   um CSS Module só expõe globalmente o que está dentro de `:global(...)`,
+   e era exatamente esse o caso das duas (só elas tinham efeito real; todo
+   o resto do arquivo — .loginSplit, .loginBanner, .authToggle etc. — é
+   morto, já que login/page.tsx usa classNames em string crua que batem
+   com regras EQUIVALENTES já existentes aqui em globals.css, não com as
+   classes hasheadas do module). StepPhotos.tsx também usa .animate-spin,
+   numa rota totalmente diferente (/anunciar) — só "funcionava" por
+   coincidência de bundling entre chunks. Centralizado aqui, que já é
+   importado por todas as rotas públicas via app/(public)/layout.tsx.
+   O arquivo page.module.css foi removido. */
+@keyframes skeletonPulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.4; }
+  100% { opacity: 1; }
+}
+.skeleton-pulse {
+  animation: skeletonPulse 1.5s ease-in-out infinite;
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
 /* --- HOME SKELETON & BADGE --- */
 @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
 .sk-card { border-radius: 12px; overflow: hidden; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
