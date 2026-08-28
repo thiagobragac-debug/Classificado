@@ -29,8 +29,10 @@ const TRANSLATIONS = {
     views: 'visualizações',
     edit: 'Editar', reactivate: 'Reativar', pause: 'Pausar', delete: 'Excluir',
     confirmDelete: 'Tem certeza que deseja excluir este anúncio?',
+    confirmTitle: 'Confirmação',
     deleteError: 'Erro ao excluir.',
     toggleError: 'Erro ao alterar status.',
+    quotaError: 'Você atingiu o limite de anúncios ativos do seu plano. Pause outro anúncio ou faça upgrade.',
     prev: '← Anterior', next: 'Próxima →',
     statusActive: 'Ativo', statusPending: 'Pendente', statusPaused: 'Pausado', statusExpired: 'Expirado',
   },
@@ -48,8 +50,10 @@ const TRANSLATIONS = {
     views: 'visualizaciones',
     edit: 'Editar', reactivate: 'Reactivar', pause: 'Pausar', delete: 'Eliminar',
     confirmDelete: '¿Estás seguro de que deseas eliminar este anuncio?',
+    confirmTitle: 'Confirmación',
     deleteError: 'Error al eliminar.',
     toggleError: 'Error al cambiar el estado.',
+    quotaError: 'Alcanzaste el límite de anuncios activos de tu plan. Pausa otro anuncio o mejora tu plan.',
     prev: '← Anterior', next: 'Siguiente →',
     statusActive: 'Activo', statusPending: 'Pendiente', statusPaused: 'Pausado', statusExpired: 'Expirado',
   },
@@ -108,7 +112,8 @@ export function MyAdsTab({ userId, adStats, planMeta }: { userId: string, adStat
   const atQuota = !!planMeta && !planMeta.unlimited && !!adStats && adStats.active >= planMeta.ads;
 
   const handleDelete = async (id: string) => {
-    if (!(await confirm(t.confirmDelete))) return;
+    // BUG CORRIGIDO (achado i18n): ConfirmProvider não é lang-aware, título default fixo em PT
+    if (!(await confirm(t.confirmDelete, t.confirmTitle))) return;
     try {
       await deleteAd(id);
       mutate(); // Refetch
@@ -127,7 +132,9 @@ export function MyAdsTab({ userId, adStats, planMeta }: { userId: string, adStat
       // esbarra na cota de anúncios do plano (trigger enforce_ad_quota,
       // P0001), esse é o ÚNICO caminho self-service que alcança esse erro, e
       // o usuário nunca via a mensagem real explicando o motivo.
-      showToast(err?.message || t.toggleError, 'error');
+      // BUG CORRIGIDO (achado i18n): erro cru do trigger Postgres (enforce_ad_quota) vinha sempre em PT
+      const isQuotaError = err?.message?.includes('Limite de') && err?.message?.includes('anuncios ativos');
+      showToast(isQuotaError ? t.quotaError : (err?.message || t.toggleError), 'error');
     }
   };
 

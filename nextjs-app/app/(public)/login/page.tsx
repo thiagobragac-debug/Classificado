@@ -1,15 +1,32 @@
 import React, { Suspense } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { unstable_cache } from 'next/cache'
+import { cookies } from 'next/headers'
+import type { Metadata } from 'next'
 import { SUPABASE_URL, SUPABASE_ANON } from '@/lib/supabase'
 import { LoginBanner } from './components/LoginBanner'
 import { AuthContainer } from './components/AuthContainer'
 import { LangToggle } from './components/LangToggle'
 import './page.module.css'
 
-export const metadata = {
-  title: 'Login',
-  description: 'Acesse sua conta para anunciar no agronegócio do Brasil e Mercosul.',
+// BUG CORRIGIDO (auditoria completa de i18n): metadata era um objeto estático
+// sempre em português — visitantes com tc_lang=es viam title/description em
+// PT. Mesmo padrão de app/(public)/planos/page.tsx.
+const METADATA_I18N = {
+  pt: {
+    title: 'Login',
+    description: 'Acesse sua conta para anunciar no agronegócio do Brasil e Mercosul.',
+  },
+  es: {
+    title: 'Iniciar Sesión',
+    description: 'Accede a tu cuenta para publicar en el agronegocio de Brasil y Mercosur.',
+  },
+} as const
+
+export async function generateMetadata(): Promise<Metadata> {
+  const cookieStore = await cookies()
+  const lang = cookieStore.get('tc_lang')?.value === 'es' ? 'es' : 'pt'
+  return METADATA_I18N[lang]
 }
 
 // Cache the platform logo query so it doesn't hit the DB on every render.

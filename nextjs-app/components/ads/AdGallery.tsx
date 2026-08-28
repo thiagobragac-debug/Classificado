@@ -8,13 +8,36 @@ import { imageUrl } from '@/lib/storage';
 
 const FALLBACK_IMG = '/assets/hero_farm.webp';
 
+// BUG CORRIGIDO (auditoria i18n): textos fixos em português (aria-labels, alt,
+// botão "Ver todas as fotos") mesmo com ES selecionado — componente nunca
+// recebia o idioma ativo. Mesmo padrão local usado em outros componentes de
+// anúncio (ex.: ShareButton.tsx).
+const TRANSLATIONS = {
+  pt: {
+    seeAllPhotos: (n: number) => `Ver todas as ${n} fotos`,
+    prevAria: 'Imagem anterior',
+    nextAria: 'Próxima imagem',
+    imageAlt: 'Imagem',
+    closeAria: 'Fechar',
+  },
+  es: {
+    seeAllPhotos: (n: number) => `Ver todas las ${n} fotos`,
+    prevAria: 'Imagen anterior',
+    nextAria: 'Imagen siguiente',
+    imageAlt: 'Imagen',
+    closeAria: 'Cerrar',
+  },
+} as const;
+
 interface AdGalleryProps {
   images: string[] | null;
   videoUrl: string | null;
   title: string;
+  lang?: 'pt' | 'es';
 }
 
-export function AdGallery({ images, videoUrl, title }: AdGalleryProps) {
+export function AdGallery({ images, videoUrl, title, lang = 'pt' }: AdGalleryProps) {
+  const tt = TRANSLATIONS[lang];
   const [currentIdx, setCurrentIdx] = useState(0);
   const [showLightbox, setShowLightbox] = useState(false);
 
@@ -105,7 +128,7 @@ export function AdGallery({ images, videoUrl, title }: AdGalleryProps) {
                 className="btn btn-outline"
                 style={{ position: 'absolute', bottom: '1rem', right: '1rem', background: 'white', zIndex: 10, display: 'flex', gap: '0.5rem', alignItems: 'center' }}
               >
-                <Grid className="w-4 h-4"/> Ver todas as {totalMedia} fotos
+                <Grid className="w-4 h-4"/> {tt.seeAllPhotos(totalMedia)}
               </button>
             )}
           </div>
@@ -134,7 +157,7 @@ export function AdGallery({ images, videoUrl, title }: AdGalleryProps) {
               <button 
                 className="gallery-nav-btn prev visible" 
                 onClick={handlePrev} 
-                aria-label="Imagem anterior"
+                aria-label={tt.prevAria}
                 style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', zIndex: 10, background: 'rgba(255,255,255,0.9)', border: 'none', borderRadius: '50%', width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
               >
                 <ChevronLeft className="w-6 h-6 text-slate-800" />
@@ -142,7 +165,7 @@ export function AdGallery({ images, videoUrl, title }: AdGalleryProps) {
               <button 
                 className="gallery-nav-btn next visible" 
                 onClick={handleNext} 
-                aria-label="Próxima imagem"
+                aria-label={tt.nextAria}
                 style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', zIndex: 10, background: 'rgba(255,255,255,0.9)', border: 'none', borderRadius: '50%', width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
               >
                 <ChevronRight className="w-6 h-6 text-slate-800" />
@@ -159,7 +182,7 @@ export function AdGallery({ images, videoUrl, title }: AdGalleryProps) {
           ) : (
             <Image
               src={media[currentIdx].url}
-              alt={`${title} - Imagem ${currentIdx + 1}`}
+              alt={`${title} - ${tt.imageAlt} ${currentIdx + 1}`}
               width={1200}
               height={900}
               style={{ width: '100%', height: 'auto', maxHeight: '500px', objectFit: 'contain', display: 'block', margin: 'auto' }}
@@ -192,7 +215,7 @@ export function AdGallery({ images, videoUrl, title }: AdGalleryProps) {
           }}>
           <button
             onClick={closeLightbox}
-            aria-label="Fechar"
+            aria-label={tt.closeAria}
             style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', zIndex: 10000 }}
           >
             <X className="w-8 h-8" />

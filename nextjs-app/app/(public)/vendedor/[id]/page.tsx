@@ -103,7 +103,8 @@ export default async function VendedorPage(props: Props) {
         <div className="container">
           <div className="list-hero-inner">
             <div>
-              <nav aria-label="Breadcrumb" className="breadcrumb">
+              {/* BUG CORRIGIDO (i18n): aria-label estava fixo em inglês */}
+              <nav aria-label={lang === 'es' ? 'Navegación' : 'Navegação'} className="breadcrumb">
                 <a href="/">{t('nav_home')}</a>
                 <span aria-hidden="true">›</span>
                 <span>Vendedores</span>

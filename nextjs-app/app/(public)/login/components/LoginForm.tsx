@@ -97,7 +97,9 @@ export function LoginForm({ onSetAlert, onNavigateToForgot }: LoginFormProps) {
       }
       await loginWithGoogle(safeRedirect)
     } catch(err: any) {
-      onSetAlert(err.message || tr.googleError, 'error')
+      // BUG CORRIGIDO (i18n): err.message do Supabase vazava cru em inglês na UI.
+      console.error('[Login Google] Erro:', err.message)
+      onSetAlert(tr.googleError, 'error')
     }
   }
 

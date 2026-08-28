@@ -3,9 +3,27 @@
 import React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useLang } from '@/lib/lang-context'
+
+const TRANSLATIONS = {
+  pt: {
+    title: 'Pagamento Cancelado',
+    message: 'Houve um problema ao processar seu pagamento ou você cancelou a operação. Nenhuma cobrança foi efetuada.',
+    retry: 'Tentar Novamente',
+    seePlans: 'Ver Planos',
+  },
+  es: {
+    title: 'Pago Cancelado',
+    message: 'Hubo un problema al procesar tu pago o cancelaste la operación. No se realizó ningún cobro.',
+    retry: 'Intentar de Nuevo',
+    seePlans: 'Ver Planes',
+  },
+} as const
 
 export default function CanceladoPage() {
   const router = useRouter()
+  const { lang } = useLang()
+  const tr = TRANSLATIONS[lang]
 
   return (
     <div style={{
@@ -33,9 +51,9 @@ export default function CanceladoPage() {
           </svg>
         </div>
 
-        <h1 style={{ fontSize: '2rem', fontWeight: 900, color: '#fff', marginBottom: '0.75rem' }}>Pagamento Cancelado</h1>
+        <h1 style={{ fontSize: '2rem', fontWeight: 900, color: '#fff', marginBottom: '0.75rem' }}>{tr.title}</h1>
         <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '1rem', lineHeight: 1.6, marginBottom: '2rem' }}>
-          Houve um problema ao processar seu pagamento ou você cancelou a operação. Nenhuma cobrança foi efetuada.
+          {tr.message}
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -44,7 +62,7 @@ export default function CanceladoPage() {
             border: 'none', borderRadius: '12px', color: '#fff', fontSize: '1rem',
             fontWeight: 700, cursor: 'pointer'
           }}>
-            Tentar Novamente
+            {tr.retry}
           </button>
           <Link href="/planos" style={{
             padding: '0.85rem 1.5rem', background: 'rgba(255,255,255,0.05)',
@@ -52,7 +70,7 @@ export default function CanceladoPage() {
             color: '#fff', fontSize: '1rem', fontWeight: 600,
             textDecoration: 'none', display: 'block'
           }}>
-            Ver Planos
+            {tr.seePlans}
           </Link>
         </div>
       </div>

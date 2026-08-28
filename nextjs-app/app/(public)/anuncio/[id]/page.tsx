@@ -292,7 +292,7 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ id: 
 
           {/* LEFT COLUMN */}
           <div className="product-gallery-area ad-gallery-col">
-            <AdGallery images={ad.images} videoUrl={ad.video_url} title={adTitle} />
+            <AdGallery images={ad.images} videoUrl={ad.video_url} title={adTitle} lang={lang} />
 
             {safeDescription && (
               <div className="details-section ad-details-section" style={{ border: '1px solid var(--clr-border)', boxShadow: 'none', marginTop: '1.5rem' }}>

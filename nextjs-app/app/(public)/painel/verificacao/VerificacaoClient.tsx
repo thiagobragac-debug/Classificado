@@ -37,6 +37,7 @@ const TRANSLATIONS = {
     attach3Files: 'Por favor, anexe os 3 arquivos.',
     sendSuccess: 'Documentos enviados com sucesso! Aguarde a análise.',
     sendError: 'Erro ao enviar: ',
+    notAuthenticated: 'Não autenticado',
   },
   es: {
     title: 'Verificación de Identidad',
@@ -67,6 +68,7 @@ const TRANSLATIONS = {
     attach3Files: 'Por favor, adjunta los 3 archivos.',
     sendSuccess: '¡Documentos enviados con éxito! Espera el análisis.',
     sendError: 'Error al enviar: ',
+    notAuthenticated: 'No autenticado',
   },
 };
 
@@ -154,7 +156,7 @@ export default function VerificacaoClient() {
     try {
       const supabase = getSupabase()
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session) throw new Error('Não autenticado')
+      if (!session) throw new Error(t.notAuthenticated)
 
       // Grava o PATH, não uma URL. O bucket é privado de propósito — documento
       // de identidade e selfie não podem ficar acessíveis por URL adivinhável.

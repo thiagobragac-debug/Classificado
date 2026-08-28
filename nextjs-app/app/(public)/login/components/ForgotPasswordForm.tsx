@@ -48,7 +48,9 @@ export function ForgotPasswordForm({ onSetAlert, onBack, initialEmail = '' }: Fo
       await resetPassword(data.email)
       onSetAlert(tr.successSent, 'success')
     } catch (err: any) {
-      onSetAlert(err.message || tr.sendError, 'error')
+      // BUG CORRIGIDO (i18n): err.message do Supabase vazava cru em inglês na UI.
+      console.error('[ForgotPassword] Erro ao redefinir senha:', err.message)
+      onSetAlert(tr.sendError, 'error')
     } finally {
       setLoading(false)
     }

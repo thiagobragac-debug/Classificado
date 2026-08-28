@@ -8,6 +8,43 @@ import {
   GatewayAdapter,
   GatewayName,
 } from '@/lib/gateways'
+import { getRequestLang } from '@/lib/api-lang'
+
+// BUG CORRIGIDO (auditoria de i18n, achados de cliente): toda resposta desta
+// rota (erro/sucesso) era hardcoded, a maioria em português e algumas em
+// inglês — nunca lia tc_lang. BillingTab.tsx e PricingClientUI.tsx exibem
+// data.message/data.error direto num alert/toast, então o texto cru sempre
+// aparecia pro usuário final. Mesmo padrão já aplicado em checkout/*.
+const ERRORS = {
+  pt: {
+    missingAuth: 'Cabeçalho de autorização ausente.',
+    unauthorized: 'Não autorizado.',
+    fetchSubError: 'Erro ao buscar assinatura.',
+    noActiveSub: 'Nenhuma assinatura ativa encontrada.',
+    stripeNotConfigured: 'Stripe não configurado.',
+    mpNotConfigured: 'Mercado Pago não configurado.',
+    pagarmeNotConfigured: 'Pagar.me não configurado.',
+    asaasNotConfigured: 'Asaas não configurado.',
+    gatewayNotSupported: (gatewayName: string) => `Gateway '${gatewayName}' não suportado.`,
+    cancelFailed: 'Não foi possível cancelar a assinatura no momento. Tente novamente ou contate o suporte.',
+    cancelSuccess: 'Assinatura cancelada com sucesso.',
+    internal: 'Erro ao cancelar assinatura.',
+  },
+  es: {
+    missingAuth: 'Falta el encabezado de autorización.',
+    unauthorized: 'No autorizado.',
+    fetchSubError: 'Error al buscar la suscripción.',
+    noActiveSub: 'No se encontró ninguna suscripción activa.',
+    stripeNotConfigured: 'Stripe no está configurado.',
+    mpNotConfigured: 'Mercado Pago no está configurado.',
+    pagarmeNotConfigured: 'Pagar.me no está configurado.',
+    asaasNotConfigured: 'Asaas no está configurado.',
+    gatewayNotSupported: (gatewayName: string) => `Gateway '${gatewayName}' no compatible.`,
+    cancelFailed: 'No se pudo cancelar la suscripción en este momento. Inténtalo de nuevo o contacta al soporte.',
+    cancelSuccess: 'Suscripción cancelada con éxito.',
+    internal: 'Error al cancelar la suscripción.',
+  },
+} as const
 
 /**
  * POST /api/subscriptions/cancel
@@ -16,17 +53,19 @@ import {
  * Auth: Bearer token in Authorization header.
  */
 export async function POST(req: Request) {
+  const lang = await getRequestLang()
+  const tx = ERRORS[lang]
   try {
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
-      return NextResponse.json({ error: 'Missing Authorization header' }, { status: 401 })
+      return NextResponse.json({ error: tx.missingAuth }, { status: 401 })
     }
     const token = authHeader.replace('Bearer ', '')
 
     const supabase = createAdminClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser(token)
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: tx.unauthorized }, { status: 401 })
     }
 
     // BUG CORRIGIDO (validação do zero, rodada 6, revisão adversarial):
@@ -64,7 +103,7 @@ export async function POST(req: Request) {
 
       if (ativaError) {
         console.error('[Cancel Subscription] Failed to fetch subscription:', ativaError.message)
-        return NextResponse.json({ error: 'Erro ao buscar assinatura.' }, { status: 500 })
+        return NextResponse.json({ error: tx.fetchSubError }, { status: 500 })
       }
 
       if (ativa) {
@@ -82,14 +121,14 @@ export async function POST(req: Request) {
 
         if (pendenteError) {
           console.error('[Cancel Subscription] Failed to fetch subscription:', pendenteError.message)
-          return NextResponse.json({ error: 'Erro ao buscar assinatura.' }, { status: 500 })
+          return NextResponse.json({ error: tx.fetchSubError }, { status: 500 })
         }
         sub = pendente
       }
     }
 
     if (!sub) {
-      return NextResponse.json({ error: 'Nenhuma assinatura ativa encontrada.' }, { status: 404 })
+      return NextResponse.json({ error: tx.noActiveSub }, { status: 404 })
     }
 
     // BUG CORRIGIDO (validação do zero, rodada 6): assinaturas criadas via
@@ -104,23 +143,23 @@ export async function POST(req: Request) {
       const gatewayName = sub.gateway as GatewayName
       switch (gatewayName) {
         case 'stripe':
-          if (!settings['stripe_secret_key']) return NextResponse.json({ error: 'Stripe nao configurado.' }, { status: 503 })
+          if (!settings['stripe_secret_key']) return NextResponse.json({ error: tx.stripeNotConfigured }, { status: 503 })
           adapter = stripeAdapter(settings['stripe_secret_key'])
           break
         case 'mercadopago':
-          if (!settings['mp_access_token']) return NextResponse.json({ error: 'Mercado Pago nao configurado.' }, { status: 503 })
+          if (!settings['mp_access_token']) return NextResponse.json({ error: tx.mpNotConfigured }, { status: 503 })
           adapter = mercadoPagoAdapter(settings['mp_access_token'])
           break
         case 'pagarme':
-          if (!settings['pagarme_api_key']) return NextResponse.json({ error: 'Pagar.me nao configurado.' }, { status: 503 })
+          if (!settings['pagarme_api_key']) return NextResponse.json({ error: tx.pagarmeNotConfigured }, { status: 503 })
           adapter = pagarmeAdapter(settings['pagarme_api_key'])
           break
         case 'asaas':
-          if (!settings['asaas_api_key']) return NextResponse.json({ error: 'Asaas nao configurado.' }, { status: 503 })
+          if (!settings['asaas_api_key']) return NextResponse.json({ error: tx.asaasNotConfigured }, { status: 503 })
           adapter = asaasAdapter(settings['asaas_api_key'], (settings['asaas_environment'] as 'sandbox' | 'production') || 'sandbox')
           break
         default:
-          return NextResponse.json({ error: `Gateway '${gatewayName}' nao suportado.` }, { status: 400 })
+          return NextResponse.json({ error: tx.gatewayNotSupported(gatewayName) }, { status: 400 })
       }
 
       try {
@@ -131,7 +170,7 @@ export async function POST(req: Request) {
         // cliente via o catch externo — mesma classe já corrigida em
         // checkout/route.ts, replicada aqui.
         console.error('[Cancel Subscription] Gateway error:', gatewayErr.message)
-        return NextResponse.json({ error: 'Não foi possível cancelar a assinatura no momento. Tente novamente ou contate o suporte.' }, { status: 502 })
+        return NextResponse.json({ error: tx.cancelFailed }, { status: 502 })
       }
     }
 
@@ -164,17 +203,17 @@ export async function POST(req: Request) {
       // (o que quer que outra operação concorrente tenha gravado) prevalece,
       // e fica só o log para revisão manual.
       console.error(`[Cancel Subscription] Assinatura ${sub.id} já cancelada no gateway, mas o status local mudou entre a leitura e a escrita (esperado '${sub.status}') — revisão manual necessária, profiles NÃO sobrescrito.`)
-      return NextResponse.json({ success: true, message: 'Assinatura cancelada com sucesso.' })
+      return NextResponse.json({ success: true, message: tx.cancelSuccess })
     }
 
     // Do NOT downgrade plan to 'free' yet. The user has paid for the current period.
     // The dynamic expiry check will downgrade them when plan_expires_at is reached.
     await supabase.from('profiles').update({ subscription_status: 'cancelled' }).eq('id', user.id)
 
-    return NextResponse.json({ success: true, message: 'Assinatura cancelada com sucesso.' })
+    return NextResponse.json({ success: true, message: tx.cancelSuccess })
 
   } catch (err: any) {
     console.error('[Cancel Subscription] Error:', err)
-    return NextResponse.json({ error: 'Erro ao cancelar assinatura.' }, { status: 500 })
+    return NextResponse.json({ error: tx.internal }, { status: 500 })
   }
 }

@@ -1,15 +1,22 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useLang } from '@/lib/lang-context';
+
+const PWA_TEXT = {
+  pt: { title: 'Instale o App', bodyPrefix: 'Adicione o', bodySuffix: 'à sua tela inicial para acesso rápido!', install: 'Instalar App', dismiss: 'Agora não' },
+  es: { title: 'Instala la App', bodyPrefix: 'Agrega', bodySuffix: 'a tu pantalla de inicio para un acceso rápido!', install: 'Instalar App', dismiss: 'Ahora no' },
+} as const;
 
 export function PwaPrompt() {
+  const { lang } = useLang();
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [show, setShow] = useState(false);
 
   useEffect(() => {
     const handleBeforeInstall = (e: any) => {
       e.preventDefault();
-      
+
       const lastDismissed = localStorage.getItem('tc_pwa_dismissed');
       if (lastDismissed && (Date.now() - parseInt(lastDismissed, 10)) < 30 * 24 * 60 * 60 * 1000) {
         return; // Don't show if dismissed within the last 30 days
@@ -60,19 +67,19 @@ export function PwaPrompt() {
         </svg>
       </div>
       <div style={{ flex: 1 }}>
-        <h3 style={{ margin: '0 0 4px', fontSize: '1.05rem', color: '#0f172a' }}>Instale o App</h3>
+        <h3 style={{ margin: '0 0 4px', fontSize: '1.05rem', color: '#0f172a' }}>{PWA_TEXT[lang].title}</h3>
         <p style={{ margin: 0, fontSize: '0.85rem', color: '#475569', lineHeight: 1.4 }}>
-          Adicione o <strong>Tauze Class</strong> à sua tela inicial para acesso rápido!
+          {PWA_TEXT[lang].bodyPrefix} <strong>Tauze Class</strong> {PWA_TEXT[lang].bodySuffix}
         </p>
         <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
           <button onClick={handleInstall} style={{
             background: '#16A34A', color: 'white', border: 'none', padding: '6px 14px',
             borderRadius: 6, fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer'
-          }}>Instalar App</button>
+          }}>{PWA_TEXT[lang].install}</button>
           <button onClick={handleDismiss} style={{
             background: 'transparent', color: '#64748b', border: 'none', padding: '6px 14px',
             borderRadius: 6, fontSize: '0.85rem', fontWeight: 500, cursor: 'pointer'
-          }}>Agora não</button>
+          }}>{PWA_TEXT[lang].dismiss}</button>
         </div>
       </div>
     </div>

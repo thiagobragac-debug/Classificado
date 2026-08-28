@@ -3,8 +3,12 @@
 import { useEffect, useState } from 'react';
 import { useGeoLocation } from '@/lib/useGeoLocation';
 import { getBanners } from '@/lib/supabase';
+import { useLang } from '@/lib/lang-context';
+
+const FALLBACK_NAME = { pt: 'Anuncie Aqui', es: 'Anúnciese Aquí' } as const;
 
 export function AdBanner({ position }: { position: string }) {
+  const { lang } = useLang();
   const { geo, loading: geoLoading } = useGeoLocation();
   const [banner, setBanner] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -41,7 +45,7 @@ export function AdBanner({ position }: { position: string }) {
   const activeBanner = banner || {
     image_url: isSidebar ? '/assets/banner_sidebar_1.webp' : '/assets/banner_sponsor_1.webp',
     link_url: '/contato', // ou a página de planos do classificado
-    name: 'Anuncie Aqui'
+    name: FALLBACK_NAME[lang]
   };
 
   const imageUrl = activeBanner.image_url || activeBanner.image || '';

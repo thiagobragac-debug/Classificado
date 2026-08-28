@@ -1,5 +1,6 @@
 import React from 'react'
 import { cookies } from 'next/headers'
+import type { Metadata } from 'next'
 import { createAnonClient } from '@/lib/supabase-server'
 import { t as _t } from '@/lib/constants'
 import { parseEventDate } from '@/lib/event-date'
@@ -17,24 +18,50 @@ import Link from 'next/link'
 // falso alarme já documentada nesta sessão para outras leituras de DOM.
 export const revalidate = 3600; // ISR — página de eventos raramente muda
 
-export const metadata = {
-  title: 'Agenda de Eventos',
-  description: 'Encontre feiras, exposições e congressos do Agronegócio no Mercosul. Agenda completa de eventos rurais no Brasil, Argentina, Paraguai e Uruguai.',
-  alternates: { canonical: 'https://tauzeclass.com.br/eventos' },
-  openGraph: {
-    title: 'Agenda de Eventos | Tauze Class',
-    description: 'Encontre feiras, exposições e congressos do Agronegócio no Mercosul.',
-    url: 'https://tauzeclass.com.br/eventos',
-    type: 'website',
-    locale: 'pt_BR',
-    images: [{ url: 'https://tauzeclass.com.br/assets/og-home.jpg', width: 1200, height: 630, alt: 'Agenda de Eventos Agro | Tauze Class' }],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'Agenda de Eventos | Tauze Class',
-    description: 'Encontre feiras, exposições e congressos do Agronegócio no Mercosul.',
-    images: ['https://tauzeclass.com.br/assets/og-home.jpg'],
-  },
+// BUG CORRIGIDO (auditoria de i18n, 2026-08-27): metadata estática nunca lia
+// tc_lang — título da aba e meta description/OG/Twitter ficavam sempre em
+// português mesmo com ES selecionado. Mesmo padrão de generateMetadata já
+// usado em app/(public)/eventos/[id]/page.tsx.
+export async function generateMetadata(): Promise<Metadata> {
+  const cookieStore = await cookies();
+  const lang = (cookieStore.get('tc_lang')?.value === 'es' ? 'es' : 'pt') as 'pt' | 'es';
+
+  const META = {
+    pt: {
+      title: 'Agenda de Eventos',
+      description: 'Encontre feiras, exposições e congressos do Agronegócio no Mercosul. Agenda completa de eventos rurais no Brasil, Argentina, Paraguai e Uruguai.',
+      ogTitle: 'Agenda de Eventos | Tauze Class',
+      ogDescription: 'Encontre feiras, exposições e congressos do Agronegócio no Mercosul.',
+      ogAlt: 'Agenda de Eventos Agro | Tauze Class',
+    },
+    es: {
+      title: 'Agenda de Eventos',
+      description: 'Encuentra ferias, exposiciones y congresos del Agronegocio en el Mercosur. Agenda completa de eventos rurales en Brasil, Argentina, Paraguay y Uruguay.',
+      ogTitle: 'Agenda de Eventos | Tauze Class',
+      ogDescription: 'Encuentra ferias, exposiciones y congresos del Agronegocio en el Mercosur.',
+      ogAlt: 'Agenda de Eventos Agro | Tauze Class',
+    },
+  }[lang];
+
+  return {
+    title: META.title,
+    description: META.description,
+    alternates: { canonical: 'https://tauzeclass.com.br/eventos' },
+    openGraph: {
+      title: META.ogTitle,
+      description: META.ogDescription,
+      url: 'https://tauzeclass.com.br/eventos',
+      type: 'website',
+      locale: lang === 'es' ? 'es_AR' : 'pt_BR',
+      images: [{ url: 'https://tauzeclass.com.br/assets/og-home.jpg', width: 1200, height: 630, alt: META.ogAlt }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: META.ogTitle,
+      description: META.ogDescription,
+      images: ['https://tauzeclass.com.br/assets/og-home.jpg'],
+    },
+  };
 }
 
 function escapeJsonLd(obj: object): string {

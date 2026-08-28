@@ -2,9 +2,17 @@
 
 import React, { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useLang } from '@/lib/lang-context'
+
+const TRANSLATIONS = {
+  pt: { clearing: 'Limpando cache e redirecionando...' },
+  es: { clearing: 'Limpiando caché y redirigiendo...' },
+} as const
 
 export default function ResetPage() {
   const router = useRouter()
+  const { lang } = useLang()
+  const tr = TRANSLATIONS[lang]
 
   useEffect(() => {
     // Clear caches
@@ -34,7 +42,7 @@ export default function ResetPage() {
         animation: 'spin 0.8s linear infinite'
       }}></div>
       <div style={{ color: '#22c55e', fontSize: '1.2rem' }}>
-        Limpando cache e redirecionando...
+        {tr.clearing}
       </div>
     </div>
   )

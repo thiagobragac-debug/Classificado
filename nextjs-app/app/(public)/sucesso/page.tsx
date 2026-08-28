@@ -3,10 +3,34 @@
 import React, { useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
+import { useLang } from '@/lib/lang-context'
+
+const TRANSLATIONS = {
+  pt: {
+    title: 'Pagamento recebido!',
+    message: 'Estamos confirmando sua assinatura — isso leva só alguns instantes. Se os novos limites não aparecerem no seu painel em pouco tempo, contate o suporte.',
+    planPrefix: 'Plano',
+    confirming: 'confirmando',
+    createFirstListing: 'Criar meu primeiro Anúncio',
+    goToDashboard: 'Ir para o Painel',
+    loading: 'Carregando...',
+  },
+  es: {
+    title: '¡Pago recibido!',
+    message: 'Estamos confirmando tu suscripción — esto toma solo unos instantes. Si los nuevos límites no aparecen en tu panel en poco tiempo, contacta al soporte.',
+    planPrefix: 'Plan',
+    confirming: 'confirmando',
+    createFirstListing: 'Crear mi primer Anuncio',
+    goToDashboard: 'Ir al Panel',
+    loading: 'Cargando...',
+  },
+} as const
 
 function SucessoContent() {
   const searchParams = useSearchParams()
   const plan = searchParams.get('plan') || 'Pro'
+  const { lang } = useLang()
+  const tr = TRANSLATIONS[lang]
 
   useEffect(() => {
     // Optional: Refresh session data to reflect new plan immediately
@@ -44,9 +68,9 @@ function SucessoContent() {
             sem ter pago nada. Quem realmente ativa o plano é o webhook
             (assíncrono); a mensagem agora não afirma um estado que esta
             página não tem como confirmar. */}
-        <h1 style={{ fontSize: '2rem', fontWeight: 900, color: '#fff', marginBottom: '0.75rem' }}>Pagamento recebido!</h1>
+        <h1 style={{ fontSize: '2rem', fontWeight: 900, color: '#fff', marginBottom: '0.75rem' }}>{tr.title}</h1>
         <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '1rem', lineHeight: 1.6, marginBottom: '2rem' }}>
-          Estamos confirmando sua assinatura — isso leva só alguns instantes. Se os novos limites não aparecerem no seu painel em pouco tempo, contate o suporte.
+          {tr.message}
         </p>
 
         <div style={{
@@ -55,7 +79,7 @@ function SucessoContent() {
           color: '#4ADE80', padding: '0.5rem 1.25rem', borderRadius: '2rem',
           fontWeight: 700, fontSize: '0.95rem', marginBottom: '2rem'
         }}>
-          Plano {plan} — confirmando
+          {tr.planPrefix} {plan} — {tr.confirming}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -64,7 +88,7 @@ function SucessoContent() {
             border: 'none', borderRadius: '12px', color: '#fff', fontSize: '1rem',
             fontWeight: 700, textDecoration: 'none', display: 'block'
           }}>
-            Criar meu primeiro Anúncio
+            {tr.createFirstListing}
           </Link>
           <Link href="/painel" style={{
             padding: '0.85rem 1.5rem', background: 'rgba(255,255,255,0.05)',
@@ -72,7 +96,7 @@ function SucessoContent() {
             color: '#fff', fontSize: '1rem', fontWeight: 600,
             textDecoration: 'none', display: 'block'
           }}>
-            Ir para o Painel
+            {tr.goToDashboard}
           </Link>
         </div>
       </div>
@@ -81,8 +105,9 @@ function SucessoContent() {
 }
 
 export default function SucessoPage() {
+  const { lang } = useLang()
   return (
-    <Suspense fallback={<div>Carregando...</div>}>
+    <Suspense fallback={<div>{TRANSLATIONS[lang].loading}</div>}>
       <SucessoContent />
     </Suspense>
   )

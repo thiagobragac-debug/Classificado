@@ -78,8 +78,11 @@ export function RegisterForm({ onSetAlert, onSuccess }: RegisterFormProps) {
       onSetAlert(tr.successCreated, 'success')
       onSuccess()
     } catch (err: any) {
-      const msg = err.message?.includes('already registered') ? tr.emailTaken : err.message
-      onSetAlert(msg || tr.createError, 'error')
+      // BUG CORRIGIDO (i18n): qualquer erro do Supabase fora do caso
+      // "already registered" vazava cru em inglês na UI.
+      console.error('[Register] Erro ao criar conta:', err.message)
+      const msg = err.message?.includes('already registered') ? tr.emailTaken : tr.createError
+      onSetAlert(msg, 'error')
     } finally {
       setLoading(false)
     }
