@@ -603,9 +603,17 @@ html.is-logged-in .auth-wrapper a[href="login.html"]::after {
   top: 0; left: -100%;
   width: 60%; height: 100%;
   background: linear-gradient(90deg, transparent, rgba(255,255,255,.3), transparent);
-  animation: shimmer 2.5s infinite;
+  animation: shimmer-shine 2.5s infinite;
 }
-@keyframes shimmer { 0% { left:-100%; } 100% { left:200%; } }
+/* BUG CORRIGIDO (validação adversarial final): esta keyframe se chamava
+   'shimmer', mesmo nome de outra definição mais abaixo (skeleton de
+   loading, baseada em background-position). CSS só mantém a ÚLTIMA
+   @keyframes com um dado nome — a definição de skeleton (que vem depois
+   no arquivo) estava vencendo pra TODO uso de "shimmer" no site,
+   inclusive este, deixando o brilho deslizante dos botões CTA
+   permanentemente parado (a keyframe vencedora nunca anima `left`).
+   Renomeada pra um nome exclusivo. */
+@keyframes shimmer-shine { 0% { left:-100%; } 100% { left:200%; } }
 
 .btn--outline {
   background: transparent; color: var(--clr-primary-mid);
@@ -694,9 +702,14 @@ html.is-logged-in .auth-wrapper a[href="login.html"]::after {
 .hero-badge-dot {
   width: 6px; height: 6px;
   background: var(--clr-primary-mid); border-radius: 50%;
-  animation: pulse 2s infinite; flex-shrink: 0;
+  animation: pulse-dot 2s infinite; flex-shrink: 0;
 }
-@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.6)} }
+/* BUG CORRIGIDO (validação adversarial final): mesmo problema do
+   shimmer-shine acima — 'pulse' tinha outra definição mais abaixo
+   (skeleton de loading, só opacidade). A definição de skeleton vencia
+   pra todo uso de "pulse", deixando este badge pulsar só com fade de
+   opacidade, sem o crescimento (scale) do design original. */
+@keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.6)} }
 
 .hero-h1 {
   font-size: clamp(2rem, 3.8vw, 3.8rem);

@@ -91,13 +91,31 @@ export function BillingTab({ user, planMeta }: { user: any, planMeta: any }) {
   // "Produtor PRO") em cada linha do histórico de assinaturas, sem
   // disparar uma query por linha.
   const [planNameEsByPt, setPlanNameEsByPt] = useState<Record<string, string>>({});
+  // BUG CORRIGIDO (validação adversarial final): "Continuar pagamento"
+  // linkava pra /planos pelada — subscriptions só guarda o NOME do plano
+  // (sub.plan), não o plan_id, então o cliente tinha que adivinhar e
+  // reescolher manualmente o mesmo plano/ciclo de novo. /planos?plan_id=X
+  // já existe e funciona (PricingClientUI.tsx reabre o checkout sozinho
+  // pra esse plano — mesmo mecanismo usado no redirect pós-login). Busca
+  // também o id de cada plano nesta mesma query, sem round-trip extra.
+  const [planIdByName, setPlanIdByName] = useState<Record<string, string>>({});
   useEffect(() => {
     let cancelled = false;
-    getSupabase().from('plans').select('name, name_es').then((res: { data: { name: string; name_es: string | null }[] | null }) => {
+    // BUG CORRIGIDO (validação adversarial final): sem .limit(), mais um
+    // caso de query sem teto que agora roda em toda visita a /painel (ver
+    // comentário do getMyFavorites em lib/supabase.ts). Sem filtro por
+    // is_active de propósito — precisa achar também planos JÁ descontinuados
+    // que aparecem no histórico de assinaturas antigas.
+    getSupabase().from('plans').select('id, name, name_es').limit(200).then((res: { data: { id: string; name: string; name_es: string | null }[] | null }) => {
       if (cancelled || !res.data) return;
-      const map: Record<string, string> = {};
-      res.data.forEach(p => { if (p.name_es) map[p.name] = p.name_es; });
-      setPlanNameEsByPt(map);
+      const nameMap: Record<string, string> = {};
+      const idMap: Record<string, string> = {};
+      res.data.forEach(p => {
+        if (p.name_es) nameMap[p.name] = p.name_es;
+        idMap[p.name] = p.id;
+      });
+      setPlanNameEsByPt(nameMap);
+      setPlanIdByName(idMap);
     });
     return () => { cancelled = true };
   }, []);
@@ -127,7 +145,15 @@ export function BillingTab({ user, planMeta }: { user: any, planMeta: any }) {
 
       setCancelMessage({ type: 'success', text: data.message || t.cancelSuccess });
     } catch(err: any) {
-      setCancelMessage({ type: 'error', text: err.message || t.unexpectedError });
+      // BUG CORRIGIDO (validação adversarial final): todo `throw new
+      // Error(...)` acima já usa texto traduzido (t.sessionExpired,
+      // data.error vindo da API já localizada por getRequestLang(), ou
+      // t.cancelError) — mas uma falha de REDE de verdade (offline, DNS,
+      // CORS) faz o próprio fetch() lançar um TypeError nativo do
+      // navegador ("Failed to fetch"), sempre em inglês, que caía direto
+      // no mesmo err.message e vazava pro banner.
+      const msg = err instanceof TypeError ? t.unexpectedError : (err.message || t.unexpectedError);
+      setCancelMessage({ type: 'error', text: msg });
     } finally {
       setIsCancelling(false);
     }
@@ -278,7 +304,7 @@ export function BillingTab({ user, planMeta }: { user: any, planMeta: any }) {
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem' }}>
                     {isPending && (
-                      <Link href="/planos" className={styles.primaryButton} style={{ padding: '.4rem .8rem' }}>
+                      <Link href={planIdByName[sub.plan] ? `/planos?plan_id=${planIdByName[sub.plan]}` : '/planos'} className={styles.primaryButton} style={{ padding: '.4rem .8rem' }}>
                         {t.continueCheckout}
                       </Link>
                     )}

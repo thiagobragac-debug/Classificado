@@ -4,7 +4,7 @@ import { createServerClient } from '@supabase/ssr';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { SUPABASE_URL, SUPABASE_ANON } from '@/lib/supabase';
 import { SECURITY_HEADERS } from '@/lib/security-headers';
-import { resolverIpConfiavel } from '@/lib/ip-utils';
+import { resolverIpConfiavel, ipParaRateLimit } from '@/lib/ip-utils';
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 
@@ -238,7 +238,11 @@ export async function proxy(request: NextRequest) {
   // mundo por causa de um único cliente agressivo. Falha aberta aqui, mesma
   // filosofia já usada quando o Postgres do rate limit está indisponível.
   if (ip && (pathname.startsWith('/login') || pathname.startsWith('/auth'))) {
-    if (!(await dentroDoLimite(`login_${ip}`))) {
+    // BUG CORRIGIDO (validação adversarial final): ipParaRateLimit trunca
+    // IPv6 no prefixo /64 — um endereço IPv6 completo rotaciona fácil
+    // demais (privacy extensions do próprio navegador, ou de propósito por
+    // um atacante) pra servir de chave de rate limit contra força bruta.
+    if (!(await dentroDoLimite(`login_${ipParaRateLimit(ip)}`))) {
       return applySecurityHeaders(
         new NextResponse('Too Many Requests', {
           status: 429,

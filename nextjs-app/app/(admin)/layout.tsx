@@ -109,7 +109,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                 <span>Categorias</span>
               </Link>
               <Link href="/admin/cupons" className="adm-nav-item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+                {/* BUG CORRIGIDO (validação adversarial final): este item usava o
+                    mesmo ícone de "tag" de Categorias, logo acima — os dois
+                    ficavam visualmente idênticos no menu, só distinguíveis pelo
+                    texto. Ícone de percentual, condizente com cupom de desconto. */}
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
                 <span>Cupons</span>
               </Link>
               <Link href="/admin/assinaturas" className="adm-nav-item">

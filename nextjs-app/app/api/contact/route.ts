@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase-admin';
-import { resolverIpConfiavel } from '@/lib/ip-utils';
+import { resolverIpConfiavel, ipParaRateLimit } from '@/lib/ip-utils';
 
 // Substitui o <form> fake que vinha embutido no HTML de institutional_pages
 // (page=contato) — tinha um onsubmit puramente cosmético que fingia sucesso
@@ -59,8 +59,14 @@ export async function POST(request: NextRequest) {
   // outros na mesma situação. Sem IP pra distinguir, não dá pra limitar por
   // IP; falha aberta (mesma filosofia do rate limit de login em proxy.ts).
   if (ip) {
+    // BUG CORRIGIDO (validação adversarial final): rate limit por endereço
+    // IPv6 completo é ineficaz — um /64 inteiro é alocado por cliente em
+    // provedores residenciais/móveis, e o sufixo rotaciona fácil (privacy
+    // extensions do navegador, ou de propósito por um script), permitindo
+    // gerar baldes praticamente infinitos a partir da mesma conexão.
+    // ipParaRateLimit trunca no prefixo /64 (ver lib/ip-utils.ts).
     const { data: dentroDoLimite, error: rateLimitError } = await admin.rpc('check_rate_limit', {
-      p_bucket: `contact_form_${ip}`,
+      p_bucket: `contact_form_${ipParaRateLimit(ip)}`,
       p_limit: 3,
       p_window_seconds: 600,
     });

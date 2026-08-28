@@ -65,6 +65,42 @@ export function isValidIp(ip: string | null | undefined): boolean {
   return IPV4.test(ip) || IPV6.test(ip);
 }
 
+/**
+ * Normaliza um IP para uso como CHAVE DE RATE LIMIT — não usar pra exibição
+ * ou auditoria (essas querem o endereço completo), só pra decidir "é
+ * plausivelmente o mesmo cliente?".
+ *
+ * BUG CORRIGIDO (validação adversarial final): limitar por endereço IPv6
+ * completo é ineficaz na prática. Provedores residenciais/móveis tipicamente
+ * alocam um /64 inteiro (às vezes /56) por cliente — o navegador já
+ * rotaciona o sufixo periodicamente por padrão (privacy extensions, RFC
+ * 4941), e um script malicioso pode forçar uma rotação a CADA requisição,
+ * gerando um número praticamente infinito de "IPs" distintos a partir de
+ * uma única conexão doméstica, sem nunca repetir o balde de rate limit.
+ * IPv4 não tem esse problema na mesma escala (o endereço inteiro já É a
+ * granularidade do cliente) — passa direto. Trunca IPv6 no prefixo /64
+ * (os 4 primeiros grupos, já expandindo a notação `::`), que é o que
+ * realmente identifica a conexão/cliente.
+ */
+export function ipParaRateLimit(ip: string): string {
+  if (!ip.includes(':')) return ip; // IPv4 (ou algo não reconhecido) — usa como está
+
+  let grupos: string[];
+  if (ip.includes('::')) {
+    const [cabeca, cauda] = ip.split('::');
+    const gruposCabeca = cabeca ? cabeca.split(':') : [];
+    const gruposCauda = cauda ? cauda.split(':') : [];
+    const faltando = 8 - gruposCabeca.length - gruposCauda.length;
+    if (faltando < 0) return ip; // formato inesperado — não trunca às cegas
+    grupos = [...gruposCabeca, ...Array(faltando).fill('0'), ...gruposCauda];
+  } else {
+    grupos = ip.split(':');
+    if (grupos.length !== 8) return ip; // formato inesperado
+  }
+
+  return `${grupos.slice(0, 4).join(':')}::/64`;
+}
+
 /** Reconhece IPs de loopback e das faixas RFC 1918 (redes privadas). */
 export function isLocalIp(ip: string): boolean {
   return (

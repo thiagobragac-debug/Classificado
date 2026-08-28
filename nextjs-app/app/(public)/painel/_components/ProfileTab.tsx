@@ -45,7 +45,7 @@ const TRANSLATIONS = {
     sendDocs: 'Enviar Documentos',
     imageError: 'Envie uma imagem (PNG, JPEG ou WebP).',
     bannerUpdated: 'Banner de perfil atualizado!',
-    bannerError: 'Erro ao enviar banner: ',
+    bannerError: 'Erro ao enviar banner. Tente novamente.',
     docExists: 'Este CPF/CNPJ já está cadastrado em outra conta.',
     saveError: 'Erro ao salvar perfil.',
     saveSuccess: 'Perfil salvo com sucesso!',
@@ -86,7 +86,7 @@ const TRANSLATIONS = {
     sendDocs: 'Enviar Documentos',
     imageError: 'Envía una imagen (PNG, JPEG o WebP).',
     bannerUpdated: '¡Banner de perfil actualizado!',
-    bannerError: 'Error al enviar el banner: ',
+    bannerError: 'Error al enviar el banner. Inténtalo de nuevo.',
     docExists: 'Este documento ya está registrado en otra cuenta.',
     saveError: 'Error al guardar el perfil.',
     saveSuccess: '¡Perfil guardado con éxito!',
@@ -179,7 +179,11 @@ export function ProfileTab({ user }: { user: any }) {
         }
       }
     } catch (err: any) {
-      showToast(t.bannerError + (err.message || ''), 'error');
+      // BUG CORRIGIDO (validação adversarial final): err.message cru do
+      // Storage (RLS, sessão expirada, rede) era concatenado direto no
+      // toast localizado — vazava texto técnico em inglês pro usuário.
+      console.error('[ProfileTab] Falha ao enviar banner:', err.message);
+      showToast(t.bannerError, 'error');
     } finally {
       setUploadingBanner(false);
     }

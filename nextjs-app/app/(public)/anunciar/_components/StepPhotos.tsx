@@ -46,8 +46,8 @@ const TRANSLATIONS = {
     videoTypeError: 'Envie um arquivo de vídeo (mp4 ou webm).',
     videoSizeError: 'O vídeo deve ter no máximo 50 MB.',
     loginRequiredForMedia: 'Você precisa estar logado para enviar fotos ou vídeo. Faça login e continue de onde parou.',
-    photoUploadError: (name: string, msg: string) => `Erro ao fazer upload da imagem ${name}: ${msg}`,
-    videoUploadError: (msg: string) => `Erro ao fazer upload do vídeo: ${msg}`,
+    photoUploadError: (name: string) => `Erro ao fazer upload da imagem ${name}. Tente novamente.`,
+    videoUploadError: 'Erro ao fazer upload do vídeo. Tente novamente.',
     planLimitsWarning: 'Não foi possível confirmar os limites do seu plano agora. Os valores exibidos podem estar incorretos — recarregue a página.',
   },
   es: {
@@ -78,8 +78,8 @@ const TRANSLATIONS = {
     videoTypeError: 'Envía un archivo de video (mp4 o webm).',
     videoSizeError: 'El video debe tener un máximo de 50 MB.',
     loginRequiredForMedia: 'Necesitas iniciar sesión para subir fotos o video. Inicia sesión y continúa donde lo dejaste.',
-    photoUploadError: (name: string, msg: string) => `Error al subir la imagen ${name}: ${msg}`,
-    videoUploadError: (msg: string) => `Error al subir el video: ${msg}`,
+    photoUploadError: (name: string) => `Error al subir la imagen ${name}. Inténtalo de nuevo.`,
+    videoUploadError: 'Error al subir el video. Inténtalo de nuevo.',
     planLimitsWarning: 'No fue posible confirmar los límites de tu plan ahora. Los valores mostrados pueden ser incorrectos — recarga la página.',
   },
 } as const
@@ -228,7 +228,21 @@ export function StepPhotos({ onPrev, isSubmitting }: StepPhotosProps) {
             }
           }
         } catch (err: any) {
-          showToast(tr.photoUploadError(file.name, err.message), 'error')
+          // BUG CORRIGIDO (validação adversarial final): a sessão só era
+          // checada UMA VEZ antes do loop — se expirasse no meio de um lote
+          // grande, uploadAdImage() lança "Not authenticated" (cru, em
+          // inglês) pra cada arquivo restante, concatenado direto num toast
+          // localizado. Detecta esse caso específico e para o lote (tentar
+          // os arquivos restantes só geraria a mesma falha em sequência);
+          // qualquer outro erro usa mensagem genérica traduzida, sem vazar
+          // o texto técnico.
+          if (err?.message === 'Not authenticated') {
+            showToast(tr.loginRequiredForMedia, 'error')
+            setUploadingCount(0)
+            break
+          }
+          console.error('[StepPhotos] Falha ao enviar imagem:', err.message)
+          showToast(tr.photoUploadError(file.name), 'error')
         } finally {
           setUploadingCount(prev => Math.max(0, prev - 1))
         }
@@ -257,7 +271,12 @@ export function StepPhotos({ onPrev, isSubmitting }: StepPhotosProps) {
       const url = await uploadAdVideo(file, 'draft')
       if (url) setValue('video', url, { shouldValidate: true })
     } catch (err: any) {
-      showToast(tr.videoUploadError(err.message), 'error')
+      if (err?.message === 'Not authenticated') {
+        showToast(tr.loginRequiredForMedia, 'error')
+      } else {
+        console.error('[StepPhotos] Falha ao enviar vídeo:', err.message)
+        showToast(tr.videoUploadError, 'error')
+      }
     } finally {
       setUploadingVideo(false)
     }

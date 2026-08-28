@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolverIpConfiavel, isValidIp, isLocalIp } from './ip-utils';
+import { resolverIpConfiavel, isValidIp, isLocalIp, ipParaRateLimit } from './ip-utils';
 
 function headers(map: Record<string, string>) {
   return { get: (name: string) => map[name.toLowerCase()] ?? null };
@@ -75,5 +75,35 @@ describe('isLocalIp', () => {
 
   it('string vazia é tratada como local', () => {
     expect(isLocalIp('')).toBe(true);
+  });
+});
+
+describe('ipParaRateLimit', () => {
+  it('passa IPv4 direto, sem truncar', () => {
+    expect(ipParaRateLimit('203.0.113.9')).toBe('203.0.113.9');
+  });
+
+  it('trunca IPv6 completo (sem ::) no prefixo /64', () => {
+    expect(ipParaRateLimit('2001:0db8:1234:5678:0000:0000:0000:0001')).toBe('2001:0db8:1234:5678::/64');
+  });
+
+  it('expande :: corretamente antes de truncar', () => {
+    expect(ipParaRateLimit('2001:db8:1234:5678::1')).toBe('2001:db8:1234:5678::/64');
+  });
+
+  it('trata ::1 (loopback) sem lançar erro', () => {
+    expect(ipParaRateLimit('::1')).toBe('0:0:0:0::/64');
+  });
+
+  it('dois endereços do mesmo /64 caem no mesmo balde — o ponto de existir', () => {
+    const a = ipParaRateLimit('2001:db8:1234:5678:aaaa:bbbb:cccc:0001');
+    const b = ipParaRateLimit('2001:db8:1234:5678:1111:2222:3333:4444');
+    expect(a).toBe(b);
+  });
+
+  it('endereços de /64 diferentes caem em baldes diferentes', () => {
+    const a = ipParaRateLimit('2001:db8:1234:5678::1');
+    const b = ipParaRateLimit('2001:db8:1234:9999::1');
+    expect(a).not.toBe(b);
   });
 });

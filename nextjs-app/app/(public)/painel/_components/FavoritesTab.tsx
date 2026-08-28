@@ -58,7 +58,18 @@ export function FavoritesTab({ userId }: { userId: string }) {
     getMyFavorites
   );
 
+  // BUG CORRIGIDO (validação adversarial final): rpcToggleFav é um TOGGLE,
+  // não um "remover" idempotente — um segundo clique disparado antes do
+  // primeiro `await` resolver (duplo-clique, rede lenta) chamava a RPC de
+  // novo e RE-ADICIONAVA o favorito que o primeiro clique tinha acabado de
+  // remover, enquanto a UI otimista continuava mostrando removido. Guarda
+  // por id em andamento ignora o clique duplicado.
+  const [removingIds, setRemovingIds] = useState<Set<string>>(new Set());
+
   const handleRemove = async (adId: string) => {
+    if (removingIds.has(adId)) return;
+    setRemovingIds(prev => new Set(prev).add(adId));
+    const previousFavs = favs;
     try {
       // Optimistic update
       mutate(favs.filter((a: any) => a.id !== adId), false);
@@ -76,8 +87,21 @@ export function FavoritesTab({ userId }: { userId: string }) {
         }
       } catch (e) {}
     } catch {
-      mutate(); // Revert optimistic update
+      // BUG CORRIGIDO (validação adversarial final): `mutate()` sem
+      // argumento REVALIDA (busca de novo no servidor) — não "reverte" pro
+      // estado anterior como o comentário antigo dizia. Numa falha de rede
+      // de verdade, essa revalidação falha também, e o item ficava preso
+      // como "removido" na UI pra sempre, sem nunca ter sido removido de
+      // fato no servidor. Reverte pro snapshot local anterior, que não
+      // depende de rede nenhuma.
+      mutate(previousFavs, false);
       showToast(t.removeError, 'error');
+    } finally {
+      setRemovingIds(prev => {
+        const next = new Set(prev);
+        next.delete(adId);
+        return next;
+      });
     }
   };
 
@@ -131,8 +155,9 @@ export function FavoritesTab({ userId }: { userId: string }) {
                   {img && <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                   <button
                     onClick={() => handleRemove(ad.id)}
+                    disabled={removingIds.has(ad.id)}
                     aria-label={t.removeFav}
-                    style={{ position: 'absolute', top: '.5rem', right: '.5rem', width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,.9)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--clr-error)' }}
+                    style={{ position: 'absolute', top: '.5rem', right: '.5rem', width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,.9)', border: 'none', cursor: removingIds.has(ad.id) ? 'not-allowed' : 'pointer', opacity: removingIds.has(ad.id) ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--clr-error)' }}
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1.5"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
                   </button>

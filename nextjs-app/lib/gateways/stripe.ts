@@ -299,14 +299,28 @@ export function stripeAdapter(secretKey: string): GatewayAdapter {
     },
     
     async cancelSubscription(gatewaySubscriptionId) {
-      // Use POST /v1/subscriptions/{id} with cancel_at_period_end=true
+      // BUG CORRIGIDO (validação adversarial final): cancel_at_period_end=true
+      // mantinha a assinatura ATIVA na Stripe até o fim do período — os
+      // outros 3 gateways (Mercado Pago, Pagar.me, Asaas) cancelam DE VEZ,
+      // imediatamente, no lado deles. Nosso app já garante "acesso até o fim
+      // do período pago" sozinho, só com profiles.plan_expires_at (ver
+      // app/api/subscriptions/cancel/route.ts — "Do NOT downgrade plan to
+      // 'free' yet"), então a Stripe não precisa continuar tecnicamente
+      // ativa pra essa promessa valer. Deixá-la assim criava uma segunda
+      // fonte de verdade divergente da nossa: o botão "Reativar" do admin
+      // (app/api/admin/subscriptions/reactivate/route.ts) só flipa o status
+      // LOCAL, sem chamar gateway nenhum — "funcionava" pra Stripe só
+      // porque a assinatura de lá ainda existia por baixo, mas reativaria
+      // uma assinatura já genuinamente morta nos outros 3 gateways, sem
+      // cobrança futura nenhuma de verdade. DELETE cancela na hora, igual
+      // aos outros — o evento customer.subscription.deleted já mapeia para
+      // 'subscription.cancelled' (ver validateWebhook acima), que o webhook
+      // já trata com a mesma lógica de carência por current_period_end.
       const response = await fetch(`https://api.stripe.com/v1/subscriptions/${gatewaySubscriptionId}`, {
-        method: 'POST',
+        method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${secretKey}`,
-          'Content-Type': 'application/x-www-form-urlencoded'
         },
-        body: 'cancel_at_period_end=true'
       })
       if (!response.ok) {
         throw new Error(`Stripe cancel error: ${await response.text()}`)
