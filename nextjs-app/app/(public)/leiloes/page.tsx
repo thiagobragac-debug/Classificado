@@ -51,19 +51,11 @@ function escapeJsonLd(obj: object): string {
     .replace(/&/g, '\\u0026');
 }
 
-async function fetchAuctions(searchParams: any) {
-  const params = await searchParams;
-  // Sanitizar e limitar parâmetros de entrada
-  const status = typeof params?.status === 'string' ? params.status.slice(0, 20) : 'active';
-  const q = typeof params?.q === 'string' ? params.q.trim().slice(0, 100) : undefined;
-  const month = typeof params?.month === 'string' ? params.month.slice(0, 10) : undefined;
-
-  const sb = createAnonClient();
-
-  // Selecionar apenas as colunas necessárias para o card
-  // (title_es: auditoria de i18n — coluna nova, com fallback pra title)
-  let query = sb.from('auction_events').select('id, title, title_es, date, cover, status, youtube, catalog');
-
+// BUG CORRIGIDO (varredura cruzada de cenários): factoriza os filtros
+// compartilhados (status/mês/ordenação) pra poderem ser reaplicados em
+// queries independentes — necessário pra buscar por title E title_es sem
+// duplicar a lógica de status/mês em cada uma.
+function applySharedFilters(query: any, status: string, month: string | undefined) {
   // BUG CORRIGIDO (achado desde a 1ª rodada do teste completo, 2026-08-24,
   // só agora corrigido): o valor real de status para leilão encerrado é
   // 'closed' (confirmado contra admin/leiloes/page.tsx e o resto do
@@ -83,12 +75,6 @@ async function fetchAuctions(searchParams: any) {
     query = query.in('status', ['live', 'scheduled']);
   }
 
-  if (q && q.length <= 100) {
-    // Sanitize special ilike metacharacters before using in pattern match
-    const sanitized = q.replace(/[%_\\]/g, '\\$&');
-    query = query.ilike('title', `%${sanitized}%`);
-  }
-
   if (month) {
     const parts = month.split('-');
     // Validar partes antes de usar como Date (evitar Date injection)
@@ -106,20 +92,64 @@ async function fetchAuctions(searchParams: any) {
     }
   }
 
-  query = query.order('date', { ascending: true }).limit(100);
+  return query.order('date', { ascending: true }).limit(100);
+}
 
-  const { data, error } = await query;
+async function fetchAuctions(searchParams: any) {
+  const params = await searchParams;
+  // Sanitizar e limitar parâmetros de entrada
+  const status = typeof params?.status === 'string' ? params.status.slice(0, 20) : 'active';
+  const q = typeof params?.q === 'string' ? params.q.trim().slice(0, 100) : undefined;
+  const month = typeof params?.month === 'string' ? params.month.slice(0, 10) : undefined;
 
-  if (error) {
-    console.error('[leiloes] Failed to fetch auctions:', error?.message || error);
-    return [];
+  const sb = createAnonClient();
+  // (title_es: auditoria de i18n — coluna nova, com fallback pra title)
+  const fields = 'id, title, title_es, date, cover, status, youtube, catalog';
+
+  // BUG CORRIGIDO (varredura cruzada de cenários): a busca só comparava
+  // contra `title`, nunca `title_es` — um usuário em espanhol buscando por
+  // um termo que só existe no título traduzido (ex.: "Remate" em vez de
+  // "Leilão") nunca encontrava o leilão, mesmo o card exibindo esse texto
+  // na tela. Mesmo padrão já corrigido em eventos/page.tsx: duas queries
+  // separadas (title e title_es), mescladas e deduplicadas por id.
+  let data: any[] | null = null;
+  let error: any = null;
+
+  if (q && q.length <= 100) {
+    const sanitized = q.replace(/[%_\\]/g, '\\$&');
+    const [resTitulo, resTituloEs] = await Promise.all([
+      applySharedFilters(sb.from('auction_events').select(fields).ilike('title', `%${sanitized}%`), status, month),
+      applySharedFilters(sb.from('auction_events').select(fields).ilike('title_es', `%${sanitized}%`), status, month),
+    ]);
+    if (resTitulo.error) error = resTitulo.error;
+    else if (resTituloEs.error) error = resTituloEs.error;
+    else {
+      const vistos = new Set<string>();
+      data = [];
+      for (const ev of [...(resTitulo.data || []), ...(resTituloEs.data || [])]) {
+        if (!vistos.has(ev.id)) { vistos.add(ev.id); data.push(ev); }
+      }
+      data.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    }
+  } else {
+    const res = await applySharedFilters(sb.from('auction_events').select(fields), status, month);
+    data = res.data;
+    error = res.error;
   }
 
-  return data || [];
+  // BUG CORRIGIDO (varredura cruzada de cenários): um erro real do Supabase
+  // (rede, RLS) era engolido em silêncio e tratado como "zero resultados",
+  // indistinguível pro usuário de uma busca legítima sem leilões.
+  if (error) {
+    console.error('[leiloes] Failed to fetch auctions:', error?.message || error);
+    return { auctions: [], loadError: true };
+  }
+
+  return { auctions: data || [], loadError: false };
 }
 
 export default async function LeiloesPage({ searchParams }: { searchParams: Promise<any> }) {
-  const events = await fetchAuctions(searchParams);
+  const { auctions: events, loadError } = await fetchAuctions(searchParams);
   const lang = (await cookies()).get('tc_lang')?.value === 'es' ? 'es' : 'pt';
 
   const ORGANIZER = {
@@ -195,7 +225,7 @@ export default async function LeiloesPage({ searchParams }: { searchParams: Prom
           </div>
         }
       >
-        <AuctionsBrowser events={events} />
+        <AuctionsBrowser events={events} loadError={loadError} />
       </Suspense>
     </>
   );

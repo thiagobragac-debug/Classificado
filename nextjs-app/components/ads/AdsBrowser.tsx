@@ -88,7 +88,12 @@ export default function AdsBrowser({
   const { countries, states, cities } = useGeoCascading(pais, estado, categoria);
 
   const PAGE_SIZE = 24;
-  const hasMore = initialAds.length === PAGE_SIZE;
+  // BUG CORRIGIDO (varredura cruzada de cenários): comparar só o tamanho da
+  // página atual faz "Próxima" ficar habilitado incorretamente sempre que o
+  // total de resultados for um múltiplo exato de PAGE_SIZE (ex.: exatamente
+  // 24, 48...) — a última página real também teria initialAds.length===24.
+  // Usa page × PAGE_SIZE contra o total real (initialTotal, já disponível).
+  const hasMore = page * PAGE_SIZE < initialTotal;
 
   const contextValue = {
     lang, categories,

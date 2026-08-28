@@ -36,6 +36,7 @@ const TRANSLATIONS = {
     liveBadge: 'LEILÃO AO VIVO',
     scheduledBadge: 'AGENDADO',
     cancelledBadge: 'LEILÃO CANCELADO',
+    closedBadge: 'ENCERRADO',
     downloadCatalog: 'Baixar Catálogo',
     startsIn: 'INICIA EM',
     comingSoon: 'Em Breve',
@@ -52,6 +53,7 @@ const TRANSLATIONS = {
     liveBadge: 'REMATE EN VIVO',
     scheduledBadge: 'PROGRAMADO',
     cancelledBadge: 'REMATE CANCELADO',
+    closedBadge: 'FINALIZADO',
     downloadCatalog: 'Descargar Catálogo',
     startsIn: 'COMIENZA EN',
     comingSoon: 'Próximamente',
@@ -166,7 +168,7 @@ export default async function AuctionPage(props: { params: Promise<{ id: string 
   // Buscar leilão e lotes em paralelo para melhor performance
   const [
     { data: auction, error },
-    { data: lots },
+    { data: lots, error: lotsError },
   ] = await Promise.all([
     supabase
       .from('auction_events')
@@ -202,11 +204,27 @@ export default async function AuctionPage(props: { params: Promise<{ id: string 
     notFound();
   }
 
+  // BUG CORRIGIDO (varredura cruzada de cenários): erro real da query de
+  // lotes era descartado (só `{ data: lots }` era desestruturado) — se essa
+  // query falhasse por qualquer motivo, LotGrid mostrava "Nenhum lote
+  // cadastrado", indistinguível de um leilão genuinamente sem lotes.
+  if (lotsError) {
+    console.error('[leiloes/id] Failed to fetch lots:', lotsError.message);
+  }
+
   const auctionTitle = lang === 'es' && auction.title_es ? auction.title_es : auction.title;
 
   const isLive = auction.status === 'live';
   const isScheduled = auction.status === 'scheduled';
   const isCancelled = auction.status === 'cancelled';
+  // BUG CORRIGIDO (varredura cruzada de cenários): um leilão com
+  // status='closed' não caía em nenhum dos 3 badges acima nem era passado
+  // pra LotBiddingModal, que então mostrava a mesma mensagem genérica de
+  // "ainda não está ao vivo" usada pra um leilão AGENDADO — as duas
+  // situações (já terminou vs. ainda não começou) ficavam indistinguíveis
+  // pro usuário. Mesmo padrão (badge cinza "ENCERRADO"/"FINALIZADO") já
+  // usado na listagem /leiloes (AuctionsBrowser.tsx).
+  const isClosed = auction.status === 'closed';
 
   // Extrai ID do YouTube com validação mais rigorosa
   const isYoutube = auction.youtube &&
@@ -239,6 +257,11 @@ export default async function AuctionPage(props: { params: Promise<{ id: string 
               {isCancelled && (
                 <div style={{ display: 'inline-block', background: 'rgba(239,68,68,0.1)', color: '#ef4444', padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 700, marginBottom: '1rem', border: '1px solid rgba(239,68,68,0.2)' }}>
                   {T.cancelledBadge}
+                </div>
+              )}
+              {isClosed && (
+                <div style={{ display: 'inline-block', background: 'rgba(107,114,128,0.15)', color: '#6b7280', padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 700, marginBottom: '1rem', border: '1px solid rgba(107,114,128,0.25)' }}>
+                  {T.closedBadge}
                 </div>
               )}
               <h1 style={{ fontSize: '2rem', margin: 0, lineHeight: 1.2, color: 'white' }}>{auctionTitle}</h1>
@@ -292,6 +315,7 @@ export default async function AuctionPage(props: { params: Promise<{ id: string 
             lots={((lots || []) as unknown as LotData[])}
             isLive={isLive}
             isCancelled={isCancelled}
+            isClosed={isClosed}
             userId={userId}
             step={auction.step || 0}
             auctionId={auctionId}

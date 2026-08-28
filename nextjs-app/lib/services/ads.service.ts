@@ -130,10 +130,16 @@ export async function getAdsListagem(params: AdsSearchParams, geoContext: any) {
   // Ordenação e Cursor Pagination
   const ordem = params.ordem;
   if (ordem === 'price_asc') {
-    q = q.order('price', { ascending: true });
+    // BUG CORRIGIDO (varredura cruzada de cenários): sem nullsFirst
+    // explícito, o Postgres usa o default de ORDER BY ASC (NULLS LAST) pra
+    // 'Menor Preço' mas NULLS FIRST pra 'Maior Preço' — um anúncio com
+    // price=null ('Sob consulta') aparecia como se fosse o MAIS CARO em
+    // 'Maior Preço'. Fixando nullsFirst:false nos dois sentidos, "Sob
+    // consulta" sempre fica no final, independente da direção.
+    q = q.order('price', { ascending: true, nullsFirst: false });
     // Cursor para preços precisaria de lógica complexa (preço + id), fallback para id/created_at se possível
   } else if (ordem === 'price_desc') {
-    q = q.order('price', { ascending: false });
+    q = q.order('price', { ascending: false, nullsFirst: false });
   } else if (ordem === 'featured') {
     q = q.order('featured', { ascending: false }).order('created_at', { ascending: false });
   } else {
@@ -155,6 +161,18 @@ export async function getAdsListagem(params: AdsSearchParams, geoContext: any) {
   const { data, count, error } = await q;
 
   if (error) {
+    // BUG CORRIGIDO (varredura cruzada de cenários): a paginação por offset
+    // (.range()) nunca checava se `from` ultrapassava o total de linhas
+    // existentes. Quando isso acontece (ex.: navegar pra além da última
+    // página real), o PostgREST responde com erro "Range Not Satisfiable"
+    // (PGRST103) em vez de um array vazio — o catch acima então derrubava a
+    // página inteira na tela de erro genérica, em vez do estado vazio
+    // "Nenhum anúncio encontrado" que já existe e funciona bem pra busca
+    // sem resultado. Reproduzido ao vivo navegando pra uma página além da
+    // última com resultados.
+    if (error.code === 'PGRST103') {
+      return { ads: [], total: count ?? 0, nextCursor: undefined };
+    }
     logError(error, { context: 'getAdsListagem', params });
     throw new Error('Falha ao carregar anúncios.');
   }

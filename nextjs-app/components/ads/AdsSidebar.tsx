@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useDebouncedCallback } from 'use-debounce';
 import { AdBanner } from '@/components/AdBanner';
 import { Category, COUNTRY_FLAGS } from './AdCard';
 import { useAdsFilter } from './AdsFilterContext';
@@ -52,6 +53,19 @@ export default function AdsSidebar() {
 
   const t = TRANSLATIONS[lang as keyof typeof TRANSLATIONS] || TRANSLATIONS.pt;
 
+  // BUG CORRIGIDO (varredura cruzada de cenários): o campo de busca chamava
+  // handleSearch (-> applyFilters -> router.push) a CADA tecla digitada, sem
+  // nenhum debounce real — o hook importa useDebounce só pra derivar
+  // `debouncedBusca` (usado internamente pra decidir hasFilters), nunca pra
+  // decidir QUANDO navegar. Resultado: cada caractere disparava uma
+  // navegação/query completa contra o Supabase (confirmado ao vivo:
+  // digitar 5 letras gerou 5 requisições distintas, todas completando).
+  // Estado local dá feedback visual instantâneo; a navegação de verdade só
+  // dispara 350ms depois de parar de digitar.
+  const [buscaInput, setBuscaInput] = useState(busca);
+  useEffect(() => { setBuscaInput(busca); }, [busca]);
+  const debouncedSearch = useDebouncedCallback((v: string) => handleSearch(v), 350);
+
   // Mobile FAB state
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -93,7 +107,7 @@ export default function AdsSidebar() {
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
           </span>
           <input type="search" className="filter-select-clean" placeholder={t.searchPlaceholder}
-            value={busca} onChange={e => handleSearch(e.target.value)} />
+            value={buscaInput} onChange={e => { setBuscaInput(e.target.value); debouncedSearch(e.target.value); }} />
         </div>
       </div>
 

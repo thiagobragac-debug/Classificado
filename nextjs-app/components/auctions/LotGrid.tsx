@@ -42,6 +42,11 @@ interface LotGridProps {
   lots: LotData[];
   isLive: boolean;
   isCancelled?: boolean;
+  // BUG CORRIGIDO (varredura cruzada de cenários): sem isso, um leilão
+  // encerrado (status='closed') caía no mesmo branch !isLive de um leilão
+  // AGENDADO no modal de lance, mostrando "ainda não está ao vivo" pra um
+  // leilão que já terminou.
+  isClosed?: boolean;
   userId?: string;
   // BUG CORRIGIDO (3ª varredura): auction_events.step nunca chegava até o
   // modal de lances — necessário para calcular o mínimo real de lance.
@@ -51,7 +56,7 @@ interface LotGridProps {
   auctionId?: string;
 }
 
-export default function LotGrid({ lots, isLive, isCancelled = false, userId, step = 0, auctionId }: LotGridProps) {
+export default function LotGrid({ lots, isLive, isCancelled = false, isClosed = false, userId, step = 0, auctionId }: LotGridProps) {
   const { lang } = useLang();
   const T = TRANSLATIONS[lang as keyof typeof TRANSLATIONS] || TRANSLATIONS.pt;
   const [selectedLot, setSelectedLot] = useState<LotData | null>(null);
@@ -197,6 +202,7 @@ export default function LotGrid({ lots, isLive, isCancelled = false, userId, ste
           userId={userId}
           isLive={isLive}
           isCancelled={isCancelled}
+          isClosed={isClosed}
           step={step}
           onClose={() => setSelectedLot(null)}
         />

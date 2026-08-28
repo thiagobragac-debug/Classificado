@@ -6,7 +6,7 @@ import { NumericFormat } from 'react-number-format';
 import { placeLotBid } from '@/lib/supabase';
 import { showToast } from '@/lib/toast';
 import { useLang } from '@/lib/lang-context';
-import { formatPrice } from '@/lib/currency';
+import { formatPrice, getCurrencySymbol } from '@/lib/currency';
 
 export interface LotData {
   id: string;
@@ -39,6 +39,7 @@ interface LotBiddingModalProps {
   userId?: string; // from session
   isLive?: boolean;
   isCancelled?: boolean;
+  isClosed?: boolean;
   // BUG CORRIGIDO (3ª varredura): auction_events.step nunca era buscado nem
   // usado na UI — os "lances rápidos" eram 4 valores fixos calculados só a
   // partir do currentBid, sem nenhuma relação com o incremento mínimo real
@@ -85,6 +86,7 @@ const TRANSLATIONS = {
     cancel: 'Cancelar',
     cancelledNotice: 'Este leilão foi cancelado. Não é possível dar lances.',
     notLiveNotice: 'Este leilão ainda não está ao vivo. Lances abrem quando a transmissão iniciar.',
+    closedNotice: 'Este leilão já foi encerrado. Não é mais possível dar lances.',
     quickBids: 'Lances Rápidos',
     orManualBid: 'Ou dê um lance manual',
     manualBidLabel: 'Valor do lance manual',
@@ -117,6 +119,7 @@ const TRANSLATIONS = {
     cancel: 'Cancelar',
     cancelledNotice: 'Este remate fue cancelado. No es posible pujar.',
     notLiveNotice: 'Este remate todavía no está en vivo. Las pujas abren cuando comience la transmisión.',
+    closedNotice: 'Este remate ya fue finalizado. Ya no es posible pujar.',
     quickBids: 'Pujas Rápidas',
     orManualBid: 'O hacé una puja manual',
     manualBidLabel: 'Valor de la puja manual',
@@ -178,7 +181,7 @@ function stripLabelPrefix(value: string | null | undefined): string {
   return value.replace(/^\s*(pai|m[aã]e|padre|madre)\s*:\s*/i, '').trim();
 }
 
-export default function LotBiddingModal({ lot, onClose, userId, isLive = true, isCancelled = false, step = 0 }: LotBiddingModalProps) {
+export default function LotBiddingModal({ lot, onClose, userId, isLive = true, isCancelled = false, isClosed = false, step = 0 }: LotBiddingModalProps) {
   const router = useRouter();
   const { lang } = useLang();
   const T = TRANSLATIONS[lang as keyof typeof TRANSLATIONS] || TRANSLATIONS.pt;
@@ -446,6 +449,10 @@ export default function LotBiddingModal({ lot, onClose, userId, isLive = true, i
                 <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '1rem', color: '#f87171', fontSize: '0.9rem' }}>
                   {T.cancelledNotice}
                 </div>
+              ) : isClosed ? (
+                <div style={{ background: 'rgba(107,114,128,0.1)', border: '1px solid rgba(107,114,128,0.3)', borderRadius: '8px', padding: '1rem', color: '#9ca3af', fontSize: '0.9rem' }}>
+                  {T.closedNotice}
+                </div>
               ) : !isLive ? (
                 <div style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.3)', borderRadius: '8px', padding: '1rem', color: '#fbbf24', fontSize: '0.9rem' }}>
                   {T.notLiveNotice}
@@ -483,7 +490,7 @@ export default function LotBiddingModal({ lot, onClose, userId, isLive = true, i
                       onValueChange={(values) => setManualBid(values.floatValue)}
                       thousandSeparator="."
                       decimalSeparator=","
-                      prefix="R$ "
+                      prefix={`${getCurrencySymbol('BRL')} `}
                       decimalScale={2}
                       allowNegative={false}
                       placeholder={T.minLabel(BRL.format(minValidBid))}

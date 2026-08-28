@@ -50,6 +50,7 @@ const TRANSLATIONS = {
     statusClosed: 'Encerrados',
     statusCancelled: 'Cancelados',
     empty: 'Nenhum leilão encontrado para os filtros selecionados.',
+    loadError: 'Erro ao carregar leilões. Tente novamente em instantes.',
     badgeScheduled: 'AGENDADO',
     badgeLive: 'AO VIVO',
     badgeClosed: 'ENCERRADO',
@@ -83,6 +84,7 @@ const TRANSLATIONS = {
     statusClosed: 'Finalizados',
     statusCancelled: 'Cancelados',
     empty: 'No se encontraron remates para los filtros seleccionados.',
+    loadError: 'Error al cargar los remates. Intenta nuevamente en unos instantes.',
     badgeScheduled: 'PROGRAMADO',
     badgeLive: 'EN VIVO',
     badgeClosed: 'FINALIZADO',
@@ -99,7 +101,7 @@ const TRANSLATIONS = {
   },
 } as const;
 
-export default function AuctionsBrowser({ events }: { events: AuctionEvent[] }) {
+export default function AuctionsBrowser({ events, loadError }: { events: AuctionEvent[]; loadError?: boolean }) {
   const { lang, t } = useLang();
   const T = TRANSLATIONS[lang as keyof typeof TRANSLATIONS] || TRANSLATIONS.pt;
   const dateLocale = lang === 'es' ? 'es-AR' : 'pt-BR';
@@ -261,7 +263,7 @@ export default function AuctionsBrowser({ events }: { events: AuctionEvent[] }) 
       <div className="ads-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
         {events.length === 0 ? (
           <p className={styles.emptyState}>
-            {T.empty}
+            {loadError ? T.loadError : T.empty}
           </p>
         ) : (
           events.map(ev => {
