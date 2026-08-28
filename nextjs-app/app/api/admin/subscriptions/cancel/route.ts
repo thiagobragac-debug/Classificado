@@ -113,7 +113,13 @@ export async function POST(request: Request) {
       .select('id')
 
     if (!cancelResult || cancelResult.length === 0) {
-      console.error(`[Admin Cancel Subscription] Assinatura ${sub.id} já cancelada no gateway, mas o status local mudou entre a leitura e a escrita (esperado '${sub.status}') — revisão manual necessária.`)
+      // BUG CORRIGIDO (validação do zero, rodada 6, revisão adversarial): a
+      // guarda detectava a corrida (0 linhas afetadas) mas o código seguia
+      // escrevendo profiles.subscription_status='cancelled' incondicionalmente
+      // de qualquer jeito — detectar sem impedir a escrita seguinte não
+      // protegia nada. Mesma correção de /api/subscriptions/cancel.
+      console.error(`[Admin Cancel Subscription] Assinatura ${sub.id} já cancelada no gateway, mas o status local mudou entre a leitura e a escrita (esperado '${sub.status}') — revisão manual necessária, profiles NÃO sobrescrito.`)
+      return NextResponse.json({ success: true })
     }
 
     // Não derruba o plano na hora — o usuário já pagou o período corrente.

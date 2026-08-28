@@ -292,12 +292,24 @@ export async function POST(req: Request) {
       // duas escritas concorrentes na mesma linha, então só uma pode
       // vencer a condição por vez.
       const eventCreatedAt = event.eventCreatedAt ?? 0
-      const { data: claimed } = await supabase
+      const { data: claimed, error: claimErr } = await supabase
         .from('subscriptions')
         .update({ plan_changed_event_created_at: eventCreatedAt })
         .eq('id', sub.id)
         .or(`plan_changed_event_created_at.is.null,plan_changed_event_created_at.lt.${eventCreatedAt}`)
         .select('id, status')
+
+      // BUG CORRIGIDO (validação do zero, rodada 6, revisão adversarial): o
+      // erro do próprio UPDATE atômico nunca era checado — se ele falhasse
+      // (timeout, RLS, etc.), `claimed` vinha vazio e caía no ramo "descartar
+      // por fora de ordem", que loga um warn e segue até responder 200 —
+      // perdendo o evento de entitlement pra sempre em silêncio, exatamente
+      // o problema que o catch externo desta rota já trata (linha ~388) mas
+      // que nunca chegava até lá porque o erro era engolido aqui antes.
+      if (claimErr) {
+        console.error(`[Webhook:${gateway}] Falha no claim atômico de plan_changed para sub ${sub.id}:`, claimErr.message)
+        throw new Error('Failed to claim plan_changed event: ' + claimErr.message)
+      }
 
       // BUG CORRIGIDO (validação do zero, rodada 6): o claim atômico acima só
       // resolvia a ordem entre dois webhooks de plan_changed — mas não olhava
@@ -305,14 +317,24 @@ export async function POST(req: Request) {
       // (ex: chegando depois de um /api/subscriptions/cancel real, entre a
       // leitura de `sub` no topo desta requisição e este ponto) reativava o
       // profiles.subscription_status pra 'active' incondicionalmente,
-      // revertendo silenciosamente um cancelamento de verdade. claimed[0].status
-      // vem do próprio UPDATE atômico, então reflete o status real da linha
-      // no exato instante do claim — não a leitura desatualizada de `sub`.
+      // revertendo silenciosamente um cancelamento de verdade.
+      //
+      // BUG CORRIGIDO (validação do zero, rodada 6, revisão adversarial): a
+      // correção acima só excluía o status 'cancelled' — qualquer OUTRO
+      // status não-ativo ('past_due', 'expired', 'pending', todos valores
+      // reais que subscriptions.status assume) ainda caía no `else` e
+      // recebia o entitlement indevidamente (ex: um evento atrasado
+      // reativando uma assinatura que já foi marcada 'past_due' por uma
+      // renovação recusada, ou 'expired' pelo cron). A checagem precisa ser
+      // POSITIVA (só concede se o status capturado no claim for 'active'),
+      // não negativa — claimed[0].status vem do próprio UPDATE atômico,
+      // então reflete o status real da linha no exato instante do claim, não
+      // a leitura desatualizada de `sub`.
       const claimedStatus = claimed?.[0]?.status
       if (!claimed || claimed.length === 0) {
         console.warn(`[Webhook:${gateway}] Discarding out-of-order plan_changed event for sub ${sub.id} (event=${eventCreatedAt}, last applied=${sub.plan_changed_event_created_at})`)
-      } else if (claimedStatus === 'cancelled') {
-        console.warn(`[Webhook:${gateway}] Discarding plan_changed entitlement grant for sub ${sub.id} — subscription was cancelled before this webhook was processed`)
+      } else if (claimedStatus !== 'active') {
+        console.warn(`[Webhook:${gateway}] Discarding plan_changed entitlement grant for sub ${sub.id} — status at claim time was '${claimedStatus}', not 'active'`)
       } else {
         const planId = event.metadata?.plan_id
         if (planId) {

@@ -392,8 +392,18 @@ export async function POST(req: Request) {
           updated_at: new Date().toISOString(),
         }).eq('id', existingActiveSub!.id).eq('status', 'active').select('id')
 
-        if (!switchUpdateResult || switchUpdateResult.length === 0) {
-          console.error(`[Checkout] Troca de plano aplicada na Stripe, mas a assinatura local ${existingActiveSub!.id} não estava mais 'active' no momento da escrita — revisão manual necessária.`)
+        // BUG CORRIGIDO (validação do zero, rodada 6, revisão adversarial): a
+        // guarda abaixo detectava a corrida (0 linhas afetadas — outra
+        // operação, ex. um cancelamento concorrente, já mudou o status dessa
+        // assinatura) mas o bloco de sincronização de downgrade rodava
+        // incondicionalmente mesmo assim, sobrescrevendo profiles/
+        // user_secrets por cima do que a outra operação acabou de gravar.
+        // Detectar a corrida sem impedir a escrita seguinte não protegia
+        // nada — reproduzido em cenário de downgrade concorrente com
+        // cancelamento. Guarda agora bloqueia o bloco de entitlement inteiro.
+        const trocaAplicadaComSeguranca = !!switchUpdateResult && switchUpdateResult.length > 0
+        if (!trocaAplicadaComSeguranca) {
+          console.error(`[Checkout] Troca de plano aplicada na Stripe, mas a assinatura local ${existingActiveSub!.id} não estava mais 'active' no momento da escrita — revisão manual necessária, entitlement NÃO sincronizado.`)
         }
 
         // BUG CORRIGIDO (validação do zero, rodada 6): downgrade (prorate=
@@ -404,8 +414,10 @@ export async function POST(req: Request) {
         // Isso nunca pode ser "explorado a favor do cliente" (é uma REDUÇÃO
         // de acesso), diferente de upgrade — que precisa mesmo esperar a
         // fatura de proração ser confirmada paga antes de conceder mais
-        // acesso. Só downgrade sincroniza aqui, na hora.
-        if (!prorate) {
+        // acesso. Só downgrade sincroniza aqui, na hora — e só quando a
+        // guarda acima confirmar que esta requisição realmente aplicou a
+        // troca na linha que ainda estava 'active'.
+        if (!prorate && trocaAplicadaComSeguranca) {
           let downgradePlanEnum = 'free'
           if (plan.name.toLowerCase().includes('premium')) downgradePlanEnum = 'premium'
           else if (plan.name.toLowerCase().includes('pro')) downgradePlanEnum = 'pro'
@@ -575,10 +587,31 @@ export async function POST(req: Request) {
       if (cycle === 'annual') end.setFullYear(end.getFullYear() + 1)
       else end.setMonth(end.getMonth() + 1)
 
-      await supabase.from('subscriptions').update({
+      // BUG CORRIGIDO (validação do zero, rodada 6, revisão adversarial): as
+      // 3 escritas abaixo (subscriptions/profiles/user_secrets) não checavam
+      // erro nenhum antes de finalizarCancelamentoAntigo() rodar — nesse
+      // caminho (bypass de 100% off) não existe gateway nenhum confirmando a
+      // nova assinatura, a ÚNICA "prova" de que ela existe é o UPDATE de
+      // subscriptions abaixo ter realmente afetado a linha. Se ele falhar
+      // (erro do Postgres, linha apagada concorrentemente) em silêncio — o
+      // postgrest-js nunca lança exceção por isso, só devolve {error} — a
+      // função de cancelamento rodava do mesmo jeito e cancelava a
+      // assinatura antiga de verdade, reproduzindo a exata falha ("cliente
+      // sem plano nenhum") que a correção original desta rodada queria
+      // eliminar, só que via erro de escrita local em vez de falha do
+      // gateway.
+      const { data: novaAtivadaResult, error: novaAtivadaErr } = await supabase.from('subscriptions').update({
         status: 'active',
         current_period_end: end.toISOString()
-      }).eq('id', phantomSub.id)
+      }).eq('id', phantomSub.id).select('id')
+
+      if (novaAtivadaErr || !novaAtivadaResult || novaAtivadaResult.length === 0) {
+        console.error('[Checkout] Falha ao confirmar a nova assinatura (bypass 100% off) — assinatura antiga NÃO será cancelada:', novaAtivadaErr?.message || 'nenhuma linha afetada')
+        if (appliedCoupon) {
+          await supabase.rpc('revert_coupon_usage', { p_coupon_id: appliedCoupon.id })
+        }
+        return NextResponse.json({ error: tx.internal }, { status: 500 })
+      }
 
       await supabase.from('profiles').update({
         subscription_status: 'active',
