@@ -96,6 +96,25 @@ export const I18N = {
     pagination_prev: 'Anterior',
     pagination_next: 'Próxima',
     pagination_page: 'Página',
+
+    // Achados da auditoria de cobertura de i18n em todas as páginas de
+    // cliente (retomada da validação "sem exceção", 2026-08-28): aria-labels,
+    // alt-texts e telas de erro/loading que nunca passavam por t().
+    hero_stats_aria: 'Estatísticas',
+    hero_img_alt: 'Fazenda no agronegócio do Mercosul — paisagem verde com gado',
+    view_all_aria: 'Ver todos os anúncios',
+    cat_grid_aria: 'Categorias de anúncios',
+    hero_loading: 'Carregando portal...',
+    search_locations: 'Locais',
+    search_suggestions: 'Sugestões',
+    search_popular: 'Populares',
+    selectLanguage: 'Selecionar idioma',
+    listagem_loading: 'Carregando anúncios...',
+    listagem_skeleton_aria: 'Carregando listagem...',
+    listagem_error_title: 'Algo deu errado ao carregar os anúncios!',
+    listagem_error_desc: 'Pode ter havido uma falha na conexão ou os filtros aplicados geraram um erro inesperado. Tente redefinir os filtros ou recarregar a página.',
+    listagem_error_retry: 'Tentar novamente',
+    listagem_error_clear: 'Limpar Filtros e Voltar',
   },
   es: {
     nav_home: 'Inicio', nav_ads: 'Anuncios', nav_events: 'Eventos',
@@ -170,7 +189,7 @@ export const I18N = {
     events_card_fallback_desc: 'Conoce los detalles de este gran evento del Agronegocio.',
     events_featured_badge: 'Destacado Oficial',
     events_live: 'En Vivo',
-    events_no_location: 'Local a definir',
+    events_no_location: 'Ubicación a definir',
     events_empty: 'Ningún evento encontrado',
     events_empty_for: 'para',
     events_clear_search: 'Limpiar búsqueda y ver todos',
@@ -186,6 +205,25 @@ export const I18N = {
     pagination_prev: 'Anterior',
     pagination_next: 'Siguiente',
     pagination_page: 'Página',
+
+    // Achados da auditoria de cobertura de i18n em todas as páginas de
+    // cliente (retomada da validação "sem exceção", 2026-08-28): aria-labels,
+    // alt-texts e telas de erro/loading que nunca passavam por t().
+    hero_stats_aria: 'Estadísticas',
+    hero_img_alt: 'Granja del agronegocio del Mercosur — paisaje verde con ganado',
+    view_all_aria: 'Ver todos los anuncios',
+    cat_grid_aria: 'Categorías de anuncios',
+    hero_loading: 'Cargando portal...',
+    search_locations: 'Ubicaciones',
+    search_suggestions: 'Sugerencias',
+    search_popular: 'Populares',
+    selectLanguage: 'Seleccionar idioma',
+    listagem_loading: 'Cargando anuncios...',
+    listagem_skeleton_aria: 'Cargando listado...',
+    listagem_error_title: '¡Algo salió mal al cargar los anuncios!',
+    listagem_error_desc: 'Puede haber ocurrido un fallo de conexión o los filtros aplicados generaron un error inesperado. Intenta restablecer los filtros o recargar la página.',
+    listagem_error_retry: 'Intentar de nuevo',
+    listagem_error_clear: 'Limpiar Filtros y Volver',
   }
 };
 

@@ -97,7 +97,7 @@ export function SearchAutocomplete() {
         }}>
           {matchedLocs.length > 0 && (
             <div style={{ padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}>
-              <div style={{ padding: '4px 16px', fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Locais</div>
+              <div style={{ padding: '4px 16px', fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>{t('search_locations')}</div>
               {matchedLocs.map(l => (
                 <div key={l.id} onClick={() => handleSearch(l.name)} style={{ padding: '8px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }} className="hover-bg-slate">
                   <span>{l.flag}</span> <span style={{ fontSize: '0.9rem' }}>{l.name}</span>
@@ -108,7 +108,7 @@ export function SearchAutocomplete() {
 
           {matchedCats.length > 0 && (
             <div style={{ padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}>
-              <div style={{ padding: '4px 16px', fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Categorias</div>
+              <div style={{ padding: '4px 16px', fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>{t('nav_categories')}</div>
               {matchedCats.map((c: any) => (
                 <div key={c.id} onClick={() => handleSearch('', c.id)} style={{ padding: '8px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }} className="hover-bg-slate">
                   <span style={{ fontSize: '0.9rem', color: '#0f172a' }}>{lang === 'es' ? (c.name_es || c.name_pt) : c.name_pt}</span>
@@ -118,7 +118,7 @@ export function SearchAutocomplete() {
           )}
 
           <div style={{ padding: '8px 0' }}>
-            <div style={{ padding: '4px 16px', fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>{query ? 'Sugestões' : 'Populares'}</div>
+            <div style={{ padding: '4px 16px', fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>{query ? t('search_suggestions') : t('search_popular')}</div>
             {popular.map(p => (
               <div key={p} onClick={() => handleSearch(p)} style={{ padding: '8px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }} className="hover-bg-slate">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
