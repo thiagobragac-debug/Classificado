@@ -25,7 +25,16 @@ export function showToast(message: string, type: ToastType = 'info', durationMs:
     iconSvg = `<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`
   }
 
-  toast.innerHTML = `${iconSvg} <span>${message}</span>`
+  // BUG CORRIGIDO (varredura cruzada de cenários, achado de segurança): a
+  // mensagem entrava direto em innerHTML sem escapar — qualquer chamador
+  // (existente ou futuro) que passasse texto contendo marcação HTML abriria
+  // um vetor de XSS via DOM. O ícone continua via innerHTML (sempre estático,
+  // nunca contém dado externo); a mensagem vai por um nó de texto separado
+  // via textContent, que nunca interpreta o conteúdo como HTML.
+  toast.innerHTML = iconSvg
+  const messageSpan = document.createElement('span')
+  messageSpan.textContent = message
+  toast.appendChild(messageSpan)
 
   container.appendChild(toast)
 

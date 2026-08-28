@@ -62,11 +62,20 @@ export async function signupWithEmail(email: string, password: string, name: str
   return data;
 }
 
+// BUG CORRIGIDO (varredura cruzada de cenários): apontava redirectTo direto
+// pro destino final (ex. /painel) em vez de app/(public)/auth/callback/route.ts
+// — a rota que de fato existe e faz exchangeCodeForSession() no servidor. Sem
+// passar por ela, o Supabase manda ?code=... direto pro destino, mas o
+// middleware de auth (proxy.ts) ainda não vê sessão nenhuma (a troca de
+// código por sessão nunca aconteceu) e redireciona de volta pro login antes
+// de qualquer código da aplicação rodar — o usuário fica preso num loop de
+// volta ao login mesmo com o Google tendo autenticado com sucesso.
 export async function loginWithGoogle(redirectTo?: string) {
   const path = redirectTo || '/painel';
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const { error } = await getSupabase().auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: (typeof window !== 'undefined' ? window.location.origin : '') + path }
+    options: { redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(path)}` }
   });
   if (error) throw error;
 }

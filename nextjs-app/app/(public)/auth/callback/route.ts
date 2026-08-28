@@ -3,10 +3,25 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { SUPABASE_URL, SUPABASE_ANON } from '@/lib/supabase'
 
+// BUG CORRIGIDO (varredura cruzada de cenários, achado de segurança): agora
+// que loginWithGoogle() de fato usa esta rota (antes apontava direto pro
+// destino final, veja lib/supabase.ts), o parâmetro `next` passa a ser
+// atacável — um redirect server-side (NextResponse.redirect) pra uma origem
+// externa é ainda mais perigoso que um client-side, já que nem precisa de JS
+// no navegador da vítima. Só aceita caminhos relativos de verdade (começando
+// com "/" único, nunca "//" nem "/\" que o navegador resolve como
+// protocol-relative).
+function getSafeNext(raw: string | null): string {
+  if (!raw || !raw.startsWith('/') || raw.startsWith('//') || raw.startsWith('/\\')) {
+    return '/painel'
+  }
+  return raw
+}
+
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
-  const next = searchParams.get('next') ?? '/painel'
+  const next = getSafeNext(searchParams.get('next'))
 
   if (code) {
     const cookieStore = await cookies()

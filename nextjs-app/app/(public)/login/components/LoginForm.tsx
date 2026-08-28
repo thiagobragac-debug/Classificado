@@ -30,6 +30,23 @@ const TRANSLATIONS = {
   },
 } as const
 
+// BUG CORRIGIDO (varredura cruzada de cenários, achado de segurança): a
+// checagem anterior só rejeitava valores começando com "//" — mas
+// "/\evil.com" também começa com uma única barra e o navegador resolve
+// isso como URL relativa-a-esquema (protocol-relative), mandando o usuário
+// pra um domínio externo logo após o login. new URL(...).origin compara a
+// origem de verdade, sem depender de heurística de prefixo de string.
+function getSafeRedirect(raw: string | null, fallback = '/painel'): string {
+  if (!raw) return fallback
+  try {
+    const url = new URL(raw, window.location.origin)
+    if (url.origin === window.location.origin) {
+      return url.pathname + url.search + url.hash
+    }
+  } catch { /* raw inválido, cai no fallback */ }
+  return fallback
+}
+
 export function LoginForm({ onSetAlert, onNavigateToForgot }: LoginFormProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -58,14 +75,8 @@ export function LoginForm({ onSetAlert, onNavigateToForgot }: LoginFormProps) {
     try {
       await loginWithEmail(data.email, data.password)
       const redirect = searchParams.get('next') || searchParams.get('redirect') || searchParams.get('redirectTo')
-      
-      let safeRedirect = '/painel'
-      if (redirect && redirect.startsWith('/')) {
-        if (!redirect.startsWith('//')) {
-          safeRedirect = redirect
-        }
-      }
-      
+      const safeRedirect = getSafeRedirect(redirect)
+
       // Hard redirect para garantir o envio correto dos cookies para o servidor
       window.location.href = safeRedirect
     } catch (err: any) {
@@ -90,11 +101,7 @@ export function LoginForm({ onSetAlert, onNavigateToForgot }: LoginFormProps) {
   const handleGoogle = async () => {
     try {
       const redirect = searchParams.get('next') || searchParams.get('redirect') || searchParams.get('redirectTo')
-      
-      let safeRedirect = '/painel'
-      if (redirect && redirect.startsWith('/') && !redirect.startsWith('//')) {
-        safeRedirect = redirect
-      }
+      const safeRedirect = getSafeRedirect(redirect)
       await loginWithGoogle(safeRedirect)
     } catch(err: any) {
       // BUG CORRIGIDO (i18n): err.message do Supabase vazava cru em inglês na UI.
