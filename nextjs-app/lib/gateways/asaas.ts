@@ -278,6 +278,41 @@ export function asaasAdapter(apiKey: string, environment: 'sandbox' | 'productio
       if (!response.ok) {
         throw new Error(`Asaas cancel error: ${await response.text()}`)
       }
+    },
+
+    // BUG CORRIGIDO (validação do zero, rodada 6): antes deste método não
+    // existir, TODA troca de plano na Asaas caía no fallback de
+    // app/api/checkout/route.ts (cancela a antiga, cria uma nova, cobrando o
+    // preço cheio na hora) — inclusive em DOWNGRADE, contradizendo a
+    // promessa do FAQ de /planos ("downgrade só muda no próximo ciclo, nada
+    // é cobrado agora"). A Asaas documenta PUT /v3/subscriptions/{id} pra
+    // atualizar `value`/`cycle`/`description` de uma assinatura já
+    // existente — isso NÃO gera cobrança imediata, só muda o valor da
+    // PRÓXIMA fatura (a data de vencimento em curso não é alterada). Como a
+    // Asaas não tem conceito de proração, não dá pra cobrar a diferença de
+    // upgrade na hora como a Stripe faz — o parâmetro `prorate` é ignorado
+    // aqui de propósito (ver a condição em checkout/route.ts que só chama
+    // este caminho pra DOWNGRADE nesta gateway, mantendo upgrade no fallback
+    // de cancelar+recriar, que já cobra na hora).
+    async updateSubscriptionPlan(gatewaySubscriptionId, plan) {
+      const cycle = plan.billingCycle === 'annual' ? 'YEARLY' : 'MONTHLY'
+      const response = await fetch(`${baseUrl}/subscriptions/${gatewaySubscriptionId}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({
+          value: plan.price,
+          cycle,
+          description: plan.name,
+        }),
+      })
+      if (!response.ok) {
+        throw new Error(`Asaas erro ao trocar plano da assinatura: ${await response.text()}`)
+      }
+      const updated = await response.json()
+      return {
+        gatewaySubscriptionId: updated.id,
+        currentPeriodEnd: updated.nextDueDate ? new Date(`${updated.nextDueDate}T00:00:00`).toISOString() : undefined,
+      }
     }
   }
 }

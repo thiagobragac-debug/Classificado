@@ -11,16 +11,71 @@ import {
   GatewayPlan,
   GatewayUser,
 } from '@/lib/gateways'
+import { getRequestLang } from '@/lib/api-lang'
 
-
+// BUG CORRIGIDO (validação do zero, rodada 6): toda mensagem de erro desta
+// rota (cupom, "já tem este plano", gateway não configurado, falha de
+// pagamento, etc.) voltava em português regardless do idioma ativo — e
+// CheckoutModal.tsx sempre prefere data.error à sua própria tradução local,
+// então o usuário via erro em português no momento mais crítico do checkout.
+const ERRORS = {
+  pt: {
+    checkoutIdRequired: 'checkoutId é obrigatório',
+    cardDataNotAccepted: 'Dados de cartão não são aceitos neste endpoint. Use o formulário do gateway, que devolve um token.',
+    missingAuth: 'Cabeçalho de autorização ausente.',
+    unauthorized: 'Não autorizado.',
+    tooManyAttempts: 'Muitas tentativas. Aguarde um momento.',
+    planIdRequired: 'planId é obrigatório',
+    planNotFound: 'Plano não encontrado ou inativo',
+    alreadyHasPlan: 'Você já tem este plano ativo.',
+    stripeNotConfigured: 'Stripe não configurado. Contate o suporte.',
+    mpNotConfigured: 'Mercado Pago não configurado. Contate o suporte.',
+    pagarmeNotConfigured: 'Pagar.me não configurado. Contate o suporte.',
+    asaasNotConfigured: 'Asaas não configurado. Contate o suporte.',
+    invalidGateway: 'Gateway inválido.',
+    couponInvalid: 'Cupom inválido, expirado ou com limite de usos esgotado.',
+    processingInProgress: 'Processamento em andamento. Aguarde alguns segundos.',
+    couponLimitReachedRace: 'O limite de uso deste cupom acabou de ser atingido por outro usuário.',
+    planSwitchFailed: 'Não foi possível trocar de plano no momento. Tente novamente ou contate o suporte.',
+    cannotVerifyCurrentSub: 'Não foi possível verificar sua assinatura atual. Contate o suporte antes de trocar de plano.',
+    couponApplyError: 'Erro ao aplicar cupom (limite atingido ou falha interna).',
+    paymentProcessingFailed: 'Não foi possível processar o pagamento no momento. Verifique os dados do cartão ou tente novamente.',
+    internal: 'Erro interno. Tente novamente.',
+  },
+  es: {
+    checkoutIdRequired: 'checkoutId es obligatorio',
+    cardDataNotAccepted: 'No se aceptan datos de tarjeta en este endpoint. Usa el formulario del gateway, que devuelve un token.',
+    missingAuth: 'Falta el encabezado de autorización.',
+    unauthorized: 'No autorizado.',
+    tooManyAttempts: 'Demasiados intentos. Espera un momento.',
+    planIdRequired: 'planId es obligatorio',
+    planNotFound: 'Plan no encontrado o inactivo',
+    alreadyHasPlan: 'Ya tienes este plan activo.',
+    stripeNotConfigured: 'Stripe no está configurado. Contacta al soporte.',
+    mpNotConfigured: 'Mercado Pago no está configurado. Contacta al soporte.',
+    pagarmeNotConfigured: 'Pagar.me no está configurado. Contacta al soporte.',
+    asaasNotConfigured: 'Asaas no está configurado. Contacta al soporte.',
+    invalidGateway: 'Gateway inválido.',
+    couponInvalid: 'Cupón inválido, vencido o con límite de usos agotado.',
+    processingInProgress: 'Procesamiento en curso. Espera unos segundos.',
+    couponLimitReachedRace: 'El límite de uso de este cupón acaba de ser alcanzado por otro usuario.',
+    planSwitchFailed: 'No se pudo cambiar de plan en este momento. Inténtalo de nuevo o contacta al soporte.',
+    cannotVerifyCurrentSub: 'No se pudo verificar tu suscripción actual. Contacta al soporte antes de cambiar de plan.',
+    couponApplyError: 'Error al aplicar el cupón (límite alcanzado o fallo interno).',
+    paymentProcessingFailed: 'No se pudo procesar el pago en este momento. Verifica los datos de la tarjeta o inténtalo de nuevo.',
+    internal: 'Error interno. Inténtalo de nuevo.',
+  },
+} as const
 
 export async function POST(req: Request) {
+  const lang = await getRequestLang()
+  const tx = ERRORS[lang]
   try {
     const body = await req.json()
     const { checkoutId, planId, billingCycle, billingData, paymentMethod, creditCard, billingAddress, gatewayToken, couponCode } = body
 
     if (!checkoutId) {
-      return NextResponse.json({ error: 'checkoutId é obrigatório' }, { status: 400 })
+      return NextResponse.json({ error: tx.checkoutIdRequired }, { status: 400 })
     }
 
     // Dados de cartão em claro não entram mais aqui. O CheckoutModal deixou de
@@ -30,7 +85,7 @@ export async function POST(req: Request) {
     if (creditCard) {
       console.warn('[checkout] payload com creditCard recusado — cartao deve vir tokenizado')
       return NextResponse.json(
-        { error: 'Dados de cartão não são aceitos neste endpoint. Use o formulário do gateway, que devolve um token.' },
+        { error: tx.cardDataNotAccepted },
         { status: 400 }
       )
     }
@@ -38,7 +93,7 @@ export async function POST(req: Request) {
     // --- Auth ---
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
-      return NextResponse.json({ error: 'Missing Authorization header' }, { status: 401 })
+      return NextResponse.json({ error: tx.missingAuth }, { status: 401 })
     }
     const token = authHeader.replace('Bearer ', '')
 
@@ -46,7 +101,7 @@ export async function POST(req: Request) {
 
     const { data: { user }, error: authError } = await supabase.auth.getUser(token)
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: tx.unauthorized }, { status: 401 })
     }
 
     // GAP CORRIGIDO (revisão de regras de negócio, 2026-08-25): /api/* fica
@@ -60,12 +115,12 @@ export async function POST(req: Request) {
       p_window_seconds: 60,
     })
     if (dentroDoLimite === false) {
-      return NextResponse.json({ error: 'Muitas tentativas. Aguarde um momento.' }, { status: 429 })
+      return NextResponse.json({ error: tx.tooManyAttempts }, { status: 429 })
     }
 
     // --- Validate inputs ---
     if (!planId) {
-      return NextResponse.json({ error: 'planId é obrigatório' }, { status: 400 })
+      return NextResponse.json({ error: tx.planIdRequired }, { status: 400 })
     }
 
     // --- Fetch plan (real table name: 'plans') ---
@@ -76,7 +131,7 @@ export async function POST(req: Request) {
       .eq('is_active', true)
       .single()
     if (planError || !plan) {
-      return NextResponse.json({ error: 'Plano não encontrado ou inativo' }, { status: 404 })
+      return NextResponse.json({ error: tx.planNotFound }, { status: 404 })
     }
 
     // --- Fetch user profile (real columns: 'name', 'country' — no full_name) ---
@@ -102,7 +157,7 @@ export async function POST(req: Request) {
     // acontece depois do lock de idempotência, mais abaixo) ---
     const { data: existingActiveSub } = await supabase
       .from('subscriptions')
-      .select('id, gateway, gateway_subscription_id, plan, price, billing_cycle')
+      .select('id, gateway, gateway_subscription_id, plan, price, billing_cycle, current_period_end')
       .eq('user_id', user.id)
       .eq('status', 'active')
       .order('created_at', { ascending: false })
@@ -127,7 +182,7 @@ export async function POST(req: Request) {
     // checagem nenhuma. Confirmado ao vivo: cobrança real duplicada, 2ª
     // assinatura Stripe ativa em paralelo à primeira.
     if (existingActiveSub && !isPlanSwitch) {
-      return NextResponse.json({ error: 'Você já tem este plano ativo.' }, { status: 409 })
+      return NextResponse.json({ error: tx.alreadyHasPlan }, { status: 409 })
     }
 
     // --- Build adapter with keys from DB ---
@@ -135,25 +190,25 @@ export async function POST(req: Request) {
     switch (gatewayName) {
       case 'stripe':
         if (!settings['stripe_secret_key']) {
-          return NextResponse.json({ error: 'Stripe não configurado. Contate o suporte.' }, { status: 503 })
+          return NextResponse.json({ error: tx.stripeNotConfigured }, { status: 503 })
         }
         adapter = stripeAdapter(settings['stripe_secret_key'])
         break
       case 'mercadopago':
         if (!settings['mp_access_token']) {
-          return NextResponse.json({ error: 'Mercado Pago não configurado. Contate o suporte.' }, { status: 503 })
+          return NextResponse.json({ error: tx.mpNotConfigured }, { status: 503 })
         }
         adapter = mercadoPagoAdapter(settings['mp_access_token'])
         break
       case 'pagarme':
         if (!settings['pagarme_api_key']) {
-          return NextResponse.json({ error: 'Pagar.me não configurado. Contate o suporte.' }, { status: 503 })
+          return NextResponse.json({ error: tx.pagarmeNotConfigured }, { status: 503 })
         }
         adapter = pagarmeAdapter(settings['pagarme_api_key'])
         break
       case 'asaas':
         if (!settings['asaas_api_key']) {
-          return NextResponse.json({ error: 'Asaas não configurado. Contate o suporte.' }, { status: 503 })
+          return NextResponse.json({ error: tx.asaasNotConfigured }, { status: 503 })
         }
         adapter = asaasAdapter(
           settings['asaas_api_key'],
@@ -161,7 +216,7 @@ export async function POST(req: Request) {
         )
         break
       default:
-        return NextResponse.json({ error: 'Gateway inválido.' }, { status: 500 })
+        return NextResponse.json({ error: tx.invalidGateway }, { status: 500 })
     }
 
     // --- Build plan & user objects for adapter ---
@@ -200,7 +255,7 @@ export async function POST(req: Request) {
       // cobrava o preço cheio, sem avisar. O usuário via "cupom aplicado"
       // na tela e era cobrado o valor sem desconto, sem nenhum erro.
       if (!valido) {
-        return NextResponse.json({ error: 'Cupom inválido, expirado ou com limite de usos esgotado.' }, { status: 400 })
+        return NextResponse.json({ error: tx.couponInvalid }, { status: 400 })
       }
 
       if (couponData.discount_type === 'percentage') {
@@ -241,7 +296,7 @@ export async function POST(req: Request) {
       .maybeSingle()
 
     if (existingRecent) {
-      return NextResponse.json({ error: 'Processamento em andamento. Aguarde alguns segundos.' }, { status: 429 })
+      return NextResponse.json({ error: tx.processingInProgress }, { status: 429 })
     }
 
     // --- IMMEDIATE LOCK: Insert phantom subscription to block concurrent/retried clicks ---
@@ -268,7 +323,7 @@ export async function POST(req: Request) {
 
     if (insertError) {
       console.error('[Checkout] Failed to create lock record (Double-Charge Blocked):', insertError.message)
-      return NextResponse.json({ error: 'Processamento em andamento. Aguarde alguns segundos.' }, { status: 429 })
+      return NextResponse.json({ error: tx.processingInProgress }, { status: 429 })
     }
 
     // --- Troca de plano com assinatura já existente ---
@@ -293,14 +348,22 @@ export async function POST(req: Request) {
     // Excluir finalPrice<=0 daqui empurra pro caminho de baixo (cancela a
     // assinatura antiga de verdade + bypass local), que é o mesmo
     // tratamento que uma assinatura nova com cupom 100% já recebe.
-    if (isPlanSwitch && finalPrice > 0 && existingActiveSub!.gateway_subscription_id && existingActiveSub!.gateway === gatewayName && gatewayName === 'stripe' && adapter.updateSubscriptionPlan) {
-      const prorate = finalPrice > Number(existingActiveSub!.price ?? 0)
+    const prorate = finalPrice > Number(existingActiveSub?.price ?? 0)
+    // BUG CORRIGIDO (validação do zero, rodada 6): Mercado Pago, Pagar.me e
+    // Asaas ganharam updateSubscriptionPlan nesta rodada, mas nenhum deles
+    // tem conceito de proração (não dá pra cobrar a diferença de upgrade na
+    // hora como a Stripe faz) — por isso só entram aqui em DOWNGRADE
+    // (!prorate). Upgrade nessas 3 gateways continua no fallback de
+    // cancelar+recriar abaixo, que já cobra o preço cheio na hora (mesmo
+    // comportamento de sempre, não piorou nem melhorou nesta rodada).
+    const gatewaySuportaTrocaNativa = gatewayName === 'stripe' || (!prorate && (gatewayName === 'mercadopago' || gatewayName === 'pagarme' || gatewayName === 'asaas'))
+    if (isPlanSwitch && finalPrice > 0 && existingActiveSub!.gateway_subscription_id && existingActiveSub!.gateway === gatewayName && gatewaySuportaTrocaNativa && adapter.updateSubscriptionPlan) {
       try {
         if (appliedCoupon) {
           const { data: success, error: rpcErr } = await supabase.rpc('try_apply_coupon', { p_coupon_id: appliedCoupon.id })
           if (rpcErr || success === false) {
             await supabase.from('subscriptions').delete().eq('id', phantomSub.id)
-            return NextResponse.json({ error: 'O limite de uso deste cupom acabou de ser atingido por outro usuário.' }, { status: 400 })
+            return NextResponse.json({ error: tx.couponLimitReachedRace }, { status: 400 })
           }
         }
 
@@ -309,7 +372,15 @@ export async function POST(req: Request) {
         // idempotência — ver comentário em lib/gateways/types.ts.
         const switchResult = await adapter.updateSubscriptionPlan(existingActiveSub!.gateway_subscription_id!, gatewayPlan, prorate, checkoutId)
 
-        await supabase.from('subscriptions').update({
+        // BUG CORRIGIDO (validação do zero, rodada 6): condiciona o UPDATE ao
+        // status ainda ser 'active' no momento da escrita — fecha a mesma
+        // janela TOCTOU já corrigida em /api/subscriptions/cancel (um cancel
+        // concorrente rodando entre a leitura de existingActiveSub no topo
+        // desta requisição e este ponto). A chamada ao gateway já aconteceu
+        // (não dá pra desfazer de forma simples), então zero linhas afetadas
+        // aqui só vira um log — precisa de revisão manual, não bloqueia a
+        // resposta de sucesso pro usuário.
+        const { data: switchUpdateResult } = await supabase.from('subscriptions').update({
           plan: plan.name,
           price: finalPrice,
           billing_cycle: cycle,
@@ -319,7 +390,37 @@ export async function POST(req: Request) {
           // CICLO (mensal↔anual), que a Stripe realinha de verdade.
           ...(switchResult.currentPeriodEnd ? { current_period_end: switchResult.currentPeriodEnd } : {}),
           updated_at: new Date().toISOString(),
-        }).eq('id', existingActiveSub!.id)
+        }).eq('id', existingActiveSub!.id).eq('status', 'active').select('id')
+
+        if (!switchUpdateResult || switchUpdateResult.length === 0) {
+          console.error(`[Checkout] Troca de plano aplicada na Stripe, mas a assinatura local ${existingActiveSub!.id} não estava mais 'active' no momento da escrita — revisão manual necessária.`)
+        }
+
+        // BUG CORRIGIDO (validação do zero, rodada 6): downgrade (prorate=
+        // false) deixava o entitlement (user_secrets.plan/plan_id,
+        // profiles.plan_expires_at) preso esperando a PRÓXIMA renovação
+        // natural pra sincronizar — até um ciclo de cobrança inteiro com o
+        // cliente pagando o plano barato mas mantendo os benefícios do caro.
+        // Isso nunca pode ser "explorado a favor do cliente" (é uma REDUÇÃO
+        // de acesso), diferente de upgrade — que precisa mesmo esperar a
+        // fatura de proração ser confirmada paga antes de conceder mais
+        // acesso. Só downgrade sincroniza aqui, na hora.
+        if (!prorate) {
+          let downgradePlanEnum = 'free'
+          if (plan.name.toLowerCase().includes('premium')) downgradePlanEnum = 'premium'
+          else if (plan.name.toLowerCase().includes('pro')) downgradePlanEnum = 'pro'
+
+          await supabase.from('profiles').update({
+            subscription_status: 'active',
+            plan_expires_at: switchResult.currentPeriodEnd || existingActiveSub!.current_period_end || null,
+          }).eq('id', user.id)
+
+          const { error: downgradeSecErr } = await supabase.from('user_secrets').update({
+            plan: downgradePlanEnum,
+            plan_id: plan.id,
+          }).eq('id', user.id)
+          if (downgradeSecErr) console.warn('[Checkout] Falha ao sincronizar user_secrets no downgrade imediato (não crítico):', downgradeSecErr.message)
+        }
 
         // BUG CORRIGIDO (validação do zero, 3ª rodada): user_secrets.plan/
         // plan_id e profiles.subscription_status NÃO são mais sincronizados
@@ -380,49 +481,67 @@ export async function POST(req: Request) {
         // dashboard interno da Stripe) e o account ID do merchant. Loga o
         // detalhe completo só no servidor; devolve mensagem genérica.
         console.error('[Checkout] Failed to switch plan on existing subscription:', switchErr.message)
-        return NextResponse.json({ error: 'Não foi possível trocar de plano no momento. Tente novamente ou contate o suporte.' }, { status: 502 })
+        return NextResponse.json({ error: tx.planSwitchFailed }, { status: 502 })
       }
     }
 
     // Fallback (gateways sem update nativo, troca entre gateways
     // diferentes, ou assinatura anterior sem gateway_subscription_id —
     // ex.: ativada via cupom de 100% off): garante que a assinatura
-    // anterior nunca fica ativa em paralelo à nova, cancelando-a de
-    // verdade no gateway quando ela tiver uma, ou só fechando a linha
-    // local quando não tiver (nada a cancelar num gateway real). Se o
-    // cancelamento no gateway falhar, bloqueia a troca em vez de
-    // arriscar dupla cobrança.
-    if (isPlanSwitch) {
-      if (!existingActiveSub!.gateway_subscription_id) {
-        await supabase.from('subscriptions').update({
+    // anterior nunca fica ativa em paralelo à nova.
+    //
+    // BUG CORRIGIDO (validação do zero, rodada 6): este bloco cancelava a
+    // assinatura ANTERIOR aqui, ANTES de sequer tentar criar a nova — se
+    // adapter.createSubscription falhasse mais abaixo (cartão recusado, erro
+    // do gateway), o catch daquele bloco só apagava o lock e revertia o
+    // cupom, sem NENHUMA compensação pra assinatura antiga já cancelada de
+    // verdade no gateway. Resultado: cliente ficava sem plano nenhum
+    // (assinatura antiga cancelada, nova nunca criada), enquanto profiles/
+    // user_secrets continuavam mostrando o plano antigo como ativo —
+    // entitlement órfão, reproduzido ao vivo.
+    //
+    // Correção: só VALIDA aqui que dá pra cancelar a antiga (monta o adapter,
+    // bloqueia cedo se o gateway dela não estiver configurado) — a chamada
+    // de cancelamento em si só acontece DEPOIS que a assinatura NOVA for
+    // criada com sucesso (ver finalizarCancelamentoAntigo, chamada nos dois
+    // pontos de sucesso mais abaixo: bypass de 100% off e criação paga). Se
+    // o cancelamento da antiga falhar NAQUELE momento, a nova já existe e
+    // está paga — o pior caso vira "assinatura antiga esquecida, precisa de
+    // limpeza manual" em vez de "cliente sem plano nenhum".
+    let oldAdapterParaTrocaFallback: GatewayAdapter | null = null
+    if (isPlanSwitch && existingActiveSub!.gateway_subscription_id) {
+      switch (existingActiveSub!.gateway) {
+        case 'stripe': if (settings['stripe_secret_key']) oldAdapterParaTrocaFallback = stripeAdapter(settings['stripe_secret_key']); break
+        case 'mercadopago': if (settings['mp_access_token']) oldAdapterParaTrocaFallback = mercadoPagoAdapter(settings['mp_access_token']); break
+        case 'pagarme': if (settings['pagarme_api_key']) oldAdapterParaTrocaFallback = pagarmeAdapter(settings['pagarme_api_key']); break
+        case 'asaas': if (settings['asaas_api_key']) oldAdapterParaTrocaFallback = asaasAdapter(settings['asaas_api_key'], (settings['asaas_environment'] as 'sandbox' | 'production') || 'sandbox'); break
+      }
+      if (!oldAdapterParaTrocaFallback) {
+        await supabase.from('subscriptions').delete().eq('id', phantomSub.id)
+        return NextResponse.json({ error: tx.cannotVerifyCurrentSub }, { status: 503 })
+      }
+    }
+
+    // Chamada ao gateway (ou local) da assinatura NOVA já teve sucesso quando
+    // isto é chamado — cancela a antiga só agora. Nunca lança: uma falha aqui
+    // é logada pra revisão manual, mas não desfaz a assinatura nova (que já
+    // está paga/ativa).
+    const finalizarCancelamentoAntigo = async () => {
+      if (!isPlanSwitch) return
+      try {
+        if (oldAdapterParaTrocaFallback) {
+          await oldAdapterParaTrocaFallback.cancelSubscription(existingActiveSub!.gateway_subscription_id!)
+        }
+        const { data: cancelOldResult } = await supabase.from('subscriptions').update({
           status: 'cancelled',
           cancel_at_period_end: false,
           updated_at: new Date().toISOString(),
-        }).eq('id', existingActiveSub!.id)
-      } else {
-        let oldAdapter: GatewayAdapter | null = null
-        switch (existingActiveSub!.gateway) {
-          case 'stripe': if (settings['stripe_secret_key']) oldAdapter = stripeAdapter(settings['stripe_secret_key']); break
-          case 'mercadopago': if (settings['mp_access_token']) oldAdapter = mercadoPagoAdapter(settings['mp_access_token']); break
-          case 'pagarme': if (settings['pagarme_api_key']) oldAdapter = pagarmeAdapter(settings['pagarme_api_key']); break
-          case 'asaas': if (settings['asaas_api_key']) oldAdapter = asaasAdapter(settings['asaas_api_key'], (settings['asaas_environment'] as 'sandbox' | 'production') || 'sandbox'); break
+        }).eq('id', existingActiveSub!.id).eq('status', 'active').select('id')
+        if (!cancelOldResult || cancelOldResult.length === 0) {
+          console.error(`[Checkout] Assinatura nova criada, mas a antiga ${existingActiveSub!.id} não estava mais 'active' na hora de cancelar — revisão manual necessária.`)
         }
-        if (!oldAdapter) {
-          await supabase.from('subscriptions').delete().eq('id', phantomSub.id)
-          return NextResponse.json({ error: 'Não foi possível verificar sua assinatura atual. Contate o suporte antes de trocar de plano.' }, { status: 503 })
-        }
-        try {
-          await oldAdapter.cancelSubscription(existingActiveSub!.gateway_subscription_id)
-          await supabase.from('subscriptions').update({
-            status: 'cancelled',
-            cancel_at_period_end: false,
-            updated_at: new Date().toISOString(),
-          }).eq('id', existingActiveSub!.id)
-        } catch (cancelErr: any) {
-          await supabase.from('subscriptions').delete().eq('id', phantomSub.id)
-          console.error('[Checkout] Failed to cancel previous subscription before plan switch:', cancelErr.message)
-          return NextResponse.json({ error: 'Não foi possível migrar da assinatura atual automaticamente. Cancele-a antes de assinar outro plano, ou contate o suporte.' }, { status: 409 })
-        }
+      } catch (cancelErr: any) {
+        console.error('[Checkout] Assinatura nova criada com sucesso, mas falha ao cancelar a antiga no gateway (revisão manual necessária):', cancelErr.message)
       }
     }
 
@@ -448,7 +567,7 @@ export async function POST(req: Request) {
         const { data: success, error: rpcErr } = await supabase.rpc('try_apply_coupon', { p_coupon_id: appliedCoupon.id })
         if (rpcErr || success === false) {
            await supabase.from('subscriptions').delete().eq('id', phantomSub.id)
-           return NextResponse.json({ error: 'Erro ao aplicar cupom (limite atingido ou falha interna).' }, { status: 400 })
+           return NextResponse.json({ error: tx.couponApplyError }, { status: 400 })
         }
       }
 
@@ -475,6 +594,8 @@ export async function POST(req: Request) {
         plan_id: plan.id
       }).eq('id', user.id)
 
+      await finalizarCancelamentoAntigo()
+
       return NextResponse.json({
         success: true,
         checkoutUrl: null,
@@ -489,7 +610,7 @@ export async function POST(req: Request) {
       if (rpcErr || success === false) {
         // Rollback lock
         await supabase.from('subscriptions').delete().eq('id', phantomSub.id)
-        return NextResponse.json({ error: 'O limite de uso deste cupom acabou de ser atingido por outro usuário.' }, { status: 400 })
+        return NextResponse.json({ error: tx.couponLimitReachedRace }, { status: 400 })
       }
     }
 
@@ -510,7 +631,7 @@ export async function POST(req: Request) {
       // replicada aqui (o caminho de assinatura nova). Loga o detalhe
       // completo só no servidor; devolve mensagem genérica.
       console.error('[Checkout] Gateway error creating subscription:', gatewayError.message)
-      return NextResponse.json({ error: 'Não foi possível processar o pagamento no momento. Verifique os dados do cartão ou tente novamente.' }, { status: 502 })
+      return NextResponse.json({ error: tx.paymentProcessingFailed }, { status: 502 })
     }
 
     // --- Update pending subscription with real gateway details ---
@@ -522,6 +643,8 @@ export async function POST(req: Request) {
     if (updateError) {
       console.error('[Checkout] Failed to update subscription with gateway details:', updateError.message)
     }
+
+    await finalizarCancelamentoAntigo()
 
     return NextResponse.json({
       success: true,
@@ -535,6 +658,6 @@ export async function POST(req: Request) {
     // achado acima, na rede de segurança final — não repassa err.message
     // (pode conter detalhe interno de gateway/banco) pro cliente.
     console.error('[Checkout] Error:', err)
-    return NextResponse.json({ error: 'Erro interno. Tente novamente.' }, { status: 500 })
+    return NextResponse.json({ error: tx.internal }, { status: 500 })
   }
 }

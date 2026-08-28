@@ -1,19 +1,46 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, getSettings } from '@/lib/supabase-admin'
 import { selectGateway } from '@/lib/gateways'
+import { getRequestLang } from '@/lib/api-lang'
+
+// BUG CORRIGIDO (validação do zero, rodada 6): toda mensagem de erro desta
+// rota voltava em português (ou em inglês, no caso da auth) regardless do
+// idioma ativo — `country`, que decide se o fluxo Stripe é alcançado, é
+// editável pelo próprio usuário no perfil, então isto é facilmente
+// alcançável por qualquer usuário em espanhol.
+const ERRORS = {
+  pt: {
+    missingAuth: 'Cabeçalho de autorização ausente.',
+    unauthorized: 'Não autorizado.',
+    stripeNotConfigured: 'Stripe não configurado.',
+    mpNotConfigured: 'Mercado Pago não configurado.',
+    stripeInitFailed: 'Não foi possível iniciar o checkout no momento. Tente novamente ou contate o suporte.',
+    internal: 'Erro interno. Tente novamente.',
+  },
+  es: {
+    missingAuth: 'Falta el encabezado de autorización.',
+    unauthorized: 'No autorizado.',
+    stripeNotConfigured: 'Stripe no está configurado.',
+    mpNotConfigured: 'Mercado Pago no está configurado.',
+    stripeInitFailed: 'No se pudo iniciar el checkout en este momento. Inténtalo de nuevo o contacta al soporte.',
+    internal: 'Error interno. Inténtalo de nuevo.',
+  },
+} as const
 
 export async function POST(req: Request) {
+  const lang = await getRequestLang()
+  const tx = ERRORS[lang]
   try {
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
-      return NextResponse.json({ error: 'Missing Authorization header' }, { status: 401 })
+      return NextResponse.json({ error: tx.missingAuth }, { status: 401 })
     }
     const token = authHeader.replace('Bearer ', '')
 
     const supabase = createAdminClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser(token)
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: tx.unauthorized }, { status: 401 })
     }
 
     const { data: profile } = await supabase.from('profiles').select('country').eq('id', user.id).single()
@@ -41,7 +68,7 @@ export async function POST(req: Request) {
       // tinham essa divergência entre o nome salvo e o nome lido.
       publicKey = settings['stripe_pub_key'] || ''
       if (!secretKey || !publicKey) {
-        return NextResponse.json({ error: 'Stripe keys not configuradas.' }, { status: 503 })
+        return NextResponse.json({ error: tx.stripeNotConfigured }, { status: 503 })
       }
       
       // Create SetupIntent for Stripe Elements
@@ -53,16 +80,24 @@ export async function POST(req: Request) {
         headers: { 'Authorization': `Bearer ${secretKey}`, 'Content-Type': 'application/x-www-form-urlencoded' },
         body: siParams.toString()
       })
-      
+
       if (!siRes.ok) {
-        throw new Error(`Stripe erro ao iniciar: ${await siRes.text()}`)
+        // BUG CORRIGIDO (validação do zero, rodada 6): o corpo cru da
+        // resposta de erro da Stripe (pode incluir request_log_url e detalhe
+        // interno) ia direto pro client via err.message no catch externo —
+        // pior ainda, `country` (que decide se cai neste branch Stripe) é
+        // editável pelo próprio usuário no perfil, então não precisa nem
+        // forjar requisição pra alcançar esse caminho. Loga o detalhe
+        // completo só no servidor; devolve mensagem genérica.
+        console.error('[Checkout Init] Stripe setup_intents falhou:', await siRes.text())
+        return NextResponse.json({ error: tx.stripeInitFailed }, { status: 502 })
       }
       const setupIntent = await siRes.json()
       clientSecret = setupIntent.client_secret
     } else if (gatewayName === 'mercadopago') {
       publicKey = settings['mp_public_key'] || ''
       if (!publicKey) {
-        return NextResponse.json({ error: 'Mercado Pago public key not configurada.' }, { status: 503 })
+        return NextResponse.json({ error: tx.mpNotConfigured }, { status: 503 })
       }
     }
 
@@ -72,7 +107,11 @@ export async function POST(req: Request) {
       clientSecret
     })
   } catch (err: any) {
+    // BUG CORRIGIDO (validação do zero, rodada 6): err.message cru (pode
+    // conter detalhe interno de gateway/banco) ia direto pro cliente aqui —
+    // mesma classe de vazamento já corrigida no ponto específico da Stripe
+    // acima, endurecida aqui também como rede de segurança final.
     console.error('[Checkout Init] Error:', err)
-    return NextResponse.json({ error: err.message || 'Erro interno.' }, { status: 500 })
+    return NextResponse.json({ error: tx.internal }, { status: 500 })
   }
 }

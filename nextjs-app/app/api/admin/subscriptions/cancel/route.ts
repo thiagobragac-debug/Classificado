@@ -88,11 +88,33 @@ export async function POST(request: Request) {
         default:
           return NextResponse.json({ error: `Gateway '${gatewayName}' não suportado.` }, { status: 400 })
       }
-      await adapter.cancelSubscription(sub.gateway_subscription_id)
+      try {
+        await adapter.cancelSubscription(sub.gateway_subscription_id)
+      } catch (gatewayErr: any) {
+        // BUG CORRIGIDO (validação do zero, rodada 6): mesma classe de bug já
+        // corrigida em /api/subscriptions/cancel — o erro cru do gateway (ex.:
+        // request_log_url e account id da Stripe) vazava pro admin via o
+        // catch externo desta função, que devolve err.message direto.
+        console.error('[Admin Cancel Subscription] Gateway error:', gatewayErr.message)
+        return NextResponse.json({ error: 'Não foi possível cancelar a assinatura no momento. Tente novamente ou contate o suporte.' }, { status: 502 })
+      }
     }
 
+    // BUG CORRIGIDO (validação do zero, rodada 6): mesma race TOCTOU do
+    // /api/subscriptions/cancel — condiciona o UPDATE ao status ainda ser o
+    // mesmo lido no SELECT do topo, fechando a janela de corrida com uma
+    // troca de plano concorrente em app/api/checkout/route.ts.
     const now = new Date().toISOString()
-    await admin.from('subscriptions').update({ status: 'cancelled', cancel_at_period_end: true, updated_at: now }).eq('id', sub.id)
+    const { data: cancelResult } = await admin
+      .from('subscriptions')
+      .update({ status: 'cancelled', cancel_at_period_end: true, updated_at: now })
+      .eq('id', sub.id)
+      .eq('status', sub.status)
+      .select('id')
+
+    if (!cancelResult || cancelResult.length === 0) {
+      console.error(`[Admin Cancel Subscription] Assinatura ${sub.id} já cancelada no gateway, mas o status local mudou entre a leitura e a escrita (esperado '${sub.status}') — revisão manual necessária.`)
+    }
 
     // Não derruba o plano na hora — o usuário já pagou o período corrente.
     // enforce_plan_expiration() (chamada em app/(public)/painel/page.tsx)

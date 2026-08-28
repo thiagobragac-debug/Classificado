@@ -179,9 +179,52 @@ export function mercadoPagoAdapter(accessToken: string): GatewayAdapter {
         // equivalente em validateWebhook.
         body: JSON.stringify({ status: 'canceled' })
       })
-      
+
       if (!response.ok) {
         throw new Error(`MP cancel error: ${await response.text()}`)
+      }
+    },
+
+    // BUG CORRIGIDO (validação do zero, rodada 6): sem este método, toda
+    // troca de plano no Mercado Pago caía no fallback de cancelar a
+    // assinatura antiga e criar uma nova — cobrando o preço cheio na hora,
+    // mesmo em DOWNGRADE (contradizendo o FAQ de /planos). A doc do
+    // Preapproval API permite atualizar auto_recurring.transaction_amount de
+    // uma assinatura já 'authorized' via este mesmo PUT usado acima pra
+    // cancelar — isso muda só o valor cobrado na PRÓXIMA renovação
+    // automática, sem gerar cobrança imediata. O Mercado Pago não tem
+    // conceito de proração, então (igual à Asaas) `prorate` é ignorado de
+    // propósito — checkout/route.ts só usa este caminho pra DOWNGRADE nesta
+    // gateway, mantendo upgrade no fallback de cancelar+recriar.
+    //
+    // ⚠️ NÃO TESTADO AO VIVO: as credenciais de Mercado Pago configuradas
+    // neste ambiente são inválidas/placeholder (achado conhecido, não é bug
+    // deste método) — não foi possível confirmar contra a API real que o
+    // corpo/resposta têm exatamente este formato. Validar contra o sandbox
+    // real do MP antes de confiar cegamente neste caminho em produção.
+    async updateSubscriptionPlan(gatewaySubscriptionId, plan) {
+      const response = await fetch(`https://api.mercadopago.com/preapproval/${gatewaySubscriptionId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          reason: plan.name,
+          auto_recurring: {
+            transaction_amount: plan.price,
+            currency_id: 'BRL',
+          },
+        })
+      })
+      if (!response.ok) {
+        throw new Error(`MP erro ao trocar plano da assinatura: ${await response.text()}`)
+      }
+      const updated = await response.json()
+      const nextPaymentDate = updated.auto_recurring?.next_payment_date || updated.next_payment_date
+      return {
+        gatewaySubscriptionId: updated.id,
+        currentPeriodEnd: nextPaymentDate ? new Date(nextPaymentDate).toISOString() : undefined,
       }
     }
   }

@@ -240,6 +240,54 @@ export function pagarmeAdapter(apiKey: string): GatewayAdapter {
       if (!response.ok) {
         throw new Error(`Pagar.me cancel error: ${await response.text()}`)
       }
+    },
+
+    // BUG CORRIGIDO (validação do zero, rodada 6): sem este método, toda
+    // troca de plano na Pagar.me caía no fallback de cancelar a assinatura
+    // antiga e criar uma nova — cobrando o preço cheio na hora, mesmo em
+    // DOWNGRADE (contradizendo o FAQ de /planos). A Pagar.me v5 documenta
+    // PATCH /core/v5/subscriptions/{id}/items/{item_id} pra atualizar o
+    // pricing_scheme de um item de assinatura já existente, sem gerar
+    // cobrança imediata — só muda o valor cobrado no PRÓXIMO ciclo. Como a
+    // Pagar.me não tem conceito de proração exposto aqui, `prorate` é
+    // ignorado de propósito (igual MP/Asaas) — checkout/route.ts só usa este
+    // caminho pra DOWNGRADE nesta gateway.
+    //
+    // ⚠️ NÃO TESTADO AO VIVO: as credenciais de Pagar.me configuradas neste
+    // ambiente são inválidas/placeholder (achado conhecido, não é bug deste
+    // método) — não foi possível confirmar contra a API real que o corpo/
+    // resposta têm exatamente este formato. Validar contra o sandbox real da
+    // Pagar.me antes de confiar cegamente neste caminho em produção.
+    async updateSubscriptionPlan(gatewaySubscriptionId, plan) {
+      const getRes = await fetch(`https://api.pagar.me/core/v5/subscriptions/${gatewaySubscriptionId}`, {
+        headers: { 'Authorization': basicAuth },
+      })
+      if (!getRes.ok) {
+        throw new Error(`Pagar.me erro ao buscar assinatura: ${await getRes.text()}`)
+      }
+      const existingSub = await getRes.json()
+      const itemId = existingSub.items?.[0]?.id
+      if (!itemId) {
+        throw new Error('Pagar.me: assinatura existente sem item — não é possível trocar o preço.')
+      }
+
+      const patchRes = await fetch(`https://api.pagar.me/core/v5/subscriptions/${gatewaySubscriptionId}/items/${itemId}`, {
+        method: 'PUT',
+        headers: { 'Authorization': basicAuth, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: plan.name,
+          quantity: 1,
+          pricing_scheme: { price: Math.round(plan.price * 100) },
+        }),
+      })
+      if (!patchRes.ok) {
+        throw new Error(`Pagar.me erro ao trocar plano da assinatura: ${await patchRes.text()}`)
+      }
+      const updated = await patchRes.json()
+      return {
+        gatewaySubscriptionId: updated.subscription_id || gatewaySubscriptionId,
+        currentPeriodEnd: existingSub.next_billing_at ? new Date(existingSub.next_billing_at).toISOString() : undefined,
+      }
     }
   }
 }

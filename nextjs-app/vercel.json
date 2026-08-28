@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/internal/expire-stale-subscriptions",
+      "schedule": "*/10 * * * *"
+    }
+  ]
+}

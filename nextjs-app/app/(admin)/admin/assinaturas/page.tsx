@@ -185,7 +185,12 @@ export default function AdminAssinaturas() {
                   <td>{sub.current_period_end ? new Date(sub.current_period_end).toLocaleDateString() : '-'}</td>
                   <td style={{ textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
-                      {(sub.status === 'active' || sub.status === 'past_due') && (
+                      {/* BUG CORRIGIDO (validação do zero, rodada 6): só mostrava
+                          Cancelar pra 'active'/'past_due' — uma assinatura travada em
+                          'pending' ou 'expired' (a rota /api/admin/subscriptions/cancel
+                          já aceita cancelar qualquer status != 'cancelled') ficava sem
+                          NENHUM botão de ação pro admin. */}
+                      {sub.status !== 'cancelled' && (
                         <button className="adm-btn adm-btn--sm adm-btn--outline" style={{ color: 'var(--adm-red)', borderColor: 'var(--adm-red)' }} onClick={() => handleCancel(sub.id)}>Cancelar</button>
                       )}
                       {sub.status === 'cancelled' && (

@@ -297,10 +297,22 @@ export async function POST(req: Request) {
         .update({ plan_changed_event_created_at: eventCreatedAt })
         .eq('id', sub.id)
         .or(`plan_changed_event_created_at.is.null,plan_changed_event_created_at.lt.${eventCreatedAt}`)
-        .select('id')
+        .select('id, status')
 
+      // BUG CORRIGIDO (validação do zero, rodada 6): o claim atômico acima só
+      // resolvia a ordem entre dois webhooks de plan_changed — mas não olhava
+      // pro status ATUAL da assinatura. Um webhook de troca de plano atrasado
+      // (ex: chegando depois de um /api/subscriptions/cancel real, entre a
+      // leitura de `sub` no topo desta requisição e este ponto) reativava o
+      // profiles.subscription_status pra 'active' incondicionalmente,
+      // revertendo silenciosamente um cancelamento de verdade. claimed[0].status
+      // vem do próprio UPDATE atômico, então reflete o status real da linha
+      // no exato instante do claim — não a leitura desatualizada de `sub`.
+      const claimedStatus = claimed?.[0]?.status
       if (!claimed || claimed.length === 0) {
         console.warn(`[Webhook:${gateway}] Discarding out-of-order plan_changed event for sub ${sub.id} (event=${eventCreatedAt}, last applied=${sub.plan_changed_event_created_at})`)
+      } else if (claimedStatus === 'cancelled') {
+        console.warn(`[Webhook:${gateway}] Discarding plan_changed entitlement grant for sub ${sub.id} — subscription was cancelled before this webhook was processed`)
       } else {
         const planId = event.metadata?.plan_id
         if (planId) {
@@ -385,7 +397,16 @@ export async function POST(req: Request) {
       err.message?.includes('not configured') ||
       err.message?.includes('outside tolerance') ||
       (err.message?.includes('Missing') && err.message?.includes('signature'))
-    const status = isAuthError ? 400 : 200
+    // BUG CORRIGIDO (validação do zero, rodada 6): o default anterior pra
+    // erro NÃO reconhecido era 200 — que diz pro gateway "processei com
+    // sucesso, não reenvie". Qualquer erro inesperado (bug de código, timeout
+    // de banco, um getSettings() falhando) caía aqui e perdia o evento de
+    // billing PRA SEMPRE em silêncio, já que a Stripe nunca reenvia um evento
+    // que recebeu 200. Erros reconhecidos de auth/assinatura/config continuam
+    // 400 (retry); qualquer outro erro agora também pede retry (500) — só um
+    // evento explicitamente "não suportado" (tratado mais acima, antes deste
+    // catch) deve retornar 200 de propósito.
+    const status = isAuthError ? 400 : 500
     return NextResponse.json({ error: err.message }, { status })
   }
 }
