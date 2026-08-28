@@ -23,13 +23,32 @@ export function LangProvider({ children, initialLang }: { children: React.ReactN
 
   useEffect(() => {
     // Lê o idioma salvo no localStorage (mesmo comportamento do main.js original)
+    //
+    // BUG CORRIGIDO (aplicação de todos os achados de baixa prioridade
+    // pendentes, achado independentemente por 3 agentes de revisão
+    // adversarial): a condição `!initialLang` nunca é verdadeira na
+    // prática — app/(public)/layout.tsx sempre passa initialLang como
+    // 'pt' ou o valor do cookie, nunca vazio
+    // (cookieStore.get('tc_lang')?.value || 'pt') — então este bloco nunca
+    // de fato sincronizava nada; o cookie sempre vencia sobre o
+    // localStorage no carregamento, mesmo quando divergiam (ex.: cookie
+    // limpo por uma extensão de privacidade ou aba anônima que preserva
+    // localStorage, ou um valor salvo de antes deste sistema de cookie
+    // existir). Agora aplica o valor salvo sempre que ele diverge do
+    // estado atual, e também escreve o cookie de volta + chama
+    // router.refresh(), mesmo efeito colateral que setLang() já produz
+    // numa troca manual — sem isso, os Server Components (que leem o
+    // idioma via cookie, não localStorage) ficariam no idioma antigo
+    // enquanto o client já mudou, recriando o "PT/ES misturado" que
+    // setLang() foi corrigido pra evitar.
     const saved = localStorage.getItem('tc_lang') as Lang | null;
-    if (saved === 'es' || saved === 'pt') {
-      if (!initialLang && saved !== lang) {
-        setLangState(saved);
-      }
+    if ((saved === 'es' || saved === 'pt') && saved !== lang) {
+      setLangState(saved);
+      document.cookie = `tc_lang=${saved}; path=/; max-age=31536000`;
+      document.documentElement.lang = saved === 'es' ? 'es' : 'pt-BR';
+      router.refresh();
     }
-  }, [initialLang, lang]);
+  }, [lang, router]);
 
   const setLang = useCallback((l: Lang) => {
     setLangState(l);

@@ -6,6 +6,7 @@ import { Plus, Search, Filter, MoreVertical, Edit2, Trash2, Eye, ExternalLink } 
 import { getSupabase } from '@/lib/supabase'
 import { imageUrl } from '@/lib/storage'
 import { showToast } from '@/lib/toast'
+import { getCurrencySymbol } from '@/lib/currency'
 
 export default function AdminAnuncios() {
   const [ads, setAds] = useState<any[]>([])
@@ -298,7 +299,11 @@ export default function AdminAnuncios() {
                   <td style={{ whiteSpace: 'nowrap', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis' }} title={ad.profiles?.name || 'Desconhecido'}>
                     {ad.profiles?.name || 'Desconhecido'}
                   </td>
-                  <td style={{ whiteSpace: 'nowrap' }}><strong>{ad.currency} {Number(ad.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></td>
+                  {/* BUG CORRIGIDO (aplicação de todos os achados de baixa prioridade
+                      pendentes): mostrava o código ISO cru (ex.: "ARS 160.000,00")
+                      pra qualquer anúncio não-BRL — agora usa o mesmo mapa de
+                      símbolos canônico do resto do site (lib/currency.ts). */}
+                  <td style={{ whiteSpace: 'nowrap' }}><strong>{getCurrencySymbol(ad.currency)} {Number(ad.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></td>
                   <td style={{ whiteSpace: 'nowrap' }}>{ad.country || '-'}</td>
                   <td style={{ whiteSpace: 'nowrap' }}>
                     {ad.status === 'active' && <span className="adm-badge adm-badge--green">Ativo</span>}

@@ -11,6 +11,7 @@ import { usePushNotifications } from './usePush';
 import { useConfirm } from '@/components/ui/ConfirmProvider';
 import { imageUrl } from '@/lib/storage';
 import { useLang } from '@/lib/lang-context';
+import { formatPrice } from '@/lib/currency';
 import styles from '../painel.module.css';
 
 const TRANSLATIONS = {
@@ -54,11 +55,14 @@ const TRANSLATIONS = {
   },
 };
 
-function fMoney(price: number | null | undefined, currency = 'BRL', lang = 'pt') {
+// BUG CORRIGIDO (aplicação de todos os achados de baixa prioridade
+// pendentes): este componente mantinha seu próprio mapa de símbolos de
+// moeda, duplicado do canônico em lib/currency.ts — sem bug ativo hoje
+// (os valores coincidiam), mas qualquer mudança futura no mapa canônico
+// não chegaria até aqui. Agora delega pra formatPrice/getCurrencySymbol.
+function fMoney(price: number | null | undefined, currency = 'BRL', lang: 'pt' | 'es' = 'pt') {
   if (price == null) return '—';
-  const sym: Record<string, string> = { BRL: 'R$', USD: 'US$', ARS: 'AR$', PYG: '₲', UYU: '$U' };
-  const s = sym[currency] || currency;
-  return `${s} ${price.toLocaleString(lang === 'es' ? 'es-AR' : 'pt-BR', { minimumFractionDigits: 2 })}`;
+  return formatPrice(price, currency, lang);
 }
 
 function fDate(iso: string, lang = 'pt') {

@@ -118,7 +118,18 @@ export async function POST(request: Request) {
       // escrevendo profiles.subscription_status='cancelled' incondicionalmente
       // de qualquer jeito — detectar sem impedir a escrita seguinte não
       // protegia nada. Mesma correção de /api/subscriptions/cancel.
-      console.error(`[Admin Cancel Subscription] Assinatura ${sub.id} já cancelada no gateway, mas o status local mudou entre a leitura e a escrita (esperado '${sub.status}') — revisão manual necessária, profiles NÃO sobrescrito.`)
+      //
+      // BUG CORRIGIDO (aplicação de todos os achados de baixa prioridade
+      // pendentes): esta mensagem de log dizia "já cancelada no gateway"
+      // incondicionalmente, mas a chamada ao gateway só acontece acima
+      // quando `sub.gateway_subscription_id` existe (linha ~67) — uma
+      // assinatura sem gateway (ex.: cupom de 100%) nunca teve gateway
+      // nenhum pra cancelar, então afirmar isso é enganoso pra quem lê o
+      // log tentando diagnosticar o que realmente aconteceu.
+      const contextoGateway = sub.gateway_subscription_id
+        ? 'já cancelada no gateway'
+        : 'sem gateway associado (nada a cancelar remotamente)'
+      console.error(`[Admin Cancel Subscription] Assinatura ${sub.id} (${contextoGateway}), mas o status local mudou entre a leitura e a escrita (esperado '${sub.status}') — revisão manual necessária, profiles NÃO sobrescrito.`)
       return NextResponse.json({ success: true })
     }
 
