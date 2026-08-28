@@ -1,10 +1,19 @@
 import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
+import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase-server';
 import { PLAN_META } from '@/lib/supabase';
 import PainelClient from './PainelClient';
 
 export default async function PainelPage() {
+  // BUG CORRIGIDO (revalidação do zero da auditoria de i18n): fallback do
+  // Suspense abaixo hardcoded em PT, sem nenhuma lógica de idioma — esse
+  // fallback é alcançável de verdade via navegação client-side pro /painel
+  // (Header.tsx e CtaSection.tsx usam next/link).
+  const cookieStore = await cookies();
+  const lang = cookieStore.get('tc_lang')?.value === 'es' ? 'es' : 'pt';
+  const loadingText = lang === 'es' ? 'Cargando panel...' : 'Carregando painel...';
+
   // Uma única chamada getUser() — o proxy já validou a autenticação
   // e negou acesso a não autenticados. Aqui buscamos os dados do usuário
   // para montar o painel sem chamada duplicada de auth.
@@ -153,7 +162,7 @@ export default async function PainelPage() {
   // Suspense required: PainelClient uses useSearchParams() internally (detects ?subscribed=1).
   // Without this, Next.js 14 App Router throws a build error.
   return (
-    <Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', fontSize: '1rem', color: '#64748b' }}>Carregando painel...</div>}>
+    <Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', fontSize: '1rem', color: '#64748b' }}>{loadingText}</div>}>
       <PainelClient initialUser={fullUser} initialStats={adStats} initialPlanMeta={planMeta} />
     </Suspense>
   );

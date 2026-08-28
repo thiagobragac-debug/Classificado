@@ -5,6 +5,7 @@ import Link from 'next/link';
 import useSWR from 'swr';
 import { getMyBilling, getSupabase } from '@/lib/supabase';
 import { useLang } from '@/lib/lang-context';
+import { formatPrice } from '@/lib/currency';
 import styles from '../painel.module.css';
 
 const TRANSLATIONS = {
@@ -209,7 +210,13 @@ export function BillingTab({ user, planMeta }: { user: any, planMeta: any }) {
               const txId = tx.id ? tx.id.toString().split('-')[0] : '—';
               const d = new Date(tx.created_at).toLocaleDateString(lang === 'es' ? 'es-AR' : 'pt-BR');
               const planName = tx.plan_type === 'subscription' ? t.subscription : (tx.description || tx.plan_name || t.payment);
-              const amount = tx.amount ? 'R$ ' + parseFloat(tx.amount).toFixed(2).replace('.', ',') : '—';
+              // BUG CORRIGIDO (revalidação do zero da auditoria de i18n):
+              // símbolo/formatação de moeda reimplementados manualmente em
+              // vez de delegar pra lib/currency.ts, único lugar do app com
+              // essa lógica. A tabela `transactions` não tem coluna de
+              // moeda (histórico é só BRL), então usa o mesmo default 'BRL'
+              // que o resto do app assume quando a moeda não é informada.
+              const amount = tx.amount ? formatPrice(parseFloat(tx.amount), 'BRL', lang) : '—';
 
               return (
                 <div key={tx.id} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto auto', gap: '1.5rem', alignItems: 'center', padding: '1.25rem 1.5rem', border: '1px solid var(--clr-border)', borderRadius: '.85rem', background: 'var(--clr-bg)' }}>

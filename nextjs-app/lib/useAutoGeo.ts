@@ -32,6 +32,24 @@ export function useAutoGeo(
   // Guarda exatamente o que o auto-geo aplicou, pra distinguir de uma
   // mudança manual do usuário (ver efeito de sincronização abaixo).
   const autoAppliedRef = useRef<{ pais: string; estado: string; cidade: string } | null>(null);
+  // BUG CORRIGIDO (revalidação do zero da auditoria de i18n): doGeoFill e
+  // advanceGeoLevel setam autoAppliedRef.current com os valores NOVOS de
+  // forma síncrona, mas a atualização real de pais/estado/cidade (props,
+  // vindos de useSearchParams() via applyFilters -> router.push) é
+  // assíncrona. Na janela entre as duas coisas, o efeito de sincronização
+  // abaixo via pais/estado/cidade (ainda com os valores ANTIGOS) diferindo
+  // de autoAppliedRef.current (já com os valores NOVOS) e concluía —
+  // errado — que o usuário tinha mudado algo manualmente, apagando
+  // geoLabel/autoAppliedRef ANTES da URL sequer terminar de atualizar. Como
+  // geoAppliedRef.current já ficava true, o efeito principal nunca rodava
+  // de novo pra re-setar o rótulo — o texto traduzido "Perto de você — X"/
+  // "Cerca de ti — X" nunca chegava a aparecer de verdade, mesmo com o
+  // filtro aplicado corretamente. Esta ref marca "acabei de aplicar, ainda
+  // esperando a URL confirmar" — enquanto pendente, o efeito de
+  // sincronização só CONFIRMA (limpa a pendência) quando os props baterem
+  // com o que foi aplicado, sem nunca tratar o descompasso transitório como
+  // mudança manual.
+  const autoApplyPendingRef = useRef(false);
   // BUG CORRIGIDO (revisão do processo de filtro cascata, 2026-08-27): ao
   // limpar todo o filtro de localização (seja pelo último passo da cascata
   // "Remover filtro de <país>", seja por "Limpar Todos"), a URL fica sem
@@ -103,6 +121,7 @@ export function useAutoGeo(
       let newCidade = geo.city || '';
 
       autoAppliedRef.current = { pais: newPais, estado: newEstado, cidade: newCidade };
+      autoApplyPendingRef.current = true;
       if (newPais) setPais(newPais);
       if (newEstado) setEstado(newEstado);
       if (newCidade) setCidade(newCidade);
@@ -137,7 +156,17 @@ export function useAutoGeo(
   useEffect(() => {
     if (!geoLabel || !autoAppliedRef.current) return;
     const auto = autoAppliedRef.current;
-    if (pais !== auto.pais || estado !== auto.estado || cidade !== auto.cidade) {
+    const matches = pais === auto.pais && estado === auto.estado && cidade === auto.cidade;
+    if (autoApplyPendingRef.current) {
+      // Ainda esperando a navegação assíncrona (applyFilters/router.push)
+      // atualizar pais/estado/cidade pra bater com o que acabamos de
+      // aplicar — não é uma mudança manual do usuário, só a URL ainda não
+      // alcançou o estado. Só confirma (encerra a pendência) quando bater;
+      // enquanto não bate, não trata como mudança manual nem limpa nada.
+      if (matches) autoApplyPendingRef.current = false;
+      return;
+    }
+    if (!matches) {
       setGeoLabel(null);
       setGeoLevel(null);
       autoAppliedRef.current = null;
@@ -152,12 +181,14 @@ export function useAutoGeo(
       // sincronização acima ia achar que isto também foi uma mudança
       // "manual" e apagar o rótulo "Seu estado — X" que acabamos de setar.
       autoAppliedRef.current = { pais, estado, cidade: '' };
+      autoApplyPendingRef.current = true;
       applyFilters({ cidade: '' });
     }
     else if (geoLevel === 'state') {
       setEstado(''); setCidade(''); setGeoLevel('country');
       setGeoLabel(pais ? T.yourCountry(pais) : null);
       autoAppliedRef.current = { pais, estado: '', cidade: '' };
+      autoApplyPendingRef.current = true;
       applyFilters({ estado: '', cidade: '' });
     }
     else if (geoLevel === 'country') {
