@@ -244,20 +244,34 @@ export default function PainelClient({ initialUser, initialStats, initialPlanMet
           </nav>
         </aside>
 
-        {/* ARIA tabpanel */}
-        <div
-          role="tabpanel"
-          id={`panel-${activeTab}`}
-          aria-labelledby={`tab-${activeTab}`}
-          tabIndex={0}
-          style={{ minWidth: 0 }}
-        >
-          {activeTab === 'ads'       && <MyAdsTab userId={user?.id} adStats={adStats} planMeta={planMeta} />}
-          {activeTab === 'messages'  && <MessagesTab userId={user?.id} />}
-          {activeTab === 'favorites' && <FavoritesTab userId={user?.id} />}
-          {activeTab === 'profile'   && <ProfileTab user={user} />}
-          {activeTab === 'billing'   && <BillingTab user={user} planMeta={planMeta} />}
-        </div>
+        {/* ARIA tabpanels — um por aba, sempre montados.
+            BUG CORRIGIDO (varredura cruzada de cenários): antes, um único
+            <div> trocava de conteúdo via `{activeTab === 'x' && <XTab/>}`,
+            desmontando a aba anterior por completo — qualquer estado local
+            não salvo (ex.: um rascunho de mensagem digitado em
+            MessagesTab, um filtro em MyAdsTab) se perdia ao trocar de aba.
+            Agora as 5 abas ficam sempre montadas, alternando visibilidade
+            via `hidden` — decisão explícita do usuário, ciente de que isso
+            significa todas buscando dados (e a subscription de Realtime de
+            MessagesTab ficando sempre aberta) desde a abertura do painel,
+            não só quando a aba é selecionada. */}
+        {sidebarBtns.map(btn => (
+          <div
+            key={btn.id}
+            role="tabpanel"
+            id={`panel-${btn.id}`}
+            aria-labelledby={`tab-${btn.id}`}
+            tabIndex={0}
+            hidden={activeTab !== btn.id}
+            style={{ minWidth: 0 }}
+          >
+            {btn.id === 'ads'       && <MyAdsTab userId={user?.id} adStats={adStats} planMeta={planMeta} />}
+            {btn.id === 'messages'  && <MessagesTab userId={user?.id} />}
+            {btn.id === 'favorites' && <FavoritesTab userId={user?.id} />}
+            {btn.id === 'profile'   && <ProfileTab user={user} />}
+            {btn.id === 'billing'   && <BillingTab user={user} planMeta={planMeta} />}
+          </div>
+        ))}
       </div>
     </>
   );

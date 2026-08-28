@@ -36,8 +36,10 @@ const TRANSLATIONS = {
     fillDocument: 'Por favor, informe o CPF ou CNPJ.',
     attach3Files: 'Por favor, anexe os 3 arquivos.',
     sendSuccess: 'Documentos enviados com sucesso! Aguarde a análise.',
-    sendError: 'Erro ao enviar: ',
+    sendError: 'Erro ao enviar os documentos. Tente novamente em instantes.',
     notAuthenticated: 'Não autenticado',
+    fileTypeError: 'Envie um arquivo de imagem (JPEG, PNG ou WebP).',
+    fileSizeError: 'Cada arquivo deve ter no máximo 10 MB.',
   },
   es: {
     title: 'Verificación de Identidad',
@@ -67,10 +69,14 @@ const TRANSLATIONS = {
     fillDocument: 'Por favor, indica tu documento de identidad.',
     attach3Files: 'Por favor, adjunta los 3 archivos.',
     sendSuccess: '¡Documentos enviados con éxito! Espera el análisis.',
-    sendError: 'Error al enviar: ',
+    sendError: 'Error al enviar los documentos. Intentá de nuevo en unos instantes.',
     notAuthenticated: 'No autenticado',
+    fileTypeError: 'Envía un archivo de imagen (JPEG, PNG o WebP).',
+    fileSizeError: 'Cada archivo debe tener un máximo de 10 MB.',
   },
 };
+
+const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
 export default function VerificacaoClient() {
   const { lang } = useLang()
@@ -141,6 +147,23 @@ export default function VerificacaoClient() {
     setShowManual(true)
   }
 
+  // BUG CORRIGIDO (varredura cruzada de cenários): os 3 <input type="file">
+  // abaixo não tinham nenhuma validação de tipo/tamanho antes de aceitar o
+  // arquivo — um PDF ou uma foto de 40MB só falhava lá na frente, no
+  // upload pro Supabase Storage, com um erro cru em inglês concatenado
+  // dentro do toast já traduzido (`t.sendError + err.message`).
+  const validateFile = (file: File): boolean => {
+    if (!file.type.startsWith('image/')) {
+      showToast(t.fileTypeError, 'error')
+      return false
+    }
+    if (file.size > MAX_FILE_BYTES) {
+      showToast(t.fileSizeError, 'error')
+      return false
+    }
+    return true
+  }
+
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!cpfCnpj.trim()) {
@@ -194,7 +217,8 @@ export default function VerificacaoClient() {
       setRequestStatus('pending')
       setShowManual(false)
     } catch (err: any) {
-      showToast(t.sendError + err.message, 'error')
+      console.error('Erro ao enviar documentos de verificação:', err)
+      showToast(t.sendError, 'error')
     } finally {
       setUploading(false)
     }
@@ -315,16 +339,16 @@ export default function VerificacaoClient() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, marginBottom: '6px' }}>{t.docFront}</label>
-                    <input type="file" accept="image/*" onChange={e => setDocFront(e.target.files?.[0] || null)} style={{ display: 'block', width: '100%', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '6px' }} />
+                    <input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f && validateFile(f)) setDocFront(f); else e.target.value = '' }} style={{ display: 'block', width: '100%', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '6px' }} />
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, marginBottom: '6px' }}>{t.docBack}</label>
-                    <input type="file" accept="image/*" onChange={e => setDocBack(e.target.files?.[0] || null)} style={{ display: 'block', width: '100%', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '6px' }} />
+                    <input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f && validateFile(f)) setDocBack(f); else e.target.value = '' }} style={{ display: 'block', width: '100%', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '6px' }} />
                   </div>
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, marginBottom: '6px' }}>{t.selfieLabel}</label>
-                  <input type="file" accept="image/*,capture=camera" onChange={e => setSelfie(e.target.files?.[0] || null)} style={{ display: 'block', width: '100%', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '6px' }} />
+                  <input type="file" accept="image/*,capture=camera" onChange={e => { const f = e.target.files?.[0]; if (f && validateFile(f)) setSelfie(f); else e.target.value = '' }} style={{ display: 'block', width: '100%', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '6px' }} />
                 </div>
 
                 <button
