@@ -3,15 +3,8 @@
 import React from 'react'
 import { Controller, useFormContext } from 'react-hook-form'
 import { NumericFormat } from 'react-number-format'
+import { getCurrencySymbol } from '@/lib/currency'
 import styles from '../page.module.css'
-
-const CURRENCY_PREFIXES: Record<string, string> = {
-  BRL: 'R$ ',
-  USD: 'US$ ',
-  ARS: 'AR$ ',
-  UYU: 'UY$ ',
-  PYG: 'Gs ',
-}
 
 interface CurrencyInputProps {
   name: string
@@ -22,7 +15,13 @@ interface CurrencyInputProps {
 
 export function CurrencyInput({ name, currency = 'BRL', placeholder = '0,00', className }: CurrencyInputProps) {
   const { control } = useFormContext()
-  const prefix = CURRENCY_PREFIXES[currency] ?? 'R$ '
+  // BUG CORRIGIDO (retomada da verificação independente, 2ª rodada de
+  // revisão adversarial): este componente mantinha seu próprio mapa de
+  // símbolos, divergente do canônico em lib/currency.ts pra UYU/PYG ('UY$ '/
+  // 'Gs ' aqui vs. '$U'/'₲' em todo o resto do site) — um vendedor criando
+  // um anúncio via em UYU/PYG um símbolo aqui e outro em qualquer outra tela
+  // (listagem, detalhe, cards, favoritos) pro MESMO anúncio.
+  const prefix = `${getCurrencySymbol(currency)} `
 
   return (
     <Controller
