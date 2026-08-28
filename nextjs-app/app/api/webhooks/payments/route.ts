@@ -308,6 +308,20 @@ export async function POST(req: Request) {
       // que nunca chegava até lá porque o erro era engolido aqui antes.
       if (claimErr) {
         console.error(`[Webhook:${gateway}] Falha no claim atômico de plan_changed para sub ${sub.id}:`, claimErr.message)
+        // BUG CORRIGIDO (retomada da verificação independente, 2ª rodada de
+        // revisão adversarial): o INSERT de idempotência (acima, "só marca
+        // como processado quando já sabemos que DÁ pra processar") já tinha
+        // comitado sozinho antes deste throw — cada chamada Supabase/PostgREST
+        // é sua própria transação. Um reenvio real do gateway pro MESMO
+        // eventId batia primeiro na checagem de duplicata do topo desta rota
+        // e respondia "já processado" sem nunca tentar o claim de novo,
+        // perdendo o entitlement de troca de plano pra sempre já na 1ª
+        // retentativa. Apaga a linha de idempotência antes de relançar, pra
+        // um retry genuíno do gateway poder reprocessar o evento do zero.
+        if (event.eventId) {
+          const { error: rollbackErr } = await supabase.from('webhook_events').delete().eq('id', event.eventId)
+          if (rollbackErr) console.error(`[Webhook:${gateway}] Failed to roll back idempotency row for event ${event.eventId}:`, rollbackErr.message)
+        }
         throw new Error('Failed to claim plan_changed event: ' + claimErr.message)
       }
 
