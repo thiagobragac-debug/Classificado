@@ -81,7 +81,20 @@ export default async function EventosPage({
 
     if (searchQuery) {
       qAuctions = qAuctions.ilike('title', `%${searchQuery}%`)
-      qEventos = qEventos.ilike('title', `%${searchQuery}%`)
+      // BUG CORRIGIDO (validação do zero, rodada 6): a busca (incluindo o
+      // botão de GPS, que preenche o campo com "Cidade, UF") só comparava
+      // contra o título do evento, nunca location_str — buscar por uma
+      // cidade real sempre retornava 0 resultados pra qualquer evento com
+      // essa cidade mas sem ela no título. Leilões (auction_events) não têm
+      // coluna de localização, continuam só por título. Vírgulas/parênteses
+      // são removidos do termo pra não quebrar a sintaxe do filtro .or() do
+      // PostgREST (o termo digitado pelo usuário não deveria conter isso de
+      // qualquer forma, dado o formato "Cidade, UF" já usar vírgula só como
+      // separador visual).
+      const termoLocalizacao = searchQuery.replace(/[,()]/g, ' ').trim()
+      qEventos = termoLocalizacao
+        ? qEventos.or(`title.ilike.%${termoLocalizacao}%,location_str.ilike.%${termoLocalizacao}%`)
+        : qEventos.ilike('title', `%${searchQuery}%`)
     }
 
     const [resAuctions, resEventos] = await Promise.all([qAuctions, qEventos])

@@ -72,9 +72,16 @@ export function LoginForm({ onSetAlert, onNavigateToForgot }: LoginFormProps) {
       // BUG CORRIGIDO (teste completo do site, 2026-08-24): mensagem de
       // erro do Supabase vinha crua em inglês ("Invalid login credentials"),
       // enquanto o resto do formulário é todo traduzido PT/ES.
+      //
+      // BUG CORRIGIDO (validação do zero, rodada 6): só a mensagem exata
+      // "Invalid login credentials" caía no fallback traduzido — qualquer
+      // OUTRO erro do Supabase Auth (limite de taxa, rede, provedor
+      // desabilitado) mostrava err.message cru em inglês pro usuário PT/ES.
+      // O detalhe original ainda vai pro console pra depuração.
+      console.error('[Login] Erro de autenticação:', err.message)
       const msg = err.message === 'Invalid login credentials'
         ? t('err_invalid_credentials')
-        : err.message || tr.loginError
+        : tr.loginError
       onSetAlert(msg, 'error')
       setLoading(false)
     }

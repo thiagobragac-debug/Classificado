@@ -382,6 +382,15 @@ export default function Header({
         {!isLoggedIn && (
           <Link href="/planos" className={isActive('/planos') ? 'active' : ''}>{t('nav_plans')}</Link>
         )}
+        {/* BUG CORRIGIDO (validação do zero, rodada 6): o toggle de idioma do
+            header (.lang-toggle logo acima) some no mobile via CSS, sem
+            nenhum substituto aqui dentro — usuário mobile ficava sem
+            NENHUMA forma de trocar de idioma nas páginas que usam este
+            Header. */}
+        <div className="lang-toggle" role="group" aria-label={tt.langGroupAria} style={{ alignSelf: 'flex-start', margin: 'var(--sp-2) 0' }}>
+          <button data-lang="pt" className={lang === 'pt' ? 'active' : ''} aria-label="Português" onClick={() => setLang('pt')}>PT</button>
+          <button data-lang="es" className={lang === 'es' ? 'active' : ''} aria-label="Español"   onClick={() => setLang('es')}>ES</button>
+        </div>
         <div className="auth-wrapper" style={{ width: '100%' }}>
           <Link href={isLoggedIn ? '/painel' : '/login'} className="btn-login-mobile">
             {isLoggedIn ? tt.myAccountMobile : `${t('nav_login')} / ${tt.registerSuffix}`}

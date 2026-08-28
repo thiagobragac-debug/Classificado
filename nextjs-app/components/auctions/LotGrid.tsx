@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { imageUrl } from '@/lib/storage';
 import { getSupabase } from '@/lib/supabase';
 import { useLang } from '@/lib/lang-context';
+import { formatPrice } from '@/lib/currency';
 import { LotData } from './LotBiddingModal';
 import LotBiddingModal from './LotBiddingModal';
 
@@ -53,7 +54,6 @@ interface LotGridProps {
 export default function LotGrid({ lots, isLive, isCancelled = false, userId, step = 0, auctionId }: LotGridProps) {
   const { lang } = useLang();
   const T = TRANSLATIONS[lang as keyof typeof TRANSLATIONS] || TRANSLATIONS.pt;
-  const currencyLocale = lang === 'es' ? 'es-AR' : 'pt-BR';
   const [selectedLot, setSelectedLot] = useState<LotData | null>(null);
   // BUG CORRIGIDO (3ª varredura): a página é Server Component (ISR de 30s) —
   // sem estado local aqui, current_bid/winner_id só atualizavam com um F5
@@ -172,7 +172,7 @@ export default function LotGrid({ lots, isLive, isCancelled = false, userId, ste
                     {lot.current_bid ? T.currentBid : T.initialBid}
                   </div>
                   <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#22c55e' }}>
-                    {new Intl.NumberFormat(currencyLocale, { style: 'currency', currency: 'BRL' }).format(currentBid)}
+                    {formatPrice(currentBid, 'BRL', lang as 'pt' | 'es')}
                   </div>
                 </div>
 

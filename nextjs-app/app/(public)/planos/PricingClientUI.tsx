@@ -6,6 +6,7 @@ import { getSupabase } from '@/lib/supabase'
 import { useAuth } from '@/components/AuthProvider'
 import { useLang } from '@/lib/lang-context'
 import type { Lang } from '@/lib/constants'
+import { getCurrencySymbol as sharedGetCurrencySymbol, formatCurrencyAmount } from '@/lib/currency'
 import CheckoutModal from '@/components/ui/CheckoutModal'
 import { useConfirm } from '@/components/ui/ConfirmProvider'
 import styles from './page.module.css'
@@ -169,24 +170,17 @@ const TRANSLATIONS = {
   },
 } as const
 
-// Locale de formatação de moeda: mesmo padrão de components/ads/AdCard.tsx
-// (Intl.NumberFormat com es-AR/pt-BR conforme lang). Símbolo e número são
-// extraídos separadamente porque o layout mostra o símbolo (styles.currency)
-// e o valor (styles.amount) em tamanhos/estilos diferentes.
-function getCurrencySymbol(currency: string, lang: Lang) {
-  const locale = lang === 'es' ? 'es-AR' : 'pt-BR'
-  try {
-    const parts = new Intl.NumberFormat(locale, { style: 'currency', currency: currency || 'BRL', maximumFractionDigits: 0 }).formatToParts(0)
-    const symbol = parts.filter(p => p.type === 'currency').map(p => p.value).join('')
-    return symbol || currency || 'R$'
-  } catch {
-    return currency || 'R$'
-  }
+// BUG CORRIGIDO (validação do zero, rodada 6): variar o símbolo de moeda por
+// locale via Intl.NumberFormat mostrava "BRL 160,00" em vez de "R$ 160,00"
+// pra usuários em espanhol (es-AR não tem símbolo de BRL no CLDR) — ver
+// lib/currency.ts para a explicação completa. Símbolo agora vem de mapa
+// fixo; só o NÚMERO (separador decimal/milhar) varia por idioma.
+function getCurrencySymbol(currency: string) {
+  return sharedGetCurrencySymbol(currency)
 }
 
 function formatAmount(amount: number, lang: Lang) {
-  const locale = lang === 'es' ? 'es-AR' : 'pt-BR'
-  return new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)
+  return formatCurrencyAmount(amount, lang)
 }
 
 function FAQItem({ question, answer, id }: { question: string, answer: string, id: string }) {
@@ -306,7 +300,7 @@ export default function PricingClientUI({ initialPlans }: { initialPlans: Plan[]
   // GAP CORRIGIDO (revisão de regras de negócio, 2026-08-25): a tabela
   // comparativa hardcodava "R$" enquanto os cards logo acima já usavam
   // plan.currency dinamicamente — mesma classe do fix em CheckoutModal.tsx.
-  const currencySymbol = (p: Plan) => getCurrencySymbol(p.currency, lang)
+  const currencySymbol = (p: Plan) => getCurrencySymbol(p.currency)
 
   // GAP CORRIGIDO (auditoria completa de i18n, 2026-08-26/27): nome/descrição/
   // features vinham só da coluna _pt, mesmo com lang="es" — plans.name_es/

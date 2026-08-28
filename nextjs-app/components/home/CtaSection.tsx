@@ -24,7 +24,11 @@ export async function CtaSection() {
             ) : (
               <Link href="/login?mode=register" className="btn btn--accent btn--shimmer">{t('btn_free')}</Link>
             )}
-            <a href="#" className="btn btn--ghost">{t('btn_know')}</a>
+            {/* BUG CORRIGIDO (validação do zero, rodada 6): href="#" era um
+                link morto (não faz nada, não navega pra lugar nenhum) —
+                aponta agora pra página institucional, destino natural de
+                "Saiba mais"/"Saber más" ao lado do CTA de cadastro. */}
+            <Link href="/institucional" className="btn btn--ghost">{t('btn_know')}</Link>
           </div>
         </div>
       </div>

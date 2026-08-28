@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/components/AuthProvider'
 import { useLang } from '@/lib/lang-context'
 import type { Lang } from '@/lib/constants'
+import { getCurrencySymbol as sharedGetCurrencySymbol, formatCurrencyAmount } from '@/lib/currency'
 
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
@@ -134,26 +135,16 @@ const TRANSLATIONS = {
 // for cadastrado em outra moeda, o valor cobrado mostrado aqui ficaria
 // errado silenciosamente.
 //
-// GAP CORRIGIDO (auditoria completa de i18n, 2026-08-26/27): o mapa estático
-// CURRENCY_SYMBOLS não variava por idioma. Trocado por Intl.NumberFormat com
-// locale conforme lang (es-AR/pt-BR) — mesmo padrão de components/ads/AdCard.tsx
-// — e o valor numérico agora também é formatado via Intl em vez de
-// `.toFixed(2).replace('.', ',')` fixo (que sempre usava separador decimal PT).
-function getCurrencySymbol(currency: string, lang: Lang) {
-  const locale = lang === 'es' ? 'es-AR' : 'pt-BR'
-  try {
-    const parts = new Intl.NumberFormat(locale, { style: 'currency', currency: currency || 'BRL', maximumFractionDigits: 0 }).formatToParts(0)
-    const symbol = parts.filter(p => p.type === 'currency').map(p => p.value).join('')
-    return symbol || currency || 'R$'
-  } catch {
-    return currency || 'R$'
-  }
-}
-
-function formatAmount(amount: number, lang: Lang) {
-  const locale = lang === 'es' ? 'es-AR' : 'pt-BR'
-  return new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)
-}
+// BUG CORRIGIDO (validação do zero, rodada 6): a "correção" de 2026-08-26/27
+// trocou o mapa estático de símbolos por Intl.NumberFormat variando o locale
+// por idioma — mas símbolo de moeda não é tradução (R$ continua R$ pra quem
+// vê a página em espanhol). es-AR não tem símbolo de BRL no CLDR, então o
+// Intl caía pro código ISO cru ("BRL 160.000,00" em vez de "R$ 160.000,00").
+// getCurrencySymbol/formatCurrencyAmount (lib/currency.ts) fazem a separação
+// certa: símbolo vem de mapa fixo, só o NÚMERO (separador decimal/milhar)
+// varia por idioma via Intl.
+const getCurrencySymbol = (currency: string) => sharedGetCurrencySymbol(currency)
+const formatAmount = (amount: number, lang: Lang) => formatCurrencyAmount(amount, lang)
 
 // Gateways que tokenizam o cartão no browser. Só eles podem receber pagamento
 // por cartão: os dados vão do navegador direto para o gateway, dentro de um
@@ -213,7 +204,7 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
         ? basePrice * (1 - coupon.discount_value / 100)
         : Math.max(0, basePrice - coupon.discount_value))
     : basePrice
-  const currencySymbol = getCurrencySymbol(plan.currency, lang)
+  const currencySymbol = getCurrencySymbol(plan.currency)
 
   // --- Idempotency nonce ---
   // BUG CORRIGIDO (validação do zero, 3ª rodada): antes era gerado dentro

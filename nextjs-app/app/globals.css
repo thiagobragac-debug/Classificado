@@ -1203,7 +1203,18 @@ html.is-logged-in .auth-wrapper a[href="login.html"]::after {
   :root { --header-h: 62px; }
   .header-search { display: none; }
   .header-nav { display: none; }
-  .lang-toggle { display: none; }
+  /* BUG CORRIGIDO (validação do zero, rodada 6): esta regra escondia
+     QUALQUER elemento .lang-toggle no mobile — inclusive o toggle fixo de
+     app/(public)/login/components/LangToggle.tsx, que usa a MESMA classe e
+     é a ÚNICA forma de trocar de idioma em /login (Header.tsx retorna null
+     nessa rota). Resultado: nenhuma forma de trocar idioma em /login no
+     mobile, e nas demais páginas o toggle do header some sem nenhum
+     substituto (o menu mobile abaixo não tinha um). Escopar a regra só pro
+     header restaura o toggle fixo do login; o do header ganhou uma cópia
+     dentro do menu mobile (reaproveita a mesma classe .lang-toggle — o
+     seletor abaixo só afasta o filho direto de .header-inner, então a
+     instância dentro de .mobile-menu não é afetada). */
+  .header-inner > .lang-toggle { display: none; }
   .hamburger { display: flex; }
   .btn-anunciar-header { padding: 7px 14px; font-size: var(--fs-xs); }
 

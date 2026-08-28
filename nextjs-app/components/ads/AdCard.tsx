@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { imageUrl } from '@/lib/storage';
+import { getCurrencySymbol, formatCurrencyAmount } from '@/lib/currency';
 
 export interface Category { id: string; name_pt: string; name_es: string; icon: string; color: string; active: boolean; sort_order: number; }
 export interface Ad { id: string; title_pt: string; title_es: string; price: number; currency: string; price_unit_pt: string; price_unit_es?: string | null; negotiable: boolean; country: string; state: string; city: string; location_text: string; images: string[]; tags_pt: string[]; tags_es?: string[] | null; status: string; featured: boolean; created_at: string; category_id: string; }
@@ -31,10 +32,12 @@ const TRANSLATIONS = {
   }
 };
 
+// BUG CORRIGIDO (validação do zero, rodada 6): símbolo de moeda via
+// Intl.NumberFormat variava com o locale de exibição — es-AR não tem
+// símbolo de BRL no CLDR, mostrava "BRL 160.000,00" cru em vez de "R$
+// 160.000,00" em /listagem para usuários em espanhol (ver lib/currency.ts).
 function fmtPrice(price: number, currency = 'BRL', lang = 'pt') {
-  return new Intl.NumberFormat(lang === 'es' ? 'es-AR' : 'pt-BR', {
-    style: 'currency', currency, maximumFractionDigits: 2,
-  }).format(price);
+  return `${getCurrencySymbol(currency)} ${formatCurrencyAmount(price, lang === 'es' ? 'es' : 'pt')}`;
 }
 
 function timeAgo(iso: string, lang: string) {

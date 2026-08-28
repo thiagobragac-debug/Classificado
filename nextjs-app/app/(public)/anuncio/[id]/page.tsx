@@ -11,6 +11,7 @@ import { RecentViewTracker } from '@/components/ads/RecentViewTracker';
 import { createAnonClient } from '@/lib/supabase-server';
 import { getGeoParams } from '@/lib/listagem-utils';
 import { t as _t, type Lang } from '@/lib/constants';
+import { getCurrencySymbol, formatCurrencyAmount } from '@/lib/currency';
 import '../../anuncio.css';
 
 // Sem singleton de módulo — cliente criado por-request dentro das funções
@@ -275,7 +276,7 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ id: 
             <strong className="ad-breadcrumb-current">{tx.breadcrumbCurrent}</strong>
 
             <div className="ad-breadcrumb-actions">
-              <ShareButton title={adTitle} text={(ad.description || '').replace(/<[^>]*>/g, '').substring(0, 80)} />
+              <ShareButton title={adTitle} text={(ad.description || '').replace(/<[^>]*>/g, '').substring(0, 80)} lang={lang} />
               <Link href="/listagem" className="ad-breadcrumb-back">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
                 {tx.backToResults}
@@ -334,7 +335,10 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ id: 
             <span className="ad-mobile-cta-price-label">{tx.priceLabel}</span>
             <strong className="ad-mobile-cta-price-value">
               {ad.price
-                ? new Intl.NumberFormat(lang === 'es' ? 'es-AR' : 'pt-BR', { style: 'currency', currency: ad.currency || 'BRL' }).format(ad.price)
+                // BUG CORRIGIDO (validação do zero, rodada 6): símbolo de moeda
+                // via Intl.NumberFormat variava com o locale de exibição —
+                // es-AR não tem símbolo de BRL no CLDR (ver lib/currency.ts).
+                ? `${getCurrencySymbol(ad.currency)} ${formatCurrencyAmount(ad.price, lang === 'es' ? 'es' : 'pt')}`
                 : tx.priceOnRequest /* BUG CORRIGIDO (reteste, 2026-08-25): 2ª ocorrência do texto de preço nulo, diferente do painel lateral — unificado */}
             </strong>
           </div>

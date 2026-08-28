@@ -8,6 +8,7 @@ import { AdMessageForm } from './AdMessageForm';
 import { AdReportModal } from './AdReportModal';
 import { useFavorites } from '@/lib/useFavorites';
 import { useLang } from '@/lib/lang-context';
+import { getCurrencySymbol, formatCurrencyAmount } from '@/lib/currency';
 
 // Traduções locais deste componente (padrão de components/ads/AdsSidebar.tsx)
 // — este painel nunca importava useLang, então tudo aqui ficava sempre em
@@ -179,7 +180,11 @@ export function AdSidebar({ ad, adTitle, catName, hasWhatsapp }: AdSidebarProps)
             {ad.price !== null ? (
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: '2.25rem', fontWeight: 800, color: 'var(--clr-primary, #16A34A)' }}>
-                  {new Intl.NumberFormat(lang === 'es' ? 'es-AR' : 'pt-BR', { style: 'currency', currency: ad.currency || 'BRL', minimumFractionDigits: 0 }).format(ad.price)}
+                  {/* BUG CORRIGIDO (validação do zero, rodada 6): símbolo de
+                      moeda via Intl.NumberFormat variava com o locale de
+                      exibição — es-AR não tem símbolo de BRL no CLDR,
+                      mostrava "BRL" cru em vez de "R$" (ver lib/currency.ts). */}
+                  {getCurrencySymbol(ad.currency)} {formatCurrencyAmount(ad.price, lang as 'pt' | 'es', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 </span>
                 {priceUnit && <span className="product-price-unit" style={{ color: 'var(--clr-text-muted)', fontWeight: 500 }}>/ {priceUnit}</span>}
               </div>

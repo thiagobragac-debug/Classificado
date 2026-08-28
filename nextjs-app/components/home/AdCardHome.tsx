@@ -6,6 +6,7 @@ import { m } from 'framer-motion';
 import { CAT_COLORS } from '@/lib/constants';
 import { useCategories } from '@/lib/categories-context';
 import { imageUrl } from '@/lib/storage';
+import { getCurrencySymbol, formatCurrencyAmount } from '@/lib/currency';
 
 const TRANSLATIONS = {
   pt: { now: 'agora', favorite: 'Favoritar', noTitle: 'Sem título' },
@@ -25,15 +26,14 @@ function formatRelativeTime(dateStr: string, lang: string): string {
 
 const NO_PRICE_LABEL: Record<string, string> = { pt: 'Consultar', es: 'A tratar' };
 
+// BUG CORRIGIDO (validação do zero, rodada 6): símbolo de moeda via
+// Intl.NumberFormat variava com o locale de exibição — es-AR não tem
+// símbolo de BRL no CLDR, mostrava "BRL 160.000" cru em vez de "R$
+// 160.000" (ver lib/currency.ts).
 function formatPrice(price: number | null, currency = 'BRL', lang: string): string {
   if (!price || price === 0) return NO_PRICE_LABEL[lang] ?? 'Consultar';
-  try {
-    return new Intl.NumberFormat(lang === 'es' ? 'es-AR' : 'pt-BR', {
-      style: 'currency', currency, maximumFractionDigits: 0
-    }).format(price);
-  } catch {
-    return `R$ ${price.toLocaleString('pt-BR')}`;
-  }
+  const langCode = lang === 'es' ? 'es' : 'pt';
+  return `${getCurrencySymbol(currency)} ${formatCurrencyAmount(price, langCode, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
 export function AdCardHome({ ad, lang, favs, toggleFav, priority = false }: { ad: any; lang: string; favs: Record<string, boolean>; toggleFav: (id: string) => void; priority?: boolean }) {

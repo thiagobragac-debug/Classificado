@@ -10,7 +10,10 @@ const TRANSLATIONS = {
   pt: {
     stars: 'Estrelas', reviews: 'Avaliações', yearsSelling: 'Anos vendendo',
     noReviewsYet: '(Nenhuma avaliação ainda)',
-    ratingSummary: (total: number, avg: number) => `(${total} avaliação${total > 1 ? 'ões' : ''}) • Média ${avg.toFixed(1)}`,
+    // BUG CORRIGIDO (validação do zero, rodada 6): 'avaliação' + 'ões' vira
+    // "avaliaçãoões" — precisa trocar o SUFIXO (ção/ções), não concatenar,
+    // igual ao padrão já certo na versão em espanhol logo abaixo.
+    ratingSummary: (total: number, avg: number) => `(${total} avalia${total > 1 ? 'ções' : 'ção'}) • Média ${avg.toFixed(1)}`,
     share: 'Compartilhar', shareProfile: 'Compartilhar perfil', evaluate: 'Avaliar',
     verifiedSeller: 'Vendedor Verificado', verified: 'Verificado',
     shareTitle: (name: string) => `Perfil de ${name}`,

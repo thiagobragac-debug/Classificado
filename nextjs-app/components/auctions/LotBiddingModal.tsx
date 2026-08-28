@@ -6,6 +6,7 @@ import { NumericFormat } from 'react-number-format';
 import { placeLotBid } from '@/lib/supabase';
 import { showToast } from '@/lib/toast';
 import { useLang } from '@/lib/lang-context';
+import { formatPrice } from '@/lib/currency';
 
 export interface LotData {
   id: string;
@@ -181,7 +182,11 @@ export default function LotBiddingModal({ lot, onClose, userId, isLive = true, i
   const router = useRouter();
   const { lang } = useLang();
   const T = TRANSLATIONS[lang as keyof typeof TRANSLATIONS] || TRANSLATIONS.pt;
-  const BRL = new Intl.NumberFormat(lang === 'es' ? 'es-AR' : 'pt-BR', { style: 'currency', currency: 'BRL' });
+  // BUG CORRIGIDO (validação do zero, rodada 6): Intl.NumberFormat com
+  // locale es-AR não tem símbolo de BRL no CLDR — mostrava "BRL 160,00" em
+  // vez de "R$ 160,00" em espanhol (ver lib/currency.ts). BRL.format(x)
+  // continua funcionando igual nos usos abaixo, só a implementação mudou.
+  const BRL = { format: (amount: number) => formatPrice(amount, 'BRL', lang as 'pt' | 'es') };
   const [bidding, setBidding] = useState(false);
   const [pendingBid, setPendingBid] = useState<number | null>(null);
   const [manualBid, setManualBid] = useState<number | undefined>(undefined);

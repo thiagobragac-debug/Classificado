@@ -1,6 +1,33 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { createClient } from '@/lib/supabase-server'
+import { getRequestLang } from '@/lib/api-lang'
+
+// BUG CORRIGIDO (validação do zero, rodada 6): toda mensagem desta rota
+// voltava em português regardless do idioma ativo (tc_lang) — o
+// CheckoutModal sempre prefere data.error (quando presente) à sua própria
+// tradução local, então um usuário em espanhol via erro de cupom em
+// português no momento mais crítico do checkout.
+const ERRORS = {
+  pt: {
+    codeRequired: 'Código obrigatório.',
+    notAuthenticated: 'Não autenticado.',
+    tooManyAttempts: 'Muitas tentativas. Aguarde um momento.',
+    invalidOrInactive: 'Cupom inválido ou inativo.',
+    expired: 'Cupom expirado.',
+    usageLimitReached: 'Limite de usos atingido.',
+    internal: 'Erro interno.',
+  },
+  es: {
+    codeRequired: 'Código obligatorio.',
+    notAuthenticated: 'No autenticado.',
+    tooManyAttempts: 'Demasiados intentos. Espera un momento.',
+    invalidOrInactive: 'Cupón inválido o inactivo.',
+    expired: 'Cupón vencido.',
+    usageLimitReached: 'Límite de usos alcanzado.',
+    internal: 'Error interno.',
+  },
+} as const
 
 // Preview de cupom pro CheckoutModal ("Aplicar cupom"): antes lia a tabela
 // `coupons` direto com a anon key — parou de funcionar quando a RLS de
@@ -28,16 +55,18 @@ import { createClient } from '@/lib/supabase-server'
 // 401), então usa-se o client de cookies (createClient(), o mesmo padrão
 // de app/api/contact-seller/route.ts) para pegar o usuário da sessão.
 export async function POST(req: Request) {
+  const lang = await getRequestLang()
+  const tx = ERRORS[lang]
   try {
     const { code } = await req.json()
     if (!code || typeof code !== 'string') {
-      return NextResponse.json({ valid: false, error: 'Código obrigatório.' }, { status: 400 })
+      return NextResponse.json({ valid: false, error: tx.codeRequired }, { status: 400 })
     }
 
     const authClient = await createClient()
     const { data: { user } } = await authClient.auth.getUser()
     if (!user) {
-      return NextResponse.json({ valid: false, error: 'Não autenticado.' }, { status: 401 })
+      return NextResponse.json({ valid: false, error: tx.notAuthenticated }, { status: 401 })
     }
 
     // Limite mais folgado que /api/checkout (10/60s): errar o código do
@@ -49,7 +78,7 @@ export async function POST(req: Request) {
       p_window_seconds: 60,
     })
     if (dentroDoLimite === false) {
-      return NextResponse.json({ valid: false, error: 'Muitas tentativas. Aguarde um momento.' }, { status: 429 })
+      return NextResponse.json({ valid: false, error: tx.tooManyAttempts }, { status: 429 })
     }
 
     const supabase = createAdminClient()
@@ -61,13 +90,13 @@ export async function POST(req: Request) {
       .single()
 
     if (!coupon) {
-      return NextResponse.json({ valid: false, error: 'Cupom inválido ou inativo.' })
+      return NextResponse.json({ valid: false, error: tx.invalidOrInactive })
     }
     if (coupon.valid_until && new Date(coupon.valid_until) < new Date()) {
-      return NextResponse.json({ valid: false, error: 'Cupom expirado.' })
+      return NextResponse.json({ valid: false, error: tx.expired })
     }
     if (coupon.max_uses && coupon.usage_count >= coupon.max_uses) {
-      return NextResponse.json({ valid: false, error: 'Limite de usos atingido.' })
+      return NextResponse.json({ valid: false, error: tx.usageLimitReached })
     }
 
     return NextResponse.json({
@@ -77,6 +106,6 @@ export async function POST(req: Request) {
     })
   } catch (err: any) {
     console.error('[validate-coupon] Error:', err)
-    return NextResponse.json({ valid: false, error: 'Erro interno.' }, { status: 500 })
+    return NextResponse.json({ valid: false, error: tx.internal }, { status: 500 })
   }
 }
