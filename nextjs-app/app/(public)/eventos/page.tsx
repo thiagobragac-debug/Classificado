@@ -94,11 +94,20 @@ export default async function EventosPage({
   // Usado tanto na ordenação (dentro do try) quanto no JSON-LD (fora dele) —
   // hoisted pra fora do try/catch pra ficar acessível nos dois lugares.
   const now = Date.now();
+  // BUG CORRIGIDO (varredura cruzada de cenários): o catch abaixo só fazia
+  // console.error e deixava `events` vazio — uma falha real de fetch
+  // (rede, RLS) renderizava a MESMA UI de "nenhum evento encontrado",
+  // indistinguível de genuinamente não ter eventos cadastrados.
+  let loadError = false;
 
   try {
     // Selecionar as colunas necessárias para renderização correta
+    // BUG CORRIGIDO (varredura cruzada de cenários): não selecionava
+    // title_es — ao contrário de `eventos` (já corrigido antes), o título
+    // de um leilão continuava sempre em português na listagem mesmo com
+    // ES selecionado.
     let qAuctions = sb.from('auction_events')
-      .select('id, title, date, cover, status')
+      .select('id, title, title_es, date, cover, status')
       .neq('status', 'draft')
       .limit(50)
 
@@ -107,6 +116,13 @@ export default async function EventosPage({
     if (searchQuery) {
       qAuctions = qAuctions.ilike('title', `%${searchQuery}%`)
     }
+
+    // Busca também por title_es dos leilões — mesma técnica das queries
+    // paralelas de `eventos` logo abaixo (não dá pra ramificar qAuctions
+    // com um .or(), então é uma query independente, mesclada por id).
+    const qAuctionsPorTituloEs = searchQuery
+      ? sb.from('auction_events').select('id, title, title_es, date, cover, status').neq('status', 'draft').ilike('title_es', `%${searchQuery}%`).limit(50)
+      : null
 
     // BUG CORRIGIDO (validação do zero, rodada 6, revisão adversarial): a
     // primeira tentativa desta correção usava .or() com o termo sanitizado
@@ -143,8 +159,9 @@ export default async function EventosPage({
       ? sb.from('eventos').select(eventosFields).ilike('location_str_es', `%${searchQuery}%`).limit(50)
       : null
 
-    const [resAuctions, resEventosPorTitulo, resEventosPorTituloEs, resEventosPorLocal, resEventosPorLocalEs] = await Promise.all([
+    const [resAuctions, resAuctionsPorTituloEs, resEventosPorTitulo, resEventosPorTituloEs, resEventosPorLocal, resEventosPorLocalEs] = await Promise.all([
       qAuctions,
+      qAuctionsPorTituloEs ?? Promise.resolve({ data: [], error: null }),
       qEventosPorTitulo,
       qEventosPorTituloEs ?? Promise.resolve({ data: [], error: null }),
       qEventosPorLocal ?? Promise.resolve({ data: [], error: null }),
@@ -152,10 +169,21 @@ export default async function EventosPage({
     ])
 
     if (resAuctions.error) throw resAuctions.error
+    if (resAuctionsPorTituloEs.error) throw resAuctionsPorTituloEs.error
     if (resEventosPorTitulo.error) throw resEventosPorTitulo.error
     if (resEventosPorTituloEs.error) throw resEventosPorTituloEs.error
     if (resEventosPorLocal.error) throw resEventosPorLocal.error
     if (resEventosPorLocalEs.error) throw resEventosPorLocalEs.error
+
+    const auctionsVistos = new Set<string>()
+    const auctionsMesclados: any[] = []
+    for (const a of [...(resAuctions.data || []), ...(resAuctionsPorTituloEs.data || [])]) {
+      if (!auctionsVistos.has(a.id)) {
+        auctionsVistos.add(a.id)
+        auctionsMesclados.push(a)
+      }
+    }
+    const resAuctionsMerged = { data: auctionsMesclados }
 
     const eventosVistos = new Set<string>()
     const eventosMesclados: any[] = []
@@ -172,9 +200,9 @@ export default async function EventosPage({
     }
     const resEventos = { data: eventosMesclados, error: null }
 
-    const normalizedAuctions = (resAuctions.data || []).map(a => ({
+    const normalizedAuctions = (resAuctionsMerged.data || []).map(a => ({
       id: a.id,
-      title: a.title,
+      title: lang === 'es' && a.title_es ? a.title_es : a.title,
       date: a.date,
       cover: a.cover,
       status: a.status,
@@ -228,6 +256,7 @@ export default async function EventosPage({
 
   } catch (err) {
     console.error('Erro ao carregar eventos:', err)
+    loadError = true;
   }
 
   const ORGANIZER = {
@@ -321,7 +350,11 @@ export default async function EventosPage({
           <div className="events-section">
             <h2 className="section-title">{t('events_highlights')}</h2>
 
-            {events.length === 0 ? (
+            {loadError ? (
+              <div className="text-center py-12">
+                <p className="text-gray-500 mb-4">{t('events_load_error')}</p>
+              </div>
+            ) : events.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-gray-500 mb-4">
                   {t('events_empty')}{searchQuery ? ` ${t('events_empty_for')} "${searchQuery}"` : ''}.

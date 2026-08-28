@@ -31,7 +31,11 @@ export default function EventSearch({ lang = 'pt' }: { lang?: Lang }) {
 
   const handleGetLocation = async () => {
     setIsLocating(true)
-    const loc = await detectLocation()
+    // BUG CORRIGIDO (varredura cruzada de cenários): detectLocation() sem
+    // `lang` sempre usava o default 'pt' internamente (afeta a chave de
+    // cache e qualquer texto localizado retornado), ignorando o idioma
+    // ativo do visitante.
+    const loc = await detectLocation(lang)
     setIsLocating(false)
     
     if (loc && (loc.city || loc.state)) {
@@ -47,10 +51,10 @@ export default function EventSearch({ lang = 'pt' }: { lang?: Lang }) {
   return (
     <div className="hero-search-box" style={{ margin: 0, transform: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', width: '100%', maxWidth: '420px', position: 'relative' }}>
       <form onSubmit={handleSearch} className="hero-search-inner" style={{ display: 'flex', width: '100%' }}>
-        <button 
+        <button
           type="button"
-          className="hero-search-btn" 
-          style={{ background: 'transparent', color: 'var(--clr-primary)', boxShadow: 'none', padding: '0 16px', opacity: isLocating ? 0.5 : 1 }} 
+          className="hero-search-btn hero-search-btn-icon"
+          style={{ background: 'transparent', color: 'var(--clr-primary)', boxShadow: 'none', padding: '0 16px', opacity: isLocating ? 0.5 : 1 }}
           title={t('events_use_gps')}
           onClick={handleGetLocation}
           disabled={isLocating}

@@ -40,8 +40,6 @@ const TRANSLATIONS = {
     emailDesc: 'Verifique seu e-mail para receber notificações.',
     resendEmail: 'Reenviar e-mail',
     whatsappTitle: 'WhatsApp',
-    verifyWhatsapp: 'Verificar WhatsApp',
-    whatsappMsg: 'Olá, quero verificar meu WhatsApp no Tauze Class. Meu e-mail é: ',
     identity: 'Identidade', approved: 'Aprovado', inReview: 'Em Análise', notSent: 'Não Enviado',
     identityDesc: 'Envie RG/CNH e selfie.',
     sendDocs: 'Enviar Documentos',
@@ -83,8 +81,6 @@ const TRANSLATIONS = {
     emailDesc: 'Verifica tu correo electrónico para recibir notificaciones.',
     resendEmail: 'Reenviar correo',
     whatsappTitle: 'WhatsApp',
-    verifyWhatsapp: 'Verificar WhatsApp',
-    whatsappMsg: 'Hola, quiero verificar mi WhatsApp en Tauze Class. Mi correo es: ',
     identity: 'Identidad', approved: 'Aprobado', inReview: 'En Revisión', notSent: 'No Enviado',
     identityDesc: 'Envía tu documento de identidad y una selfie.',
     sendDocs: 'Enviar Documentos',
@@ -275,7 +271,7 @@ export function ProfileTab({ user }: { user: any }) {
         <p className={styles.headerSubtitle}>{t.subtitle}</p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 1fr)', gap: '1.5rem', alignItems: 'start' }} className="profile-two-col">
+      <div className="profile-two-col">
         {/* Formulário de Dados */}
         <div className={styles.card} style={{ padding: '1.5rem' }}>
           <p style={{ fontSize: '.75rem', fontWeight: 700, letterSpacing: '.06em', color: 'var(--clr-text-light)', textTransform: 'uppercase', marginBottom: '1rem' }}>{t.profileBanner}</p>
@@ -422,11 +418,12 @@ export function ProfileTab({ user }: { user: any }) {
                     <span className={`${styles.statusBadge} ${styles.statusPending}`}>{t.pending}</span>
                   )}
                 </div>
-                {!user.profile?.phone_whatsapp && (
-                  <a href={`https://wa.me/5500000000000?text=${encodeURIComponent(t.whatsappMsg + (user.email || ''))}`} target="_blank" rel="noopener noreferrer" className={styles.primaryButton} style={{ width: '100%', justifyContent: 'center', marginTop: '1rem' }}>
-                    {t.verifyWhatsapp}
-                  </a>
-                )}
+                {/* BUG CORRIGIDO (varredura cruzada de cenários): o botão
+                    "Verificar WhatsApp" apontava pra um número fixo falso
+                    (5500000000000) — clicar abria uma conversa com
+                    ninguém. Não há nenhum número real de suporte
+                    configurado (checado em platform_settings); escondido
+                    até existir um número de verdade pra usar aqui. */}
               </div>
             </div>
 

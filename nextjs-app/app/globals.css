@@ -1223,7 +1223,11 @@ html.is-logged-in .auth-wrapper a[href="login.html"]::after {
      usam .lang-toggle no mobile: o menu do Header.tsx e o toggle fixo do
      login (components/login/LangToggle.tsx). */
   .lang-toggle button { min-height: 44px; min-width: 44px; padding: 10px 14px; }
-  .hamburger { display: flex; }
+  /* BUG CORRIGIDO (varredura cruzada de cenários): mesmo problema de alvo
+     de toque já corrigido acima pro .lang-toggle — .hamburger media
+     ~38×32px (22px de ícone + 8px de padding), abaixo dos 44×44px mínimos
+     recomendados (WCAG 2.5.5). */
+  .hamburger { display: flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; }
   .btn-anunciar-header { padding: 7px 14px; font-size: var(--fs-xs); }
 
   .hero { min-height: auto; padding-block: var(--sp-8) var(--sp-12); }
@@ -1231,6 +1235,11 @@ html.is-logged-in .auth-wrapper a[href="login.html"]::after {
   .hero-search-inner { flex-wrap: wrap; }
   .hero-search-inner select { border-right: none; border-bottom: 1.5px solid var(--clr-border); width: 100%; }
   .hero-search-btn { width: 100%; justify-content: center; }
+  /* BUG CORRIGIDO (varredura cruzada de cenários): o botão de GPS de
+     EventSearch.tsx compartilha .hero-search-btn com o botão "Buscar" —
+     nesta largura, os dois viravam width:100%, e o de GPS (só um ícone,
+     fundo transparente) ficava como uma barra vazia em cima do de busca. */
+  .hero-search-btn-icon { width: auto; flex-shrink: 0; }
   .hero-mini-stats { flex-wrap: wrap; gap: var(--sp-4); }
 
   .cat-grid { grid-auto-columns: 140px; }
@@ -1542,6 +1551,19 @@ textarea.form-input { resize: vertical; min-height: 140px; }
   .login-split.v2 .logo { margin-bottom: 1.5rem !important; }
   .login-badges { justify-content: center; }
   .login-badges .badge { font-size: 0.8rem; padding: 0.4rem 0.8rem; }
+  /* BUG CORRIGIDO (varredura cruzada de cenários): o botão "mostrar/ocultar
+     senha" (LoginForm.tsx/RegisterForm.tsx) tem padding:0 inline e só o
+     ícone de 18px como área clicável — bem abaixo do alvo de toque mínimo
+     recomendado (44×44px, WCAG 2.5.5). min-width/min-height não conflitam
+     com o padding:0 inline (propriedades diferentes); o leve deslocamento
+     visual do ícone é aceitável pra ganhar a área de toque. */
+  .input-with-icon .toggle-password {
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
 }
 
 /* --- PUBLIC MODAL --- */
@@ -1744,6 +1766,29 @@ textarea.form-input { resize: vertical; min-height: 140px; }
 .tc-toast--info    { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
 .tc-toast--warning { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
 @keyframes tcToastIn { from { opacity: 0; transform: translateY(16px) scale(.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+/* --- PAINEL: Perfil (duas colunas) --- */
+/* BUG CORRIGIDO (varredura cruzada de cenários): esta classe era usada em
+   ProfileTab.tsx mas nunca teve regra/media-query definida em lugar nenhum
+   do código — as duas colunas (formulário + card de KYC) vinham inteiramente
+   de um `style` inline no JSX, que sempre vence qualquer regra externa
+   independente de viewport, então uma media query aqui nunca teria efeito
+   enquanto o inline continuasse lá. Movido pra cá (removido o inline em
+   ProfileTab.tsx) pra viabilizar o colapso pra 1 coluna no mobile. */
+.profile-two-col { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 1.5rem; align-items: start; }
+@media (max-width: 900px) {
+  .profile-two-col { grid-template-columns: 1fr; }
+}
+/* BUG CORRIGIDO (varredura cruzada de cenários): #tc-toast-container só
+   tinha `right: 24px` (sem `left`) e .tc-toast tinha `min-width: 240px` /
+   `max-width: 360px` — numa viewport estreita (375px ou menos), um toast
+   perto do max-width ultrapassa a borda esquerda da tela. Em mobile, o
+   container ocupa a largura quase inteira e o toast some o min/max-width
+   fixo, deixando o navegador ajustar a largura real ao conteúdo. */
+@media (max-width: 480px) {
+  #tc-toast-container { left: 12px; right: 12px; bottom: 16px; }
+  .tc-toast { min-width: 0; max-width: 100%; width: 100%; box-sizing: border-box; }
+}
 
 /* --- HOME SKELETON & BADGE --- */
 @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
