@@ -309,9 +309,40 @@ export function asaasAdapter(apiKey: string, environment: 'sandbox' | 'productio
         throw new Error(`Asaas erro ao trocar plano da assinatura: ${await response.text()}`)
       }
       const updated = await response.json()
+
+      // BUG CORRIGIDO (retomada da verificação independente, 2ª rodada de
+      // revisão adversarial, confirmado ao vivo 2x no sandbox real): o
+      // `nextDueDate` retornado pela própria assinatura está sistematicamente
+      // UM CICLO DE COBRANÇA À FRENTE da fatura que de fato está pendente e
+      // "governando" o período atual — não muda mesmo enquanto essa fatura
+      // continua pendente, e nem quando ela é paga. Usar `nextDueDate` direto
+      // como currentPeriodEnd faz plan_expires_at/current_period_end ficarem
+      // um ciclo além do vencimento real; se a fatura de downgrade (preço
+      // antigo) não for paga, o webhook de PAYMENT_OVERDUE compara contra
+      // esse valor inflado e não rebaixa o acesso na hora certa — o cliente
+      // fica com acesso pago por um ciclo inteiro extra sem pagar. Busca a
+      // fatura PENDING de verdade desta assinatura e usa o `dueDate` dela;
+      // só cai pro `nextDueDate` da assinatura (comportamento antigo) se por
+      // algum motivo não houver nenhuma fatura pendente encontrada.
+      let currentPeriodEnd = updated.nextDueDate ? new Date(`${updated.nextDueDate}T00:00:00`).toISOString() : undefined
+      try {
+        const paymentsRes = await fetch(`${baseUrl}/payments?subscription=${gatewaySubscriptionId}&status=PENDING&limit=1`, { headers })
+        if (paymentsRes.ok) {
+          const paymentsData = await paymentsRes.json()
+          const pendingDueDate = paymentsData?.data?.[0]?.dueDate
+          if (pendingDueDate) {
+            currentPeriodEnd = new Date(`${pendingDueDate}T00:00:00`).toISOString()
+          }
+        }
+      } catch {
+        // Falha ao buscar a fatura pendente não deve quebrar a troca de
+        // plano em si (já confirmada com sucesso acima) — segue com o
+        // fallback (nextDueDate da assinatura) já calculado.
+      }
+
       return {
         gatewaySubscriptionId: updated.id,
-        currentPeriodEnd: updated.nextDueDate ? new Date(`${updated.nextDueDate}T00:00:00`).toISOString() : undefined,
+        currentPeriodEnd,
       }
     }
   }
