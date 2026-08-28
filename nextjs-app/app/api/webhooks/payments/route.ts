@@ -344,23 +344,45 @@ export async function POST(req: Request) {
             if (planRow.name.toLowerCase().includes('premium')) planEnum = 'premium'
             else if (planRow.name.toLowerCase().includes('pro')) planEnum = 'pro'
 
-            // BUG CORRIGIDO (validação do zero, 4ª rodada): plan_expires_at
-            // nunca era tocado aqui — ficava preso na data da assinatura
-            // ANTERIOR à troca. enforce_plan_expiration() (chamada em toda
-            // visita a /painel) rebaixava pra Grátis um assinante pago em
-            // dia assim que essa data velha vencesse. sub.current_period_end
-            // já é atualizado corretamente por app/api/checkout/route.ts no
-            // momento da troca (agora que o bug do campo errado da Stripe
-            // também foi corrigido).
-            await supabase.from('profiles').update({
-              subscription_status: 'active',
-              plan_expires_at: sub.current_period_end || null,
-            }).eq('id', sub.user_id)
-            const { error: secErr2 } = await supabase
-              .from('user_secrets')
-              .update({ plan: planEnum, plan_id: planRow.id })
-              .eq('id', sub.user_id)
-            if (secErr2) console.warn(`[Webhook:${gateway}] Could not update user_secrets on plan_changed (non-critical):`, secErr2.message)
+            // BUG CORRIGIDO (validação do zero, rodada 6, revisão
+            // adversarial): entre o claim atômico acima e este ponto existe
+            // um round-trip extra (o SELECT em plans logo acima) — não é uma
+            // transação, cada chamada Supabase/PostgREST comita sozinha.
+            // Nessa janela (curta, mas real e não-zero), um cancelamento
+            // genuíno concorrente podia commitar e ser revertido por esta
+            // escrita incondicional, exatamente a mesma classe de bug que
+            // claimedStatus já tentava fechar, só que reaberta pelo atraso
+            // do round-trip. Revalida o status fresco (não o claim antigo)
+            // imediatamente antes de escrever — estreita a janela ao mínimo
+            // possível em vez de confiar num valor capturado alguns
+            // milissegundos atrás.
+            const { data: statusFresco } = await supabase
+              .from('subscriptions')
+              .select('status')
+              .eq('id', sub.id)
+              .maybeSingle()
+
+            if (statusFresco?.status !== 'active') {
+              console.warn(`[Webhook:${gateway}] Descartando concessão de entitlement de plan_changed pra sub ${sub.id} — status mudou pra '${statusFresco?.status}' entre o claim e a escrita`)
+            } else {
+              // BUG CORRIGIDO (validação do zero, 4ª rodada): plan_expires_at
+              // nunca era tocado aqui — ficava preso na data da assinatura
+              // ANTERIOR à troca. enforce_plan_expiration() (chamada em toda
+              // visita a /painel) rebaixava pra Grátis um assinante pago em
+              // dia assim que essa data velha vencesse. sub.current_period_end
+              // já é atualizado corretamente por app/api/checkout/route.ts no
+              // momento da troca (agora que o bug do campo errado da Stripe
+              // também foi corrigido).
+              await supabase.from('profiles').update({
+                subscription_status: 'active',
+                plan_expires_at: sub.current_period_end || null,
+              }).eq('id', sub.user_id)
+              const { error: secErr2 } = await supabase
+                .from('user_secrets')
+                .update({ plan: planEnum, plan_id: planRow.id })
+                .eq('id', sub.user_id)
+              if (secErr2) console.warn(`[Webhook:${gateway}] Could not update user_secrets on plan_changed (non-critical):`, secErr2.message)
+            }
           } else {
             console.warn(`[Webhook:${gateway}] plan_changed event references unknown plan_id ${planId}`)
           }

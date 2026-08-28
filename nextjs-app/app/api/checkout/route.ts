@@ -622,10 +622,26 @@ export async function POST(req: Request) {
       if (plan.name.toLowerCase().includes('premium')) planEnum = 'premium'
       else if (plan.name.toLowerCase().includes('pro')) planEnum = 'pro'
 
-      await supabase.from('user_secrets').update({
+      // BUG CORRIGIDO (validação do zero, rodada 6, revisão adversarial):
+      // user_secrets.plan — não profiles.plan_id — é a fonte real de
+      // entitlement lida em produção (StepPhotos.tsx, ProfileTab.tsx,
+      // PricingClientUI.tsx). A guarda acima só cobria subscriptions.update;
+      // se ESTA escrita falhasse em silêncio (postgrest-js nunca lança
+      // exceção por erro de escrita), finalizarCancelamentoAntigo() rodava
+      // do mesmo jeito — cancelando a assinatura antiga de verdade enquanto
+      // o entitlement real do cliente ficava preso no plano antigo.
+      const { data: secretsResult, error: secretsErr } = await supabase.from('user_secrets').update({
         plan: planEnum,
         plan_id: plan.id
-      }).eq('id', user.id)
+      }).eq('id', user.id).select('id')
+
+      if (secretsErr || !secretsResult || secretsResult.length === 0) {
+        console.error('[Checkout] Falha ao sincronizar user_secrets (bypass 100% off) — assinatura antiga NÃO será cancelada:', secretsErr?.message || 'nenhuma linha afetada')
+        if (appliedCoupon) {
+          await supabase.rpc('revert_coupon_usage', { p_coupon_id: appliedCoupon.id })
+        }
+        return NextResponse.json({ error: tx.internal }, { status: 500 })
+      }
 
       await finalizarCancelamentoAntigo()
 
