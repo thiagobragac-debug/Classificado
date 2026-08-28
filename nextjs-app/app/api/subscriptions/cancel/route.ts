@@ -29,37 +29,65 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { data: sub, error: subError } = await supabase
-      .from('subscriptions')
-      .select('id, gateway, gateway_subscription_id, status, billing_cycle, plan')
-      .eq('user_id', user.id)
-      // BUG CORRIGIDO (validação do zero, rodada 6, revisão adversarial):
-      // incluir 'pending' puro (sem checar gateway_subscription_id) tinha um
-      // bug MAIS GRAVE do que o que resolvia — reproduzido ao vivo. Todo
-      // checkout em voo grava um LOCK FANTASMA nesta mesma tabela
-      // (app/api/checkout/route.ts, status:'pending', gateway_subscription_id
-      // null, created_at=agora — ver comentário lá). Como o ORDER BY
-      // created_at DESC prioriza o mais recente, um usuário com uma
-      // assinatura REAL ativa e um checkout iniciado ao mesmo tempo (ex: para
-      // trocar de plano) tinha esse lock fantasma escolhido no lugar da
-      // assinatura de verdade — o cancelamento então só apagava o lock local
-      // (sem gateway_subscription_id, nenhuma chamada ao gateway acontece) e
-      // ainda assim retornava "cancelado com sucesso" e marcava
-      // profiles.subscription_status='cancelled', com a cobrança real
-      // intocada rodando em segundo plano. Uma assinatura 'pending' só é
-      // elegível aqui se JÁ tiver gateway_subscription_id — ou seja, se
-      // realmente chegou a existir no gateway e só está esperando o webhook
-      // de confirmação, não se é um lock ainda em voo ou órfão de um
-      // checkout que nunca completou.
-      .or('status.in.(active,past_due),and(status.eq.pending,gateway_subscription_id.not.is.null)')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+    // BUG CORRIGIDO (validação do zero, rodada 6, revisão adversarial):
+    // incluir 'pending' puro (sem checar gateway_subscription_id) tinha um
+    // bug MAIS GRAVE do que o que resolvia — reproduzido ao vivo. Todo
+    // checkout em voo grava um LOCK FANTASMA nesta mesma tabela
+    // (app/api/checkout/route.ts, status:'pending', gateway_subscription_id
+    // null, created_at=agora — ver comentário lá). Uma assinatura 'pending'
+    // só é elegível aqui se JÁ tiver gateway_subscription_id — ou seja, se
+    // realmente chegou a existir no gateway e só está esperando o webhook
+    // de confirmação, não se é um lock ainda em voo ou órfão de um
+    // checkout que nunca completou.
+    //
+    // BUG CORRIGIDO #2 (2ª rodada de revisão adversarial, achado
+    // independente confirmado): mesmo excluindo o lock fantasma, uma única
+    // query com `ORDER BY created_at DESC LIMIT 1` ainda tinha prioridade
+    // errada — durante a janela de troca de plano nativa (cancelar-e-recriar,
+    // app/api/checkout/route.ts), existe um estado transitório real de uma
+    // linha 'pending' COM gateway_subscription_id (já criada no gateway, mas
+    // ainda não confirmada pelo webhook) que é MAIS RECENTE que a assinatura
+    // 'active' de verdade. Isso fazia o cancelamento escolher a linha
+    // transitória em vez da assinatura ativa. A prioridade correta é por
+    // classe de status (active/past_due sempre vence), não por recência —
+    // por isso duas buscas sequenciais em vez de uma só com .or()+.order().
+    let sub: { id: string; gateway: string; gateway_subscription_id: string | null; status: string; billing_cycle: string; plan: string } | null = null
+    {
+      const { data: ativa, error: ativaError } = await supabase
+        .from('subscriptions')
+        .select('id, gateway, gateway_subscription_id, status, billing_cycle, plan')
+        .eq('user_id', user.id)
+        .in('status', ['active', 'past_due'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
 
-    if (subError) {
-      console.error('[Cancel Subscription] Failed to fetch subscription:', subError.message)
-      return NextResponse.json({ error: 'Erro ao buscar assinatura.' }, { status: 500 })
+      if (ativaError) {
+        console.error('[Cancel Subscription] Failed to fetch subscription:', ativaError.message)
+        return NextResponse.json({ error: 'Erro ao buscar assinatura.' }, { status: 500 })
+      }
+
+      if (ativa) {
+        sub = ativa
+      } else {
+        const { data: pendente, error: pendenteError } = await supabase
+          .from('subscriptions')
+          .select('id, gateway, gateway_subscription_id, status, billing_cycle, plan')
+          .eq('user_id', user.id)
+          .eq('status', 'pending')
+          .not('gateway_subscription_id', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (pendenteError) {
+          console.error('[Cancel Subscription] Failed to fetch subscription:', pendenteError.message)
+          return NextResponse.json({ error: 'Erro ao buscar assinatura.' }, { status: 500 })
+        }
+        sub = pendente
+      }
     }
+
     if (!sub) {
       return NextResponse.json({ error: 'Nenhuma assinatura ativa encontrada.' }, { status: 404 })
     }
