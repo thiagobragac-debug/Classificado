@@ -1,12 +1,21 @@
 'use client'
 
 import React, { createContext, useContext, useState, ReactNode } from 'react'
+import { useLang } from '@/lib/lang-context'
 
 type ConfirmContextType = {
   confirm: (message: string, title?: string) => Promise<boolean>
 }
 
 const ConfirmContext = createContext<ConfirmContextType | undefined>(undefined)
+
+// BUG CORRIGIDO (auditoria de cobertura de i18n em todas as páginas de
+// cliente, retomada da validação "sem exceção"): título/botões padrão
+// hardcoded em português — o componente não tinha nenhuma noção de idioma,
+// então qualquer chamador que não passasse um título traduzido (a maioria)
+// mostrava "Confirmação" mesmo com tc_lang=es.
+const DEFAULT_TITLE = { pt: 'Confirmação', es: 'Confirmación' } as const
+const BUTTON_LABELS = { pt: { cancel: 'Cancelar', confirm: 'Confirmar' }, es: { cancel: 'Cancelar', confirm: 'Confirmar' } } as const
 
 export const useConfirm = () => {
   const context = useContext(ConfirmContext)
@@ -17,14 +26,15 @@ export const useConfirm = () => {
 }
 
 export const ConfirmProvider = ({ children }: { children: ReactNode }) => {
+  const { lang } = useLang()
   const [isOpen, setIsOpen] = useState(false)
   const [message, setMessage] = useState('')
-  const [title, setTitle] = useState('Confirmação')
+  const [title, setTitle] = useState<string>(DEFAULT_TITLE.pt)
   const [resolver, setResolver] = useState<{ resolve: (value: boolean) => void } | null>(null)
 
-  const confirm = (msg: string, titleStr: string = 'Confirmação') => {
+  const confirm = (msg: string, titleStr?: string) => {
     setMessage(msg)
-    setTitle(titleStr)
+    setTitle(titleStr ?? DEFAULT_TITLE[lang])
     setIsOpen(true)
     return new Promise<boolean>((resolve) => {
       setResolver({ resolve })
@@ -73,7 +83,7 @@ export const ConfirmProvider = ({ children }: { children: ReactNode }) => {
                 onMouseOver={(e) => e.currentTarget.style.background = '#F1F5F9'}
                 onMouseOut={(e) => e.currentTarget.style.background = '#F8FAFC'}
               >
-                Cancelar
+                {BUTTON_LABELS[lang].cancel}
               </button>
               <button 
                 onClick={handleConfirm}
@@ -85,7 +95,7 @@ export const ConfirmProvider = ({ children }: { children: ReactNode }) => {
                 onMouseOver={(e) => e.currentTarget.style.filter = 'brightness(1.1)'}
                 onMouseOut={(e) => e.currentTarget.style.filter = 'brightness(1)'}
               >
-                Confirmar
+                {BUTTON_LABELS[lang].confirm}
               </button>
             </div>
           </div>

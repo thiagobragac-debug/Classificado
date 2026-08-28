@@ -3,10 +3,25 @@
 import { useState, useEffect, useCallback } from 'react';
 import { rpcToggleFav, getSession } from './supabase';
 import { showToast } from './toast';
+import { useLang } from './lang-context';
 
 const FAV_KEY = 'tc_favorites';
 
+// BUG CORRIGIDO (auditoria de cobertura de i18n em todas as páginas de
+// cliente, retomada da validação "sem exceção"): mensagem de sucesso do
+// toast hardcoded em português — o hook não lia lang em lugar nenhum, então
+// favoritar um anúncio sempre mostrava esse texto em PT, mesmo com
+// tc_lang=es. Chamado por AdSidebar.tsx, RecentAdsSection.tsx,
+// FeaturedAdsSection.tsx e AdsGrid.tsx — corrigir aqui dentro (via
+// useLang(), que qualquer hook client pode chamar) resolve todos os
+// chamadores de uma vez, sem precisar tocar em cada um deles.
+const FAV_TOAST = {
+  pt: 'Adicionado aos favoritos! Acesse seu painel para não perder esta oferta.',
+  es: 'Añadido a favoritos! Accede a tu panel para no perder esta oferta.',
+} as const;
+
 export function useFavorites() {
+  const { lang } = useLang();
   const [favs, setFavs] = useState<Record<string, boolean>>({});
 
   // Carregar favoritos iniciais do localStorage
@@ -45,7 +60,7 @@ export function useFavorites() {
     });
 
     if (added) {
-      showToast('Adicionado aos favoritos! Acesse seu painel para não perder esta oferta.', 'success');
+      showToast(FAV_TOAST[lang], 'success');
     }
 
     // 2. Persist in backend if logged in
@@ -57,7 +72,7 @@ export function useFavorites() {
     } catch (err) {
       console.error('Erro ao favoritar no backend', err);
     }
-  }, []);
+  }, [lang]);
 
   return { favs, toggleFav };
 }
