@@ -32,7 +32,7 @@ export function FeaturedAdsSection({ featuredAds }: { featuredAds: any[] }) {
             <div className="section-label">{t('section_featured')}</div>
             <h2 className="section-title" id="featured-heading">{t('section_featured_title')}</h2>
           </div>
-          <Link href="/listagem?featured=true" className="view-all">
+          <Link href="/listagem?destaque=true" className="view-all">
             <span>{t('view_all')}</span>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <line x1="5" y1="12" x2="19" y2="12"/>

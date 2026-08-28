@@ -44,7 +44,7 @@ export function AdBanner({ position }: { position: string }) {
   // Se não houver banner ativo vindo do banco, usamos os fallbacks "Anuncie Aqui"
   const activeBanner = banner || {
     image_url: isSidebar ? '/assets/banner_sidebar_1.webp' : '/assets/banner_sponsor_1.webp',
-    link_url: '/contato', // ou a página de planos do classificado
+    link_url: '/planos', // BUG CORRIGIDO (varredura cruzada): '/contato' não existe (404 confirmado ao vivo)
     name: FALLBACK_NAME[lang]
   };
 

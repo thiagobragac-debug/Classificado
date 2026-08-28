@@ -67,7 +67,7 @@ export default function Footer() {
           </div>
           <div style={{ display: 'flex', gap: '1.5rem', fontWeight: 500 }}>
             <Link href="/" style={{ color: '#cbd5e1', textDecoration: 'none' }}>{tt.home}</Link>
-            <Link href="/suporte" style={{ color: '#cbd5e1', textDecoration: 'none' }}>{tt.support}</Link>
+            <Link href="/institucional?page=ajuda" style={{ color: '#cbd5e1', textDecoration: 'none' }}>{tt.support}</Link>
             <Link href="/institucional?page=termos" style={{ color: '#cbd5e1', textDecoration: 'none' }}>{tt.termsOfUse}</Link>
           </div>
         </div>

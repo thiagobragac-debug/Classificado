@@ -99,7 +99,7 @@ export function HeroSearchBar() {
     const finalCat = catOverride !== undefined ? catOverride : catSelect;
     const params = new URLSearchParams();
     if (finalTerm) params.set('busca', finalTerm);
-    if (finalCat) params.set('cat', finalCat);
+    if (finalCat) params.set('categoria', finalCat);
     
     startTransition(() => {
       router.push(`/listagem?${params.toString()}`);

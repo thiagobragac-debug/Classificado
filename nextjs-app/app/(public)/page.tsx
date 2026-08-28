@@ -125,9 +125,9 @@ export default async function Home() {
         "@type": "ItemList",
         "name": "Categorias em Destaque",
         "itemListElement": [
-          { "@type": "ListItem", "position": 1, "name": "Bovinos", "url": `${siteUrl}/listagem?categoria=bovinos` },
-          { "@type": "ListItem", "position": 2, "name": "Máquinas", "url": `${siteUrl}/listagem?categoria=maquinas` },
-          { "@type": "ListItem", "position": 3, "name": "Imóveis", "url": `${siteUrl}/listagem?categoria=imoveis` }
+          { "@type": "ListItem", "position": 1, "name": "Bovinos", "url": `${siteUrl}/listagem?categoria=cat-bovinos` },
+          { "@type": "ListItem", "position": 2, "name": "Máquinas", "url": `${siteUrl}/listagem?categoria=cat-maquinas` },
+          { "@type": "ListItem", "position": 3, "name": "Imóveis", "url": `${siteUrl}/listagem?categoria=cat-imoveis` }
         ]
       }
     ]

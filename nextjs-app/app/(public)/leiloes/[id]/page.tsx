@@ -300,7 +300,7 @@ export default async function AuctionPage(props: { params: Promise<{ id: string 
 
         {/* Patrocínio */}
         <div style={{ marginTop: '4rem', textAlign: 'center' }}>
-          <a href="/suporte?assunto=patrocinio" className="btn" style={{
+          <a href="/institucional?page=contato" className="btn" style={{
             display: 'block',
             width: '100%',
             background: 'var(--clr-primary)',

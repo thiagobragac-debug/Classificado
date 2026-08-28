@@ -295,12 +295,12 @@ export const POPULAR_TAGS: Record<string, string[]> = {
 export const FOOTER_LINKS = {
   pt: {
     ads: [
-      { label: 'Animais',  href: '/listagem?cat=bovinos'  },
-      { label: 'Insumos',  href: '/listagem?cat=insumos'  },
-      { label: 'Máquinas', href: '/listagem?cat=maquinas' },
-      { label: 'Imóveis',  href: '/listagem?cat=imoveis'  },
-      { label: 'Genética', href: '/listagem?cat=genetica' },
-      { label: 'Serviços', href: '/listagem?cat=servicos' },
+      { label: 'Animais',  href: '/listagem?categoria=cat-bovinos'  },
+      { label: 'Insumos',  href: '/listagem?categoria=cat-insumos'  },
+      { label: 'Máquinas', href: '/listagem?categoria=cat-maquinas' },
+      { label: 'Imóveis',  href: '/listagem?categoria=cat-imoveis'  },
+      { label: 'Genética', href: '/listagem?categoria=cat-genetica' },
+      { label: 'Serviços', href: '/listagem?categoria=cat-servicos' },
     ],
     help: [
       { label: 'Central de Ajuda',        href: '/institucional?page=ajuda'      },
@@ -319,12 +319,12 @@ export const FOOTER_LINKS = {
   },
   es: {
     ads: [
-      { label: 'Animales',   href: '/listagem?cat=bovinos'  },
-      { label: 'Insumos',    href: '/listagem?cat=insumos'  },
-      { label: 'Maquinaria', href: '/listagem?cat=maquinas' },
-      { label: 'Inmuebles',  href: '/listagem?cat=imoveis'  },
-      { label: 'Genética',   href: '/listagem?cat=genetica' },
-      { label: 'Servicios',  href: '/listagem?cat=servicos' },
+      { label: 'Animales',   href: '/listagem?categoria=cat-bovinos'  },
+      { label: 'Insumos',    href: '/listagem?categoria=cat-insumos'  },
+      { label: 'Maquinaria', href: '/listagem?categoria=cat-maquinas' },
+      { label: 'Inmuebles',  href: '/listagem?categoria=cat-imoveis'  },
+      { label: 'Genética',   href: '/listagem?categoria=cat-genetica' },
+      { label: 'Servicios',  href: '/listagem?categoria=cat-servicos' },
     ],
     help: [
       { label: 'Centro de Ayuda',          href: '/institucional?page=ajuda'      },
