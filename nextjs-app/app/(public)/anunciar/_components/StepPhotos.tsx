@@ -358,7 +358,7 @@ export function StepPhotos({ onPrev, isSubmitting }: StepPhotosProps) {
                 </div>
               )}
               {idx > 0 && (
-                <button type="button" onClick={(e) => { e.stopPropagation(); makeCover(idx); }} style={{ position: 'absolute', bottom: 6, left: 6, right: 6, background: 'rgba(255,255,255,0.9)', color: 'var(--clr-text)', fontSize: '0.75rem', fontWeight: 700, border: 'none', padding: '0.2rem', borderRadius: '4px', cursor: 'pointer', boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }}>
+                <button type="button" className={styles.coverBtn} onClick={(e) => { e.stopPropagation(); makeCover(idx); }} style={{ position: 'absolute', bottom: 6, left: 6, right: 6, background: 'rgba(255,255,255,0.9)', color: 'var(--clr-text)', fontSize: '0.75rem', fontWeight: 700, border: 'none', padding: '0.2rem', borderRadius: '4px', cursor: 'pointer', boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }}>
                   {tr.makeCover}
                 </button>
               )}

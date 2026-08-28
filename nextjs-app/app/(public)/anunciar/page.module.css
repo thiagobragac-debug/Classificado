@@ -121,3 +121,14 @@ input[type="checkbox"]:checked + .toggleSwitchSm::after { transform: translateX(
 .skeletonGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
 .skeletonField { height: 48px; background: #e2e8f0; border-radius: 12px; animation: pulse 1.5s infinite ease-in-out; }
 @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+
+/* BUG CORRIGIDO (varredura cruzada de cenários): .formSection tinha
+   padding fixo de 2.5rem (40px) em qualquer largura, comendo espaço útil
+   de conteúdo em telas estreitas; .removeBtn (26×26px) e o botão "Tornar
+   Capa" (altura só de padding:0.2rem + texto) ficavam bem abaixo do alvo
+   de toque mínimo recomendado (44×44px, WCAG 2.5.5). */
+@media (max-width: 640px) {
+  .formSection { padding: 1.25rem; }
+  .removeBtn { width: 44px; height: 44px; }
+  .coverBtn { min-height: 44px; display: flex; align-items: center; justify-content: center; }
+}
