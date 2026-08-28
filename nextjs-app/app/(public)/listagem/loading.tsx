@@ -1,4 +1,15 @@
-export default function Loading() {
+import { cookies } from 'next/headers'
+import { t as _t } from '@/lib/constants'
+
+// BUG CORRIGIDO (auditoria de cobertura de i18n em todas as páginas de
+// cliente, retomada da validação "sem exceção"): fallback de loading
+// automatico da rota Next.js nunca lia o idioma - mesmo padrao ja usado em
+// app/(public)/eventos/loading.tsx.
+export default async function Loading() {
+  const cookieStore = await cookies()
+  const lang = cookieStore.get('tc_lang')?.value === 'es' ? 'es' : 'pt'
+  const t = (key: string) => _t(key, lang)
+
   return (
     <main>
       <section className="list-hero">
@@ -7,7 +18,7 @@ export default function Loading() {
             <div className="breadcrumb">
               <span style={{ color: 'rgba(255,255,255,0.7)' }}>...</span>
             </div>
-            <h1 className="list-hero-title">Carregando anúncios...</h1>
+            <h1 className="list-hero-title">{t('listagem_loading')}</h1>
           </div>
         </div>
       </section>

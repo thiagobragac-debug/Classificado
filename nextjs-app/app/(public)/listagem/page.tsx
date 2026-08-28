@@ -4,6 +4,7 @@ import AdsBrowser from '@/components/ads/AdsBrowser';
 import { getGeoParams, getAllCategories } from '@/lib/listagem-utils';
 import { getAdsListagem, adsSearchParamsSchema } from '@/lib/services/ads.service';
 import { logError } from '@/lib/monitoring';
+import { t as _t } from '@/lib/constants';
 
 const METADATA_TRANSLATIONS = {
   pt: {
@@ -64,9 +65,13 @@ export async function generateMetadata({
 
 import { Suspense } from 'react';
 
-function ListagemSkeleton() {
+// BUG CORRIGIDO (auditoria de cobertura de i18n em todas as páginas de
+// cliente, retomada da validação "sem exceção"): aria-label do skeleton
+// (fallback do Suspense) nunca lia o idioma - mesmo padrao ja usado em
+// generateMetadata() acima (leitura de cookies()).
+function ListagemSkeleton({ lang }: { lang: 'pt' | 'es' }) {
   return (
-    <div className="container skeleton-listagem-container" aria-busy="true" role="status" aria-label="Carregando listagem...">
+    <div className="container skeleton-listagem-container" aria-busy="true" role="status" aria-label={_t('listagem_skeleton_aria', lang)}>
       <div className="skeleton-listagem-header" aria-hidden="true"></div>
       <div className="skeleton-listagem-grid-outer">
         <div className="skeleton-listagem-grid-inner">
@@ -106,7 +111,8 @@ export default async function ListagemPage({
 }) {
   const rawParams = await Promise.resolve(searchParams);
   const parsedParams = adsSearchParamsSchema.parse(rawParams);
-  
+  const lang = (await cookies()).get('tc_lang')?.value === 'es' ? 'es' : 'pt';
+
   const geoContext = await getGeoParams({
     pais: parsedParams.pais,
     estado: parsedParams.estado,
@@ -115,7 +121,7 @@ export default async function ListagemPage({
 
   try {
     return (
-      <Suspense fallback={<ListagemSkeleton />}>
+      <Suspense fallback={<ListagemSkeleton lang={lang} />}>
         <AdsBrowserWrapper parsedParams={parsedParams} geoContext={geoContext} />
       </Suspense>
     );

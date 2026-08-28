@@ -6,6 +6,38 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useCategories } from '@/lib/categories-context';
 import { useLang } from '@/lib/lang-context';
 
+// BUG CORRIGIDO (auditoria de cobertura de i18n em todas as páginas de
+// cliente, retomada da validação "sem exceção"): a paleta de comando
+// (Ctrl+K, global, aparece pra qualquer visitante) já lia `lang` pra nomes
+// de categoria, mas todo o resto do texto (placeholder, labels de seção,
+// atalhos de teclado) ficava hardcoded em português.
+const TRANSLATIONS = {
+  pt: {
+    searchPlaceholder: 'Buscar anúncios, categorias...',
+    searchFor: 'Buscar por',
+    viewAllResults: 'Ver todos os resultados',
+    categoriesFound: 'Categorias Encontradas',
+    categoriesPopular: 'Categorias Populares',
+    quickAccess: 'Acesso Rápido',
+    myPanel: 'Meu Painel',
+    createAd: 'Criar Anúncio',
+    navigate: 'Navegar',
+    select: 'Selecionar',
+  },
+  es: {
+    searchPlaceholder: 'Buscar anuncios, categorías...',
+    searchFor: 'Buscar por',
+    viewAllResults: 'Ver todos los resultados',
+    categoriesFound: 'Categorías Encontradas',
+    categoriesPopular: 'Categorías Populares',
+    quickAccess: 'Acceso Rápido',
+    myPanel: 'Mi Panel',
+    createAd: 'Crear Anuncio',
+    navigate: 'Navegar',
+    select: 'Seleccionar',
+  },
+} as const;
+
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -13,6 +45,7 @@ export function CommandPalette() {
   const inputRef = useRef<HTMLInputElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   const { lang, t } = useLang();
+  const tt = TRANSLATIONS[lang as 'pt' | 'es'] ?? TRANSLATIONS.pt;
   const categories = useCategories();
 
   useEffect(() => {
@@ -114,7 +147,7 @@ export function CommandPalette() {
               <input 
                 ref={inputRef}
                 type="text" 
-                placeholder="Buscar anúncios, categorias..." 
+                placeholder={tt.searchPlaceholder}
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && executeSearch()}
@@ -136,14 +169,14 @@ export function CommandPalette() {
                 >
                   <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
                   <div>
-                    <div style={{ fontWeight: 600 }}>Buscar por "{search}"</div>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--clr-text-muted)' }}>Ver todos os resultados</div>
+                    <div style={{ fontWeight: 600 }}>{tt.searchFor} "{search}"</div>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--clr-text-muted)' }}>{tt.viewAllResults}</div>
                   </div>
                 </div>
               )}
 
               <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--clr-text-light)', textTransform: 'uppercase', padding: '1rem 1rem 0.5rem', letterSpacing: '0.05em' }}>
-                Categorias {search ? 'Encontradas' : 'Populares'}
+                {search ? tt.categoriesFound : tt.categoriesPopular}
               </div>
               
               {matchedCats.map(cat => (
@@ -162,7 +195,7 @@ export function CommandPalette() {
               {!search && (
                 <>
                   <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--clr-text-light)', textTransform: 'uppercase', padding: '1rem 1rem 0.5rem', letterSpacing: '0.05em' }}>
-                    Acesso Rápido
+                    {tt.quickAccess}
                   </div>
                   <div 
                     onClick={() => navigateTo('/dashboard')}
@@ -171,7 +204,7 @@ export function CommandPalette() {
                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                   >
                     <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                    <div style={{ fontWeight: 500, color: 'var(--clr-text)' }}>Meu Painel</div>
+                    <div style={{ fontWeight: 500, color: 'var(--clr-text)' }}>{tt.myPanel}</div>
                   </div>
                   <div 
                     onClick={() => navigateTo('/novo-anuncio')}
@@ -180,14 +213,14 @@ export function CommandPalette() {
                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                   >
                     <svg width="18" height="18" fill="none" stroke="var(--clr-primary)" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                    <div style={{ fontWeight: 600, color: 'var(--clr-primary)' }}>Criar Anúncio</div>
+                    <div style={{ fontWeight: 600, color: 'var(--clr-primary)' }}>{tt.createAd}</div>
                   </div>
                 </>
               )}
             </div>
             <div style={{ padding: '0.75rem 1.5rem', background: 'var(--clr-bg-alt)', borderTop: '1px solid var(--clr-border)', fontSize: '0.8rem', color: 'var(--clr-text-muted)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><kbd style={{ background: 'white', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--clr-border)' }}>↑↓</kbd> Navegar</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><kbd style={{ background: 'white', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--clr-border)' }}>Enter</kbd> Selecionar</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><kbd style={{ background: 'white', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--clr-border)' }}>↑↓</kbd> {tt.navigate}</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><kbd style={{ background: 'white', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--clr-border)' }}>Enter</kbd> {tt.select}</span>
             </div>
           </motion.div>
         </div>
