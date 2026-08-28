@@ -14,6 +14,11 @@ export default function AdminApiKeys() {
 
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 15
+  // BUG CORRIGIDO: a tela carregava até 1.500 chaves de uma vez e paginava
+  // em memória. Agora a paginação roda de verdade no servidor via .range(),
+  // e os KPIs vêm de contagens globais separadas, não do array já paginado.
+  const [totalKeys, setTotalKeys] = useState(0)
+  const [counts, setCounts] = useState({ ativos: 0, revogadas: 0, hoje: 0 })
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -27,17 +32,41 @@ export default function AdminApiKeys() {
   })
 
   useEffect(() => {
-    loadKeys()
+    loadCounts()
   }, [])
+
+  useEffect(() => {
+    loadKeys()
+  }, [currentPage])
 
   async function loadKeys() {
     setLoading(true)
     const supabase = getSupabase()
-    const { data, error } = await supabase.from('api_keys').select('*').order('created_at', { ascending: false }).limit(1500)
+    const from = (currentPage - 1) * pageSize
+    const to = from + pageSize - 1
+    const { data, count, error } = await supabase.from('api_keys').select('*', { count: 'exact' }).order('created_at', { ascending: false }).range(from, to)
     if (!error && data) {
       setKeys(data)
+      if (count !== null) setTotalKeys(count)
+    } else if (error) {
+      // GAP CORRIGIDO: falha aqui deixava a tela em "Nenhuma chave gerada"
+      // sem nenhum aviso — indistinguível de base vazia.
+      showToast('Erro ao carregar chaves: ' + error.message, 'error')
     }
     setLoading(false)
+  }
+
+  async function loadCounts() {
+    const supabase = getSupabase()
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    const [r1, r2, r3] = await Promise.all([
+      supabase.from('api_keys').select('*', { count: 'exact', head: true }).eq('is_active', true),
+      supabase.from('api_keys').select('*', { count: 'exact', head: true }).eq('is_active', false),
+      supabase.from('api_keys').select('*', { count: 'exact', head: true }).gte('created_at', today.toISOString()),
+    ])
+    const firstError = [r1, r2, r3].find(r => r.error)?.error
+    if (firstError) showToast('Erro ao carregar contadores: ' + firstError.message, 'error')
+    setCounts({ ativos: r1.count || 0, revogadas: r2.count || 0, hoje: r3.count || 0 })
   }
 
   const handleToggleStatus = async (id: string, currentStatus: boolean) => {
@@ -45,6 +74,7 @@ export default function AdminApiKeys() {
     const { data, error } = await supabase.from('api_keys').update({ is_active: !currentStatus }).eq('id', id).select()
     if (!error && data && data.length > 0) {
       setKeys(keys.map(k => k.id === id ? { ...k, is_active: !currentStatus } : k))
+      loadCounts()
     } else if (!error) {
       showToast('Nenhuma linha foi atualizada — verifique permissões ou se o registro ainda existe.', 'error')
     } else {
@@ -57,7 +87,10 @@ export default function AdminApiKeys() {
     const supabase = getSupabase()
     const { data, error } = await supabase.from('api_keys').delete().eq('id', id).select()
     if (!error && data && data.length > 0) {
-      setKeys(keys.filter(k => k.id !== id))
+      // Excluir pode deixar a página atual com menos itens que o esperado
+      // — recarrega de verdade em vez de só remover localmente.
+      loadKeys()
+      loadCounts()
     } else if (!error) {
       showToast('Nenhuma chave foi excluída — verifique permissões ou se o registro ainda existe.', 'error')
     } else {
@@ -97,21 +130,24 @@ export default function AdminApiKeys() {
 
     const { data, error } = await supabase.from('api_keys').insert(payload).select().single()
     if (!error && data) {
-      setKeys([data, ...keys])
       setIsModalOpen(false)
       setNewToken(secret) // Show raw token once in dedicated modal
+      // Uma chave nova entra no topo (created_at desc) — só aparece na
+      // página 1; recarrega de verdade em vez de inserir otimisticamente
+      // numa página que pode não ser a atual.
+      if (currentPage !== 1) setCurrentPage(1)
+      else loadKeys()
+      loadCounts()
     } else {
       showToast('Erro: ' + error?.message, 'error')
     }
   }
 
-  const total = keys.length
-  const ativos = keys.filter(k => k.is_active).length
-  const revogadas = keys.filter(k => !k.is_active).length
-  const hoje = keys.filter(k => new Date(k.created_at).toDateString() === new Date().toDateString()).length
+  // KPIs: globais, vindos de loadCounts() — não dependem da página atual
+  const { ativos, revogadas, hoje } = counts
+  const total = totalKeys
 
-  const totalPages = Math.ceil(keys.length / pageSize)
-  const paginatedKeys = keys.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  const totalPages = Math.ceil(totalKeys / pageSize)
 
   return (
     <>
@@ -168,7 +204,7 @@ export default function AdminApiKeys() {
                 <tr><td colSpan={6} style={{ textAlign: 'center', padding: '20px' }}>Carregando chaves...</td></tr>
               ) : keys.length === 0 ? (
                 <tr><td colSpan={6} style={{ textAlign: 'center', padding: '20px' }}>Nenhuma chave gerada ainda.</td></tr>
-              ) : paginatedKeys.map(k => (
+              ) : keys.map(k => (
                 <tr key={k.id}>
                   <td>
                     <div style={{ fontWeight: 600 }}>{k.partner_name}</div>
@@ -202,7 +238,7 @@ export default function AdminApiKeys() {
         {/* PAGINATION FOOTER */}
         <div style={{ padding: '16px 24px', borderTop: '1px solid var(--adm-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--adm-surface)', borderRadius: '0 0 var(--adm-r-xl) var(--adm-r-xl)' }}>
             <div style={{ fontSize: '14px', color: 'var(--adm-text-secondary)' }}>
-              Mostrando de <strong style={{ color: 'var(--adm-text)' }}>{keys.length === 0 ? 0 : ((currentPage - 1) * pageSize) + 1}</strong> até <strong style={{ color: 'var(--adm-text)' }}>{Math.min(currentPage * pageSize, keys.length)}</strong> de <strong style={{ color: 'var(--adm-text)' }}>{keys.length}</strong> itens
+              Mostrando de <strong style={{ color: 'var(--adm-text)' }}>{totalKeys === 0 ? 0 : ((currentPage - 1) * pageSize) + 1}</strong> até <strong style={{ color: 'var(--adm-text)' }}>{Math.min(currentPage * pageSize, totalKeys)}</strong> de <strong style={{ color: 'var(--adm-text)' }}>{totalKeys}</strong> itens
             </div>
             <div style={{ display: 'flex', gap: '6px' }}>
               <button 
@@ -285,7 +321,7 @@ export default function AdminApiKeys() {
                 </div>
                 <div className="adm-field">
                   <label>Rate Limit (req/min)</label>
-                  <input type="number" className="adm-input" value={form.rate_limit} onChange={e => setForm({ ...form, rate_limit: parseInt(e.target.value) })} />
+                  <input type="number" className="adm-input" value={form.rate_limit} onChange={e => { const n = parseInt(e.target.value); setForm({ ...form, rate_limit: isNaN(n) ? 0 : n }) }} />
                 </div>
               </div>
 

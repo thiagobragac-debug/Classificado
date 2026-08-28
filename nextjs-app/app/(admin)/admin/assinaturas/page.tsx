@@ -3,10 +3,13 @@
 import React, { useEffect, useState } from 'react'
 import { getSupabase } from '@/lib/supabase'
 import { showToast } from '@/lib/toast'
+import { useConfirm } from '@/components/ui/ConfirmProvider'
 
 export default function AdminAssinaturas() {
+  const { confirm } = useConfirm()
   const [subscriptions, setSubscriptions] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [processingId, setProcessingId] = useState<string | null>(null)
 
   // Filters
   const [search, setSearch] = useState('')
@@ -46,37 +49,53 @@ export default function AdminAssinaturas() {
   // secret key do gateway). Reativar continua local (não existe "desfazer
   // cancelamento" genérico do lado do gateway), mas agora sincroniza
   // profiles.subscription_status também, pra não deixar os dois divergentes.
+  // GAP CORRIGIDO: esta ação cancela de verdade no gateway (cobrança real,
+  // ver comentário da rota) e não tinha nenhuma confirmação — um clique
+  // acidental já cancelava a assinatura de um cliente de verdade.
   const handleCancel = async (id: string) => {
-    const supabase = getSupabase()
-    const { data: { session } } = await supabase.auth.getSession()
-    const res = await fetch('/api/admin/subscriptions/cancel', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-      body: JSON.stringify({ subscriptionId: id }),
-    })
-    const body = await res.json()
-    if (res.ok) {
-      setSubscriptions(subscriptions.map(s => s.id === id ? { ...s, status: 'cancelled' } : s))
-      showToast('Assinatura cancelada.', 'success')
-    } else {
-      showToast('Erro ao cancelar: ' + (body.error || res.statusText), 'error')
+    if (processingId) return
+    if (!(await confirm('Cancelar esta assinatura? Isso cancela a cobrança de verdade no gateway de pagamento — a ação não pode ser desfeita automaticamente.'))) return
+    setProcessingId(id)
+    try {
+      const supabase = getSupabase()
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/admin/subscriptions/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ subscriptionId: id }),
+      })
+      const body = await res.json()
+      if (res.ok) {
+        setSubscriptions(subscriptions.map(s => s.id === id ? { ...s, status: 'cancelled' } : s))
+        showToast('Assinatura cancelada.', 'success')
+      } else {
+        showToast('Erro ao cancelar: ' + (body.error || res.statusText), 'error')
+      }
+    } finally {
+      setProcessingId(null)
     }
   }
 
   const handleReactivate = async (id: string) => {
-    const supabase = getSupabase()
-    const { data: { session } } = await supabase.auth.getSession()
-    const res = await fetch('/api/admin/subscriptions/reactivate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-      body: JSON.stringify({ subscriptionId: id }),
-    })
-    const body = await res.json()
-    if (res.ok) {
-      setSubscriptions(subscriptions.map(s => s.id === id ? { ...s, status: 'active' } : s))
-      showToast('Assinatura reativada.', 'success')
-    } else {
-      showToast('Erro ao reativar: ' + (body.error || res.statusText), 'error')
+    if (processingId) return
+    setProcessingId(id)
+    try {
+      const supabase = getSupabase()
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/admin/subscriptions/reactivate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ subscriptionId: id }),
+      })
+      const body = await res.json()
+      if (res.ok) {
+        setSubscriptions(subscriptions.map(s => s.id === id ? { ...s, status: 'active' } : s))
+        showToast('Assinatura reativada.', 'success')
+      } else {
+        showToast('Erro ao reativar: ' + (body.error || res.statusText), 'error')
+      }
+    } finally {
+      setProcessingId(null)
     }
   }
 
@@ -191,10 +210,10 @@ export default function AdminAssinaturas() {
                           já aceita cancelar qualquer status != 'cancelled') ficava sem
                           NENHUM botão de ação pro admin. */}
                       {sub.status !== 'cancelled' && (
-                        <button className="adm-btn adm-btn--sm adm-btn--outline" style={{ color: 'var(--adm-red)', borderColor: 'var(--adm-red)' }} onClick={() => handleCancel(sub.id)}>Cancelar</button>
+                        <button className="adm-btn adm-btn--sm adm-btn--outline" style={{ color: 'var(--adm-red)', borderColor: 'var(--adm-red)' }} disabled={processingId === sub.id} onClick={() => handleCancel(sub.id)}>Cancelar</button>
                       )}
                       {sub.status === 'cancelled' && (
-                        <button className="adm-btn adm-btn--sm adm-btn--outline" onClick={() => handleReactivate(sub.id)}>Reativar</button>
+                        <button className="adm-btn adm-btn--sm adm-btn--outline" disabled={processingId === sub.id} onClick={() => handleReactivate(sub.id)}>Reativar</button>
                       )}
                     </div>
                   </td>

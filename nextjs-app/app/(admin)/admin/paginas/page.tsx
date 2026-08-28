@@ -39,6 +39,10 @@ export default function AdminInstitutionalPages() {
     const { data, error } = await supabase.from('institutional_pages').select('*').order('group_name', { ascending: true }).order('order_idx', { ascending: true })
     if (!error && data) {
       setPages(data)
+    } else if (error) {
+      // GAP CORRIGIDO: falha aqui deixava a tela em "Nenhuma página
+      // encontrada" sem nenhum aviso — indistinguível de base vazia.
+      showToast('Erro ao carregar páginas: ' + error.message, 'error')
     }
     setLoading(false)
   }
@@ -92,9 +96,35 @@ export default function AdminInstitutionalPages() {
       return
     }
 
+    // BUG CORRIGIDO: ao CRIAR (não editar), o ID é digitado livremente e o
+    // upsert seguinte grava por PK — um ID que já existe (erro de digitação,
+    // ex. igual a uma página real) sobrescrevia o conteúdo real em silêncio,
+    // sem confirmação (diferente da exclusão, que já pede confirm()).
+    if (!isEditing && pages.some(p => p.id === form.id.trim())) {
+      showToast(`Já existe uma página com o ID "${form.id.trim()}". Use "Editar" nela em vez de criar uma nova, ou escolha outro ID.`, 'error')
+      return
+    }
+
+    // GAP CORRIGIDO (defesa em profundidade): a sanitização de HTML só
+    // acontecia na leitura pública (app/(public)/institucional/page.tsx),
+    // nunca na escrita. Funciona hoje porque esse é o único consumidor e
+    // ele sempre sanitiza antes de renderizar — mas um novo consumidor
+    // futuro que renderizasse este campo sem os mesmos ALLOWED_TAGS
+    // reabriria XSS armazenado. Sanitiza aqui também, com a mesma lista.
+    const DOMPurify = (await import('isomorphic-dompurify')).default
+    const ALLOWED_TAGS = [
+      'h1', 'h2', 'h3', 'h4', 'p', 'ul', 'ol', 'li',
+      'a', 'strong', 'em', 'b', 'i',
+      'table', 'thead', 'tbody', 'tr', 'th', 'td',
+      'blockquote', 'hr', 'br', 'span', 'div', 'section',
+      'details', 'summary'
+    ]
+    const ALLOWED_ATTR = ['href', 'class', 'target', 'rel', 'id', 'aria-label', 'style', 'data-i18n']
+
     const supabase = getSupabase()
     const payload = {
       ...form,
+      content: DOMPurify.sanitize(form.content, { ALLOWED_TAGS, ALLOWED_ATTR, ADD_ATTR: ['target'] }),
       updated_at: new Date().toISOString()
     }
 

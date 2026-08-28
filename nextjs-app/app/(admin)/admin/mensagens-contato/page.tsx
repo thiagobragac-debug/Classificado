@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
+import { useDebounce } from 'use-debounce'
 import { getSupabase } from '@/lib/supabase'
 import { showToast } from '@/lib/toast'
 
@@ -11,29 +12,70 @@ export default function AdminMensagensContato() {
 
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 15
+  // BUG CORRIGIDO: a tela carregava até 1.500 mensagens de uma vez e
+  // filtrava/paginava em memória — acima disso, mensagens mais antigas
+  // (inclusive pendentes) somem da lista em silêncio, sem nenhum aviso.
+  // Agora busca/filtro/paginação rodam de verdade no servidor via .range().
+  const [totalFiltered, setTotalFiltered] = useState(0)
 
   const [search, setSearch] = useState('')
+  const [debouncedSearch] = useDebounce(search, 300)
   const [statusFilter, setStatusFilter] = useState('')
+
+  // KPIs: contagens reais e globais (não afetadas pelo filtro/busca atual),
+  // mesmo padrão já usado no dashboard e em /admin/verificacoes.
+  const [total, setTotal] = useState(0)
+  const [pendentes, setPendentes] = useState(0)
+  const [resolvidas, setResolvidas] = useState(0)
+
+  useEffect(() => {
+    loadCounts()
+  }, [])
 
   useEffect(() => {
     loadMessages()
-  }, [])
+  }, [currentPage, debouncedSearch, statusFilter])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [debouncedSearch, statusFilter])
 
   async function loadMessages() {
     setLoading(true)
     const supabase = getSupabase()
-    const { data, error } = await supabase
-      .from('contact_messages')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(1500)
+    const from = (currentPage - 1) * pageSize
+    const to = from + pageSize - 1
+
+    let q = supabase.from('contact_messages').select('*', { count: 'exact' })
+    if (debouncedSearch) {
+      const term = `%${debouncedSearch}%`
+      q = q.or(`name.ilike.${term},email.ilike.${term},subject.ilike.${term}`)
+    }
+    if (statusFilter) q = q.eq('status', statusFilter)
+
+    const { data, count, error } = await q.order('created_at', { ascending: false }).range(from, to)
 
     if (!error && data) {
       setMessages(data)
+      if (count !== null) setTotalFiltered(count)
     } else if (error) {
       showToast('Erro ao carregar mensagens: ' + error.message, 'error')
     }
     setLoading(false)
+  }
+
+  async function loadCounts() {
+    const supabase = getSupabase()
+    const [r1, r2, r3] = await Promise.all([
+      supabase.from('contact_messages').select('*', { count: 'exact', head: true }),
+      supabase.from('contact_messages').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+      supabase.from('contact_messages').select('*', { count: 'exact', head: true }).eq('status', 'resolved'),
+    ])
+    const firstError = [r1, r2, r3].find(r => r.error)?.error
+    if (firstError) showToast('Erro ao carregar contadores: ' + firstError.message, 'error')
+    setTotal(r1.count || 0)
+    setPendentes(r2.count || 0)
+    setResolvidas(r3.count || 0)
   }
 
   const handleSetStatus = async (id: string, status: 'resolved' | 'pending') => {
@@ -45,6 +87,7 @@ export default function AdminMensagensContato() {
     if (!error && data && data.length > 0) {
       setMessages(messages.map(m => m.id === id ? { ...m, status } : m))
       showToast(status === 'resolved' ? 'Mensagem marcada como respondida.' : 'Mensagem reaberta.', 'success')
+      loadCounts()
     } else if (!error) {
       showToast('Nenhuma linha foi atualizada — verifique permissões ou se o registro ainda existe.', 'error')
     } else {
@@ -52,25 +95,7 @@ export default function AdminMensagensContato() {
     }
   }
 
-  const filteredMessages = messages.filter(m => {
-    if (search) {
-      const q = search.toLowerCase()
-      if (!(m.name?.toLowerCase().includes(q) || m.email?.toLowerCase().includes(q) || m.subject?.toLowerCase().includes(q))) return false
-    }
-    if (statusFilter && m.status !== statusFilter) return false
-    return true
-  })
-
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [search, statusFilter])
-
-  const totalPages = Math.ceil(filteredMessages.length / pageSize)
-  const paginatedMessages = filteredMessages.slice((currentPage - 1) * pageSize, currentPage * pageSize)
-
-  const total = messages.length
-  const pendentes = messages.filter(m => m.status === 'pending').length
-  const resolvidas = messages.filter(m => m.status === 'resolved').length
+  const totalPages = Math.ceil(totalFiltered / pageSize)
 
   return (
     <>
@@ -119,9 +144,9 @@ export default function AdminMensagensContato() {
             <tbody>
               {loading ? (
                 <tr><td colSpan={6} style={{ textAlign: 'center', padding: '20px' }}>Carregando...</td></tr>
-              ) : paginatedMessages.length === 0 ? (
+              ) : messages.length === 0 ? (
                 <tr><td colSpan={6} style={{ textAlign: 'center', padding: '20px' }}>Nenhuma mensagem encontrada.</td></tr>
-              ) : paginatedMessages.map(msg => (
+              ) : messages.map(msg => (
                 <React.Fragment key={msg.id}>
                   <tr style={{ cursor: 'pointer' }} onClick={() => setExpandedId(expandedId === msg.id ? null : msg.id)}>
                     <td style={{ fontWeight: 600 }}>{msg.name}</td>
@@ -161,7 +186,7 @@ export default function AdminMensagensContato() {
 
         <div style={{ padding: '16px 24px', borderTop: '1px solid var(--adm-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--adm-surface)', borderRadius: '0 0 var(--adm-r-xl) var(--adm-r-xl)' }}>
           <div style={{ fontSize: '14px', color: 'var(--adm-text-secondary)' }}>
-            Mostrando de <strong style={{ color: 'var(--adm-text)' }}>{filteredMessages.length === 0 ? 0 : ((currentPage - 1) * pageSize) + 1}</strong> até <strong style={{ color: 'var(--adm-text)' }}>{Math.min(currentPage * pageSize, filteredMessages.length)}</strong> de <strong style={{ color: 'var(--adm-text)' }}>{filteredMessages.length}</strong> itens
+            Mostrando de <strong style={{ color: 'var(--adm-text)' }}>{totalFiltered === 0 ? 0 : ((currentPage - 1) * pageSize) + 1}</strong> até <strong style={{ color: 'var(--adm-text)' }}>{Math.min(currentPage * pageSize, totalFiltered)}</strong> de <strong style={{ color: 'var(--adm-text)' }}>{totalFiltered}</strong> itens
           </div>
           <div style={{ display: 'flex', gap: '6px' }}>
             <button

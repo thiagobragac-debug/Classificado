@@ -171,7 +171,14 @@ export default function AdminAuctionLots() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!(await confirm('Tem certeza que deseja excluir este lote?'))) return
+    // GAP CORRIGIDO: confirmação genérica não avisava quando o lote já
+    // tinha lance real registrado — excluir perde current_bid/winner_id
+    // (o histórico do lance) sem nenhum sinal específico disso ao admin.
+    const lot = lots.find(l => l.id === id)
+    const mensagem = lot?.current_bid > 0
+      ? `Este lote já tem um lance de R$ ${Number(lot.current_bid).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}${lot.winner ? ` (${lot.winner.display_name || lot.winner.name})` : ''}. Excluir apaga esse histórico de lance permanentemente. Continuar?`
+      : 'Tem certeza que deseja excluir este lote?'
+    if (!(await confirm(mensagem))) return
     const supabase = getSupabase()
     const { data, error } = await supabase.from('auction_lots').delete().eq('id', id).select()
     if (!error && data && data.length > 0) {

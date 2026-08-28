@@ -13,6 +13,12 @@ export default function AdminCategorias() {
 
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 15
+  // BUG CORRIGIDO: a tela carregava até 1.500 categorias de uma vez e
+  // paginava em memória. Agora a paginação roda de verdade no servidor via
+  // .range(), e os KPIs (total/ativas/inativas) vêm de contagens globais
+  // separadas, não do array já paginado.
+  const [totalCategories, setTotalCategories] = useState(0)
+  const [counts, setCounts] = useState({ ativas: 0, inativas: 0 })
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -20,24 +26,44 @@ export default function AdminCategorias() {
   const [form, setForm] = useState({ id: '', name_pt: '', name_es: '', icon: '🐐', color: '#16A34A', active: true })
 
   useEffect(() => {
-    loadCategories()
+    loadCounts()
   }, [])
+
+  useEffect(() => {
+    loadCategories()
+  }, [currentPage])
 
   async function loadCategories() {
     setLoading(true)
     const supabase = getSupabase()
-    
+    const from = (currentPage - 1) * pageSize
+    const to = from + pageSize - 1
+
     // Load Categories
-    const { data, error } = await supabase.from('categories').select('*').order('sort_order', { ascending: true }).limit(1500)
+    const { data, count, error } = await supabase.from('categories').select('*', { count: 'exact' }).order('sort_order', { ascending: true }).range(from, to)
     if (!error && data) {
       setCategories(data)
+      if (count !== null) setTotalCategories(count)
+    } else if (error) {
+      // GAP CORRIGIDO: falha aqui deixava a tela em "Nenhuma categoria"
+      // sem nenhum aviso — indistinguível de base vazia.
+      showToast('Erro ao carregar categorias: ' + error.message, 'error')
     }
 
-    // Load Ads Count for Stats
-    const { count } = await supabase.from('ads').select('*', { count: 'exact', head: true })
-    if (count) setAdsCount(count)
-    
     setLoading(false)
+  }
+
+  async function loadCounts() {
+    const supabase = getSupabase()
+    const [adsRes, ativasRes, inativasRes] = await Promise.all([
+      supabase.from('ads').select('*', { count: 'exact', head: true }),
+      supabase.from('categories').select('*', { count: 'exact', head: true }).eq('active', true),
+      supabase.from('categories').select('*', { count: 'exact', head: true }).eq('active', false),
+    ])
+    const firstError = [adsRes, ativasRes, inativasRes].find(r => r.error)?.error
+    if (firstError) showToast('Erro ao carregar contadores: ' + firstError.message, 'error')
+    if (adsRes.count) setAdsCount(adsRes.count)
+    setCounts({ ativas: ativasRes.count || 0, inativas: inativasRes.count || 0 })
   }
 
   const handleSave = async () => {
@@ -80,13 +106,21 @@ export default function AdminCategorias() {
       }
     } else {
       // Insert
-      const newCat = { ...form, id: finalId, sort_order: categories.length + 1 }
+      // BUG CORRIGIDO: `categories.length` agora é só o tamanho da PÁGINA
+      // atual (paginação real), não o total — usava isso pra calcular o
+      // próximo sort_order, o que sempre desalinhava a ordem real acima da
+      // primeira página.
+      const newCat = { ...form, id: finalId, sort_order: totalCategories + 1 }
       const { error } = await supabase.from('categories').insert(newCat)
 
       if (!error) {
-        setCategories([...categories, newCat])
         setIsModalOpen(false)
         showToast('Categoria criada!', 'success')
+        // Uma categoria nova entra no fim da ordenação — pode cair numa
+        // página diferente da atual, então recarrega de verdade em vez de
+        // inserir otimisticamente na lista local.
+        loadCategories()
+        loadCounts()
       } else {
         showToast('Erro: ' + error.message, 'error')
       }
@@ -95,9 +129,22 @@ export default function AdminCategorias() {
 
   const handleToggleActive = async (id: string, currentActive: boolean) => {
     const supabase = getSupabase()
+
+    // GAP CORRIGIDO: desativar uma categoria não avisava quantos anúncios
+    // ativos ainda a referenciam — o admin não tinha ideia do impacto real
+    // da ação antes de confirmar.
+    if (currentActive) {
+      const { count } = await supabase.from('ads').select('*', { count: 'exact', head: true }).eq('category_id', id).eq('status', 'active')
+      if (count && count > 0) {
+        const ok = await confirm(`Esta categoria tem ${count} anúncio${count > 1 ? 's' : ''} ativo${count > 1 ? 's' : ''}. Desativar a categoria não remove esses anúncios, mas ela some dos filtros públicos. Continuar?`)
+        if (!ok) return
+      }
+    }
+
     const { data, error } = await supabase.from('categories').update({ active: !currentActive }).eq('id', id).select()
     if (!error && data && data.length > 0) {
       setCategories(categories.map(c => c.id === id ? { ...c, active: !currentActive } : c))
+      loadCounts()
     } else if (!error) {
       showToast('Nenhuma categoria foi alterada — verifique suas permissões.', 'error')
     } else {
@@ -117,8 +164,12 @@ export default function AdminCategorias() {
     const supabase = getSupabase()
     const { data, error } = await supabase.from('categories').delete().eq('id', c.id).select()
     if (!error && data && data.length > 0) {
-      setCategories(categories.filter(cat => cat.id !== c.id))
       showToast('Categoria excluída!', 'success')
+      // Excluir pode deixar a página atual com menos itens que o esperado
+      // (ex.: era a última categoria da última página) — recarrega de
+      // verdade em vez de só remover localmente.
+      loadCategories()
+      loadCounts()
     } else if (error?.code === '23503') {
       showToast('Não é possível excluir: existem anúncios cadastrados nesta categoria.', 'error')
     } else if (!error) {
@@ -140,12 +191,11 @@ export default function AdminCategorias() {
     setIsModalOpen(true)
   }
 
-  const total = categories.length
-  const ativas = categories.filter(c => c.active).length
-  const inativas = total - ativas
+  // KPIs: globais, vindos de loadCounts() — não dependem da página atual
+  const { ativas, inativas } = counts
+  const total = totalCategories
 
-  const totalPages = Math.ceil(categories.length / pageSize)
-  const paginatedCategories = categories.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  const totalPages = Math.ceil(totalCategories / pageSize)
 
   return (
     <>
@@ -184,7 +234,7 @@ export default function AdminCategorias() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
         {loading ? (
           <div>Carregando...</div>
-        ) : paginatedCategories.map(c => (
+        ) : categories.map(c => (
           <div key={c.id} className="adm-card" style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', opacity: c.active ? 1 : 0.6 }}>
             <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: c.color + '20', color: c.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>
               {c.icon}
@@ -208,7 +258,7 @@ export default function AdminCategorias() {
       {/* PAGINATION FOOTER */}
       <div style={{ padding: '16px 24px', borderTop: '1px solid var(--adm-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--adm-surface)', borderRadius: '0 0 var(--adm-r-xl) var(--adm-r-xl)' }}>
           <div style={{ fontSize: '14px', color: 'var(--adm-text-secondary)' }}>
-            Mostrando de <strong style={{ color: 'var(--adm-text)' }}>{categories.length === 0 ? 0 : ((currentPage - 1) * pageSize) + 1}</strong> até <strong style={{ color: 'var(--adm-text)' }}>{Math.min(currentPage * pageSize, categories.length)}</strong> de <strong style={{ color: 'var(--adm-text)' }}>{categories.length}</strong> itens
+            Mostrando de <strong style={{ color: 'var(--adm-text)' }}>{totalCategories === 0 ? 0 : ((currentPage - 1) * pageSize) + 1}</strong> até <strong style={{ color: 'var(--adm-text)' }}>{Math.min(currentPage * pageSize, totalCategories)}</strong> de <strong style={{ color: 'var(--adm-text)' }}>{totalCategories}</strong> itens
           </div>
           <div style={{ display: 'flex', gap: '6px' }}>
             <button 

@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'JSON inválido' }, { status: 400 })
   }
 
-  const { userId, verified, requestId, reason } = body
+  let { userId, verified, requestId, reason } = body
 
   if (typeof userId !== 'string' || !userId) {
     return NextResponse.json({ error: '`userId` é obrigatório' }, { status: 400 })
@@ -44,6 +44,23 @@ export async function POST(request: Request) {
   }
 
   const admin = createAdminClient()
+
+  // GAP CORRIGIDO: o toggle manual de selo em /admin/usuarios chama esta
+  // rota sem requestId — sem isso, uma verification_requests pendente do
+  // mesmo usuário ficava "pending" para sempre mesmo com o selo já
+  // concedido/negado manualmente aqui. Resolvido no servidor (não na UI de
+  // usuarios) pra valer pros dois pontos de entrada.
+  if (typeof requestId !== 'string' || !requestId) {
+    const { data: pending } = await admin
+      .from('verification_requests')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (pending) requestId = pending.id
+  }
 
   const { error } = await admin
     .from('profiles')

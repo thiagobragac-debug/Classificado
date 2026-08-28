@@ -1,7 +1,13 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
+import { useDebounce } from 'use-debounce'
 import { showToast } from '@/lib/toast'
+
+// Mapeia os rótulos exibidos na UI para os valores reais aceitos por
+// /api/admin/users (status/plan) — ver STATUS_MAP/PLAN_MAP abaixo.
+const STATUS_MAP: Record<string, string> = { 'Ativo': 'active', 'Bloqueado': 'blocked' }
+const PLAN_MAP: Record<string, string> = { 'Premium': 'premium', 'Pro': 'pro', 'Grátis': 'free' }
 
 export default function AdminUsuarios() {
   const [users, setUsers] = useState<any[]>([])
@@ -9,14 +15,23 @@ export default function AdminUsuarios() {
 
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 15
-  
+  // BUG CORRIGIDO: a rota carregava até 1.500 perfis de uma vez e a tela
+  // filtrava/paginava tudo em memória — acima disso, usuários mais antigos
+  // somem da lista em silêncio. Agora busca/filtro/paginação rodam de
+  // verdade no servidor via .range() em /api/admin/users.
+  const [totalFiltered, setTotalFiltered] = useState(0)
+
   const [selectedIds, setSelectedIds] = useState<string[]>([])
 
   // Filters
   const [search, setSearch] = useState('')
+  const [debouncedSearch] = useDebounce(search, 300)
   const [statusFilter, setStatusFilter] = useState('Todos os status')
   const [countryFilter, setCountryFilter] = useState('Todos os países')
   const [planFilter, setPlanFilter] = useState('Todos os planos')
+
+  // KPIs: contagens reais e globais (não afetadas pelo filtro/busca atual)
+  const [counts, setCounts] = useState({ total: 0, assinantes: 0, free: 0, blocked: 0 })
 
   // Modals state
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
@@ -26,8 +41,25 @@ export default function AdminUsuarios() {
   const [selectedUserForDetails, setSelectedUserForDetails] = useState<any>(null)
 
   useEffect(() => {
-    loadUsers()
+    loadCounts()
   }, [])
+
+  useEffect(() => {
+    loadUsers()
+  }, [currentPage, debouncedSearch, statusFilter, countryFilter, planFilter])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [debouncedSearch, statusFilter, countryFilter, planFilter])
+
+  function buildParams(extra: Record<string, string> = {}) {
+    const params = new URLSearchParams(extra)
+    if (debouncedSearch) params.set('search', debouncedSearch)
+    if (statusFilter !== 'Todos os status') params.set('status', STATUS_MAP[statusFilter] || '')
+    if (countryFilter !== 'Todos os países') params.set('country', countryFilter)
+    if (planFilter !== 'Todos os planos') params.set('plan', PLAN_MAP[planFilter] || '')
+    return params
+  }
 
   // BUG CORRIGIDO: esta função consultava user_secrets direto do browser
   // (getSupabase(), sujeito a RLS). A policy de user_secrets só libera
@@ -41,11 +73,35 @@ export default function AdminUsuarios() {
   async function loadUsers() {
     setLoading(true)
     try {
-      const res = await fetch('/api/admin/users')
+      const params = buildParams({ page: String(currentPage), pageSize: String(pageSize) })
+      const res = await fetch('/api/admin/users?' + params.toString())
       const payload = await res.json()
-      if (res.ok) setUsers(payload.users || [])
+      if (res.ok) {
+        setUsers(payload.users || [])
+        setTotalFiltered(payload.total || 0)
+      } else {
+        // GAP CORRIGIDO: uma falha aqui deixava a tela em "0 usuários" sem
+        // nenhum aviso — indistinguível de uma base realmente vazia.
+        showToast('Erro ao carregar usuários: ' + (payload.error || res.statusText), 'error')
+      }
+    } catch (err) {
+      showToast('Erro ao carregar usuários: ' + (err as Error).message, 'error')
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function loadCounts() {
+    try {
+      const res = await fetch('/api/admin/users?counts=true')
+      const payload = await res.json()
+      if (res.ok) {
+        setCounts(payload)
+      } else {
+        showToast('Erro ao carregar contadores: ' + (payload.error || res.statusText), 'error')
+      }
+    } catch (err) {
+      showToast('Erro ao carregar contadores: ' + (err as Error).message, 'error')
     }
   }
 
@@ -69,6 +125,7 @@ export default function AdminUsuarios() {
       await setBlocked([userId], newStatus)
       setUsers(users.map(u => u.id === userId ? { ...u, is_blocked: newStatus } : u))
       showToast(`Usuário ${newStatus ? 'bloqueado' : 'desbloqueado'} com sucesso!`, 'success')
+      loadCounts()
     } catch (err) {
       showToast('Erro ao alterar status: ' + (err as Error).message, 'error')
     }
@@ -94,9 +151,30 @@ export default function AdminUsuarios() {
     }
   }
 
-  const handleExport = () => {
+  // BUG CORRIGIDO: exportava só `filteredUsers` (os até 1.500 já carregados
+  // na tela, filtrados em memória) — com paginação real, a tela só tem a
+  // página atual em memória. "Exportar CSV" busca de novo no servidor,
+  // aplicando os mesmos filtros mas sem paginação (?export=true), pra
+  // exportar TODOS os resultados filtrados, não só os 15 visíveis.
+  const handleExport = async () => {
+    let exportUsers: any[] = users
+    try {
+      const params = buildParams({ export: 'true' })
+      const res = await fetch('/api/admin/users?' + params.toString())
+      const payload = await res.json()
+      if (res.ok) {
+        exportUsers = payload.users || []
+      } else {
+        showToast('Erro ao exportar: ' + (payload.error || res.statusText), 'error')
+        return
+      }
+    } catch (err) {
+      showToast('Erro ao exportar: ' + (err as Error).message, 'error')
+      return
+    }
+
     const headers = ['Nome', 'Email', 'País', 'Plano', 'Status', 'Data Cadastro']
-    const rows = filteredUsers.map(u => [
+    const rows = exportUsers.map(u => [
       u.name || '',
       u.email || '',
       u.country || '',
@@ -104,11 +182,16 @@ export default function AdminUsuarios() {
       u.is_blocked ? 'Bloqueado' : 'Ativo',
       new Date(u.created_at).toLocaleDateString()
     ])
-    
-    let csvContent = "data:text/csv;charset=utf-8," 
-      + headers.join(",") + "\n"
-      + rows.map(e => e.join(",")).join("\n");
-      
+
+    // BUG CORRIGIDO: campos concatenados com ',' sem escaping — um nome ou
+    // e-mail com vírgula (raro, mas legítimo, ex. "Silva, João") deslocava
+    // as colunas do CSV gerado a partir dali. RFC 4180: envolve em aspas
+    // duplas e duplica aspas internas.
+    const csvEscape = (v: string) => `"${String(v).replace(/"/g, '""')}"`
+    const csvContent = "data:text/csv;charset=utf-8,"
+      + headers.map(csvEscape).join(",") + "\n"
+      + rows.map(row => row.map(csvEscape).join(",")).join("\n");
+
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -119,10 +202,10 @@ export default function AdminUsuarios() {
   }
 
   const toggleSelectAll = () => {
-    if (selectedIds.length === paginatedUsers.length) {
+    if (selectedIds.length === users.length) {
       setSelectedIds([])
     } else {
-      setSelectedIds(paginatedUsers.map(u => u.id))
+      setSelectedIds(users.map(u => u.id))
     }
   }
 
@@ -143,25 +226,11 @@ export default function AdminUsuarios() {
       setUsers(users.map(u => selectedIds.includes(u.id) ? { ...u, is_blocked: shouldBlock } : u))
       showToast(`${selectedIds.length} usuários ${shouldBlock ? 'bloqueados' : 'desbloqueados'}!`, 'success')
       setSelectedIds([])
+      loadCounts()
     } catch (err) {
       showToast('Erro ao atualizar usuários: ' + (err as Error).message, 'error')
     }
   }
-
-  const filteredUsers = users.filter(u => {
-    if (search && !(u.name?.toLowerCase().includes(search.toLowerCase()) || u.email?.toLowerCase().includes(search.toLowerCase()))) return false
-    if (statusFilter !== 'Todos os status') {
-      const isBlocked = !!u.is_blocked;
-      if (statusFilter === 'Ativo' && isBlocked) return false
-      if (statusFilter === 'Bloqueado' && !isBlocked) return false
-    }
-    if (countryFilter !== 'Todos os países' && !u.country?.toLowerCase().includes(countryFilter.toLowerCase().replace(/[^\w\s]/g, '').trim())) return false
-    if (planFilter !== 'Todos os planos') {
-      const p = u.plan || 'Grátis'
-      if (p !== planFilter) return false
-    }
-    return true
-  })
 
   const handleInviteUser = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -188,18 +257,10 @@ export default function AdminUsuarios() {
     }
   }
 
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [search, statusFilter, countryFilter, planFilter])
+  const totalPages = Math.ceil(totalFiltered / pageSize)
 
-  const totalPages = Math.ceil(filteredUsers.length / pageSize)
-  const paginatedUsers = filteredUsers.slice((currentPage - 1) * pageSize, currentPage * pageSize)
-
-  // KPIs
-  const total = users.length
-  const assinantes = users.filter(u => u.plan === 'Premium' || u.plan === 'Pro').length
-  const free = total - assinantes
-  const blocked = users.filter(u => u.is_blocked).length
+  // KPIs: globais, vindos de loadCounts() — não dependem do filtro/busca atual
+  const { total, assinantes, free, blocked } = counts
 
   return (
     <>
@@ -267,7 +328,7 @@ export default function AdminUsuarios() {
               <tr>
                 <th style={{ width: '40px' }}>
                   <input type="checkbox" style={{ accentColor: 'var(--adm-accent)' }} 
-                         checked={paginatedUsers.length > 0 && selectedIds.length === paginatedUsers.length}
+                         checked={users.length > 0 && selectedIds.length === users.length}
                          onChange={toggleSelectAll} />
                 </th>
                 <th>Usuário</th>
@@ -283,7 +344,7 @@ export default function AdminUsuarios() {
             <tbody>
               {loading ? (
                 <tr><td colSpan={8} style={{ textAlign: 'center', padding: '20px' }}>Carregando...</td></tr>
-              ) : paginatedUsers.map(user => {
+              ) : users.map(user => {
                 const plan = user.plan || 'Grátis'
                 return (
                   <tr key={user.id}>
@@ -348,7 +409,7 @@ export default function AdminUsuarios() {
         {/* PAGINATION FOOTER */}
         <div style={{ padding: '16px 24px', borderTop: '1px solid var(--adm-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--adm-surface)', borderRadius: '0 0 var(--adm-r-xl) var(--adm-r-xl)' }}>
             <div style={{ fontSize: '14px', color: 'var(--adm-text-secondary)' }}>
-              Mostrando de <strong style={{ color: 'var(--adm-text)' }}>{filteredUsers.length === 0 ? 0 : ((currentPage - 1) * pageSize) + 1}</strong> até <strong style={{ color: 'var(--adm-text)' }}>{Math.min(currentPage * pageSize, filteredUsers.length)}</strong> de <strong style={{ color: 'var(--adm-text)' }}>{filteredUsers.length}</strong> itens
+              Mostrando de <strong style={{ color: 'var(--adm-text)' }}>{totalFiltered === 0 ? 0 : ((currentPage - 1) * pageSize) + 1}</strong> até <strong style={{ color: 'var(--adm-text)' }}>{Math.min(currentPage * pageSize, totalFiltered)}</strong> de <strong style={{ color: 'var(--adm-text)' }}>{totalFiltered}</strong> itens
             </div>
             <div style={{ display: 'flex', gap: '6px' }}>
               <button 

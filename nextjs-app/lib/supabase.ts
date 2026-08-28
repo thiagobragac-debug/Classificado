@@ -247,9 +247,16 @@ export async function updateAd(id: string, payload: AdPayload) {
 export async function uploadAdImage(file: File, folder = 'draft'): Promise<string | null> {
   const session = await getSession();
   if (!session) throw new Error('Not authenticated');
-  
+
   const ext = file.name.split('.').pop();
-  const fileName = `${folder}/${session.user.id}/${Date.now()}_${Math.random().toString(36).substring(2)}.${ext}`;
+  // uid como primeiro segmento do path: a policy de INSERT do bucket ad-images
+  // (supabase/migrations/20260826110000_validacao_zero_3a_rodada.sql) exige
+  // (auth.uid())::text = (storage.foldername(name))[1] — com pasta antes do
+  // uid, [1] nunca bate com auth.uid() e TODO upload cai em 403 (RLS), como o
+  // fluxo normal de anúncio (StepPhotos.tsx) e os uploads do admin
+  // (leilões/banners). Confirmado ao vivo: uid/pasta/arquivo passa, pasta/uid
+  // não passa. Mesma convenção já usada pelo upload de KYC.
+  const fileName = `${session.user.id}/${folder}/${Date.now()}_${Math.random().toString(36).substring(2)}.${ext}`;
   
   const { data, error } = await getSupabase().storage.from('ad-images').upload(fileName, file, {
     cacheControl: '31536000',
@@ -323,11 +330,17 @@ export async function rpcToggleFav(adId: string) {
 export async function getMyFavorites() {
   const session = await getSession();
   if (!session) return [];
+  // BUG CORRIGIDO (validação adversarial final): sem .limit(), buscava
+  // TODOS os favoritos do usuário com ads+profiles aninhados de uma vez —
+  // FavoritesTab fica sempre montada (ver PainelClient.tsx), então esta
+  // query roda em TODA visita a /painel, não só quando a aba é aberta.
+  // Mesmo teto de lib/supabase-panel.ts/getMyBilling.
   const { data, error } = await getSupabase()
     .from('favorites')
     .select('*, ads(*, profiles(name))')
     .eq('user_id', session.user.id)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .limit(100);
   if (error) throw error;
   return (data || []).map((f: any) => f.ads);
 }
@@ -483,21 +496,29 @@ export async function getBanners(position: string, userLoc: any = null) {
   const locCity = norm(userLoc.city);
   const locState = norm(userLoc.state);
   const locCountry = norm(userLoc.country);
-  const cityB: any[] = [], stateB: any[] = [], countryB: any[] = [], globalB: any[] = [];
+  // Membros plenos do Mercosul — usado pelo alvo 'mercosul' (banner regional,
+  // sem target_location próprio, ver app/(admin)/admin/banners/page.tsx).
+  const MERCOSUL_COUNTRIES = new Set(['brasil', 'argentina', 'uruguai', 'paraguai']);
+
+  const cityB: any[] = [], stateB: any[] = [], countryB: any[] = [], mercosulB: any[] = [], globalB: any[] = [];
   for (const b of allBanners) {
     const type = b.target_type || 'global';
     const loc = norm(b.target_location);
     if (type === 'city') {
-      const parts = loc.split('-');
+      // Separador '|' (não '-'): nomes reais de município têm hífen (ex.:
+      // Embu-Guaçu/SP), o que quebrava tanto a UI de cadastro quanto este
+      // parsing quando ambos usavam '-'.
+      const parts = loc.split('|');
       const targetCity = parts[0]?.trim() || '';
       const targetState = parts[1]?.trim() || '';
       if (targetCity === locCity && targetState === locState) cityB.push(b);
     }
     else if (type === 'state' && loc === locState) stateB.push(b);
     else if (type === 'country' && loc === locCountry) countryB.push(b);
+    else if (type === 'mercosul' && MERCOSUL_COUNTRIES.has(locCountry)) mercosulB.push(b);
     else if (type === 'global') globalB.push(b);
   }
-  return cityB.length ? cityB : stateB.length ? stateB : countryB.length ? countryB : globalB;
+  return cityB.length ? cityB : stateB.length ? stateB : countryB.length ? countryB : mercosulB.length ? mercosulB : globalB;
 }
 
 // ─── GEO ────────────────────────────────────────────────────────

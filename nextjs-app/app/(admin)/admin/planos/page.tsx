@@ -10,6 +10,12 @@ export default function AdminPlanos() {
 
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 15
+  // BUG CORRIGIDO: a tela carregava até 1.500 planos de uma vez e paginava
+  // em memória. Agora a paginação roda de verdade no servidor via .range(),
+  // e os KPIs (total/ativos/inativos/preço médio) vêm de uma contagem
+  // global separada, não do array já paginado.
+  const [totalPlans, setTotalPlans] = useState(0)
+  const [counts, setCounts] = useState({ ativos: 0, inativos: 0, mediaPreco: 'R$ 0,00' })
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -36,17 +42,42 @@ export default function AdminPlanos() {
   })
 
   useEffect(() => {
-    loadPlans()
+    loadCounts()
   }, [])
+
+  useEffect(() => {
+    loadPlans()
+  }, [currentPage])
 
   async function loadPlans() {
     setLoading(true)
     const supabase = getSupabase()
-    const { data, error } = await supabase.from('plans').select('*').order('sort_order', { ascending: true }).limit(1500)
+    const from = (currentPage - 1) * pageSize
+    const to = from + pageSize - 1
+    const { data, count, error } = await supabase.from('plans').select('*', { count: 'exact' }).order('sort_order', { ascending: true }).range(from, to)
     if (!error && data) {
       setPlans(data)
+      if (count !== null) setTotalPlans(count)
+    } else if (error) {
+      // GAP CORRIGIDO: falha aqui deixava a tela em "Nenhum plano
+      // encontrado" sem nenhum aviso — indistinguível de base vazia.
+      showToast('Erro ao carregar planos: ' + error.message, 'error')
     }
     setLoading(false)
+  }
+
+  async function loadCounts() {
+    const supabase = getSupabase()
+    // Tabela pequena e curada por admin (nunca vai ter milhares de linhas)
+    // — busca só as 2 colunas necessárias pro cálculo, sem trazer o resto.
+    const { data, error } = await supabase.from('plans').select('is_active, price').limit(5000)
+    if (error) return showToast('Erro ao carregar contadores: ' + error.message, 'error')
+    const rows: { is_active: boolean; price: number | string | null }[] = data || []
+    const ativos = rows.filter((p: any) => p.is_active).length
+    const mediaPreco = rows.length > 0
+      ? (rows.reduce((acc: number, p: any) => acc + Number(p.price || 0), 0) / rows.length).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+      : 'R$ 0,00'
+    setCounts({ ativos, inativos: rows.length - ativos, mediaPreco })
   }
 
   const handleToggleActive = async (id: string, currentActive: boolean) => {
@@ -54,6 +85,7 @@ export default function AdminPlanos() {
     const { data, error } = await supabase.from('plans').update({ is_active: !currentActive }).eq('id', id).select()
     if (!error && data && data.length > 0) {
       setPlans(plans.map(p => p.id === id ? { ...p, is_active: !currentActive } : p))
+      loadCounts()
     } else if (!error) {
       showToast('Nenhuma linha foi atualizada — verifique permissões ou se o registro ainda existe.', 'error')
     } else {
@@ -105,11 +137,19 @@ export default function AdminPlanos() {
 
   const handleSave = async () => {
     if (!form.name) return showToast('Preencha o nome do plano', 'error')
-    
+    if (!isFinite(form.price) || form.price < 0) return showToast('Preço padrão inválido', 'error')
+
+    const promoValue = form.promotional_price === '' ? null : Number(form.promotional_price)
+    // BUG CORRIGIDO: sem esta checagem, um preço promocional maior que o
+    // preço cheio salvava normalmente e exibia "de R$ X por R$ Y" com Y > X
+    // tanto na tabela do admin quanto em /planos (público).
+    if (promoValue !== null && (!isFinite(promoValue) || promoValue < 0)) return showToast('Preço promocional inválido', 'error')
+    if (promoValue !== null && promoValue >= form.price) return showToast('O preço promocional deve ser menor que o preço padrão', 'error')
+
     const supabase = getSupabase()
     const payload = {
       ...form,
-      promotional_price: form.promotional_price === '' ? null : Number(form.promotional_price),
+      promotional_price: promoValue,
       currency: 'BRL',
       interval: 'month',
       features: form.features.filter(f => f.trim() !== ''),
@@ -122,31 +162,35 @@ export default function AdminPlanos() {
         setPlans(plans.map(p => p.id === editingId ? { ...p, ...payload } : p))
         setIsModalOpen(false)
         showToast('Plano atualizado!', 'success')
+        loadCounts()
       } else if (!error) {
         showToast('Nenhuma linha foi atualizada — verifique permissões ou se o registro ainda existe.', 'error')
       } else {
         showToast('Erro: ' + error.message, 'error')
       }
     } else {
-      const { data, error } = await supabase.from('plans').insert({ ...payload, sort_order: plans.length + 1 }).select().single()
+      // BUG CORRIGIDO: `plans.length` agora é só o tamanho da PÁGINA atual
+      // (paginação real), não o total — usava isso pra calcular o próximo
+      // sort_order.
+      const { data, error } = await supabase.from('plans').insert({ ...payload, sort_order: totalPlans + 1 }).select().single()
       if (!error && data) {
-        setPlans([...plans, data])
         setIsModalOpen(false)
         showToast('Plano criado!', 'success')
+        // Um plano novo entra no fim da ordenação — pode cair numa página
+        // diferente da atual, então recarrega de verdade.
+        loadPlans()
+        loadCounts()
       } else {
         showToast('Erro: ' + error?.message, 'error')
       }
     }
   }
 
-  // KPIs
-  const total = plans.length
-  const ativos = plans.filter(p => p.is_active).length
-  const inativos = plans.filter(p => !p.is_active).length
-  const mediaPreco = total > 0 ? (plans.reduce((acc, p) => acc + Number(p.price || 0), 0) / total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'R$ 0,00'
+  // KPIs: globais, vindos de loadCounts() — não dependem da página atual
+  const { ativos, inativos, mediaPreco } = counts
+  const total = totalPlans
 
-  const totalPages = Math.ceil(plans.length / pageSize)
-  const paginatedPlans = plans.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  const totalPages = Math.ceil(totalPlans / pageSize)
 
   return (
     <>
@@ -194,7 +238,7 @@ export default function AdminPlanos() {
                 <tr><td colSpan={6} style={{ textAlign: 'center', padding: '20px' }}>Carregando planos...</td></tr>
               ) : plans.length === 0 ? (
                 <tr><td colSpan={6} style={{ textAlign: 'center', padding: '20px' }}>Nenhum plano encontrado.</td></tr>
-              ) : paginatedPlans.map(p => (
+              ) : plans.map(p => (
                 <tr key={p.id}>
                   <td>
                     <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -236,7 +280,7 @@ export default function AdminPlanos() {
         {/* PAGINATION FOOTER */}
         <div style={{ padding: '16px 24px', borderTop: '1px solid var(--adm-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--adm-surface)', borderRadius: '0 0 var(--adm-r-xl) var(--adm-r-xl)' }}>
             <div style={{ fontSize: '14px', color: 'var(--adm-text-secondary)' }}>
-              Mostrando de <strong style={{ color: 'var(--adm-text)' }}>{((currentPage - 1) * pageSize) + 1}</strong> até <strong style={{ color: 'var(--adm-text)' }}>{Math.min(currentPage * pageSize, plans.length)}</strong> de <strong style={{ color: 'var(--adm-text)' }}>{plans.length}</strong> itens
+              Mostrando de <strong style={{ color: 'var(--adm-text)' }}>{totalPlans === 0 ? 0 : ((currentPage - 1) * pageSize) + 1}</strong> até <strong style={{ color: 'var(--adm-text)' }}>{Math.min(currentPage * pageSize, totalPlans)}</strong> de <strong style={{ color: 'var(--adm-text)' }}>{totalPlans}</strong> itens
             </div>
             <div style={{ display: 'flex', gap: '6px' }}>
               <button 
@@ -312,7 +356,7 @@ export default function AdminPlanos() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                 <div className="adm-field">
                   <label>Preço Padrão (R$)</label>
-                  <input type="number" step="0.01" className="adm-input" value={form.price} onChange={e => setForm({ ...form, price: parseFloat(e.target.value) })} placeholder="79.00" />
+                  <input type="number" step="0.01" className="adm-input" value={form.price} onChange={e => { const n = parseFloat(e.target.value); setForm({ ...form, price: isNaN(n) ? 0 : n }) }} placeholder="79.00" />
                 </div>
                 <div className="adm-field">
                   <label>Preço Promo (Opcional)</label>
@@ -331,15 +375,15 @@ export default function AdminPlanos() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                 <div className="adm-field">
                   <label>Max Anúncios</label>
-                  <input type="number" className="adm-input" value={form.max_ads} onChange={e => setForm({ ...form, max_ads: parseInt(e.target.value) })} />
+                  <input type="number" className="adm-input" value={form.max_ads} onChange={e => { const n = parseInt(e.target.value); setForm({ ...form, max_ads: isNaN(n) ? 0 : n }) }} />
                 </div>
                 <div className="adm-field">
                   <label>Fotos/Anúncio</label>
-                  <input type="number" className="adm-input" value={form.max_photos} onChange={e => setForm({ ...form, max_photos: parseInt(e.target.value) })} />
+                  <input type="number" className="adm-input" value={form.max_photos} onChange={e => { const n = parseInt(e.target.value); setForm({ ...form, max_photos: isNaN(n) ? 0 : n }) }} />
                 </div>
                 <div className="adm-field">
                   <label>Destaques Home</label>
-                  <input type="number" className="adm-input" value={form.highlight_count} onChange={e => setForm({ ...form, highlight_count: parseInt(e.target.value) })} />
+                  <input type="number" className="adm-input" value={form.highlight_count} onChange={e => { const n = parseInt(e.target.value); setForm({ ...form, highlight_count: isNaN(n) ? 0 : n }) }} />
                 </div>
               </div>
 

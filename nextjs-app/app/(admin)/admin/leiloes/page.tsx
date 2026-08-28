@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
+import { useDebounce } from 'use-debounce'
 import { getSupabase, uploadAdImage } from '@/lib/supabase'
 import { imageUrl } from '@/lib/storage'
 import { showToast } from '@/lib/toast'
@@ -12,6 +13,12 @@ export default function AdminLeiloes() {
 
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 15
+  // BUG CORRIGIDO: a tela carregava até 1.500 leilões de uma vez e
+  // filtrava/paginava em memória — acima disso, leilões mais antigos somem
+  // da lista em silêncio. Agora busca/filtro/paginação rodam de verdade no
+  // servidor via .range().
+  const [totalFiltered, setTotalFiltered] = useState(0)
+  const [counts, setCounts] = useState({ total: 0, emAndamento: 0, agendados: 0, finalizados: 0, cancelados: 0 })
 
   const [selectedIds, setSelectedIds] = useState<string[]>([])
 
@@ -33,28 +40,40 @@ export default function AdminLeiloes() {
 
   // Filters
   const [search, setSearch] = useState('')
+  const [debouncedSearch] = useDebounce(search, 300)
   const [statusFilter, setStatusFilter] = useState('')
 
   useEffect(() => {
-    loadAuctions()
+    loadCounts()
   }, [])
+
+  useEffect(() => {
+    loadAuctions()
+  }, [currentPage, debouncedSearch, statusFilter])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [debouncedSearch, statusFilter])
 
   async function loadAuctions() {
     setLoading(true)
     const supabase = getSupabase()
-    
-    // Fetch auctions and lot counts
-    const { data: auctionsData, error: auctionsError } = await supabase
-      .from('auction_events')
-      .select('*')
-      .order('date', { ascending: false })
-      .limit(1500)
+    const from = (currentPage - 1) * pageSize
+    const to = from + pageSize - 1
+
+    let q = supabase.from('auction_events').select('*', { count: 'exact' })
+    if (debouncedSearch) q = q.ilike('title', `%${debouncedSearch}%`)
+    if (statusFilter) q = q.eq('status', statusFilter)
+
+    const { data: auctionsData, count, error: auctionsError } = await q.order('date', { ascending: false }).range(from, to)
 
     if (!auctionsError && auctionsData) {
-      // For each auction, count its lots (a separate query is safer here if foreign key isn't strictly defined for PostgREST)
-      const { data: lotsData } = await supabase
-        .from('auction_lots')
-        .select('auction_id')
+      // Contagem de lotes só da página atual (não da base inteira) — com
+      // paginação real não faz sentido mais buscar auction_lots por completo.
+      const auctionIds = auctionsData.map((a: any) => a.id)
+      const { data: lotsData } = auctionIds.length
+        ? await supabase.from('auction_lots').select('auction_id').in('auction_id', auctionIds)
+        : { data: [] as any[] }
 
       const auctionsWithCounts = auctionsData.map((auc: any) => {
         const count = lotsData?.filter((l: any) => l.auction_id === auc.id).length || 0;
@@ -62,8 +81,27 @@ export default function AdminLeiloes() {
       })
 
       setAuctions(auctionsWithCounts)
+      if (count !== null) setTotalFiltered(count)
+    } else if (auctionsError) {
+      // GAP CORRIGIDO: falha aqui deixava a tela em "0 leilões" sem
+      // nenhum aviso — indistinguível de base realmente vazia.
+      showToast('Erro ao carregar leilões: ' + auctionsError.message, 'error')
     }
     setLoading(false)
+  }
+
+  async function loadCounts() {
+    const supabase = getSupabase()
+    const [r1, r2, r3, r4, r5] = await Promise.all([
+      supabase.from('auction_events').select('*', { count: 'exact', head: true }),
+      supabase.from('auction_events').select('*', { count: 'exact', head: true }).eq('status', 'live'),
+      supabase.from('auction_events').select('*', { count: 'exact', head: true }).eq('status', 'scheduled'),
+      supabase.from('auction_events').select('*', { count: 'exact', head: true }).eq('status', 'closed'),
+      supabase.from('auction_events').select('*', { count: 'exact', head: true }).eq('status', 'cancelled'),
+    ])
+    const firstError = [r1, r2, r3, r4, r5].find(r => r.error)?.error
+    if (firstError) showToast('Erro ao carregar contadores: ' + firstError.message, 'error')
+    setCounts({ total: r1.count || 0, emAndamento: r2.count || 0, agendados: r3.count || 0, finalizados: r4.count || 0, cancelados: r5.count || 0 })
   }
 
   const handleStatusUpdate = async (id: string, newStatus: string) => {
@@ -72,6 +110,7 @@ export default function AdminLeiloes() {
     if (!error && data && data.length > 0) {
       setAuctions(auctions.map(a => a.id === id ? { ...a, status: newStatus } : a))
       showToast(`Status do leilão atualizado para ${newStatus}!`, 'success')
+      loadCounts()
     } else if (!error) {
       showToast('Nenhuma linha foi atualizada — verifique permissões ou se o registro ainda existe.', 'error')
     } else {
@@ -106,6 +145,7 @@ export default function AdminLeiloes() {
       setIsModalOpen(false)
       setForm({ title: '', date: '', status: 'scheduled', youtube: '', cover: '', catalog: '', min_bid: 0, step: 0, commission: 0, accepts_bids: true })
       showToast('Leilão criado com sucesso!', 'success')
+      loadCounts()
     } else {
       showToast('Erro ao criar leilão: ' + error?.message, 'error')
     }
@@ -130,10 +170,10 @@ export default function AdminLeiloes() {
   }
 
   const toggleSelectAll = () => {
-    if (selectedIds.length === paginatedAuctions.length) {
+    if (selectedIds.length === auctions.length) {
       setSelectedIds([])
     } else {
-      setSelectedIds(paginatedAuctions.map(a => a.id))
+      setSelectedIds(auctions.map(a => a.id))
     }
   }
 
@@ -158,6 +198,7 @@ export default function AdminLeiloes() {
       setAuctions(auctions.map(a => selectedIds.includes(a.id) ? { ...a, status: newStatus } : a))
       showToast(`${data.length} leilões atualizados para ${newStatus}!`, 'success')
       setSelectedIds([])
+      loadCounts()
     } else if (!error) {
       showToast('Nenhum leilão foi atualizado — verifique permissões ou se os registros ainda existem.', 'error')
     } else {
@@ -165,25 +206,10 @@ export default function AdminLeiloes() {
     }
   }
 
-  const filteredAuctions = auctions.filter(a => {
-    if (search && !a.title?.toLowerCase().includes(search.toLowerCase())) return false
-    if (statusFilter && a.status !== statusFilter) return false
-    return true
-  })
+  const totalPages = Math.ceil(totalFiltered / pageSize)
 
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [search, statusFilter])
-
-  const totalPages = Math.ceil(filteredAuctions.length / pageSize)
-  const paginatedAuctions = filteredAuctions.slice((currentPage - 1) * pageSize, currentPage * pageSize)
-
-  // KPIs
-  const total = auctions.length
-  const emAndamento = auctions.filter(a => a.status === 'live').length
-  const agendados = auctions.filter(a => a.status === 'scheduled').length
-  const finalizados = auctions.filter(a => a.status === 'closed').length
-  const cancelados = auctions.filter(a => a.status === 'cancelled').length
+  // KPIs: globais, vindos de loadCounts() — não dependem do filtro/busca atual
+  const { total, emAndamento, agendados, finalizados, cancelados } = counts
 
   return (
     <>
@@ -254,7 +280,7 @@ export default function AdminLeiloes() {
               <tr>
                 <th style={{ width: '40px' }}>
                   <input type="checkbox" style={{ accentColor: 'var(--adm-accent)' }}
-                         checked={paginatedAuctions.length > 0 && selectedIds.length === paginatedAuctions.length}
+                         checked={auctions.length > 0 && selectedIds.length === auctions.length}
                          onChange={toggleSelectAll} />
                 </th>
                 <th>Evento</th>
@@ -267,7 +293,7 @@ export default function AdminLeiloes() {
             <tbody>
               {loading ? (
                 <tr><td colSpan={6} style={{ textAlign: 'center', padding: '20px' }}>Carregando...</td></tr>
-              ) : paginatedAuctions.map(auc => (
+              ) : auctions.map(auc => (
                 <tr key={auc.id} style={{ background: selectedIds.includes(auc.id) ? 'var(--adm-surface-2)' : 'transparent' }}>
                   <td>
                     <input type="checkbox" style={{ accentColor: 'var(--adm-accent)' }}
@@ -324,7 +350,7 @@ export default function AdminLeiloes() {
         </div>
         <div style={{ padding: '16px 24px', borderTop: '1px solid var(--adm-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--adm-surface)', borderRadius: '0 0 var(--adm-r-xl) var(--adm-r-xl)' }}>
             <div style={{ fontSize: '14px', color: 'var(--adm-text-secondary)' }}>
-              Mostrando de <strong style={{ color: 'var(--adm-text)' }}>{((currentPage - 1) * pageSize) + 1}</strong> até <strong style={{ color: 'var(--adm-text)' }}>{Math.min(currentPage * pageSize, filteredAuctions.length)}</strong> de <strong style={{ color: 'var(--adm-text)' }}>{filteredAuctions.length}</strong> itens
+              Mostrando de <strong style={{ color: 'var(--adm-text)' }}>{((currentPage - 1) * pageSize) + 1}</strong> até <strong style={{ color: 'var(--adm-text)' }}>{Math.min(currentPage * pageSize, totalFiltered)}</strong> de <strong style={{ color: 'var(--adm-text)' }}>{totalFiltered}</strong> itens
             </div>
             <div style={{ display: 'flex', gap: '6px' }}>
               <button 

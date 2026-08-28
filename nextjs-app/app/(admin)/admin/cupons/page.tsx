@@ -12,6 +12,15 @@ export default function AdminCupons() {
 
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 15
+  // BUG CORRIGIDO: a tela carregava até 100 cupons de uma vez e paginava em
+  // memória. Agora a paginação da TABELA roda de verdade no servidor via
+  // .range(). Os KPIs continuam vindo de uma busca separada e sem paginação
+  // (só as colunas necessárias) porque "ativo e válido" depende de comparar
+  // valid_until/usage_count com o momento atual — não dá pra fazer isso só
+  // com um count(*) no banco sem uma RPC dedicada, e cupons é uma tabela
+  // pequena e curada por admin (nunca chega perto de milhares de linhas).
+  const [totalCoupons, setTotalCoupons] = useState(0)
+  const [counts, setCounts] = useState({ total: 0, ativas: 0, inativas: 0, totalUsos: 0 })
 
   const [form, setForm] = useState({
     code: '',
@@ -23,17 +32,43 @@ export default function AdminCupons() {
   })
 
   useEffect(() => {
-    loadCoupons()
+    loadCounts()
   }, [])
+
+  useEffect(() => {
+    loadCoupons()
+  }, [currentPage])
 
   async function loadCoupons() {
     setLoading(true)
     const supabase = getSupabase()
-    const { data, error } = await supabase.from('coupons').select('*').order('created_at', { ascending: false }).limit(100)
+    const from = (currentPage - 1) * pageSize
+    const to = from + pageSize - 1
+    const { data, count, error } = await supabase.from('coupons').select('*', { count: 'exact' }).order('created_at', { ascending: false }).range(from, to)
     if (!error && data) {
       setCoupons(data)
+      if (count !== null) setTotalCoupons(count)
+    } else if (error) {
+      // GAP CORRIGIDO: falha aqui deixava a tela em "Nenhum cupom criado"
+      // sem nenhum aviso — indistinguível de base vazia.
+      showToast('Erro ao carregar cupons: ' + error.message, 'error')
     }
     setLoading(false)
+  }
+
+  async function loadCounts() {
+    const supabase = getSupabase()
+    const { data, error } = await supabase.from('coupons').select('is_active, valid_until, usage_count, max_uses').limit(5000)
+    if (error) return showToast('Erro ao carregar contadores: ' + error.message, 'error')
+    const rows = data || []
+    const now = new Date()
+    const ativas = rows.filter((c: any) => {
+      const expired = c.valid_until && new Date(c.valid_until) < now
+      const maxReached = c.max_uses && (c.usage_count || 0) >= c.max_uses
+      return c.is_active && !expired && !maxReached
+    }).length
+    const totalUsos = rows.reduce((acc: number, c: any) => acc + (c.usage_count || 0), 0)
+    setCounts({ total: rows.length, ativas, inativas: rows.length - ativas, totalUsos })
   }
 
   const handleToggleActive = async (id: string, currentActive: boolean) => {
@@ -41,8 +76,13 @@ export default function AdminCupons() {
     const { data, error } = await supabase.from('coupons').update({ is_active: !currentActive }).eq('id', id).select()
     if (!error && data && data.length > 0) {
       setCoupons(coupons.map(c => c.id === id ? { ...c, is_active: !currentActive } : c))
+      loadCounts()
     } else if (!error) {
       showToast('Nenhum cupom foi alterado — verifique suas permissões.', 'error')
+    } else {
+      // GAP CORRIGIDO: erro real do Supabase (rede, etc.) era engolido —
+      // a tela ficava com o status antigo sem nenhum aviso ao admin.
+      showToast('Erro: ' + error.message, 'error')
     }
   }
 
@@ -51,9 +91,14 @@ export default function AdminCupons() {
     const supabase = getSupabase()
     const { data, error } = await supabase.from('coupons').delete().eq('id', id).select()
     if (!error && data && data.length > 0) {
-      setCoupons(coupons.filter(c => c.id !== id))
+      // Excluir pode deixar a página atual com menos itens que o esperado
+      // — recarrega de verdade em vez de só remover localmente.
+      loadCoupons()
+      loadCounts()
     } else if (!error) {
       showToast('Nenhum cupom foi excluído — verifique suas permissões.', 'error')
+    } else {
+      showToast('Erro: ' + error.message, 'error')
     }
   }
 
@@ -76,7 +121,10 @@ export default function AdminCupons() {
       code: c.code,
       discount_type: c.discount_type,
       discount_value: c.discount_value,
-      valid_until: c.valid_until ? new Date(c.valid_until).toISOString().slice(0, 10) : '',
+      // Formata na TZ de Brasil (não UTC): valid_until agora é gravado como
+      // 23:59:59 -03:00 (ver handleSave) — com .toISOString().slice(0,10)
+      // simples, um cupom válido até 31/08 reabria o form mostrando 01/09.
+      valid_until: c.valid_until ? new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date(c.valid_until)) : '',
       max_uses: c.max_uses ?? '',
       is_active: c.is_active
     })
@@ -85,13 +133,23 @@ export default function AdminCupons() {
 
   const handleSave = async () => {
     if (!form.code) return showToast('Preencha o código do cupom', 'error')
-    if (form.discount_value <= 0) return showToast('O desconto deve ser maior que zero', 'error')
+    if (!isFinite(form.discount_value) || form.discount_value <= 0) return showToast('O desconto deve ser maior que zero', 'error')
+    // BUG CORRIGIDO: desconto percentual sem teto — um valor > 100 (erro de
+    // digitação ou má-fé) gera preço final NEGATIVO no checkout
+    // (app/api/checkout/route.ts), indo pro gateway de cobrança.
+    if (form.discount_type === 'percentage' && form.discount_value > 100) return showToast('O desconto percentual não pode ser maior que 100%', 'error')
 
     const supabase = getSupabase()
     const payload = {
       ...form,
       code: form.code.toUpperCase(),
-      valid_until: form.valid_until ? new Date(form.valid_until).toISOString() : null,
+      // BUG CORRIGIDO: new Date('2026-08-31').toISOString() é meia-noite UTC
+      // — 21h do dia 30 em Brasília (UTC-3). Um cupom "válido até 31/08"
+      // expirava ~3h antes da meia-noite real desse dia para qualquer
+      // comparação feita aqui (ver `expired` acima) ou em
+      // app/api/checkout/validate-coupon e app/api/checkout/route.ts.
+      // Offset explícito -03:00 = fim do dia em horário de Brasília.
+      valid_until: form.valid_until ? new Date(`${form.valid_until}T23:59:59-03:00`).toISOString() : null,
       max_uses: form.max_uses === '' ? null : Number(form.max_uses)
     }
 
@@ -102,6 +160,7 @@ export default function AdminCupons() {
         setIsModalOpen(false)
         setEditingId(null)
         showToast('Cupom atualizado!', 'success')
+        loadCounts()
       } else {
         showToast('Erro: ' + error?.message, 'error')
       }
@@ -110,25 +169,23 @@ export default function AdminCupons() {
 
     const { data, error } = await supabase.from('coupons').insert(payload).select().single()
     if (!error && data) {
-      setCoupons([data, ...coupons])
       setIsModalOpen(false)
       showToast('Cupom criado!', 'success')
+      // Um cupom novo entra no topo (created_at desc) — só aparece na
+      // página 1; recarrega de verdade em vez de inserir otimisticamente
+      // numa página que pode não ser a atual.
+      if (currentPage !== 1) setCurrentPage(1)
+      else loadCoupons()
+      loadCounts()
     } else {
       showToast('Erro: ' + error?.message, 'error')
     }
   }
 
-  const total = coupons.length
-  const ativas = coupons.filter(c => {
-    const expired = c.valid_until && new Date(c.valid_until) < new Date()
-    const maxReached = c.max_uses && c.usage_count >= c.max_uses
-    return c.is_active && !expired && !maxReached
-  }).length
-  const inativas = total - ativas
-  const totalUsos = coupons.reduce((acc, c) => acc + (c.usage_count || 0), 0)
+  // KPIs: globais, vindos de loadCounts() — não dependem da página atual
+  const { total, ativas, inativas, totalUsos } = counts
 
-  const totalPages = Math.ceil(coupons.length / pageSize)
-  const paginatedCoupons = coupons.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  const totalPages = Math.ceil(totalCoupons / pageSize)
 
   return (
     <>
@@ -180,7 +237,7 @@ export default function AdminCupons() {
                 <tr><td colSpan={6} style={{ textAlign: 'center', padding: '20px' }}>Carregando cupons...</td></tr>
               ) : coupons.length === 0 ? (
                 <tr><td colSpan={6} style={{ textAlign: 'center', padding: '20px' }}>Nenhum cupom criado.</td></tr>
-              ) : paginatedCoupons.map(c => {
+              ) : coupons.map(c => {
                 const expired = c.valid_until && new Date(c.valid_until) < new Date()
                 const maxReached = c.max_uses && c.usage_count >= c.max_uses
                 return (
@@ -193,7 +250,7 @@ export default function AdminCupons() {
                     <td>
                       {c.valid_until ? (
                         <span style={{ color: expired ? 'var(--adm-red)' : 'inherit' }}>
-                          {new Date(c.valid_until).toLocaleDateString('pt-BR')}
+                          {new Date(c.valid_until).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
                         </span>
                       ) : 'Sem validade'}
                     </td>
@@ -227,7 +284,7 @@ export default function AdminCupons() {
         {/* PAGINATION FOOTER */}
         <div style={{ padding: '16px 24px', borderTop: '1px solid var(--adm-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--adm-surface)', borderRadius: '0 0 var(--adm-r-xl) var(--adm-r-xl)' }}>
           <div style={{ fontSize: '14px', color: 'var(--adm-text-secondary)' }}>
-            Mostrando de <strong style={{ color: 'var(--adm-text)' }}>{coupons.length === 0 ? 0 : ((currentPage - 1) * pageSize) + 1}</strong> até <strong style={{ color: 'var(--adm-text)' }}>{Math.min(currentPage * pageSize, coupons.length)}</strong> de <strong style={{ color: 'var(--adm-text)' }}>{coupons.length}</strong> itens
+            Mostrando de <strong style={{ color: 'var(--adm-text)' }}>{totalCoupons === 0 ? 0 : ((currentPage - 1) * pageSize) + 1}</strong> até <strong style={{ color: 'var(--adm-text)' }}>{Math.min(currentPage * pageSize, totalCoupons)}</strong> de <strong style={{ color: 'var(--adm-text)' }}>{totalCoupons}</strong> itens
           </div>
           <div style={{ display: 'flex', gap: '6px' }}>
             <button 
@@ -289,7 +346,7 @@ export default function AdminCupons() {
               </div>
               <div className="adm-field">
                 <label>Valor ({form.discount_type === 'percentage' ? '%' : 'R$'})</label>
-                <input type="number" className="adm-input" value={form.discount_value} onChange={e => setForm({ ...form, discount_value: parseFloat(e.target.value) })} />
+                <input type="number" className="adm-input" max={form.discount_type === 'percentage' ? 100 : undefined} value={form.discount_value} onChange={e => setForm({ ...form, discount_value: parseFloat(e.target.value) })} />
               </div>
             </div>
 

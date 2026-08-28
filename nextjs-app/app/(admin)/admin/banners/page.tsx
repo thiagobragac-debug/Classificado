@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { getSupabase } from '@/lib/supabase'
+import { getSupabase, getSession } from '@/lib/supabase'
 import { showToast } from '@/lib/toast'
 import { useConfirm } from '@/components/ui/ConfirmProvider'
 
@@ -12,12 +12,17 @@ export default function AdminBanners() {
 
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 15
+  // BUG CORRIGIDO: a tela carregava até 1.500 banners de uma vez e paginava
+  // em memória. Agora a paginação roda de verdade no servidor via .range(),
+  // e os KPIs vêm de contagens globais separadas, não do array já paginado.
+  const [totalBanners, setTotalBanners] = useState(0)
+  const [counts, setCounts] = useState({ ativos: 0, inativos: 0, globais: 0 })
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [uploadingImage, setUploadingImage] = useState(false)
-  
+
   const [form, setForm] = useState({
     name: '',
     position: 'home_top',
@@ -29,17 +34,40 @@ export default function AdminBanners() {
   })
 
   useEffect(() => {
-    loadBanners()
+    loadCounts()
   }, [])
+
+  useEffect(() => {
+    loadBanners()
+  }, [currentPage])
 
   async function loadBanners() {
     setLoading(true)
     const supabase = getSupabase()
-    const { data, error } = await supabase.from('banners').select('*').order('created_at', { ascending: false }).limit(1500)
+    const from = (currentPage - 1) * pageSize
+    const to = from + pageSize - 1
+    const { data, count, error } = await supabase.from('banners').select('*', { count: 'exact' }).order('created_at', { ascending: false }).range(from, to)
     if (!error && data) {
       setBanners(data)
+      if (count !== null) setTotalBanners(count)
+    } else if (error) {
+      // GAP CORRIGIDO: falha aqui deixava a tela em "Nenhum banner
+      // encontrado" sem nenhum aviso — indistinguível de base vazia.
+      showToast('Erro ao carregar banners: ' + error.message, 'error')
     }
     setLoading(false)
+  }
+
+  async function loadCounts() {
+    const supabase = getSupabase()
+    const [r1, r2, r3] = await Promise.all([
+      supabase.from('banners').select('*', { count: 'exact', head: true }).eq('status', 'active'),
+      supabase.from('banners').select('*', { count: 'exact', head: true }).eq('status', 'inactive'),
+      supabase.from('banners').select('*', { count: 'exact', head: true }).eq('target_type', 'global'),
+    ])
+    const firstError = [r1, r2, r3].find(r => r.error)?.error
+    if (firstError) showToast('Erro ao carregar contadores: ' + firstError.message, 'error')
+    setCounts({ ativos: r1.count || 0, inativos: r2.count || 0, globais: r3.count || 0 })
   }
 
   const handleToggleStatus = async (id: string, currentStatus: string) => {
@@ -52,6 +80,7 @@ export default function AdminBanners() {
     const { data, error } = await supabase.from('banners').update({ status: newStatus }).eq('id', id).select()
     if (!error && data && data.length > 0) {
       setBanners(banners.map(b => b.id === id ? { ...b, status: newStatus } : b))
+      loadCounts()
     } else if (!error) {
       showToast('Nenhum banner foi alterado — verifique suas permissões.', 'error')
     } else {
@@ -64,9 +93,19 @@ export default function AdminBanners() {
     if (!file) return
     setUploadingImage(true)
     const supabase = getSupabase()
+    const session = await getSession()
+    if (!session) {
+      showToast('Sessão expirada — faça login novamente.', 'error')
+      setUploadingImage(false)
+      return
+    }
     const ext = file.name.split('.').pop()
-    const fileName = `banner_${Date.now()}_${Math.random().toString(36).substring(2,7)}.${ext}`
-    
+    // uid como primeiro segmento do path: a policy de INSERT do bucket
+    // ad-images exige (storage.foldername(name))[1] = auth.uid() (ver
+    // correção em lib/supabase.ts uploadAdImage) — sem isso o upload
+    // sempre falhava com RLS antes de chegar a mostrar erro específico.
+    const fileName = `${session.user.id}/banners/${Date.now()}_${Math.random().toString(36).substring(2,7)}.${ext}`
+
     const { error } = await supabase.storage.from('ad-images').upload(fileName, file)
     if (error) {
       showToast('Erro no upload: ' + error.message, 'error')
@@ -83,7 +122,10 @@ export default function AdminBanners() {
     const supabase = getSupabase()
     const { data, error } = await supabase.from('banners').delete().eq('id', id).select()
     if (!error && data && data.length > 0) {
-      setBanners(banners.filter(b => b.id !== id))
+      // Excluir pode deixar a página atual com menos itens que o esperado
+      // — recarrega de verdade em vez de só remover localmente.
+      loadBanners()
+      loadCounts()
     } else if (!error) {
       showToast('Nenhum banner foi excluído — verifique suas permissões.', 'error')
     } else {
@@ -127,6 +169,7 @@ export default function AdminBanners() {
         setBanners(banners.map(b => b.id === editingId ? { ...b, ...payload } : b))
         setIsModalOpen(false)
         showToast('Banner atualizado!', 'success')
+        loadCounts()
       } else if (!error) {
         showToast('Nenhum banner foi alterado — verifique suas permissões.', 'error')
       } else {
@@ -135,23 +178,25 @@ export default function AdminBanners() {
     } else {
       const { data, error } = await supabase.from('banners').insert(payload).select().single()
       if (!error && data) {
-        setBanners([data, ...banners])
         setIsModalOpen(false)
         showToast('Banner criado!', 'success')
+        // Um banner novo entra no topo (created_at desc) — só aparece na
+        // página 1; recarrega de verdade em vez de inserir otimisticamente
+        // numa página que pode não ser a atual.
+        if (currentPage !== 1) setCurrentPage(1)
+        else loadBanners()
+        loadCounts()
       } else {
         showToast('Erro: ' + error?.message, 'error')
       }
     }
   }
 
-  // KPIs
-  const total = banners.length
-  const ativos = banners.filter(b => b.status === 'active').length
-  const inativos = banners.filter(b => b.status === 'inactive').length
-  const globais = banners.filter(b => b.target_type === 'global').length
+  // KPIs: globais, vindos de loadCounts() — não dependem da página atual
+  const { ativos, inativos, globais } = counts
+  const total = totalBanners
 
-  const totalPages = Math.ceil(banners.length / pageSize)
-  const paginatedBanners = banners.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  const totalPages = Math.ceil(totalBanners / pageSize)
 
   return (
     <>
@@ -198,7 +243,7 @@ export default function AdminBanners() {
                 <tr><td colSpan={5} style={{ textAlign: 'center', padding: '20px' }}>Carregando banners...</td></tr>
               ) : banners.length === 0 ? (
                 <tr><td colSpan={5} style={{ textAlign: 'center', padding: '20px' }}>Nenhum banner encontrado.</td></tr>
-              ) : paginatedBanners.map(b => (
+              ) : banners.map(b => (
                 <tr key={b.id}>
                   <td>
                     {b.image_url ? (
@@ -213,7 +258,7 @@ export default function AdminBanners() {
                   </td>
                   <td>
                     <div style={{ fontSize: '0.85rem' }}>Posição: <strong style={{ color: 'var(--adm-text)' }}>{b.position}</strong></div>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--adm-text-muted)' }}>Alvo: {b.target_type} {b.target_location ? `(${b.target_location})` : ''}</div>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--adm-text-muted)' }}>Alvo: {b.target_type} {b.target_location ? `(${b.target_location.replace('|', ' - ')})` : ''}</div>
                   </td>
                   <td>
                     {b.status === 'active' ? <span className="adm-badge adm-badge--green">Ativo</span> : <span className="adm-badge adm-badge--amber">Inativo</span>}
@@ -235,7 +280,7 @@ export default function AdminBanners() {
         {/* PAGINATION FOOTER */}
         <div style={{ padding: '16px 24px', borderTop: '1px solid var(--adm-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--adm-surface)', borderRadius: '0 0 var(--adm-r-xl) var(--adm-r-xl)' }}>
             <div style={{ fontSize: '14px', color: 'var(--adm-text-secondary)' }}>
-              Mostrando de <strong style={{ color: 'var(--adm-text)' }}>{((currentPage - 1) * pageSize) + 1}</strong> até <strong style={{ color: 'var(--adm-text)' }}>{Math.min(currentPage * pageSize, banners.length)}</strong> de <strong style={{ color: 'var(--adm-text)' }}>{banners.length}</strong> itens
+              Mostrando de <strong style={{ color: 'var(--adm-text)' }}>{totalBanners === 0 ? 0 : ((currentPage - 1) * pageSize) + 1}</strong> até <strong style={{ color: 'var(--adm-text)' }}>{Math.min(currentPage * pageSize, totalBanners)}</strong> de <strong style={{ color: 'var(--adm-text)' }}>{totalBanners}</strong> itens
             </div>
             <div style={{ display: 'flex', gap: '6px' }}>
               <button 
@@ -343,11 +388,14 @@ export default function AdminBanners() {
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <div className="adm-field" style={{ flex: 2 }}>
                       <label>Cidade</label>
-                      <input type="text" className="adm-input" value={form.target_location.split('-')[0] || ''} onChange={e => setForm({ ...form, target_location: `${e.target.value}-${form.target_location.split('-')[1] || ''}` })} placeholder="Ex: São Paulo" />
+                      {/* Separador '|' em vez de '-': nomes reais de município têm
+                          hífen (ex.: Embu-Guaçu/SP) e quebravam tanto a digitação
+                          aqui quanto o parsing em getBanners() (lib/supabase.ts). */}
+                      <input type="text" className="adm-input" value={form.target_location.split('|')[0] || ''} onChange={e => setForm({ ...form, target_location: `${e.target.value}|${form.target_location.split('|')[1] || ''}` })} placeholder="Ex: São Paulo" />
                     </div>
                     <div className="adm-field" style={{ flex: 1 }}>
                       <label>UF</label>
-                      <input type="text" className="adm-input" maxLength={2} value={form.target_location.split('-')[1] || ''} onChange={e => setForm({ ...form, target_location: `${form.target_location.split('-')[0] || ''}-${e.target.value.toUpperCase()}` })} placeholder="SP" />
+                      <input type="text" className="adm-input" maxLength={2} value={form.target_location.split('|')[1] || ''} onChange={e => setForm({ ...form, target_location: `${form.target_location.split('|')[0] || ''}|${e.target.value.toUpperCase()}` })} placeholder="SP" />
                     </div>
                   </div>
                 )}

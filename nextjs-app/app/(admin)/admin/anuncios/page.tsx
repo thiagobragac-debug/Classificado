@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Plus, Search, Filter, MoreVertical, Edit2, Trash2, Eye, ExternalLink } from 'lucide-react'
+import { useDebounce } from 'use-debounce'
 import { getSupabase } from '@/lib/supabase'
 import { imageUrl } from '@/lib/storage'
 import { showToast } from '@/lib/toast'
@@ -14,40 +15,93 @@ export default function AdminAnuncios() {
 
   // Filters
   const [search, setSearch] = useState('')
+  const [debouncedSearch] = useDebounce(search, 300)
   const [statusFilter, setStatusFilter] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
   const [countryFilter, setCountryFilter] = useState('')
   const [selectedIds, setSelectedIds] = useState<string[]>([])
-  
+
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 15
+  // BUG CORRIGIDO: a tela carregava até 1.500 anúncios de uma vez e
+  // filtrava/paginava em memória — acima disso, anúncios mais antigos
+  // (inclusive pendentes) somem da lista em silêncio. Agora busca/filtro/
+  // paginação rodam de verdade no servidor via .range().
+  const [totalFiltered, setTotalFiltered] = useState(0)
 
   const [categories, setCategories] = useState<any[]>([])
 
+  // KPIs: contagens reais e globais (não afetadas pelo filtro/busca atual)
+  const [counts, setCounts] = useState({ total: 0, ativos: 0, pendentes: 0, rejeitados: 0 })
+
+  useEffect(() => {
+    loadCategories()
+    loadCounts()
+  }, [])
+
   useEffect(() => {
     loadAds()
-    loadCategories()
-  }, [])
+  }, [currentPage, debouncedSearch, statusFilter, categoryFilter, countryFilter])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [debouncedSearch, statusFilter, categoryFilter, countryFilter])
 
   async function loadAds() {
     setLoading(true)
     const supabase = getSupabase()
-    const { data, error } = await supabase
-      .from('ads')
-      .select('*, profiles(name)')
-      .order('created_at', { ascending: false })
-      .limit(1500)
-    
+    const from = (currentPage - 1) * pageSize
+    const to = from + pageSize - 1
+
+    let q = supabase.from('ads').select('*, profiles(name)', { count: 'exact' })
+    if (statusFilter) q = q.eq('status', statusFilter)
+    if (categoryFilter) q = q.eq('category_id', categoryFilter)
+    if (countryFilter) q = q.ilike('country', `%${countryFilter}%`)
+
+    // Busca cruza duas tabelas (título do anúncio, nome do vendedor) — o
+    // PostgREST não faz OR entre colunas de tabelas diferentes numa query
+    // só, então resolvemos os IDs de vendedor que batem primeiro (mesma
+    // técnica já usada em /admin/denuncias e /admin/usuarios).
+    if (debouncedSearch) {
+      const term = `%${debouncedSearch}%`
+      const { data: sellerMatch } = await supabase.from('profiles').select('id').ilike('name', term).limit(500)
+      const sellerIds = (sellerMatch || []).map((p: any) => p.id)
+      const orParts = [`title_pt.ilike.${term}`]
+      if (sellerIds.length) orParts.push(`user_id.in.(${sellerIds.join(',')})`)
+      q = q.or(orParts.join(','))
+    }
+
+    const { data, count, error } = await q.order('created_at', { ascending: false }).range(from, to)
+
     if (!error && data) {
       setAds(data)
+      if (count !== null) setTotalFiltered(count)
+    } else if (error) {
+      // GAP CORRIGIDO: falha aqui deixava a tela em "0 anúncios" sem
+      // nenhum aviso — indistinguível de base realmente vazia.
+      showToast('Erro ao carregar anúncios: ' + error.message, 'error')
     }
     setLoading(false)
   }
 
+  async function loadCounts() {
+    const supabase = getSupabase()
+    const [r1, r2, r3, r4] = await Promise.all([
+      supabase.from('ads').select('*', { count: 'exact', head: true }),
+      supabase.from('ads').select('*', { count: 'exact', head: true }).eq('status', 'active'),
+      supabase.from('ads').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+      supabase.from('ads').select('*', { count: 'exact', head: true }).eq('status', 'rejected'),
+    ])
+    const firstError = [r1, r2, r3, r4].find(r => r.error)?.error
+    if (firstError) showToast('Erro ao carregar contadores: ' + firstError.message, 'error')
+    setCounts({ total: r1.count || 0, ativos: r2.count || 0, pendentes: r3.count || 0, rejeitados: r4.count || 0 })
+  }
+
   async function loadCategories() {
     const supabase = getSupabase()
-    const { data } = await supabase.from('categories').select('id, name_pt').order('sort_order', { ascending: true })
+    const { data, error } = await supabase.from('categories').select('id, name_pt').order('sort_order', { ascending: true })
     if (data) setCategories(data)
+    else if (error) showToast('Erro ao carregar categorias: ' + error.message, 'error')
   }
 
   const handleStatusUpdate = async (adId: string, newStatus: string) => {
@@ -56,6 +110,7 @@ export default function AdminAnuncios() {
     if (!error && data && data.length > 0) {
       setAds(ads.map(a => a.id === adId ? { ...a, status: newStatus } : a))
       showToast(`Anúncio atualizado para ${newStatus}!`, 'success')
+      loadCounts()
     } else if (!error) {
       showToast('Nenhuma linha foi atualizada — verifique permissões ou se o registro ainda existe.', 'error')
     } else if (error.message.includes('Limite de') && error.message.includes('anuncios ativos')) {
@@ -121,13 +176,14 @@ export default function AdminAnuncios() {
     }
 
     setSelectedIds(failed.map(r => r.id)) // mantém selecionados só os que falharam, pra inspeção
+    loadCounts()
   }
 
   const toggleSelectAll = () => {
-    if (selectedIds.length === filteredAds.length) {
+    if (selectedIds.length === ads.length) {
       setSelectedIds([])
     } else {
-      setSelectedIds(filteredAds.map(a => a.id))
+      setSelectedIds(ads.map(a => a.id))
     }
   }
 
@@ -139,9 +195,32 @@ export default function AdminAnuncios() {
     }
   }
 
-  const handleExport = () => {
+  // BUG CORRIGIDO: exportava só `filteredAds` (os até 1.500 já carregados na
+  // tela, filtrados em memória) — com paginação real, a tela só tem a
+  // página atual em memória. Busca de novo no servidor com os mesmos
+  // filtros, sem paginação, pra exportar TODOS os resultados filtrados.
+  const handleExport = async () => {
+    const supabase = getSupabase()
+    let q = supabase.from('ads').select('*, profiles(name)')
+    if (statusFilter) q = q.eq('status', statusFilter)
+    if (categoryFilter) q = q.eq('category_id', categoryFilter)
+    if (countryFilter) q = q.ilike('country', `%${countryFilter}%`)
+    if (debouncedSearch) {
+      const term = `%${debouncedSearch}%`
+      const { data: sellerMatch } = await supabase.from('profiles').select('id').ilike('name', term).limit(500)
+      const sellerIds = (sellerMatch || []).map((p: any) => p.id)
+      const orParts = [`title_pt.ilike.${term}`]
+      if (sellerIds.length) orParts.push(`user_id.in.(${sellerIds.join(',')})`)
+      q = q.or(orParts.join(','))
+    }
+    const { data: exportAds, error: exportError } = await q.order('created_at', { ascending: false }).limit(20000)
+    if (exportError) {
+      showToast('Erro ao exportar: ' + exportError.message, 'error')
+      return
+    }
+
     const headers = ['ID', 'Título', 'Vendedor', 'Categoria', 'Preço', 'País', 'Status', 'Data']
-    const rows = filteredAds.map(a => [
+    const rows = (exportAds || []).map((a: any) => [
       a.id,
       a.title_pt || '',
       a.profiles?.name || '',
@@ -152,10 +231,13 @@ export default function AdminAnuncios() {
       new Date(a.created_at).toLocaleDateString()
     ])
     
-    let csvContent = "data:text/csv;charset=utf-8," 
-      + headers.join(",") + "\n"
-      + rows.map(e => e.join(",")).join("\n");
-      
+    // BUG CORRIGIDO: campos concatenados com ',' sem escaping quebravam a
+    // coluna com título/vendedor contendo vírgula. RFC 4180.
+    const csvEscape = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`
+    const csvContent = "data:text/csv;charset=utf-8,"
+      + headers.map(csvEscape).join(",") + "\n"
+      + rows.map((row: (string | number)[]) => row.map(csvEscape).join(",")).join("\n");
+
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -165,28 +247,11 @@ export default function AdminAnuncios() {
     document.body.removeChild(link);
   }
 
-  const filteredAds = ads.filter(a => {
-    if (search && !(a.title_pt?.toLowerCase().includes(search.toLowerCase()) || a.profiles?.name?.toLowerCase().includes(search.toLowerCase()))) return false
-    if (statusFilter && a.status !== statusFilter) return false
-    if (categoryFilter && a.category_id !== categoryFilter) return false
-    if (countryFilter && !a.country?.toLowerCase().includes(countryFilter.toLowerCase())) return false
-    return true
-  })
-
-  // Reset pagination when filters change
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [search, statusFilter, categoryFilter, countryFilter])
-
   // Pagination logic
-  const totalPages = Math.ceil(filteredAds.length / pageSize)
-  const paginatedAds = filteredAds.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  const totalPages = Math.ceil(totalFiltered / pageSize)
 
-  // KPIs
-  const total = ads.length
-  const ativos = ads.filter(a => a.status === 'active').length
-  const pendentes = ads.filter(a => a.status === 'pending').length
-  const rejeitados = ads.filter(a => a.status === 'rejected').length
+  // KPIs: globais, vindos de loadCounts() — não dependem do filtro/busca atual
+  const { total, ativos, pendentes, rejeitados } = counts
 
   return (
     <>
@@ -262,7 +327,7 @@ export default function AdminAnuncios() {
                   <input 
                     type="checkbox" 
                     style={{ accentColor: 'var(--adm-accent)' }} 
-                    checked={filteredAds.length > 0 && selectedIds.length === filteredAds.length}
+                    checked={totalFiltered > 0 && selectedIds.length === totalFiltered}
                     onChange={toggleSelectAll}
                   />
                 </th>
@@ -278,7 +343,7 @@ export default function AdminAnuncios() {
             <tbody>
               {loading ? (
                 <tr><td colSpan={8} style={{ textAlign: 'center', padding: '20px' }}>Carregando...</td></tr>
-              ) : paginatedAds.map(ad => (
+              ) : ads.map(ad => (
                 <tr key={ad.id} style={{ background: selectedIds.includes(ad.id) ? 'var(--adm-surface-2)' : 'transparent' }}>
                   <td>
                     <input 
@@ -348,7 +413,7 @@ export default function AdminAnuncios() {
         {/* PAGINATION FOOTER */}
         <div style={{ padding: '16px 24px', borderTop: '1px solid var(--adm-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--adm-surface)', borderRadius: '0 0 var(--adm-r-xl) var(--adm-r-xl)' }}>
             <div style={{ fontSize: '14px', color: 'var(--adm-text-secondary)' }}>
-              Mostrando de <strong style={{ color: 'var(--adm-text)' }}>{filteredAds.length === 0 ? 0 : ((currentPage - 1) * pageSize) + 1}</strong> até <strong style={{ color: 'var(--adm-text)' }}>{Math.min(currentPage * pageSize, filteredAds.length)}</strong> de <strong style={{ color: 'var(--adm-text)' }}>{filteredAds.length}</strong> anúncios
+              Mostrando de <strong style={{ color: 'var(--adm-text)' }}>{totalFiltered === 0 ? 0 : ((currentPage - 1) * pageSize) + 1}</strong> até <strong style={{ color: 'var(--adm-text)' }}>{Math.min(currentPage * pageSize, totalFiltered)}</strong> de <strong style={{ color: 'var(--adm-text)' }}>{totalFiltered}</strong> anúncios
             </div>
             <div style={{ display: 'flex', gap: '6px' }}>
               <button 

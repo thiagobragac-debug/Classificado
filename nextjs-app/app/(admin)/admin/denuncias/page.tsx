@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useDebounce } from 'use-debounce'
 import { getSupabase } from '@/lib/supabase'
 import { showToast } from '@/lib/toast'
 import { useConfirm } from '@/components/ui/ConfirmProvider'
@@ -13,31 +14,94 @@ export default function AdminDenuncias() {
 
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 15
-  
+  // BUG CORRIGIDO: a tela carregava até 1.500 denúncias de uma vez e
+  // filtrava/paginava em memória — acima disso, denúncias mais antigas
+  // (inclusive pendentes de alta gravidade) somem da lista em silêncio.
+  // Agora busca/filtro/paginação rodam de verdade no servidor via .range().
+  const [totalFiltered, setTotalFiltered] = useState(0)
+
   const [selectedIds, setSelectedIds] = useState<string[]>([])
 
   // Filters
   const [search, setSearch] = useState('')
+  const [debouncedSearch] = useDebounce(search, 300)
   const [severityFilter, setSeverityFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
 
+  // KPIs: contagens reais e globais (não afetadas pelo filtro/busca atual),
+  // mesmo padrão já usado no dashboard e em /admin/verificacoes.
+  const [counts, setCounts] = useState({ total: 0, pendentes: 0, altaGravidade: 0, resolvidas: 0 })
+
+  useEffect(() => {
+    loadCounts()
+  }, [])
+
   useEffect(() => {
     loadReports()
-  }, [])
+  }, [currentPage, debouncedSearch, severityFilter, statusFilter])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [debouncedSearch, severityFilter, statusFilter])
 
   async function loadReports() {
     setLoading(true)
     const supabase = getSupabase()
-    const { data, error } = await supabase
-      .from('reports')
-      .select('*, ads(title_pt), profiles!reporter_id(name)')
-      .order('created_at', { ascending: false })
-      .limit(1500)
-    
+    const from = (currentPage - 1) * pageSize
+    const to = from + pageSize - 1
+
+    let q = supabase.from('reports').select('*, ads(title_pt), profiles!reporter_id(name)', { count: 'exact' })
+    if (severityFilter) q = q.eq('severity', severityFilter)
+    if (statusFilter) q = q.eq('status', statusFilter)
+
+    // A busca cruza duas tabelas relacionadas (título do anúncio, nome do
+    // denunciante) — o PostgREST não faz OR entre colunas de tabelas
+    // diferentes numa query só, então resolvemos os IDs que batem em cada
+    // uma primeiro e combinamos com .in() na query principal.
+    if (debouncedSearch) {
+      const term = `%${debouncedSearch}%`
+      const [adsMatch, profilesMatch] = await Promise.all([
+        supabase.from('ads').select('id').ilike('title_pt', term).limit(500),
+        supabase.from('profiles').select('id').ilike('name', term).limit(500),
+      ])
+      const adIds = (adsMatch.data || []).map((a: any) => a.id)
+      const reporterIds = (profilesMatch.data || []).map((p: any) => p.id)
+      if (adIds.length === 0 && reporterIds.length === 0) {
+        setReports([])
+        setTotalFiltered(0)
+        setLoading(false)
+        return
+      }
+      const orParts: string[] = []
+      if (adIds.length) orParts.push(`ad_id.in.(${adIds.join(',')})`)
+      if (reporterIds.length) orParts.push(`reporter_id.in.(${reporterIds.join(',')})`)
+      q = q.or(orParts.join(','))
+    }
+
+    const { data, count, error } = await q.order('created_at', { ascending: false }).range(from, to)
+
     if (!error && data) {
       setReports(data)
+      if (count !== null) setTotalFiltered(count)
+    } else if (error) {
+      // GAP CORRIGIDO: falha aqui deixava a tela em "Nenhuma denúncia
+      // encontrada" sem nenhum aviso — indistinguível de fila realmente vazia.
+      showToast('Erro ao carregar denúncias: ' + error.message, 'error')
     }
     setLoading(false)
+  }
+
+  async function loadCounts() {
+    const supabase = getSupabase()
+    const [r1, r2, r3, r4] = await Promise.all([
+      supabase.from('reports').select('*', { count: 'exact', head: true }),
+      supabase.from('reports').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+      supabase.from('reports').select('*', { count: 'exact', head: true }).eq('severity', 'high').eq('status', 'pending'),
+      supabase.from('reports').select('*', { count: 'exact', head: true }).in('status', ['resolved', 'dismissed']),
+    ])
+    const firstError = [r1, r2, r3, r4].find(r => r.error)?.error
+    if (firstError) showToast('Erro ao carregar contadores: ' + firstError.message, 'error')
+    setCounts({ total: r1.count || 0, pendentes: r2.count || 0, altaGravidade: r3.count || 0, resolvidas: r4.count || 0 })
   }
 
   const handleDismiss = async (id: string) => {
@@ -46,6 +110,7 @@ export default function AdminDenuncias() {
     if (!error && data && data.length > 0) {
       setReports(reports.map(r => r.id === id ? { ...r, status: 'dismissed' } : r))
       showToast('Denúncia marcada como falso positivo.', 'success')
+      loadCounts()
     } else if (!error) {
       showToast('Nenhuma linha foi atualizada — verifique permissões ou se o registro ainda existe.', 'error')
     } else {
@@ -73,6 +138,7 @@ export default function AdminDenuncias() {
     if (!reportError && reportData && reportData.length > 0) {
       setReports(reports.map(r => r.id === reportId ? { ...r, status: 'resolved' } : r))
       showToast('Anúncio banido e denúncia resolvida com sucesso!', 'success')
+      loadCounts()
     } else if (!reportError) {
       showToast('Anúncio banido, mas a denúncia não foi encontrada para ser fechada — verifique permissões.', 'error')
     } else {
@@ -100,6 +166,7 @@ export default function AdminDenuncias() {
     if (!error && data && data.length > 0) {
       setReports(reports.map(r => r.id === id ? { ...r, status: 'pending' } : r))
       showToast('Decisão revertida! Denúncia e anúncio de volta para análise.', 'success')
+      loadCounts()
     } else if (!error) {
       showToast('Nenhuma linha foi atualizada — verifique permissões ou se o registro ainda existe.', 'error')
     } else {
@@ -108,15 +175,38 @@ export default function AdminDenuncias() {
   }
 
   const handleResolveAll = async () => {
-    if (!(await confirm('Tem certeza que deseja resolver TODAS as denúncias filtradas?'))) return
+    if (!(await confirm('Tem certeza que deseja resolver TODAS as denúncias pendentes que batem com o filtro atual (não só as desta página)?'))) return
     const supabase = getSupabase()
-    const idsToResolve = filteredReports.filter(r => r.status === 'pending').map(r => r.id)
+
+    // BUG CORRIGIDO: com paginação real, `reports` só tem a página atual —
+    // "resolver todas as filtradas" precisa buscar os IDs no servidor, não
+    // só os que já estão carregados na tela.
+    let idsQuery = supabase.from('reports').select('id').eq('status', 'pending')
+    if (severityFilter) idsQuery = idsQuery.eq('severity', severityFilter)
+    if (debouncedSearch) {
+      const term = `%${debouncedSearch}%`
+      const [adsMatch, profilesMatch] = await Promise.all([
+        supabase.from('ads').select('id').ilike('title_pt', term).limit(500),
+        supabase.from('profiles').select('id').ilike('name', term).limit(500),
+      ])
+      const adIds = (adsMatch.data || []).map((a: any) => a.id)
+      const reporterIds = (profilesMatch.data || []).map((p: any) => p.id)
+      if (adIds.length === 0 && reporterIds.length === 0) return showToast('Nenhuma denúncia pendente nos filtros atuais.', 'success')
+      const orParts: string[] = []
+      if (adIds.length) orParts.push(`ad_id.in.(${adIds.join(',')})`)
+      if (reporterIds.length) orParts.push(`reporter_id.in.(${reporterIds.join(',')})`)
+      idsQuery = idsQuery.or(orParts.join(','))
+    }
+    const { data: pendingIds, error: idsError } = await idsQuery.limit(5000)
+    if (idsError) return showToast('Erro ao buscar denúncias pendentes: ' + idsError.message, 'error')
+    const idsToResolve = (pendingIds || []).map((r: any) => r.id)
     if (idsToResolve.length === 0) return showToast('Nenhuma denúncia pendente nos filtros atuais.', 'success')
 
     const { data, error } = await supabase.from('reports').update({ status: 'resolved', resolved_at: new Date().toISOString() }).in('id', idsToResolve).select()
     if (!error && data && data.length > 0) {
-      setReports(reports.map(r => idsToResolve.includes(r.id) ? { ...r, status: 'resolved' } : r))
       showToast(`${data.length} denúncias resolvidas!`, 'success')
+      loadReports()
+      loadCounts()
     } else if (!error) {
       showToast('Nenhuma denúncia foi atualizada — verifique permissões ou se os registros ainda existem.', 'error')
     } else {
@@ -125,10 +215,10 @@ export default function AdminDenuncias() {
   }
 
   const toggleSelectAll = () => {
-    if (selectedIds.length === paginatedReports.length) {
+    if (selectedIds.length === reports.length) {
       setSelectedIds([])
     } else {
-      setSelectedIds(paginatedReports.map(r => r.id))
+      setSelectedIds(reports.map((r: any) => r.id))
     }
   }
 
@@ -182,6 +272,7 @@ export default function AdminDenuncias() {
       setReports(reports.map(r => selectedIds.includes(r.id) ? { ...r, status: newStatus } : r))
       showToast(`${data.length} denúncias marcadas como ${newStatus}!`, 'success')
       setSelectedIds([])
+      loadCounts()
     } else if (!error) {
       showToast('Nenhuma denúncia foi atualizada — verifique permissões ou se os registros ainda existem.', 'error')
     } else {
@@ -189,25 +280,10 @@ export default function AdminDenuncias() {
     }
   }
 
-  const filteredReports = reports.filter(r => {
-    if (search && !(r.ads?.title_pt?.toLowerCase().includes(search.toLowerCase()) || r.profiles?.name?.toLowerCase().includes(search.toLowerCase()))) return false
-    if (severityFilter && r.severity !== severityFilter) return false
-    if (statusFilter && r.status !== statusFilter) return false
-    return true
-  })
+  const totalPages = Math.ceil(totalFiltered / pageSize)
 
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [search, severityFilter, statusFilter])
-
-  const totalPages = Math.ceil(filteredReports.length / pageSize)
-  const paginatedReports = filteredReports.slice((currentPage - 1) * pageSize, currentPage * pageSize)
-
-  // KPIs
-  const total = reports.length
-  const pendentes = reports.filter(r => r.status === 'pending').length
-  const altaGravidade = reports.filter(r => r.severity === 'high' && r.status === 'pending').length
-  const resolvidas = reports.filter(r => r.status === 'resolved' || r.status === 'dismissed').length
+  // KPIs: globais, vindos de loadCounts() — não dependem do filtro/busca atual
+  const { total, pendentes, altaGravidade, resolvidas } = counts
 
   return (
     <>
@@ -310,7 +386,7 @@ export default function AdminDenuncias() {
               <tr>
                 <th style={{ width: '40px' }}>
                   <input type="checkbox" style={{ accentColor: 'var(--adm-accent)' }}
-                         checked={paginatedReports.length > 0 && selectedIds.length === paginatedReports.length}
+                         checked={reports.length > 0 && selectedIds.length === reports.length}
                          onChange={toggleSelectAll} />
                 </th>
                 <th>Anúncio Denunciado</th>
@@ -325,7 +401,7 @@ export default function AdminDenuncias() {
             <tbody>
               {loading ? (
                 <tr><td colSpan={8} style={{ textAlign: 'center', padding: '20px' }}>Carregando...</td></tr>
-              ) : paginatedReports.map(rep => (
+              ) : reports.map(rep => (
                 <tr key={rep.id} style={{ background: selectedIds.includes(rep.id) ? 'var(--adm-surface-2)' : 'transparent' }}>
                   <td>
                     <input type="checkbox" style={{ accentColor: 'var(--adm-accent)' }}
@@ -383,7 +459,7 @@ export default function AdminDenuncias() {
         {/* PAGINATION FOOTER */}
         <div style={{ padding: '16px 24px', borderTop: '1px solid var(--adm-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--adm-surface)', borderRadius: '0 0 var(--adm-r-xl) var(--adm-r-xl)' }}>
             <div style={{ fontSize: '14px', color: 'var(--adm-text-secondary)' }}>
-              Mostrando de <strong style={{ color: 'var(--adm-text)' }}>{((currentPage - 1) * pageSize) + 1}</strong> até <strong style={{ color: 'var(--adm-text)' }}>{Math.min(currentPage * pageSize, filteredReports.length)}</strong> de <strong style={{ color: 'var(--adm-text)' }}>{filteredReports.length}</strong> itens
+              Mostrando de <strong style={{ color: 'var(--adm-text)' }}>{((currentPage - 1) * pageSize) + 1}</strong> até <strong style={{ color: 'var(--adm-text)' }}>{Math.min(currentPage * pageSize, totalFiltered)}</strong> de <strong style={{ color: 'var(--adm-text)' }}>{totalFiltered}</strong> itens
             </div>
             <div style={{ display: 'flex', gap: '6px' }}>
               <button 

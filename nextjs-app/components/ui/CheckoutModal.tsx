@@ -220,7 +220,7 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
   }
   const finalPrice = coupon
     ? (coupon.discount_type === 'percentage'
-        ? basePrice * (1 - coupon.discount_value / 100)
+        ? Math.max(0, basePrice * (1 - coupon.discount_value / 100))
         : Math.max(0, basePrice - coupon.discount_value))
     : basePrice
   const currencySymbol = getCurrencySymbol(plan.currency)

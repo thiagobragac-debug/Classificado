@@ -18,6 +18,7 @@ export default function AdminDepoimentos() {
   
   // Form State
   const [text, setText] = useState('')
+  const [textEs, setTextEs] = useState('')
   const [author, setAuthor] = useState('')
   const [loc, setLoc] = useState('')
   const [rating, setRating] = useState(5)
@@ -33,9 +34,13 @@ export default function AdminDepoimentos() {
       .from('testimonials')
       .select('*')
       .order('created_at', { ascending: false })
-    
+
     if (!error && data) {
       setTestimonials(data)
+    } else if (error) {
+      // GAP CORRIGIDO: falha aqui deixava a tela em "Nenhum depoimento
+      // cadastrado" sem nenhum aviso — indistinguível de base vazia.
+      showToast('Erro ao carregar depoimentos: ' + error.message, 'error')
     }
     setLoading(false)
   }
@@ -44,12 +49,14 @@ export default function AdminDepoimentos() {
     if (testi) {
       setEditingId(testi.id)
       setText(testi.text)
+      setTextEs(testi.text_es || '')
       setAuthor(testi.author)
       setLoc(testi.loc || '')
       setRating(testi.rating || 5)
     } else {
       setEditingId(null)
       setText('')
+      setTextEs('')
       setAuthor('')
       setLoc('')
       setRating(5)
@@ -63,13 +70,16 @@ export default function AdminDepoimentos() {
 
   const handleSave = async () => {
     if (!text || !author) {
-      showToast('Texto e Autor são obrigatórios.', 'success')
+      // BUG CORRIGIDO: toast de erro de validação usava o tipo 'success'
+      // (aparecia verde, como se tivesse dado certo).
+      showToast('Texto e Autor são obrigatórios.', 'error')
       return
     }
 
     const supabase = getSupabase()
     const payload = {
       text,
+      text_es: textEs || null,
       author,
       loc,
       rating
@@ -258,12 +268,20 @@ export default function AdminDepoimentos() {
 
               <div className="adm-form-group">
                 <label className="adm-label">Nota (1 a 5)</label>
-                <input type="number" min="1" max="5" className="adm-input" value={rating} onChange={e => setRating(parseInt(e.target.value))} />
+                <input type="number" min="1" max="5" className="adm-input" value={rating} onChange={e => { const n = parseInt(e.target.value); if (!isNaN(n)) setRating(n) }} />
               </div>
 
               <div className="adm-form-group">
                 <label className="adm-label">Texto do Depoimento *</label>
                 <textarea className="adm-input" rows={4} value={text} onChange={e => setText(e.target.value)} placeholder="O que o cliente disse..." />
+              </div>
+
+              <div className="adm-form-group">
+                {/* GAP CORRIGIDO: TestimonialsSection.tsx já lê text_es (com
+                    fallback para text), mas não havia como o admin cadastrar
+                    essa tradução — o formulário não tinha o campo. */}
+                <label className="adm-label">Texto em Espanhol (Opcional)</label>
+                <textarea className="adm-input" rows={4} value={textEs} onChange={e => setTextEs(e.target.value)} placeholder="Traducción al español (opcional)..." />
               </div>
             </div>
 

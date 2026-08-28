@@ -99,7 +99,7 @@ export default function VerificacoesPage() {
     const from = (page - 1) * PAGE_SIZE
     const to = from + PAGE_SIZE - 1
 
-    const { data, count } = await supabase
+    const { data, count, error } = await supabase
       .from('verification_requests')
       .select('*, profiles(name, display_name, phone_whatsapp)', { count: 'exact' })
       .order('created_at', { ascending: false })
@@ -107,18 +107,23 @@ export default function VerificacoesPage() {
 
     if (data) setRequests(data)
     if (count !== null) setTotal(count)
+    // GAP CORRIGIDO: falha aqui deixava a tela em "Nenhuma solicitação
+    // encontrada" sem nenhum aviso — indistinguível de fila vazia.
+    if (error) showToast('Erro ao carregar solicitações: ' + error.message, 'error')
     setLoading(false)
   }
 
   async function loadCounts() {
     const supabase = getSupabase()
-    const [{ count: tot }, { count: pend }, { count: appr }, { count: rej }] = await Promise.all([
+    const [r1, r2, r3, r4] = await Promise.all([
       supabase.from('verification_requests').select('*', { count: 'exact', head: true }),
       supabase.from('verification_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
       supabase.from('verification_requests').select('*', { count: 'exact', head: true }).eq('status', 'approved'),
       supabase.from('verification_requests').select('*', { count: 'exact', head: true }).eq('status', 'rejected'),
     ])
-    setCounts({ total: tot || 0, pending: pend || 0, approved: appr || 0, rejected: rej || 0 })
+    const firstError = [r1, r2, r3, r4].find(r => r.error)?.error
+    if (firstError) showToast('Erro ao carregar contadores: ' + firstError.message, 'error')
+    setCounts({ total: r1.count || 0, pending: r2.count || 0, approved: r3.count || 0, rejected: r4.count || 0 })
   }
 
   const totalPages = Math.ceil(total / PAGE_SIZE)
