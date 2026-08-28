@@ -44,6 +44,11 @@ export default async function PlanosPage() {
   // SSR / ISR: Fetch plans on the server directly via REST API
   // This avoids client-side Supabase setup issues in Server Components and is blazing fast for SEO
   let plans: Plan[] = []
+  // BUG CORRIGIDO (varredura cruzada de cenários): sem esta flag, uma
+  // falha real de rede/RLS produzia o mesmo `plans=[]` de "tabela
+  // genuinamente vazia" — PricingClientUI não tinha como distinguir os
+  // dois casos e renderizava o grid/tabela em branco sem explicação.
+  let plansError = false
   const lang = await getLang()
 
   try {
@@ -91,16 +96,18 @@ export default async function PlanosPage() {
       })
     } else {
       console.error('Failed to fetch plans for SSR:', await res.text())
+      plansError = true
     }
   } catch (error) {
     console.error('Network error fetching plans:', error)
+    plansError = true
   }
 
   return (
     // Suspense required: PricingClientUI uses useSearchParams() internally.
     // Without this boundary, Next.js 14 would throw an error and disable ISR (revalidate=3600).
     <Suspense fallback={<div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', color: '#64748b' }}>{LOADING_I18N[lang]}</div>}>
-      <PricingClientUI initialPlans={plans} />
+      <PricingClientUI initialPlans={plans} plansError={plansError} />
     </Suspense>
   )
 }

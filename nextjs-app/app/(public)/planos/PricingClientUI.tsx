@@ -86,6 +86,8 @@ const TRANSLATIONS = {
     unlimited: 'Ilimitado',
     perMonthTable: '/mês',
     supportEmail: 'Email',
+    plansLoadError: 'Não foi possível carregar os planos agora. Tente novamente em instantes.',
+    plansEmpty: 'Nenhum plano disponível no momento.',
     faqTitle: 'Perguntas Frequentes',
     faqCancelQ: 'Como faço para cancelar minha assinatura?',
     faqCancelA: "Você pode cancelar a qualquer momento pelo seu painel, na aba 'Assinatura'. O acesso ao plano continua até o fim do período pago. Não há multa ou fidelidade.",
@@ -152,6 +154,8 @@ const TRANSLATIONS = {
     unlimited: 'Ilimitado',
     perMonthTable: '/mes',
     supportEmail: 'Email',
+    plansLoadError: 'No fue posible cargar los planes ahora. Intentá de nuevo en unos instantes.',
+    plansEmpty: 'Ningún plan disponible en este momento.',
     faqTitle: 'Preguntas Frecuentes',
     faqCancelQ: '¿Cómo hago para cancelar mi suscripción?',
     faqCancelA: "Puedes cancelar en cualquier momento desde tu panel, en la pestaña 'Suscripción'. El acceso al plan continúa hasta el final del período ya pagado. No hay multa ni permanencia.",
@@ -202,7 +206,7 @@ function FAQItem({ question, answer, id }: { question: string, answer: string, i
   )
 }
 
-export default function PricingClientUI({ initialPlans }: { initialPlans: Plan[] }) {
+export default function PricingClientUI({ initialPlans, plansError = false }: { initialPlans: Plan[]; plansError?: boolean }) {
   const { confirm } = useConfirm()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -383,6 +387,18 @@ export default function PricingClientUI({ initialPlans }: { initialPlans: Plan[]
 
       <main className="container" style={{ position: 'relative', zIndex: 10 }}>
 
+        {/* BUG CORRIGIDO (varredura cruzada de cenários): sem esta checagem,
+            uma falha real na busca de planos (rede, RLS) ou uma tabela
+            genuinamente vazia produzia o mesmo resultado — initialPlans=[] —
+            e o grid/tabela comparativa renderizavam em branco (free/pro/
+            premium caindo no fallback `{} as Plan`, gerando células vazias
+            ou "undefined"), sem nenhuma explicação pro visitante. */}
+        {plansError ? (
+          <div style={{ textAlign: 'center', padding: '4rem 1rem', color: 'var(--clr-text-muted, #64748b)' }}>{t.plansLoadError}</div>
+        ) : initialPlans.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '4rem 1rem', color: 'var(--clr-text-muted, #64748b)' }}>{t.plansEmpty}</div>
+        ) : (
+        <>
         <div className={styles.pricingGrid}>
           {initialPlans.map(plan => {
             const isFree = plan.price <= 0
@@ -551,6 +567,8 @@ export default function PricingClientUI({ initialPlans }: { initialPlans: Plan[]
             </table>
           </div>
         </section>
+        </>
+        )}
 
         {/* FAQ SECTION */}
         <section className={styles.faqSection}>
