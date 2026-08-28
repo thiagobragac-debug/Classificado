@@ -75,32 +75,52 @@ export default async function EventosPage({
       .neq('status', 'draft')
       .limit(50)
 
-    let qEventos = sb.from('eventos')
-      .select('id, title, date, image, location_str')
-      .limit(50)
+    const eventosFields = 'id, title, date, image, location_str'
 
     if (searchQuery) {
       qAuctions = qAuctions.ilike('title', `%${searchQuery}%`)
-      // BUG CORRIGIDO (validação do zero, rodada 6): a busca (incluindo o
-      // botão de GPS, que preenche o campo com "Cidade, UF") só comparava
-      // contra o título do evento, nunca location_str — buscar por uma
-      // cidade real sempre retornava 0 resultados pra qualquer evento com
-      // essa cidade mas sem ela no título. Leilões (auction_events) não têm
-      // coluna de localização, continuam só por título. Vírgulas/parênteses
-      // são removidos do termo pra não quebrar a sintaxe do filtro .or() do
-      // PostgREST (o termo digitado pelo usuário não deveria conter isso de
-      // qualquer forma, dado o formato "Cidade, UF" já usar vírgula só como
-      // separador visual).
-      const termoLocalizacao = searchQuery.replace(/[,()]/g, ' ').trim()
-      qEventos = termoLocalizacao
-        ? qEventos.or(`title.ilike.%${termoLocalizacao}%,location_str.ilike.%${termoLocalizacao}%`)
-        : qEventos.ilike('title', `%${searchQuery}%`)
     }
 
-    const [resAuctions, resEventos] = await Promise.all([qAuctions, qEventos])
+    // BUG CORRIGIDO (validação do zero, rodada 6, revisão adversarial): a
+    // primeira tentativa desta correção usava .or() com o termo sanitizado
+    // (vírgulas/parênteses trocados por espaço) pra não quebrar a sintaxe do
+    // filtro — mas isso quebrou o próprio caso que motivou a correção: o
+    // botão de GPS gera "Cidade, UF" (com vírgula), e sanitizar o termo
+    // fazia ele nunca mais bater como substring contra location_str, que no
+    // banco SEMPRE tem a vírgula (ex.: "Cascavel, PR"). Buscar por GPS numa
+    // cidade com eventos reais lá voltava "Nenhum evento encontrado" —
+    // reproduzido ao vivo. Corrigido: duas queries SEPARADAS (título e
+    // location_str), cada uma com o termo ORIGINAL sem nenhuma sanitização
+    // (o valor vai como parâmetro do PostgREST, não embutido numa string de
+    // filtro — não precisa escapar vírgula/parênteses), mescladas e
+    // deduplicadas por id em memória. Leilões (auction_events) não têm
+    // coluna de localização, continuam só por título.
+    const qEventosPorTitulo = searchQuery
+      ? sb.from('eventos').select(eventosFields).ilike('title', `%${searchQuery}%`).limit(50)
+      : sb.from('eventos').select(eventosFields).limit(50)
+    const qEventosPorLocal = searchQuery
+      ? sb.from('eventos').select(eventosFields).ilike('location_str', `%${searchQuery}%`).limit(50)
+      : null
+
+    const [resAuctions, resEventosPorTitulo, resEventosPorLocal] = await Promise.all([
+      qAuctions,
+      qEventosPorTitulo,
+      qEventosPorLocal ?? Promise.resolve({ data: [], error: null }),
+    ])
 
     if (resAuctions.error) throw resAuctions.error
-    if (resEventos.error) throw resEventos.error
+    if (resEventosPorTitulo.error) throw resEventosPorTitulo.error
+    if (resEventosPorLocal.error) throw resEventosPorLocal.error
+
+    const eventosVistos = new Set<string>()
+    const eventosMesclados: any[] = []
+    for (const e of [...(resEventosPorTitulo.data || []), ...(resEventosPorLocal.data || [])]) {
+      if (!eventosVistos.has(e.id)) {
+        eventosVistos.add(e.id)
+        eventosMesclados.push(e)
+      }
+    }
+    const resEventos = { data: eventosMesclados, error: null }
 
     const normalizedAuctions = (resAuctions.data || []).map(a => ({
       id: a.id,

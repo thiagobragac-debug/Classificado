@@ -1215,6 +1215,14 @@ html.is-logged-in .auth-wrapper a[href="login.html"]::after {
      seletor abaixo só afasta o filho direto de .header-inner, então a
      instância dentro de .mobile-menu não é afetada). */
   .header-inner > .lang-toggle { display: none; }
+  /* BUG CORRIGIDO (validação do zero, rodada 6, revisão adversarial): os
+     botões PT/ES mediam ~38×25px CSS (getBoundingClientRect real) — abaixo
+     do alvo de toque mínimo recomendado (44×44px, WCAG 2.5.5/Material
+     Design). Só no mobile (onde o toque é o único jeito de interagir);
+     desktop mantém o tamanho compacto original. Afeta os dois lugares que
+     usam .lang-toggle no mobile: o menu do Header.tsx e o toggle fixo do
+     login (components/login/LangToggle.tsx). */
+  .lang-toggle button { min-height: 44px; min-width: 44px; padding: 10px 14px; }
   .hamburger { display: flex; }
   .btn-anunciar-header { padding: 7px 14px; font-size: var(--fs-xs); }
 
