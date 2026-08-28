@@ -45,6 +45,7 @@ const TRANSLATIONS = {
     publish: 'Publicar Anúncio',
     videoTypeError: 'Envie um arquivo de vídeo (mp4 ou webm).',
     videoSizeError: 'O vídeo deve ter no máximo 50 MB.',
+    loginRequiredForMedia: 'Você precisa estar logado para enviar fotos ou vídeo. Faça login e continue de onde parou.',
     photoUploadError: (name: string, msg: string) => `Erro ao fazer upload da imagem ${name}: ${msg}`,
     videoUploadError: (msg: string) => `Erro ao fazer upload do vídeo: ${msg}`,
     planLimitsWarning: 'Não foi possível confirmar os limites do seu plano agora. Os valores exibidos podem estar incorretos — recarregue a página.',
@@ -76,6 +77,7 @@ const TRANSLATIONS = {
     publish: 'Publicar Anuncio',
     videoTypeError: 'Envía un archivo de video (mp4 o webm).',
     videoSizeError: 'El video debe tener un máximo de 50 MB.',
+    loginRequiredForMedia: 'Necesitas iniciar sesión para subir fotos o video. Inicia sesión y continúa donde lo dejaste.',
     photoUploadError: (name: string, msg: string) => `Error al subir la imagen ${name}: ${msg}`,
     videoUploadError: (msg: string) => `Error al subir el video: ${msg}`,
     planLimitsWarning: 'No fue posible confirmar los límites de tu plan ahora. Los valores mostrados pueden ser incorrectos — recarga la página.',
@@ -194,6 +196,18 @@ export function StepPhotos({ onPrev, isSubmitting }: StepPhotosProps) {
 
   const handleFiles = async (files: FileList | null) => {
     if (!files) return
+    // BUG CORRIGIDO (varredura cruzada de cenários): "Progressive Profiling"
+    // deixa visitante deslogado chegar até o Passo 3 (Fotos), mas o upload
+    // não tinha guarda de sessão — uploadAdImage() lança um Error cru em
+    // inglês ("Not authenticated") que o catch abaixo concatenava direto no
+    // toast localizado, misturando idiomas. Checa a sessão ANTES de tentar
+    // qualquer upload, com um aviso traduzido em vez de deixar a chamada de
+    // rede falhar.
+    const session = await getSession()
+    if (!session) {
+      showToast(tr.loginRequiredForMedia, 'error')
+      return
+    }
     const valid = Array.from(files).filter(f => f.type.startsWith('image/'))
 
     const availableSlots = maxPhotos - fotos.length
@@ -225,6 +239,11 @@ export function StepPhotos({ onPrev, isSubmitting }: StepPhotosProps) {
   const handleVideoFile = async (files: FileList | null) => {
     const file = files?.[0]
     if (!file) return
+    const session = await getSession()
+    if (!session) {
+      showToast(tr.loginRequiredForMedia, 'error')
+      return
+    }
     if (!file.type.startsWith('video/')) {
       showToast(tr.videoTypeError, 'error')
       return
@@ -278,7 +297,12 @@ export function StepPhotos({ onPrev, isSubmitting }: StepPhotosProps) {
     }
   }
 
-  const isBusy = uploadingCount > 0 || isSubmitting;
+  // BUG CORRIGIDO (varredura cruzada de cenários): uploadingVideo nunca
+  // entrava em isBusy — clicar em "Publicar Anúncio" enquanto um vídeo
+  // ainda estava subindo submetia o formulário com o valor ANTERIOR (quase
+  // sempre vazio) do campo video, perdendo o upload em andamento sem
+  // nenhum aviso.
+  const isBusy = uploadingCount > 0 || uploadingVideo || isSubmitting;
 
   return (
     <div className={styles.formSection}>

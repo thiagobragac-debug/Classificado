@@ -93,17 +93,28 @@ export function StepLocation({ onNext, onPrev }: StepLocationProps) {
 
   const fetchLocation = async () => {
     setIsLocating(true)
-    const normalizeCountry = (nc: string) => {
-      if (!nc) return ''
+    // BUG CORRIGIDO (varredura cruzada de cenários): os provedores de geo
+    // (ipapi.co, Nominatim) retornam o nome do país em inglês/espanhol
+    // ("Uruguay", "Paraguay"), não nas grafias em PT usadas como `value`
+    // dos <option> ("Uruguai", "Paraguai"). Um país não reconhecido caía
+    // no `return nc` e era gravado cru no formulário — o <select> ficava
+    // preso em "Selecione..." (nenhum <option> bate com o valor) mas o
+    // RHF já considerava o campo "preenchido", deixando passar validação
+    // com um valor que não corresponde a nenhum país aceito.
+    const normalizeCountry = (nc: string): string | null => {
+      if (!nc) return null
       if (nc.includes('Brasil') || nc === 'Brazil' || nc === 'BR') return 'Brasil'
       if (nc.includes('Argentina')) return 'Argentina'
-      if (nc.includes('Uruguai')) return 'Uruguai'
-      if (nc.includes('Paraguai')) return 'Paraguai'
-      return nc
+      if (nc.includes('Uruguai') || nc.includes('Uruguay')) return 'Uruguai'
+      if (nc.includes('Paraguai') || nc.includes('Paraguay')) return 'Paraguai'
+      return null
     }
 
     const setLocationData = (country: string, state: string, city: string) => {
-      if (country) setValue('pais', normalizeCountry(country), { shouldValidate: true })
+      if (country) {
+        const paisNormalizado = normalizeCountry(country)
+        if (paisNormalizado) setValue('pais', paisNormalizado, { shouldValidate: true })
+      }
       if (state) {
         const stateCode = BR_STATES[state] || state
         setValue('estado', stateCode.length === 2 ? stateCode : state, { shouldValidate: true })

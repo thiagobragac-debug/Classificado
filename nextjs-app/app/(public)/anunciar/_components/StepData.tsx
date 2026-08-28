@@ -23,6 +23,7 @@ const TRANSLATIONS = {
     titlePh: 'Ex: Trator Massey Ferguson 2018',
     categoryLabel: 'Categoria',
     selectPlaceholder: 'Selecione...',
+    categoriesError: 'Não foi possível carregar as categorias. Tente novamente.',
     descLabel: 'Descrição',
     descPh: 'Descreva detalhes importantes...',
     valuesHeader: 'Valores e Condições',
@@ -55,6 +56,7 @@ const TRANSLATIONS = {
     titlePh: 'Ej: Tractor Massey Ferguson 2018',
     categoryLabel: 'Categoría',
     selectPlaceholder: 'Seleccionar...',
+    categoriesError: 'No se pudieron cargar las categorías. Inténtalo de nuevo.',
     descLabel: 'Descripción',
     descPh: 'Describe detalles importantes...',
     valuesHeader: 'Valores y Condiciones',
@@ -88,6 +90,12 @@ export function StepData({ onNext }: StepDataProps) {
   const tr = TRANSLATIONS[lang]
   const moeda = watch('moeda') as string | undefined
   const [categories, setCategories] = useState<any[]>([])
+  // BUG CORRIGIDO (varredura cruzada de cenários): sem estado de erro, uma
+  // falha real do fetch (rede, RLS) deixava `categories` vazio pra sempre,
+  // sem nenhum feedback — o <select> (campo obrigatório) ficava travado em
+  // "Selecione..." indistinguível de "ainda carregando", bloqueando o
+  // wizard inteiro sem explicação.
+  const [categoriesError, setCategoriesError] = useState(false)
 
   useEffect(() => {
     async function loadCategories() {
@@ -100,6 +108,9 @@ export function StepData({ onNext }: StepDataProps) {
 
       if (!error && data) {
         setCategories(data)
+      } else if (error) {
+        console.error('Erro ao carregar categorias:', error.message)
+        setCategoriesError(true)
       }
     }
     loadCategories()
@@ -164,6 +175,7 @@ export function StepData({ onNext }: StepDataProps) {
             {categories.map(c => <option key={c.id} value={c.id}>{lang === 'es' && c.name_es ? c.name_es : c.name_pt}</option>)}
           </select>
           {errors.categoria && <span className={styles.errorText}>{errors.categoria.message}</span>}
+          {categoriesError && <span className={styles.errorText}>{tr.categoriesError}</span>}
         </div>
 
         <div className={styles.colFull}>
