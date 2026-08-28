@@ -88,14 +88,14 @@ export async function resetPassword(email: string) {
   return data;
 }
 
-export async function logout() {
+export async function logout(reason?: 'inactivity') {
   await getSupabase().auth.signOut();
   if (typeof localStorage !== 'undefined') {
     localStorage.removeItem('tc_favorites');
     localStorage.removeItem('tc_user_initials');
     localStorage.removeItem('tc_user_id');
   }
-  if (typeof window !== 'undefined') window.location.href = '/';
+  if (typeof window !== 'undefined') window.location.href = reason ? `/?logout=${reason}` : '/';
 }
 
 // ─── ANÚNCIOS ─────────────────────────────────────────────────
@@ -287,18 +287,23 @@ export async function uploadAdVideo(file: File, folder = 'draft'): Promise<strin
 
 // ─── FAVORITOS ─────────────────────────────────────────────────
 
+// BUG CORRIGIDO (varredura cruzada de cenários): o fallback abaixo tratava
+// QUALQUER erro da RPC (rate limit, permissão, o que for) como "a função não
+// existe", mascarando erros de negócio reais como sucesso silencioso E
+// reabrindo a race condition de check-then-act que a RPC atômica existe pra
+// evitar. Só cai no fallback quando o próprio Postgres/PostgREST sinaliza
+// que a função não foi encontrada — qualquer outro erro sobe pro chamador.
+const RPC_NOT_FOUND_CODES = new Set(['PGRST202', '42883']);
+
 export async function rpcToggleFav(adId: string) {
   const session = await getSession();
   if (!session) return false;
-  
-  try {
-    // A função deriva o usuário de auth.uid() internamente — nunca aceita
-    // p_user_id do cliente. Ver supabase/migrations/20260823140000.
-    const { data, error } = await getSupabase().rpc('toggle_favorite_atomic', { p_ad_id: adId });
-    if (!error) return data;
-  } catch (e) {}
 
-  // Fallback se a RPC não existir
+  const { data, error } = await getSupabase().rpc('toggle_favorite_atomic', { p_ad_id: adId });
+  if (!error) return data;
+  if (!RPC_NOT_FOUND_CODES.has(error.code)) throw error;
+
+  // Fallback apenas quando a RPC realmente não existe no schema cache
   const { data: existing } = await getSupabase()
     .from('favorites')
     .select('id')

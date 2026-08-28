@@ -183,14 +183,14 @@
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: 2rem;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 1.5rem;
 }
 
 .filtersGroup {
   display: flex;
   gap: 0.8rem;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: flex-end;
   flex: 1;
   width: 100%;

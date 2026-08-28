@@ -25,36 +25,39 @@ export const useConfirm = () => {
   return context
 }
 
+type PendingConfirm = { message: string; title: string; resolve: (value: boolean) => void }
+
 export const ConfirmProvider = ({ children }: { children: ReactNode }) => {
   const { lang } = useLang()
-  const [isOpen, setIsOpen] = useState(false)
-  const [message, setMessage] = useState('')
-  const [title, setTitle] = useState<string>(DEFAULT_TITLE.pt)
-  const [resolver, setResolver] = useState<{ resolve: (value: boolean) => void } | null>(null)
+  // BUG CORRIGIDO (varredura cruzada de cenários): um único slot de
+  // `resolver` era sobrescrito por uma segunda chamada de confirm() antes da
+  // primeira ser respondida — o `await confirm(...)` da PRIMEIRA chamada
+  // ficava pendurado pra sempre (nunca resolve), já que seu resolver foi
+  // perdido. Agora as chamadas entram numa fila e são exibidas uma de cada
+  // vez, na ordem em que chegaram.
+  const [queue, setQueue] = useState<PendingConfirm[]>([])
+  const current = queue[0] ?? null
 
   const confirm = (msg: string, titleStr?: string) => {
-    setMessage(msg)
-    setTitle(titleStr ?? DEFAULT_TITLE[lang])
-    setIsOpen(true)
     return new Promise<boolean>((resolve) => {
-      setResolver({ resolve })
+      setQueue(q => [...q, { message: msg, title: titleStr ?? DEFAULT_TITLE[lang], resolve }])
     })
   }
 
   const handleConfirm = () => {
-    if (resolver) resolver.resolve(true)
-    setIsOpen(false)
+    current?.resolve(true)
+    setQueue(q => q.slice(1))
   }
 
   const handleCancel = () => {
-    if (resolver) resolver.resolve(false)
-    setIsOpen(false)
+    current?.resolve(false)
+    setQueue(q => q.slice(1))
   }
 
   return (
     <ConfirmContext.Provider value={{ confirm }}>
       {children}
-      {isOpen && (
+      {current && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 99999,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -67,10 +70,10 @@ export const ConfirmProvider = ({ children }: { children: ReactNode }) => {
             transform: 'translateY(0)', transition: 'all 0.3s ease-out'
           }}>
             <h3 style={{ margin: '0 0 12px 0', fontSize: '1.25rem', fontWeight: 700, color: '#0F172A' }}>
-              {title}
+              {current.title}
             </h3>
             <p style={{ margin: '0 0 24px 0', fontSize: '0.95rem', color: '#475569', lineHeight: 1.5 }}>
-              {message}
+              {current.message}
             </p>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
               <button 
