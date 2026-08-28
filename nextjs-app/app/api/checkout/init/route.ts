@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, getSettings } from '@/lib/supabase-admin'
-import { selectGateway } from '@/lib/gateways'
+import { selectGateway, isNativePlanSwitchEligible } from '@/lib/gateways'
 import { getRequestLang } from '@/lib/api-lang'
 
 // BUG CORRIGIDO (validação do zero, rodada 6): toda mensagem de erro desta
@@ -37,6 +37,22 @@ export async function POST(req: Request) {
     }
     const token = authHeader.replace('Bearer ', '')
 
+    // BUG CORRIGIDO (feature aprovada pelo usuário): planId/billingCycle são
+    // opcionais — CheckoutModal os envia pra esta rota poder prever se a
+    // troca vai cair no caminho nativo (updateSubscriptionPlan, sem coletar
+    // cartão/endereço de novo) antes mesmo do usuário ver o formulário.
+    // Corpo vazio (chamador antigo, ou assinatura nova sem plano ainda
+    // selecionado) mantém o comportamento de sempre.
+    let planId: string | undefined
+    let billingCycle: 'monthly' | 'annual' | undefined
+    try {
+      const body = await req.json()
+      planId = body?.planId
+      billingCycle = body?.billingCycle === 'annual' ? 'annual' : 'monthly'
+    } catch {
+      // sem corpo — segue sem previsão de troca nativa
+    }
+
     const supabase = createAdminClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser(token)
     if (authError || !user) {
@@ -51,11 +67,46 @@ export async function POST(req: Request) {
     const internationalDefault = settings['gateway_internacional_padrao'] || 'stripe'
 
     const gatewayName = selectGateway(userCountry, nationalDefault, internationalDefault)
-    
+
+    // --- Previsão de troca nativa de plano (sem coupon — ver comentário em
+    // isNativePlanSwitchEligible: ignorar coupon aqui é seguro nas duas
+    // direções, só pode fazer a previsão ser conservadora demais, nunca
+    // prometer um "pula o formulário" que /api/checkout não vai honrar). ---
+    let isNativePlanSwitch = false
+    if (planId) {
+      const { data: plan } = await supabase.from('plans').select('id, name, price, promotional_price').eq('id', planId).eq('is_active', true).single()
+      const { data: existingActiveSub } = await supabase
+        .from('subscriptions')
+        .select('gateway, gateway_subscription_id, plan, price, billing_cycle')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (plan && existingActiveSub && (existingActiveSub.plan !== plan.name || existingActiveSub.billing_cycle !== billingCycle)) {
+        let finalPrice = plan.promotional_price !== null && plan.promotional_price !== undefined ? Number(plan.promotional_price) : Number(plan.price)
+        if (billingCycle === 'annual') finalPrice = (finalPrice * 0.8) * 12
+
+        isNativePlanSwitch = isNativePlanSwitchEligible({
+          existingSubGateway: existingActiveSub.gateway,
+          existingSubGatewayId: existingActiveSub.gateway_subscription_id,
+          existingSubPrice: existingActiveSub.price,
+          targetGatewayName: gatewayName,
+          finalPrice,
+        })
+      }
+    }
+
     let publicKey = ''
     let clientSecret = ''
 
-    if (gatewayName === 'stripe') {
+    // Troca nativa não precisa de cartão novo (updateSubscriptionPlan opera
+    // na assinatura já existente no gateway) — pula o SetupIntent/chave
+    // pública por completo. Evita uma chamada à Stripe à toa e, mais
+    // importante, evita bloquear uma troca elegível por um erro transitório
+    // de configuração de cartão que nem seria usado.
+    if (!isNativePlanSwitch && gatewayName === 'stripe') {
       const secretKey = settings['stripe_secret_key']
       // BUG CORRIGIDO: a página de admin (app/(admin)/admin/configuracoes)
       // salva a chave publicável em 'stripe_pub_key' — era essa a linha
@@ -94,7 +145,7 @@ export async function POST(req: Request) {
       }
       const setupIntent = await siRes.json()
       clientSecret = setupIntent.client_secret
-    } else if (gatewayName === 'mercadopago') {
+    } else if (!isNativePlanSwitch && gatewayName === 'mercadopago') {
       publicKey = settings['mp_public_key'] || ''
       if (!publicKey) {
         return NextResponse.json({ error: tx.mpNotConfigured }, { status: 503 })
@@ -104,7 +155,8 @@ export async function POST(req: Request) {
     return NextResponse.json({
       gateway: gatewayName,
       publicKey,
-      clientSecret
+      clientSecret,
+      isNativePlanSwitch,
     })
   } catch (err: any) {
     // BUG CORRIGIDO (validação do zero, rodada 6): err.message cru (pode

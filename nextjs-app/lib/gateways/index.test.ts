@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { selectGateway } from './index';
+import { selectGateway, isNativePlanSwitchEligible } from './index';
 
 describe('selectGateway', () => {
   it('usuário nacional (BR) sem país informado usa o default nacional', () => {
@@ -35,5 +35,49 @@ describe('selectGateway', () => {
 
   it('internacional cai para stripe se o default configurado for inválido', () => {
     expect(selectGateway('US', 'stripe', 'gateway-inexistente')).toBe('stripe');
+  });
+});
+
+// Espelha exatamente a condição de elegibilidade de troca nativa de plano em
+// app/api/checkout/route.ts (gatewaySuportaTrocaNativa + o if que decide
+// entrar no bloco de updateSubscriptionPlan) — usada por
+// app/api/checkout/init/route.ts pra PREVER se o CheckoutModal pode pular a
+// coleta de dados de cobrança/cartão. Estes casos servem de rede de
+// segurança contra as duas lógicas divergirem sem que ninguém perceba.
+describe('isNativePlanSwitchEligible', () => {
+  const base = {
+    existingSubGateway: 'stripe',
+    existingSubGatewayId: 'sub_123',
+    existingSubPrice: 49.9,
+    targetGatewayName: 'stripe' as const,
+    finalPrice: 149.9,
+  };
+
+  it('Stripe elegível tanto em upgrade quanto em downgrade', () => {
+    expect(isNativePlanSwitchEligible(base)).toBe(true);
+    expect(isNativePlanSwitchEligible({ ...base, finalPrice: 19.9 })).toBe(true);
+  });
+
+  it('Mercado Pago/Pagar.me/Asaas só são elegíveis em downgrade (sem proração)', () => {
+    for (const gw of ['mercadopago', 'pagarme', 'asaas'] as const) {
+      expect(isNativePlanSwitchEligible({ ...base, existingSubGateway: gw, targetGatewayName: gw, finalPrice: 19.9 })).toBe(true);
+      expect(isNativePlanSwitchEligible({ ...base, existingSubGateway: gw, targetGatewayName: gw, finalPrice: 149.9 })).toBe(false);
+    }
+  });
+
+  it('gateway diferente do da assinatura atual nunca é elegível', () => {
+    expect(isNativePlanSwitchEligible({ ...base, existingSubGateway: 'mercadopago' })).toBe(false);
+  });
+
+  it('sem gateway_subscription_id (ex.: ativada via cupom 100% off) nunca é elegível', () => {
+    expect(isNativePlanSwitchEligible({ ...base, existingSubGatewayId: null })).toBe(false);
+  });
+
+  it('cupom de 100% off (finalPrice <= 0) nunca é elegível, mesmo na Stripe', () => {
+    expect(isNativePlanSwitchEligible({ ...base, finalPrice: 0 })).toBe(false);
+  });
+
+  it('sem assinatura anterior (existingSubGateway ausente) nunca é elegível', () => {
+    expect(isNativePlanSwitchEligible({ ...base, existingSubGateway: null, existingSubGatewayId: null })).toBe(false);
   });
 });

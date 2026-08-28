@@ -74,6 +74,10 @@ const TRANSLATIONS = {
     stripeUnexpected: 'Erro inesperado no Stripe.',
     stripeProcessing: 'Processando Stripe...',
     stripePayButton: 'Pagar com Stripe →',
+    confirmSwitchTitle: 'Confirmar Troca de Plano',
+    confirmSwitchDesc: 'Sua forma de pagamento atual já está cadastrada — não é preciso informar cartão ou endereço de novo pra trocar de plano.',
+    confirmSwitchBtn: 'Confirmar Troca',
+    checkingSwitch: 'Verificando sua assinatura...',
   },
   es: {
     title: 'Pago Seguro',
@@ -125,6 +129,10 @@ const TRANSLATIONS = {
     stripeUnexpected: 'Error inesperado en Stripe.',
     stripeProcessing: 'Procesando Stripe...',
     stripePayButton: 'Pagar con Stripe →',
+    confirmSwitchTitle: 'Confirmar Cambio de Plan',
+    confirmSwitchDesc: 'Tu forma de pago actual ya está registrada — no hace falta ingresar tarjeta ni dirección de nuevo para cambiar de plan.',
+    confirmSwitchBtn: 'Confirmar Cambio',
+    checkingSwitch: 'Verificando tu suscripción...',
   },
 } as const
 
@@ -168,6 +176,17 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
   const [error, setError] = useState('')
   const [gatewayConfig, setGatewayConfig] = useState<{ gateway: string, publicKey: string, clientSecret?: string } | null>(null)
   const [stripePromise, setStripePromise] = useState<any>(null)
+  // BUG CORRIGIDO (feature aprovada pelo usuário): trocar entre dois planos
+  // PAGOS (ex. Pro→Premium) mandava o usuário preencher endereço/dados de
+  // cobrança e às vezes até cartão de novo — dados que o caminho nativo de
+  // troca (updateSubscriptionPlan, que opera na assinatura já existente no
+  // gateway) simplesmente descarta, nunca usa. `/api/checkout/init` agora
+  // prevê isso ANTES do formulário aparecer (mesma condição exata que
+  // /api/checkout aplica de verdade — ver isNativePlanSwitchEligible em
+  // lib/gateways/index.ts), então o check acontece no mount do modal, não
+  // no submit do Step 1.
+  const [initializing, setInitializing] = useState(true)
+  const [isNativePlanSwitch, setIsNativePlanSwitch] = useState(false)
 
   // Billing data (step 1)
   const [name, setName] = useState(session?.user?.user_metadata?.full_name || '')
@@ -219,6 +238,34 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
   // valor novo só quando o modal reabre de verdade.
   const [checkoutId] = useState(() => crypto.randomUUID())
 
+  // --- Checa de saída se esta troca vai cair no caminho nativo (sem
+  // recoletar cartão/endereço) — precisa acontecer ANTES do usuário ver o
+  // Step 1, não no submit dele, senão o formulário já teria aparecido. ---
+  useEffect(() => {
+    if (!session?.access_token) return
+    let cancelled = false
+    setInitializing(true)
+    fetch('/api/checkout/init', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      body: JSON.stringify({ planId: plan.id, billingCycle }),
+    })
+      .then(res => res.json().then(data => ({ ok: res.ok, data })))
+      .then(({ ok, data }) => {
+        if (cancelled) return
+        if (ok) {
+          setGatewayConfig(data)
+          setIsNativePlanSwitch(!!data.isNativePlanSwitch)
+        } else {
+          setError(data.error || t.errCheckoutInit)
+        }
+      })
+      .catch(() => { if (!cancelled) setError(t.errUnexpected) })
+      .finally(() => { if (!cancelled) setInitializing(false) })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.access_token])
+
   // --- Initialize Gateway SDK ---
   useEffect(() => {
     if (gatewayConfig?.gateway === 'stripe' && gatewayConfig.publicKey) {
@@ -265,24 +312,17 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
   }
 
   // --- Step 1: billing data ---
-  const handleBillingSubmit = async (e: React.FormEvent) => {
+  // BUG CORRIGIDO (feature aprovada pelo usuário): chamava /api/checkout/init
+  // aqui, no submit — agora essa chamada acontece no mount do modal (ver
+  // useEffect acima), porque a decisão de MOSTRAR este formulário ou não já
+  // depende do resultado dela (isNativePlanSwitch). Aqui só valida e avança.
+  const handleBillingSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
-    setError('')
-    try {
-      const res = await fetch('/api/checkout/init', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${session?.access_token}` }
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
-      setGatewayConfig(data)
-      setStep(2)
-    } catch(err: any) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
+    if (!gatewayConfig) {
+      setError(t.errCheckoutInit)
+      return
     }
+    setStep(2)
   }
 
   // --- Step 2: Unified checkout API caller ---
@@ -294,23 +334,35 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
     setLoading(true)
     setError('')
     try {
-      const docClean = doc.replace(/\D/g, '')
-      if (docClean.length !== 11 && docClean.length !== 14) {
-        throw new Error(t.errDocInvalid)
-      }
+      // BUG CORRIGIDO (feature aprovada pelo usuário): doc/phone/endereço
+      // nunca são preenchidos na troca nativa entre planos pagos (o
+      // formulário de cobrança é pulado de propósito — ver isNativePlanSwitch
+      // acima) — validar como se fossem obrigatórios aqui travava a única
+      // ação disponível nessa tela com "CPF ou CNPJ inválido" sempre.
+      // /api/checkout já trata billingData/billingAddress como opcionais
+      // (só usados pra criar uma assinatura NOVA, não pro caminho nativo).
+      let docClean = ''
+      let phoneClean = ''
+      let billingAddress: Record<string, string> | undefined
+      if (!isNativePlanSwitch) {
+        docClean = doc.replace(/\D/g, '')
+        if (docClean.length !== 11 && docClean.length !== 14) {
+          throw new Error(t.errDocInvalid)
+        }
 
-      const phoneClean = phone.replace(/\D/g, '')
-      if (phoneClean.length < 10) {
-        throw new Error(t.errPhoneInvalid)
-      }
+        phoneClean = phone.replace(/\D/g, '')
+        if (phoneClean.length < 10) {
+          throw new Error(t.errPhoneInvalid)
+        }
 
-      const billingAddress = {
-        cep: cep.replace(/\D/g, ''),
-        street,
-        number: addressNumber,
-        neighborhood,
-        city,
-        state
+        billingAddress = {
+          cep: cep.replace(/\D/g, ''),
+          street,
+          number: addressNumber,
+          neighborhood,
+          city,
+          state
+        }
       }
 
       const res = await fetch('/api/checkout', {
@@ -326,7 +378,7 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
           paymentMethod,
           couponCode: coupon?.code || null,
           finalPrice,
-          billingData: { name, doc: docClean, phone: phoneClean },
+          billingData: isNativePlanSwitch ? undefined : { name, doc: docClean, phone: phoneClean },
           billingAddress,
           ...paymentData
         }),
@@ -449,8 +501,8 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
             </div>
           </div>
 
-          {/* Coupon (only in step 1) */}
-          {step === 1 && (
+          {/* Coupon (step 1 normal, ou na confirmação de troca nativa) */}
+          {!initializing && (isNativePlanSwitch || step === 1) && (
             <div style={{ marginBottom: '1.5rem', padding: '1rem', border: '1px dashed #cbd5e1', borderRadius: '10px' }}>
               {!coupon ? (
                 <>
@@ -488,8 +540,37 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
             </div>
           )}
 
-          {/* Step 1: Billing data form */}
-          {step === 1 ? (
+          {/* Verificação inicial (prevê se esta troca vai cair no caminho
+              nativo, antes de decidir mostrar o formulário de cobrança) */}
+          {initializing ? (
+            <div style={{ textAlign: 'center', padding: '2rem 0', color: '#64748b' }}>{t.checkingSwitch}</div>
+          ) : isNativePlanSwitch ? (
+            /* Troca nativa entre dois planos pagos: a forma de pagamento já
+               cadastrada na assinatura atual é reaproveitada de verdade
+               (updateSubscriptionPlan) — nem cartão nem endereço são
+               recoletados. */
+            <div>
+              <p style={{ marginBottom: '1.5rem', fontSize: '0.9rem', color: '#475569' }}>
+                {t.confirmSwitchDesc}
+              </p>
+              {error && (
+                <div style={{ color: '#991b1b', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', padding: '12px', fontSize: '0.875rem', marginBottom: '1rem' }}>
+                  ⚠️ {error}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => handleServerCheckout({})}
+                disabled={loading}
+                style={{
+                  width: '100%', padding: '1rem', background: loading ? '#cbd5e1' : '#10b981', color: '#ffffff',
+                  border: 'none', borderRadius: '10px', fontSize: '1.1rem', fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {loading ? t.processing : t.confirmSwitchBtn}
+              </button>
+            </div>
+          ) : step === 1 ? (
             <form onSubmit={handleBillingSubmit}>
               <p style={{ marginBottom: '1rem', fontSize: '0.9rem', color: '#475569' }}>
                 {t.billingIntro}
