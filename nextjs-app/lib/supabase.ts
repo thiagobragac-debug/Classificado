@@ -629,11 +629,22 @@ export async function toggleAdStatus(adId: string, currentStatus: string) {
   return newStatus;
 }
 
+// BUG CORRIGIDO (varredura cruzada de cenários, feature aprovada pelo
+// usuário): lia de `transactions`, uma tabela de um design de billing
+// anterior ao atual (subscriptions + gateways reais) — nenhum código hoje
+// grava linhas nela, então "Histórico de Faturas" estava sempre vazio ou
+// mostrando dados congelados/nunca atualizados pra qualquer usuário real.
+// `subscriptions` não é um livro-razão de faturas (não há uma linha por
+// cobrança/mês) — é o estado atual da assinatura, ocasionalmente com mais
+// de uma linha por usuário (ex.: assinatura antiga cancelada + nova). Por
+// isso BillingTab.tsx passou a chamar isso de "Histórico de Assinaturas",
+// não "Histórico de Faturas" — mostrar como se fosse uma fatura por mês
+// seria inventar dados que o schema não tem.
 export async function getMyBilling(): Promise<any[]> {
   const session = await getSession();
   if (!session) return [];
   const { data } = await getSupabase()
-    .from('transactions').select('*').eq('user_id', session.user.id)
+    .from('subscriptions').select('*').eq('user_id', session.user.id)
     .order('created_at', { ascending: false }).limit(50);
   return data || [];
 }

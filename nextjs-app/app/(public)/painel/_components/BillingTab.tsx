@@ -15,12 +15,19 @@ const TRANSLATIONS = {
     plan: 'Plano', current: 'ATUAL',
     cancelling: 'Cancelando...', cancelSubscription: 'Cancelar Assinatura',
     upgrade: 'Fazer Upgrade',
-    invoiceHistory: 'Histórico de Faturas',
-    allInvoices: 'Todas as Faturas', approved: 'Aprovadas', pending: 'Pendentes',
-    noInvoices: 'Nenhuma fatura encontrada.',
-    subscription: 'Assinatura', payment: 'Pagamento',
-    invoice: 'Fatura', statusApproved: 'Aprovado', statusPending: 'Pendente', statusFailed: 'Falhou',
-    pay: 'Pagar',
+    // BUG CORRIGIDO (feature aprovada pelo usuário): renomeado de "Histórico
+    // de Faturas" — subscriptions não é um livro-razão de faturas (uma linha
+    // por cobrança/mês), é o estado da(s) assinatura(s) do usuário. Chamar
+    // de "fatura" seria inventar uma granularidade que o schema não tem.
+    invoiceHistory: 'Histórico de Assinaturas',
+    allInvoices: 'Todas', approved: 'Ativas', pending: 'Pendentes',
+    noInvoices: 'Nenhuma assinatura encontrada.',
+    subscription: 'Assinatura',
+    statusApproved: 'Ativa', statusPending: 'Pendente', statusFailed: 'Inativa',
+    statusPastDue: 'Pagamento atrasado', statusCancelling: 'Cancela ao fim do período',
+    cycleMonthly: 'Mensal', cycleAnnual: 'Anual',
+    nextBilling: 'Próxima cobrança', periodEnd: 'Válida até',
+    continueCheckout: 'Continuar pagamento',
     prev: 'Anterior', next: 'Próxima',
     confirmCancel: 'Tem certeza que deseja cancelar sua assinatura? Seu plano continuará ativo até o fim do período já pago.',
     sessionExpired: 'Sessão expirada. Faça login novamente.',
@@ -34,12 +41,15 @@ const TRANSLATIONS = {
     plan: 'Plan', current: 'ACTUAL',
     cancelling: 'Cancelando...', cancelSubscription: 'Cancelar Suscripción',
     upgrade: 'Hacer Upgrade',
-    invoiceHistory: 'Historial de Facturas',
-    allInvoices: 'Todas las Facturas', approved: 'Aprobadas', pending: 'Pendientes',
-    noInvoices: 'Ninguna factura encontrada.',
-    subscription: 'Suscripción', payment: 'Pago',
-    invoice: 'Factura', statusApproved: 'Aprobado', statusPending: 'Pendiente', statusFailed: 'Falló',
-    pay: 'Pagar',
+    invoiceHistory: 'Historial de Suscripciones',
+    allInvoices: 'Todas', approved: 'Activas', pending: 'Pendientes',
+    noInvoices: 'Ninguna suscripción encontrada.',
+    subscription: 'Suscripción',
+    statusApproved: 'Activa', statusPending: 'Pendiente', statusFailed: 'Inactiva',
+    statusPastDue: 'Pago atrasado', statusCancelling: 'Cancela al final del período',
+    cycleMonthly: 'Mensual', cycleAnnual: 'Anual',
+    nextBilling: 'Próximo cobro', periodEnd: 'Válida hasta',
+    continueCheckout: 'Continuar pago',
     prev: 'Anterior', next: 'Siguiente',
     confirmCancel: '¿Estás seguro de que deseas cancelar tu suscripción? Tu plan seguirá activo hasta el final del período ya pagado.',
     sessionExpired: 'Sesión expirada. Inicia sesión nuevamente.',
@@ -75,6 +85,23 @@ export function BillingTab({ user, planMeta }: { user: any, planMeta: any }) {
     return () => { cancelled = true };
   }, [planMeta?.label]);
   const planLabel = lang === 'es' && planI18n?.name_es ? planI18n.name_es : planMeta.label;
+
+  // Mapa nome_pt -> nome_es de TODOS os planos, buscado uma única vez —
+  // usado pra localizar sub.plan (guardado como o nome em PT, ex.
+  // "Produtor PRO") em cada linha do histórico de assinaturas, sem
+  // disparar uma query por linha.
+  const [planNameEsByPt, setPlanNameEsByPt] = useState<Record<string, string>>({});
+  useEffect(() => {
+    let cancelled = false;
+    getSupabase().from('plans').select('name, name_es').then((res: { data: { name: string; name_es: string | null }[] | null }) => {
+      if (cancelled || !res.data) return;
+      const map: Record<string, string> = {};
+      res.data.forEach(p => { if (p.name_es) map[p.name] = p.name_es; });
+      setPlanNameEsByPt(map);
+    });
+    return () => { cancelled = true };
+  }, []);
+  const localizedPlanName = (namePt: string) => (lang === 'es' && planNameEsByPt[namePt]) || namePt;
   const planDesc = lang === 'es' && planI18n?.description_es ? planI18n.description_es : planMeta.desc;
 
   const handleCancelSubscription = async () => {
@@ -122,10 +149,10 @@ export function BillingTab({ user, planMeta }: { user: any, planMeta: any }) {
     () => getMyBilling()
   );
 
-  const approvedStatuses = ['approved', 'active', 'authorized', 'succeeded'];
-  const filtered = billing.filter((tx: any) => {
-    if (filter === 'approved') return approvedStatuses.includes(tx.status);
-    if (filter === 'pending') return tx.status === 'pending';
+  const approvedStatuses = ['active', 'switch_applied'];
+  const filtered = billing.filter((sub: any) => {
+    if (filter === 'approved') return approvedStatuses.includes(sub.status);
+    if (filter === 'pending') return sub.status === 'pending';
     return true;
   });
   
@@ -205,47 +232,47 @@ export function BillingTab({ user, planMeta }: { user: any, planMeta: any }) {
           <div className={styles.emptyState}>{t.noInvoices}</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {paged.map((tx: any) => {
-              const isApproved = approvedStatuses.includes(tx.status);
-              const txId = tx.id ? tx.id.toString().split('-')[0] : '—';
-              const d = new Date(tx.created_at).toLocaleDateString(lang === 'es' ? 'es-AR' : 'pt-BR');
-              const planName = tx.plan_type === 'subscription' ? t.subscription : (tx.description || tx.plan_name || t.payment);
+            {paged.map((sub: any) => {
+              const isApproved = approvedStatuses.includes(sub.status);
+              const isPending = sub.status === 'pending';
+              const isPastDue = sub.status === 'past_due';
+              const d = new Date(sub.created_at).toLocaleDateString(lang === 'es' ? 'es-AR' : 'pt-BR');
+              const planName = localizedPlanName(sub.plan || t.subscription);
+              const cycleLabel = sub.billing_cycle === 'annual' ? t.cycleAnnual : t.cycleMonthly;
               // BUG CORRIGIDO (revalidação do zero da auditoria de i18n):
               // símbolo/formatação de moeda reimplementados manualmente em
               // vez de delegar pra lib/currency.ts, único lugar do app com
-              // essa lógica. A tabela `transactions` não tem coluna de
-              // moeda (histórico é só BRL), então usa o mesmo default 'BRL'
-              // que o resto do app assume quando a moeda não é informada.
-              const amount = tx.amount ? formatPrice(parseFloat(tx.amount), 'BRL', lang) : '—';
+              // essa lógica. Nem `transactions` nem `subscriptions` têm
+              // coluna de moeda — usa o mesmo default 'BRL' que o resto do
+              // app assume quando a moeda não é informada.
+              const amount = sub.price ? formatPrice(parseFloat(sub.price), 'BRL', lang) : '—';
+              const dateLabel = isApproved && sub.next_billing_at
+                ? `${t.nextBilling}: ${new Date(sub.next_billing_at).toLocaleDateString(lang === 'es' ? 'es-AR' : 'pt-BR')}`
+                : sub.current_period_end
+                  ? `${t.periodEnd}: ${new Date(sub.current_period_end).toLocaleDateString(lang === 'es' ? 'es-AR' : 'pt-BR')}`
+                  : d;
 
               return (
-                <div key={tx.id} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto auto', gap: '1.5rem', alignItems: 'center', padding: '1.25rem 1.5rem', border: '1px solid var(--clr-border)', borderRadius: '.85rem', background: 'var(--clr-bg)' }}>
+                <div key={sub.id} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto auto', gap: '1.5rem', alignItems: 'center', padding: '1.25rem 1.5rem', border: '1px solid var(--clr-border)', borderRadius: '.85rem', background: 'var(--clr-bg)' }}>
                   <div>
-                    <div style={{ fontWeight: 800, color: 'var(--clr-text)', fontSize: '1rem', marginBottom: '.15rem' }}>{planName}</div>
-                    <div style={{ fontSize: '.8rem', color: 'var(--clr-text-muted)', fontWeight: 500 }}>{d} &bull; {t.invoice} #{txId}</div>
+                    <div style={{ fontWeight: 800, color: 'var(--clr-text)', fontSize: '1rem', marginBottom: '.15rem' }}>{planName} &bull; {cycleLabel}</div>
+                    <div style={{ fontSize: '.8rem', color: 'var(--clr-text-muted)', fontWeight: 500 }}>{dateLabel}</div>
+                    {sub.cancel_at_period_end && (
+                      <div style={{ fontSize: '.78rem', color: '#b45309', fontWeight: 600, marginTop: '.2rem' }}>{t.statusCancelling}</div>
+                    )}
                   </div>
 
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontWeight: 800, color: 'var(--clr-text)', fontSize: '1.05rem', marginBottom: '.2rem' }}>{amount}</div>
-                    <div className={`${styles.statusBadge} ${isApproved ? styles.statusActive : (tx.status === 'pending' ? styles.statusPending : styles.statusExpired)}`}>
-                      {isApproved ? t.statusApproved : (tx.status === 'pending' ? t.statusPending : t.statusFailed)}
+                    <div className={`${styles.statusBadge} ${isApproved ? styles.statusActive : ((isPending || isPastDue) ? styles.statusPending : styles.statusExpired)}`}>
+                      {isApproved ? t.statusApproved : (isPending ? t.statusPending : (isPastDue ? t.statusPastDue : t.statusFailed))}
                     </div>
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem' }}>
-                    {/* BUG CORRIGIDO (achado incidental, verificação de i18n
-                        2026-08-27): este botão apontava pra
-                        /api/checkout?invoice_id=..., uma rota GET que nunca
-                        existiu (a rota real só aceita POST autenticado) —
-                        clicar sempre resultava em 405. `transactions` é uma
-                        tabela de um design de billing anterior ao atual
-                        (subscriptions + gateways reais); nenhum código hoje
-                        grava novas linhas nela, e o fluxo real de pagamento
-                        é sempre via /planos. Aponta pra lá em vez de um
-                        link morto. */}
-                    {tx.status === 'pending' && (
+                    {isPending && (
                       <Link href="/planos" className={styles.primaryButton} style={{ padding: '.4rem .8rem' }}>
-                        {t.pay}
+                        {t.continueCheckout}
                       </Link>
                     )}
                   </div>
