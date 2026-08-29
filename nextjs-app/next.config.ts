@@ -6,6 +6,13 @@ const nextConfig: NextConfig = {
     root: __dirname,
   },
   images: {
+    // BUG CORRIGIDO (auditoria de SEO, 2ª rodada): sem `formats`, o Next só
+    // gera WebP — AVIF costuma ficar 20-30% menor que WebP no mesmo
+    // conteúdo (fotos de anúncio, JPEGs reais), o que ajuda LCP/CWV.
+    // Ordem importa: o Next serve o primeiro formato da lista que o
+    // navegador do visitante aceitar (Accept header), então AVIF primeiro
+    // com WebP como fallback pros navegadores mais antigos.
+    formats: ['image/avif', 'image/webp'],
     remotePatterns: [
       {
         protocol: 'https',

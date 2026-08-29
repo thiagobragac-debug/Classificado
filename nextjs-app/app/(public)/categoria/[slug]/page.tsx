@@ -193,7 +193,7 @@ function buildItemListJsonLd(ads: any[], lang: Lang) {
   };
 }
 
-async function CategoriaContent({ parsedParams, geoContext, lang, categoryName }: { parsedParams: any, geoContext: any, lang: Lang, categoryName: string }) {
+async function CategoriaContent({ parsedParams, geoContext, lang, categoryName, slug }: { parsedParams: any, geoContext: any, lang: Lang, categoryName: string, slug: string }) {
   const [
     { ads, total, nextCursor },
     categories
@@ -204,11 +204,27 @@ async function CategoriaContent({ parsedParams, geoContext, lang, categoryName }
 
   const itemListJsonLd = buildItemListJsonLd(ads, lang);
 
+  // BUG CORRIGIDO (auditoria de SEO, 2ª rodada): mesmo breadcrumb visual
+  // real (<nav> abaixo, Início > Nome da Categoria) sem o BreadcrumbList
+  // correspondente — mesmo padrão já aplicado em anuncio/[id]/page.tsx.
+  const breadcrumbJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: _t('nav_home', lang), item: `${SITE_URL}/` },
+      { '@type': 'ListItem', position: 2, name: categoryName, item: `${SITE_URL}/categoria/${slug}` },
+    ],
+  };
+
   return (
     <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: escapeJsonLd(itemListJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: escapeJsonLd(breadcrumbJsonLd) }}
       />
       {/* heroTitle força o H1 correto mesmo sem ?categoria= na URL (o padrão
           "acessar /categoria/slug direto"); hideHeroBreadcrumb suprime o
@@ -265,7 +281,7 @@ export default async function CategoriaPage({ params, searchParams }: Props) {
   try {
     return (
       <Suspense fallback={<CategoriaSkeleton lang={lang} />}>
-        <CategoriaContent parsedParams={parsedParams} geoContext={geoContext} lang={lang} categoryName={categoryName} />
+        <CategoriaContent parsedParams={parsedParams} geoContext={geoContext} lang={lang} categoryName={categoryName} slug={slug} />
       </Suspense>
     );
   } catch (error) {

@@ -317,25 +317,50 @@ export default async function AdDetailsPage({ params, searchParams }: { params: 
     ? 'https://schema.org/NewCondition'
     : 'https://schema.org/UsedCondition';
 
+  // BUG CORRIGIDO (auditoria de SEO, 2ª rodada): breadcrumb visual real já
+  // existe (Início > Categoria > Anúncio, ver <nav className="breadcrumb">
+  // abaixo) mas nunca tinha o schema.org BreadcrumbList correspondente —
+  // rich result de breadcrumb no Google (economiza espaço vertical no
+  // resultado de busca, mostra a hierarquia em vez da URL crua).
+  const breadcrumbJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: _t('nav_home', lang), item: 'https://tauzeclass.com.br/' },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: catName || _t('footer_ads', lang),
+        item: `https://tauzeclass.com.br/listagem${ad.category_id ? `?categoria=${ad.category_id}` : ''}`,
+      },
+      { '@type': 'ListItem', position: 3, name: adTitle, item: `https://tauzeclass.com.br/anuncio/${ad.id}` },
+    ],
+  };
+
   const jsonLd = {
     '@context': 'https://schema.org',
-    '@type': 'Product',
-    name: adTitle,
-    image: temFotos ? ad.images.map((img: string) => imageUrl(img)) : [FALLBACK_IMG_ABSOLUTE],
-    description: stripHtmlForMeta(ad.description || adTitle, 500),
-    ...(ad.price ? {
-      offers: {
-        '@type': 'Offer',
-        priceCurrency: ad.currency || 'BRL',
-        price: ad.price,
-        itemCondition,
-        availability: ad.status === 'active' ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
-        seller: {
-          '@type': 'Person',
-          name: ad.profiles?.display_name || ad.profiles?.name || 'Vendedor',
-        },
+    '@graph': [
+      {
+        '@type': 'Product',
+        name: adTitle,
+        image: temFotos ? ad.images.map((img: string) => imageUrl(img)) : [FALLBACK_IMG_ABSOLUTE],
+        description: stripHtmlForMeta(ad.description || adTitle, 500),
+        ...(ad.price ? {
+          offers: {
+            '@type': 'Offer',
+            priceCurrency: ad.currency || 'BRL',
+            price: ad.price,
+            itemCondition,
+            availability: ad.status === 'active' ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+            seller: {
+              '@type': 'Person',
+              name: ad.profiles?.display_name || ad.profiles?.name || 'Vendedor',
+            },
+          },
+        } : {}),
       },
-    } : {}),
+      breadcrumbJsonLd,
+    ],
   };
 
   // GAP DE SEGURANÇA CORRIGIDO (2026-08-25): o painel lateral no desktop
