@@ -9,6 +9,7 @@ import { SimilarAds } from '@/components/ads/SimilarAds';
 import { ShareButton } from '@/components/ads/ShareButton';
 import { RecentViewTracker } from '@/components/ads/RecentViewTracker';
 import { createAnonClient } from '@/lib/supabase-server';
+import { createAdminClient } from '@/lib/supabase-admin';
 import { getGeoParams } from '@/lib/listagem-utils';
 import { t as _t, type Lang } from '@/lib/constants';
 import { getCurrencySymbol, formatCurrencyAmount } from '@/lib/currency';
@@ -178,7 +179,18 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ id: 
     // campos pra decidir se mostra os selos de e-mail/telefone/identidade
     // verificados, que por isso nunca apareciam mesmo com o vendedor
     // realmente verificado no banco.
-    .select('*, profiles(id, name, display_name, avatar_url, verified, phone_whatsapp, country, created_at, email_verified, phone_verified, kyc_status), categories(name_pt, name_es, icon)')
+    //
+    // BUG CRÍTICO CORRIGIDO (incidente ao vivo, 2026-08-29): phone_whatsapp
+    // foi removida daqui — supabase/migrations/20260829120000_revoke_anon_
+    // phone_whatsapp.sql revogou o SELECT dessa coluna pra `anon` (fix de
+    // segurança em paralelo, feito por outra sessão), e um GRANT/REVOKE de
+    // coluna faltando derruba a query INTEIRA com 42501, não só a coluna —
+    // toda página de anúncio virou 404 pra 100% dos visitantes (confirmado
+    // ao vivo contra o Postgrest de produção). O valor cru nunca era enviado
+    // ao cliente mesmo antes disso (ver desestruturação abaixo) — só o
+    // booleano hasWhatsapp precisa da coluna, buscado à parte via
+    // service_role logo abaixo, isolado desta query pública.
+    .select('*, profiles(id, name, display_name, avatar_url, verified, country, created_at, email_verified, phone_verified, kyc_status), categories(name_pt, name_es, icon)')
     .eq('id', id)
     .maybeSingle();
 
@@ -253,9 +265,21 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ id: 
   // no CTA mobile via /api/contact-seller. Agora só um booleano
   // (hasWhatsapp) atravessa pro client; o número em si nunca sai do
   // servidor, e o botão do desktop passa a usar a mesma rota protegida.
-  const { phone_whatsapp, ...profilesWithoutPhone } = ad.profiles ?? {};
-  const hasWhatsapp = !!phone_whatsapp;
-  const adForSidebar = { ...ad, profiles: ad.profiles ? profilesWithoutPhone : null };
+  //
+  // phone_whatsapp não vem mais na query principal (ver comentário acima,
+  // incidente 2026-08-29) — buscado à parte via service_role, que ainda
+  // tem a coluna liberada. O valor em si é descartado logo em seguida;
+  // só o booleano sobrevive.
+  let hasWhatsapp = false;
+  if (ad.profiles?.id) {
+    const { data: whatsappRow } = await createAdminClient()
+      .from('profiles')
+      .select('phone_whatsapp')
+      .eq('id', ad.profiles.id)
+      .maybeSingle();
+    hasWhatsapp = !!whatsappRow?.phone_whatsapp;
+  }
+  const adForSidebar = ad;
 
   return (
     <>
