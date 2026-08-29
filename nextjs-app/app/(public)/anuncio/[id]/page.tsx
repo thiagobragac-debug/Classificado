@@ -13,10 +13,15 @@ import { createAdminClient } from '@/lib/supabase-admin';
 import { getGeoParams } from '@/lib/listagem-utils';
 import { t as _t, type Lang } from '@/lib/constants';
 import { getCurrencySymbol, formatCurrencyAmount } from '@/lib/currency';
+import { escapeJsonLd } from '@/lib/json-ld';
 import '../../anuncio.css';
 
 // Sem singleton de módulo — cliente criado por-request dentro das funções
 const FALLBACK_IMG = '/assets/hero_farm.webp';
+// BUG CORRIGIDO (auditoria de SEO): og:image/twitter:image exigem URL
+// absoluta — usar FALLBACK_IMG (path relativo) direto fazia o card de
+// WhatsApp/Facebook não mostrar imagem nenhuma pra anúncio sem foto.
+const FALLBACK_IMG_ABSOLUTE = `https://tauzeclass.com.br${FALLBACK_IMG}`;
 const SB_STORAGE = 'https://rfzuzuobwuanmbrcthqe.supabase.co/storage/v1/object/public/ad-images/';
 
 // Regex de validação de UUID v4
@@ -74,17 +79,56 @@ async function getCookieLang(): Promise<Lang> {
   return cookieStore.get('tc_lang')?.value === 'es' ? 'es' : 'pt';
 }
 
+// BUG CRÍTICO CORRIGIDO (auditoria de SEO): generateMetadata e o corpo da
+// página tinham cada um a SUA PRÓPRIA cópia dessa lógica de prioridade
+// (searchParams.lang > cookie) — a cópia do corpo (getCookieLang() sozinho,
+// sem olhar searchParams) nunca foi atualizada quando a de generateMetadata
+// ganhou o searchParams.lang. Resultado: as duas URLs do par hreflang
+// (?lang=pt / ?lang=es) tinham título/description diferentes mas o corpo
+// (breadcrumb, categoria, tags, JSON-LD) idêntico, sempre no idioma do
+// cookie — um hreflang que declara duas versões e serve o mesmo HTML pras
+// duas é pior do que não declarar hreflang nenhum. Extraída pra uma função
+// só, usada nos dois lugares, pra nunca mais divergir.
+function resolveLang(spLang: string | string[] | undefined, cookieLang: Lang): Lang {
+  const v = typeof spLang === 'string' ? spLang : undefined;
+  return v === 'es' || v === 'pt' ? v : cookieLang;
+}
+
 function imageUrl(path: string): string {
   if (!path) return FALLBACK_IMG;
   if (path.startsWith('http')) return path;
   return SB_STORAGE + path;
 }
 
-function escapeJsonLd(obj: object): string {
-  return JSON.stringify(obj)
-    .replace(/</g, '\\u003c')
-    .replace(/>/g, '\\u003e')
-    .replace(/&/g, '\\u0026');
+// BUG CORRIGIDO (auditoria de SEO): title/OG title sem limite (o campo do
+// formulário aceita até 100 caracteres) saía cortado no meio da palavra
+// pelo Google/redes sociais. Só usado pro <title>/OG — o h1/galeria da
+// própria página continua mostrando o título completo.
+function truncate(s: string, max: number): string {
+  if (s.length <= max) return s;
+  return s.slice(0, max - 1).trimEnd() + '…';
+}
+
+// BUG CORRIGIDO (auditoria de SEO): a meta description só removia tags
+// (.replace(/<[^>]*>/g, '')) sem decodificar entidades HTML nem inserir
+// espaço ao remover tags de bloco — texto do Quill como
+// "<p>Trator ótimo.</p><p>Aceito troca.</p>" virava
+// "Trator ótimo.Aceito troca." colado, e "café &amp; grãos" aparecia cru
+// com a entidade no snippet do Google/WhatsApp.
+function stripHtmlForMeta(html: string, maxLen: number): string {
+  const comEspacos = html
+    .replace(/<\/(p|div|li|h[1-6])\s*>/gi, ' ')
+    .replace(/<br\s*\/?>/gi, ' ');
+  const semTags = comEspacos.replace(/<[^>]*>/g, '');
+  const decodificado = semTags
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'");
+  const colapsado = decodificado.replace(/\s+/g, ' ').trim();
+  return colapsado.length > maxLen ? colapsado.slice(0, maxLen - 1).trimEnd() + '…' : colapsado;
 }
 
 export async function generateMetadata({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
@@ -99,7 +143,7 @@ export async function generateMetadata({ params, searchParams }: { params: Promi
   // tc_lang, igual ao resto do site.
   const sp = await searchParams;
   const spLang = typeof sp?.lang === 'string' ? sp.lang : undefined;
-  const lang: Lang = spLang === 'es' || spLang === 'pt' ? spLang : await getCookieLang();
+  const lang: Lang = resolveLang(spLang, await getCookieLang());
   const tx = PAGE_TEXT[lang];
 
   if (!UUID_REGEX.test(id)) {
@@ -130,35 +174,47 @@ export async function generateMetadata({ params, searchParams }: { params: Promi
   // `ad.title_pt || ad.title_es` — nunca usava o título em espanhol mesmo
   // com lang="es" e title_es preenchido. Agora prioriza a coluna do idioma
   // ativo (com fallback pra pt quando a tradução ainda não existe).
-  const title = (lang === 'es' && ad.title_es) ? ad.title_es : (ad.title_pt || ad.title_es || tx.fallbackTitle);
-  const imgUrl = ad.images?.[0] ? imageUrl(ad.images[0]) : null;
-  // Remover tags HTML da description para o meta description
-  const plainDescription = (ad.description || '').replace(/<[^>]*>/g, '').substring(0, 160);
+  const fullTitle = (lang === 'es' && ad.title_es) ? ad.title_es : (ad.title_pt || ad.title_es || tx.fallbackTitle);
+  const title = truncate(fullTitle, 60);
+  const imgUrl = ad.images?.[0] ? imageUrl(ad.images[0]) : FALLBACK_IMG_ABSOLUTE;
+  const plainDescription = stripHtmlForMeta(ad.description || '', 160);
+
+  // BUG CORRIGIDO (auditoria de SEO): canonical era o MESMO literal pras
+  // duas variantes de idioma (?lang=pt e ?lang=es geravam o mesmo
+  // canonical, sem o parâmetro) — o Google trata canonical como sinal
+  // mais forte que hreflang quando os dois divergem, então consolidava
+  // tudo na URL sem parâmetro e esvaziava o par hreflang. Cada variante
+  // agora aponta pra si mesma; x-default e "es" genérico (não "es-AR" —
+  // o site atende Argentina/Uruguai/Paraguai igualmente, sem segmentação
+  // por país) substituem o hreflang anterior.
+  const baseUrl = `https://tauzeclass.com.br/anuncio/${id}`;
+  const canonicalUrl = spLang === 'es' || spLang === 'pt' ? `${baseUrl}?lang=${spLang}` : baseUrl;
 
   return {
     title: title,
     description: plainDescription || tx.metaDescFallback(title),
     alternates: {
-      canonical: `https://tauzeclass.com.br/anuncio/${id}`,
+      canonical: canonicalUrl,
       languages: {
-        'pt-BR': `https://tauzeclass.com.br/anuncio/${id}?lang=pt`,
-        'es-AR': `https://tauzeclass.com.br/anuncio/${id}?lang=es`,
+        'pt-BR': `${baseUrl}?lang=pt`,
+        'es': `${baseUrl}?lang=es`,
+        'x-default': baseUrl,
       },
     },
     openGraph: {
       title: `${title} | Tauze Class`,
       description: plainDescription,
-      images: imgUrl ? [{ url: imgUrl, width: 1200, height: 630 }] : [],
+      images: [{ url: imgUrl, width: 1200, height: 630 }],
     },
     twitter: {
       card: 'summary_large_image',
       title: `${title} | Tauze Class`,
-      images: imgUrl ? [imgUrl] : [],
+      images: [imgUrl],
     },
   };
 }
 
-export default async function AdDetailsPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function AdDetailsPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const { id } = await params;
 
   // ─── Validação de formato UUID ──────────────────────────────
@@ -166,7 +222,14 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ id: 
     notFound();
   }
 
-  const lang = await getCookieLang();
+  // BUG CRÍTICO CORRIGIDO (auditoria de SEO): ver comentário de
+  // resolveLang() acima — o corpo da página precisa da MESMA prioridade
+  // (searchParams.lang > cookie) que generateMetadata já usa, senão o
+  // par hreflang declarado lá em cima mente pro Google (título muda,
+  // corpo não).
+  const sp = await searchParams;
+  const spLang = typeof sp?.lang === 'string' ? sp.lang : undefined;
+  const lang = resolveLang(spLang, await getCookieLang());
   const tx = PAGE_TEXT[lang];
 
   // ─── Cliente por-request (sem singleton de módulo) ──────────
@@ -238,23 +301,41 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ id: 
     ? DOMPurify.sanitize(ad.description, { ALLOWED_TAGS: allowedTags, ALLOWED_ATTR: [] })
     : null;
 
+  // BUG CORRIGIDO (auditoria de SEO): três problemas no Product/Offer:
+  //  1. `ad.images?.map(...) || [FALLBACK_IMG]` — array VAZIO (`[]`) é
+  //     truthy em JS, então o fallback nunca disparava pra anúncio sem
+  //     foto nenhuma; Google trata `image: []` como campo ausente/inválido
+  //     e nega elegibilidade a rich result justo nesse caso.
+  //  2. `price: ad.price || 0` gravava preço ZERO ("grátis") pra anúncio
+  //     "Sob consulta" (sem preço) — dado estruturado contradizendo o que
+  //     a própria página mostra. Omite o bloco `offers` inteiro quando não
+  //     há preço, em vez de inventar um valor.
+  //  3. `itemCondition` sempre fixo em UsedCondition, ignorando
+  //     ads.condition (já vinha no select('*'), nunca era lido).
+  const temFotos = Array.isArray(ad.images) && ad.images.length > 0;
+  const itemCondition = ad.condition === 'novo' || ad.condition === 'new'
+    ? 'https://schema.org/NewCondition'
+    : 'https://schema.org/UsedCondition';
+
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: adTitle,
-    image: ad.images?.map((img: string) => imageUrl(img)) || [FALLBACK_IMG],
-    description: (ad.description || adTitle).replace(/<[^>]*>/g, ''),
-    offers: {
-      '@type': 'Offer',
-      priceCurrency: ad.currency || 'BRL',
-      price: ad.price || 0,
-      itemCondition: 'https://schema.org/UsedCondition',
-      availability: ad.status === 'active' ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
-      seller: {
-        '@type': 'Person',
-        name: ad.profiles?.display_name || ad.profiles?.name || 'Vendedor',
+    image: temFotos ? ad.images.map((img: string) => imageUrl(img)) : [FALLBACK_IMG_ABSOLUTE],
+    description: stripHtmlForMeta(ad.description || adTitle, 500),
+    ...(ad.price ? {
+      offers: {
+        '@type': 'Offer',
+        priceCurrency: ad.currency || 'BRL',
+        price: ad.price,
+        itemCondition,
+        availability: ad.status === 'active' ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+        seller: {
+          '@type': 'Person',
+          name: ad.profiles?.display_name || ad.profiles?.name || 'Vendedor',
+        },
       },
-    },
+    } : {}),
   };
 
   // GAP DE SEGURANÇA CORRIGIDO (2026-08-25): o painel lateral no desktop
@@ -267,13 +348,15 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ id: 
   // servidor, e o botão do desktop passa a usar a mesma rota protegida.
   //
   // phone_whatsapp não vem mais na query principal (ver comentário acima,
-  // incidente 2026-08-29) — buscado à parte via service_role, que ainda
-  // tem a coluna liberada. O valor em si é descartado logo em seguida;
+  // incidente 2026-08-29) — buscado à parte via service_role. BUG CORRIGIDO
+  // (fechamento pré-produção): a coluna mudou de profiles pra user_secrets
+  // (migration 20260829130000); service_role ignora RLS de qualquer forma,
+  // só o nome da tabela mudou. O valor em si é descartado logo em seguida;
   // só o booleano sobrevive.
   let hasWhatsapp = false;
   if (ad.profiles?.id) {
     const { data: whatsappRow } = await createAdminClient()
-      .from('profiles')
+      .from('user_secrets')
       .select('phone_whatsapp')
       .eq('id', ad.profiles.id)
       .maybeSingle();

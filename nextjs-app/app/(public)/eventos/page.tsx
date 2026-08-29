@@ -4,6 +4,7 @@ import type { Metadata } from 'next'
 import { createAnonClient } from '@/lib/supabase-server'
 import { t as _t } from '@/lib/constants'
 import { parseEventDate } from '@/lib/event-date'
+import { escapeJsonLd } from '@/lib/json-ld'
 import EventCard, { AuctionEvent } from './EventCard'
 import EventSearch from './EventSearch'
 import Link from 'next/link'
@@ -46,6 +47,14 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: META.title,
     description: META.description,
+    // Canonical fixo intencional: a página aceita busca via searchParams.q
+    // (ver EventosPage logo abaixo) que filtra a lista de eventos exibida,
+    // mas o title/description gerados aqui não variam com o termo buscado
+    // (permanecem os mesmos independente da query). Não há conteúdo
+    // distinto por parâmetro que justifique um canonical dinâmico; pelo
+    // contrário, apontar toda variação de busca para a URL base /eventos
+    // evita fragmentar o SEO entre inúmeras combinações de query (duplicate
+    // content / index bloat).
     alternates: { canonical: 'https://tauzeclass.com.br/eventos' },
     openGraph: {
       title: META.ogTitle,
@@ -62,13 +71,6 @@ export async function generateMetadata(): Promise<Metadata> {
       images: ['https://tauzeclass.com.br/assets/og-home.jpg'],
     },
   };
-}
-
-function escapeJsonLd(obj: object): string {
-  return JSON.stringify(obj)
-    .replace(/</g, '\\u003c')
-    .replace(/>/g, '\\u003e')
-    .replace(/&/g, '\\u0026');
 }
 
 export default async function EventosPage({

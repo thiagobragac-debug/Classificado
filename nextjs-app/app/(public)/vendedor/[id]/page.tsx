@@ -24,36 +24,83 @@ const getProfile = cache(async (id: string) => {
   return data;
 });
 
+const SITE_URL = 'https://tauzeclass.com.br';
+const FALLBACK_OG_IMAGE = `${SITE_URL}/assets/og-home.jpg`;
+
+// BUG CORRIGIDO (auditoria de SEO): og:image usava incondicionalmente a
+// imagem genérica do site, ignorando avatar_url/banner_url reais do
+// vendedor (já buscados por getProfile() desde o fix de 2026-08-25 —
+// ver comentário ali). Prioriza avatar sobre banner (mais parecido com o
+// "profile picture" que redes sociais esperam pra og:type=profile).
+// Garante URL absoluta mesmo que a coluna um dia guarde caminho relativo —
+// hoje avatar_url/banner_url já saem como URL completa (ver uso direto
+// como <img src> em SellerProfileHeader.tsx / AdSidebar.tsx, sem prefixo
+// de storage bucket, diferente de ads.images).
+function toAbsoluteImageUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  return `${SITE_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
 export async function generateMetadata(props: Props): Promise<Metadata> {
   const params = await props.params;
+  const searchParams = await props.searchParams;
   const cookieStore = await cookies();
-  const lang = (cookieStore.get('tc_lang')?.value === 'es' ? 'es' : 'pt') as 'pt' | 'es';
+  const cookieLang = (cookieStore.get('tc_lang')?.value === 'es' ? 'es' : 'pt') as 'pt' | 'es';
+  // BUG CORRIGIDO (auditoria de SEO): generateMetadata só lia o cookie —
+  // mesma convenção de app/(public)/anuncio/[id]/page.tsx, onde
+  // searchParams.lang (o que o próprio link hreflang carrega) tem
+  // prioridade sobre o cookie.
+  const spLangRaw = searchParams?.lang;
+  const spLang = typeof spLangRaw === 'string' ? spLangRaw : undefined;
+  const lang: 'pt' | 'es' = spLang === 'es' || spLang === 'pt' ? spLang : cookieLang;
   const profile = await getProfile(params.id);
 
   if (!profile) return { title: lang === 'es' ? 'Vendedor no encontrado' : 'Vendedor não encontrado' };
 
   const sellerName = profile.display_name || profile.name || 'Vendedor';
+  const ogImage = toAbsoluteImageUrl(profile.avatar_url) || toAbsoluteImageUrl(profile.banner_url) || FALLBACK_OG_IMAGE;
+
+  // BUG CORRIGIDO (auditoria de SEO): faltava alternates.languages — sem o
+  // par hreflang, o Google não sabia que ?lang=pt/?lang=es são a mesma
+  // página em idiomas diferentes. canonical agora aponta pra si mesmo por
+  // variante (mesma lógica de anuncio/[id]/page.tsx): com ?lang= explícito
+  // na URL, o canonical inclui o parâmetro; sem ele (acesso "neutro",
+  // guiado pelo cookie), aponta pra URL base.
+  const baseUrl = `${SITE_URL}/vendedor/${params.id}`;
+  const canonicalUrl = spLang === 'es' || spLang === 'pt' ? `${baseUrl}?lang=${spLang}` : baseUrl;
 
   return {
     title: lang === 'es' ? `Productos de ${sellerName}` : `Produtos de ${sellerName}`,
     description: lang === 'es'
       ? `Consulta los anuncios y valoraciones de ${sellerName} en el mayor clasificado agro del Mercosur.`
       : `Confira os anúncios e avaliações de ${sellerName} no maior classificado agro do Mercosul.`,
-    alternates: { canonical: `https://tauzeclass.com.br/vendedor/${params.id}` },
+    alternates: {
+      canonical: canonicalUrl,
+      languages: {
+        'pt-BR': `${baseUrl}?lang=pt`,
+        'es': `${baseUrl}?lang=es`,
+        'x-default': baseUrl,
+      },
+    },
     openGraph: {
       title: `${sellerName} — ${lang === 'es' ? 'Clasificados Agro' : 'Classificados Agro'} | Tauze Class`,
       description: lang === 'es'
         ? `Mira los productos de ${sellerName} y consulta su reputación.`
         : `Veja os produtos de ${sellerName} e confira sua reputação.`,
-      url: `https://tauzeclass.com.br/vendedor/${params.id}`,
+      url: `${SITE_URL}/vendedor/${params.id}`,
       type: 'profile',
       locale: lang === 'es' ? 'es_AR' : 'pt_BR',
-      images: [{ url: 'https://tauzeclass.com.br/assets/og-home.jpg', width: 1200, height: 630, alt: `${sellerName} | Tauze Class` }],
+      images: [{ url: ogImage, width: 1200, height: 630, alt: `${sellerName} | Tauze Class` }],
     },
     twitter: {
-      card: 'summary',
+      // BUG CORRIGIDO (auditoria de SEO): card 'summary' sem imagem
+      // destoava do resto do site (anuncio/[id]/page.tsx, home) que usa
+      // 'summary_large_image' — padronizado, reaproveitando ogImage.
+      card: 'summary_large_image',
       title: `${sellerName} — Tauze Class`,
       description: lang === 'es' ? `Consulta los anuncios de ${sellerName}.` : `Confira os anúncios de ${sellerName}.`,
+      images: [ogImage],
     },
   };
 }
@@ -62,7 +109,17 @@ export default async function VendedorPage(props: Props) {
   const params = await props.params;
   const searchParams = await props.searchParams;
   const cookieStore = await cookies();
-  const lang = (cookieStore.get('tc_lang')?.value === 'es' ? 'es' : 'pt') as 'pt' | 'es';
+  const cookieLang = (cookieStore.get('tc_lang')?.value === 'es' ? 'es' : 'pt') as 'pt' | 'es';
+  // BUG CRÍTICO CORRIGIDO (achado da verificação adversarial desta rodada):
+  // generateMetadata já prioriza searchParams.lang sobre o cookie (mesma
+  // convenção de anuncio/[id]/page.tsx), mas o CORPO da página continuava
+  // só no cookie — as duas URLs do par hreflang que generateMetadata
+  // anuncia (?lang=pt / ?lang=es) serviam o MESMO HTML de corpo (breadcrumb,
+  // h1, JSON-LD), exatamente o bug "hreflang mentiroso" já corrigido em
+  // anuncio/[id]/page.tsx. searchParams.lang tem prioridade aqui também.
+  const spLangRaw = searchParams?.lang;
+  const spLang = typeof spLangRaw === 'string' ? spLangRaw : undefined;
+  const lang: 'pt' | 'es' = spLang === 'es' || spLang === 'pt' ? spLang : cookieLang;
   const t = (key: string) => _t(key, lang);
 
   const sp = { ...searchParams, seller_id: params.id };

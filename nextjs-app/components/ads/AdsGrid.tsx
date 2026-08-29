@@ -17,7 +17,7 @@ export default function AdsGrid({
 
   return (
     <div className="ads-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 'var(--sp-4)' }}>
-      {ads.map((ad) => (
+      {ads.map((ad, index) => (
         <AdCard
           key={ad.id}
           ad={ad}
@@ -25,6 +25,7 @@ export default function AdsGrid({
           lang={lang as 'pt' | 'es'}
           isFav={!!favs[ad.id]}
           onToggleFav={() => toggleFav(ad.id)}
+          priority={index === 0}
         />
       ))}
     </div>

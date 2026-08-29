@@ -90,10 +90,14 @@ export async function generateMetadata({
   if (!pageData) {
     // Slug inexistente: a página em si faz redirect() pra pages[0] nesse
     // caso, mas mantemos uma metadata genérica e coerente de fallback.
+    // Mesmo tratamento de hreflang do caso normal abaixo — ver comentário lá.
     return {
       title: TRANSLATIONS[lang].fallbackTitle,
       description: TRANSLATIONS[lang].fallbackDescription,
-      alternates: { canonical: 'https://tauzeclass.com.br/institucional' },
+      alternates: {
+        canonical: 'https://tauzeclass.com.br/institucional',
+        languages: { 'x-default': 'https://tauzeclass.com.br/institucional' },
+      },
     };
   }
 
@@ -101,11 +105,24 @@ export async function generateMetadata({
   const subtitle = localize(lang, pageData.subtitle, pageData.subtitle_es);
   const description = subtitle || `${title} — ${TRANSLATIONS[lang].siteSuffix}`;
 
+  const canonicalUrl = `https://tauzeclass.com.br/institucional?page=${pageData.id}`;
+
   return {
     title,
     description,
     alternates: {
-      canonical: `https://tauzeclass.com.br/institucional?page=${pageData.id}`,
+      canonical: canonicalUrl,
+      // BUG CORRIGIDO (auditoria de SEO — alternates.languages ausente):
+      // faltava hreflang nesta página, mesmo achado já corrigido em outros
+      // grupos desta rodada (ver app/(public)/layout.tsx). Diferente de
+      // app/(public)/anuncio/[id]/page.tsx (que aceita ?lang= na URL e por
+      // isso declara 'pt-BR'/'es' com URLs distintas), esta página troca de
+      // idioma só via cookie tc_lang — não existe um ?lang= aqui, então
+      // 'page' é a única variação real de URL. Declarar 'pt-BR' e 'es'
+      // apontando pra essa MESMA URL seria inválido (duas entidades de
+      // idioma conflitantes pro mesmo endereço); 'x-default' sozinho é o
+      // que reflete a realidade, mesmo padrão usado no layout raiz.
+      languages: { 'x-default': canonicalUrl },
     },
   };
 }

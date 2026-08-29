@@ -65,7 +65,11 @@ export async function generateMetadata(): Promise<Metadata> {
       title: m.ogTitle,
       description: m.ogDescription,
       url: 'https://tauzeclass.com.br',
-      images: [{ url: 'https://tauzeclass.com.br/assets/og-home.jpg', width: 1200, height: 630, alt: m.ogImageAlt }],
+      // Fallback temporário — ainda não existe uma imagem de marca 1200x630
+      // dedicada (og-home.jpg nunca existiu em public/assets/). Usa o mesmo
+      // fallback já estabelecido em components/ads/AdGallery.tsx e
+      // app/(public)/anuncio/[id]/page.tsx até haver um asset de OG real.
+      images: [{ url: 'https://tauzeclass.com.br/assets/hero_farm.webp', width: 1200, height: 630, alt: m.ogImageAlt }],
       locale: m.locale,
       siteName: 'Tauze Class',
     },
@@ -73,9 +77,15 @@ export async function generateMetadata(): Promise<Metadata> {
       card: 'summary_large_image',
       title: m.twitterTitle,
       description: m.twitterDescription,
-      images: ['https://tauzeclass.com.br/assets/og-home.jpg'],
+      images: ['https://tauzeclass.com.br/assets/hero_farm.webp'],
     },
-    alternates: { canonical: 'https://tauzeclass.com.br' },
+    alternates: {
+      canonical: 'https://tauzeclass.com.br',
+      // x-default cobre visitantes sem preferência de idioma detectável
+      // (ex. crawlers) — aponta para a versão em português, que é o idioma
+      // padrão do site (cookie tc_lang ausente cai em 'pt').
+      languages: { 'x-default': 'https://tauzeclass.com.br' },
+    },
     manifest: '/manifest.json',
     icons: {
       icon: [{ url: '/api/favicon', type: 'image/png' }],

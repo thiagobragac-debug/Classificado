@@ -7,7 +7,10 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: '*',
       allow: '/',
-      disallow: ['/painel/', '/admin/', '/api/', '/_next/'],
+      // '/_next/' NÃO entra no disallow: bloquear esse caminho impede o
+      // Google de baixar JS/CSS usados para renderizar client components,
+      // o que prejudica a avaliação de páginas que dependem de hidratação.
+      disallow: ['/painel/', '/admin/', '/api/'],
     },
     sitemap: `${baseUrl}/sitemap.xml`,
   };

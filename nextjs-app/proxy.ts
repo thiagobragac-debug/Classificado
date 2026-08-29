@@ -5,6 +5,7 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { SUPABASE_URL, SUPABASE_ANON } from '@/lib/supabase';
 import { SECURITY_HEADERS } from '@/lib/security-headers';
 import { resolverIpConfiavel, ipParaRateLimit } from '@/lib/ip-utils';
+import { dentroDoLimiteFallback } from '@/lib/rate-limit-fallback';
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 
@@ -45,24 +46,13 @@ async function dentroDoLimite(chave: string): Promise<boolean> {
     return success;
   }
 
-  try {
-    const db = createSupabaseClient(SUPABASE_URL, SUPABASE_ANON, { auth: { persistSession: false } });
-    const { data, error } = await db.rpc('check_rate_limit', {
-      p_bucket: chave,
-      p_limit: LIMITE_TENTATIVAS,
-      p_window_seconds: JANELA_SEGUNDOS,
-    });
-    if (error) {
-      // Falha aberta: uma indisponibilidade do banco não pode trancar o login
-      // de todo mundo. Mas não pode passar calado.
-      console.error('[proxy] check_rate_limit falhou, liberando a requisição:', error.message);
-      return true;
-    }
-    return data !== false;
-  } catch (e) {
-    console.error('[proxy] check_rate_limit indisponível, liberando a requisição:', (e as Error).message);
-    return true;
-  }
+  const db = createSupabaseClient(SUPABASE_URL, SUPABASE_ANON, { auth: { persistSession: false } });
+  return dentroDoLimiteFallback(db, {
+    bucket: chave,
+    limit: LIMITE_TENTATIVAS,
+    windowSeconds: JANELA_SEGUNDOS,
+    logPrefix: 'proxy',
+  });
 }
 
 // ─── Host do Supabase (usado no CSP) ───────────────────────────
@@ -401,6 +391,21 @@ export async function proxy(request: NextRequest) {
   if (!lang) {
     const acceptLang = request.headers.get('accept-language') || '';
     lang = acceptLang.toLowerCase().includes('es') ? 'es' : 'pt';
+
+    // BUG CORRIGIDO (auditoria de SEO): setar o cookie só na RESPOSTA
+    // (response.cookies.set) só afeta requisições FUTURAS do mesmo
+    // navegador — os Server Components desta MESMA requisição
+    // (generateMetadata, layout raiz, todo Page) continuam lendo
+    // cookies() com o cookie ORIGINAL da requisição, sem tc_lang, e caem
+    // sempre em 'pt'. Como o Googlebot não reenvia cookie nenhum entre
+    // crawls (cada fetch é "a primeira vez"), a detecção por
+    // Accept-Language nunca chegava a valer pra ele. requestHeaders é o
+    // mecanismo padrão do Next.js pra um cookie decidido no meio do
+    // middleware ficar visível pros Server Components desta MESMA
+    // requisição — reconstrói o response com ele antes de devolver.
+    const cookieHeaderAtual = requestHeaders.get('cookie') || '';
+    requestHeaders.set('cookie', cookieHeaderAtual ? `${cookieHeaderAtual}; tc_lang=${lang}` : `tc_lang=${lang}`);
+    response = NextResponse.next({ request: { headers: requestHeaders } });
     response.cookies.set('tc_lang', lang, {
       path: '/',
       maxAge: 60 * 60 * 24 * 365,

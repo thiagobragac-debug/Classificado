@@ -25,7 +25,9 @@ const METADATA_I18N = {
 export async function generateMetadata(): Promise<Metadata> {
   const cookieStore = await cookies()
   const lang = cookieStore.get('tc_lang')?.value === 'es' ? 'es' : 'pt'
-  return METADATA_I18N[lang]
+  // Página transacional/de conta — não precisa ser indexada; sobrescreve o
+  // robots:{index:true} herdado do layout raiz só nesta rota.
+  return { ...METADATA_I18N[lang], robots: { index: false, follow: false } }
 }
 
 // Cache the platform logo query so it doesn't hit the DB on every render.

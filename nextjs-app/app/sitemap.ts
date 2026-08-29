@@ -1,11 +1,37 @@
 import { MetadataRoute } from 'next';
-import { createClient } from '@/lib/supabase-server';
+import { createAnonClient } from '@/lib/supabase-server';
 
-export const dynamic = 'force-dynamic';
+// Usamos createAnonClient() (não createClient()) porque todo o conteúdo
+// deste sitemap é público — createClient() lê cookies() (API de request-time
+// que força o Next a tratar a rota como dinâmica em toda requisição).
+// createAnonClient() faz suas queries via fetch com `next: { revalidate:
+// 3600 }` (ver lib/supabase-server.ts), então o próprio Next.js cacheia os
+// resultados das consultas por até 1h via Data Cache — é isso que evita que
+// cada crawl dispare múltiplos roundtrips de banco.
+//
+// IMPORTANTE — por que não há um `headers().set('Cache-Control', ...)` ou
+// equivalente aqui: em Next 16.3.2, o Route Handler que envolve sitemap.ts é
+// inteiramente gerado pelo framework (ver
+// node_modules/next/dist/build/webpack/loaders/next-metadata-route-loader.js,
+// função getSingleSitemapRouteCode) e SEMPRE monta a resposta como
+//   new NextResponse(content, { headers: { 'Cache-Control': 'public,
+//   max-age=0, must-revalidate' } })
+// — um valor hardcoded no loader, sem ler nenhum export deste arquivo.
+// sitemap.ts só pode retornar dados (MetadataRoute.Sitemap), nunca um
+// Response/NextResponse próprio, então não existe API para sobrescrever esse
+// header a partir daqui (confirmado lendo o loader; também não há branch ali
+// que leve em conta `dynamic`/`revalidate`). Setar um Cache-Control
+// customizado (ex.: 's-maxage=3600, stale-while-revalidate=86400') exigiria
+// mudar o Next.js em si. `export const revalidate` abaixo é o mecanismo que
+// este tipo de arquivo realmente expõe (doc oficial: "sitemap.js is a
+// special Route Handler that is cached by default unless it uses a
+// Request-time API or dynamic config option") — com ele o handler roda no
+// máximo 1x/hora (ISR), o que também reduz os roundtrips de banco por crawl.
+export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://tauzeclass.com.br';
-  
+
   // Static core routes
   const staticRoutes: MetadataRoute.Sitemap = [
     {
@@ -32,36 +58,92 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'monthly',
       priority: 0.6,
     },
+    {
+      url: `${baseUrl}/eventos`,
+      lastModified: new Date(),
+      changeFrequency: 'daily',
+      priority: 0.8,
+    },
+    {
+      url: `${baseUrl}/leiloes`,
+      lastModified: new Date(),
+      changeFrequency: 'daily',
+      priority: 0.8,
+    },
   ];
 
   try {
-    const supabase = await createClient();
-    
-    // Fetch all active ads
-    const { data: ads } = await supabase
-      .from('ads')
-      .select('id, updated_at, created_at')
-      .eq('status', 'active');
+    const supabase = createAnonClient();
 
-    const adEntries: MetadataRoute.Sitemap = (ads || []).map((ad: any) => ({
+    // Fetch all active ads — paginado de verdade via .range(), em lotes de
+    // 1000. Sem isso, o PostgREST aplica um limite default (~1000 linhas) por
+    // resposta sem avisar, e sem .order() o subconjunto retornado não é
+    // determinístico entre execuções (relevante aqui porque este handler
+    // pode rodar de novo a cada `revalidate` segundos).
+    type AdRow = { id: string; user_id: string | null; updated_at: string | null; created_at: string };
+    const PAGE_SIZE = 1000;
+    const ads: AdRow[] = [];
+    for (let from = 0; ; from += PAGE_SIZE) {
+      const { data, error } = await supabase
+        .from('ads')
+        .select('id, user_id, updated_at, created_at')
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .range(from, from + PAGE_SIZE - 1);
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+      ads.push(...(data as AdRow[]));
+      if (data.length < PAGE_SIZE) break;
+    }
+
+    const adEntries: MetadataRoute.Sitemap = ads.map((ad) => ({
       url: `${baseUrl}/anuncio/${ad.id}`,
       lastModified: ad.updated_at || ad.created_at,
       changeFrequency: 'weekly',
       priority: 0.8,
     }));
 
-    // Fetch upcoming/live events (auction_events) and feiras (eventos) —
+    // Vendedores com pelo menos um ad ativo — reaproveita os user_id já
+    // trazidos pela busca de ads acima (sem roundtrip extra só pra descobrir
+    // quem tem anúncio ativo). lastModified vem de profiles.updated_at/
+    // created_at reais (não de `new Date()`).
+    const sellerIds = Array.from(
+      new Set(ads.map((ad) => ad.user_id).filter((id): id is string => !!id))
+    );
+    type ProfileRow = { id: string; updated_at: string | null; created_at: string };
+    const profiles: ProfileRow[] = [];
+    const PROFILE_CHUNK = 500;
+    for (let i = 0; i < sellerIds.length; i += PROFILE_CHUNK) {
+      const chunk = sellerIds.slice(i, i + PROFILE_CHUNK);
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, updated_at, created_at')
+        .in('id', chunk);
+      if (error) throw error;
+      if (data) profiles.push(...(data as ProfileRow[]));
+    }
+
+    const sellerEntries: MetadataRoute.Sitemap = profiles.map((p) => ({
+      url: `${baseUrl}/vendedor/${p.id}`,
+      lastModified: p.updated_at || p.created_at,
+      changeFrequency: 'weekly',
+      priority: 0.6,
+    }));
+
+    // Fetch upcoming/live events (auction_events) e feiras (eventos) —
     // /eventos/[id] resolve ambas as tabelas (ver app/(public)/eventos/[id]/page.tsx),
     // então o sitemap precisa cobrir as duas. Nenhuma das duas tem coluna
     // `updated_at`, só `created_at`.
-    const { data: auctionEvents } = await supabase
+    const { data: auctionEvents, error: auctionErr } = await supabase
       .from('auction_events')
       .select('id, created_at')
       .neq('status', 'draft');
+    if (auctionErr) throw auctionErr;
 
-    const { data: eventos } = await supabase
+    const { data: eventos, error: eventosErr } = await supabase
       .from('eventos')
       .select('id, created_at');
+    if (eventosErr) throw eventosErr;
 
     const eventEntries: MetadataRoute.Sitemap = [
       ...(auctionEvents || []),
@@ -73,16 +155,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.7,
     }));
 
-    const eventosListRoute: MetadataRoute.Sitemap = [
-      {
-        url: `${baseUrl}/eventos`,
-        lastModified: new Date(),
-        changeFrequency: 'daily',
-        priority: 0.8,
-      },
-    ];
+    // /leiloes/[id] resolve só contra auction_events (ver
+    // app/(public)/leiloes/[id]/page.tsx), diferente de /eventos/[id] acima —
+    // por isso é uma lista de entradas separada, não junta com `eventos`.
+    const auctionRouteEntries: MetadataRoute.Sitemap = (auctionEvents || []).map((ev: any) => ({
+      url: `${baseUrl}/leiloes/${ev.id}`,
+      lastModified: ev.created_at,
+      changeFrequency: 'weekly',
+      priority: 0.7,
+    }));
 
-    return [...staticRoutes, ...eventosListRoute, ...adEntries, ...eventEntries];
+    return [
+      ...staticRoutes,
+      ...adEntries,
+      ...sellerEntries,
+      ...eventEntries,
+      ...auctionRouteEntries,
+    ];
   } catch (err) {
     console.error('Error generating dynamic sitemap:', err);
     // Graceful fallback if database fails

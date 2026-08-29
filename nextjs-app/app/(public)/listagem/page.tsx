@@ -5,6 +5,22 @@ import { getGeoParams, getAllCategories } from '@/lib/listagem-utils';
 import { getAdsListagem, adsSearchParamsSchema } from '@/lib/services/ads.service';
 import { logError } from '@/lib/monitoring';
 import { t as _t } from '@/lib/constants';
+import { escapeJsonLd } from '@/lib/json-ld';
+import { imageUrl } from '@/lib/storage';
+
+const SITE_URL = 'https://tauzeclass.com.br';
+// Imagem genérica do site pra OG/Twitter/JSON-LD quando não há categoria ou
+// foto específica — mesmo asset (existente de fato em public/assets) usado
+// como FALLBACK_IMG em app/(public)/anuncio/[id]/page.tsx. NÃO reaproveita
+// '/assets/og-home.jpg' (usado em leiloes/page.tsx e eventos/page.tsx): esse
+// arquivo não existe em public/assets, então essas duas páginas hoje
+// declaram uma og:image quebrada — fora do escopo deste agente corrigir.
+const FALLBACK_IMG_ABSOLUTE = `${SITE_URL}/assets/hero_farm.webp`;
+
+function absoluteImageUrl(path?: string | null): string {
+  const url = imageUrl(path);
+  return url.startsWith('http') ? url : `${SITE_URL}${url}`;
+}
 
 const METADATA_TRANSLATIONS = {
   pt: {
@@ -54,12 +70,57 @@ export async function generateMetadata({
     if (categoryName) baseTitle = categoryName;
   }
 
+  const title = `${baseTitle}${location}`;
+  const description = T.description(baseTitle);
+
+  // BUG CORRIGIDO (auditoria de SEO + achado da verificação adversarial
+  // desta rodada): a 1ª versão deste fix só considerava ?categoria= —
+  // mas pais/estado/cidade (linhas 58-60 acima) TAMBÉM mudam o title (ex.:
+  // "Anúncios em São Paulo"), e continuavam gerando um canonical apontando
+  // pra /listagem genérico, reproduzindo o mesmo tipo de divergência
+  // título/canonical que esta correção existe pra resolver. Inclui na
+  // querystring canônica TODOS os parâmetros explícitos da URL que afetam
+  // title/description (categoria + geo) — nunca o valor de geoContext
+  // (que pode vir do cookie de geolocalização automática do visitante,
+  // sem sinal nenhum na URL; um crawler sem esse cookie nunca vê essa
+  // variação, então ela não pertence ao canonical). Os demais parâmetros
+  // (busca/ordem/página/etc.) não geram title/description distintos e por
+  // isso continuam fora daqui, caindo no canonical mais genérico aplicável.
+  const canonicalParams = new URLSearchParams();
+  if (parsedParams.categoria) canonicalParams.set('categoria', parsedParams.categoria);
+  if (parsedParams.pais) canonicalParams.set('pais', parsedParams.pais);
+  if (parsedParams.estado) canonicalParams.set('estado', parsedParams.estado);
+  if (parsedParams.cidade) canonicalParams.set('cidade', parsedParams.cidade);
+  const canonicalQuery = canonicalParams.toString();
+  const canonicalUrl = `https://tauzeclass.com.br/listagem${canonicalQuery ? `?${canonicalQuery}` : ''}`;
+
   return {
-    title: `${baseTitle}${location}`,
-    description: T.description(baseTitle),
+    title,
+    description,
     alternates: {
-      canonical: `https://tauzeclass.com.br/listagem`,
-    }
+      canonical: canonicalUrl,
+    },
+    // BUG CORRIGIDO (auditoria de SEO): página sem openGraph/twitter nenhum
+    // — link compartilhado no WhatsApp/Facebook/Twitter caía no fallback
+    // genérico do Next (ou nada), diferente de outras páginas de listagem
+    // do site (leiloes/page.tsx, eventos/page.tsx). Reaproveita o mesmo
+    // title/description já calculados acima; imagem usa o fallback
+    // genérico do site (ver FALLBACK_IMG_ABSOLUTE) já que a listagem não
+    // tem uma foto única representativa como uma página de anúncio.
+    openGraph: {
+      title,
+      description,
+      url: canonicalUrl,
+      type: 'website',
+      locale: lang === 'es' ? 'es_AR' : 'pt_BR',
+      images: [{ url: FALLBACK_IMG_ABSOLUTE, width: 1200, height: 630 }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [FALLBACK_IMG_ABSOLUTE],
+    },
   };
 }
 
@@ -84,7 +145,54 @@ function ListagemSkeleton({ lang }: { lang: 'pt' | 'es' }) {
   );
 }
 
-async function AdsBrowserWrapper({ parsedParams, geoContext }: { parsedParams: any, geoContext: any }) {
+// BUG CORRIGIDO (auditoria de SEO): a página não tinha JSON-LD nenhum —
+// diferente de leiloes/page.tsx e anuncio/[id]/page.tsx, que já expõem seus
+// itens/produto como dado estruturado. Monta um ItemList com os anúncios da
+// PÁGINA ATUAL (a mesma leva de `ads` já buscada acima pro grid — não refaz
+// a busca nem muda paginação/filtro nenhum). Mesmo padrão de
+// escapeJsonLd()/<script type="application/ld+json"> já usado nas outras
+// páginas do projeto (agora centralizado em lib/json-ld.ts, como em
+// eventos/page.tsx) para manter a mesma sanitização contra fechamento
+// prematuro da tag <script>.
+function buildItemListJsonLd(ads: any[], lang: 'pt' | 'es') {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    itemListElement: ads.map((ad: any, index: number) => {
+      const adTitle = lang === 'es' ? (ad.title_es || ad.title_pt) : ad.title_pt;
+      return {
+        '@type': 'ListItem',
+        position: index + 1,
+        url: `${SITE_URL}/anuncio/${ad.id}`,
+        item: {
+          '@type': 'Product',
+          name: adTitle,
+          // Array vazio (ad.images sem fotos) é truthy em JS — mesmo cuidado
+          // já documentado em anuncio/[id]/page.tsx: sempre resolve pro
+          // fallback explicitamente, nunca deixa `image: []`.
+          image: [
+            Array.isArray(ad.images) && ad.images.length > 0
+              ? absoluteImageUrl(ad.images[0])
+              : FALLBACK_IMG_ABSOLUTE,
+          ],
+          // "Sob consulta" (ad.price null/undefined) não gera bloco `offers`
+          // — mesma regra de anuncio/[id]/page.tsx, pra não inventar preço
+          // zero/inexistente no dado estruturado.
+          ...(ad.price ? {
+            offers: {
+              '@type': 'Offer',
+              priceCurrency: ad.currency || 'BRL',
+              price: ad.price,
+              availability: 'https://schema.org/InStock',
+            },
+          } : {}),
+        },
+      };
+    }),
+  };
+}
+
+async function AdsBrowserWrapper({ parsedParams, geoContext, lang }: { parsedParams: any, geoContext: any, lang: 'pt' | 'es' }) {
   const [
     { ads, total, nextCursor },
     categories
@@ -92,15 +200,23 @@ async function AdsBrowserWrapper({ parsedParams, geoContext }: { parsedParams: a
     getAdsListagem(parsedParams, geoContext),
     getAllCategories()
   ]);
-  
+
+  const itemListJsonLd = buildItemListJsonLd(ads, lang);
+
   return (
-    <AdsBrowser 
-      initialAds={ads} 
-      initialTotal={total} 
-      initialGeo={!geoContext.hasManualGeo && geoContext.geoCookie ? geoContext.geoCookie : undefined}
-      nextCursor={nextCursor}
-      categories={categories}
-    />
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: escapeJsonLd(itemListJsonLd) }}
+      />
+      <AdsBrowser
+        initialAds={ads}
+        initialTotal={total}
+        initialGeo={!geoContext.hasManualGeo && geoContext.geoCookie ? geoContext.geoCookie : undefined}
+        nextCursor={nextCursor}
+        categories={categories}
+      />
+    </>
   );
 }
 
@@ -122,7 +238,7 @@ export default async function ListagemPage({
   try {
     return (
       <Suspense fallback={<ListagemSkeleton lang={lang} />}>
-        <AdsBrowserWrapper parsedParams={parsedParams} geoContext={geoContext} />
+        <AdsBrowserWrapper parsedParams={parsedParams} geoContext={geoContext} lang={lang} />
       </Suspense>
     );
   } catch (error) {

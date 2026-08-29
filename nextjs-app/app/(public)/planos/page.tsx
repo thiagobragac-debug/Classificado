@@ -11,13 +11,22 @@ type Lang = 'pt' | 'es'
 // title/description em PT na aba do navegador e nos resultados de busca.
 // Convertido para generateMetadata(), mesmo padrão já usado em
 // app/(public)/eventos/[id]/page.tsx.
+// BUG CORRIGIDO (auditoria de SEO — marca duplicada/incorreta no title):
+// o title levava um sufixo manual "| Classificado Agro" (nome que não é o
+// da marca) e ainda ficava com o sufixo "| Tauze Class" duplicado por cima,
+// aplicado pelo title.template do layout raiz (app/(public)/layout.tsx:
+// `template: '%s | Tauze Class'`) — resultado na aba do navegador era
+// "Planos e Preços | Classificado Agro | Tauze Class". Basta o title puro
+// aqui; o layout raiz já aplica " | Tauze Class" sozinho via template
+// (mesmo padrão de app/(public)/eventos/page.tsx: title: 'Agenda de
+// Eventos', sem sufixo nenhum).
 const METADATA_I18N = {
   pt: {
-    title: 'Planos e Preços | Classificado Agro',
+    title: 'Planos e Preços',
     description: 'Escolha o melhor plano para anunciar e vender mais rápido no maior classificado agro do Mercosul.',
   },
   es: {
-    title: 'Planes y Precios | Clasificado Agro',
+    title: 'Planes y Precios',
     description: 'Elige el mejor plan para publicar y vender más rápido en el mayor clasificado agro del Mercosur.',
   },
 } as const

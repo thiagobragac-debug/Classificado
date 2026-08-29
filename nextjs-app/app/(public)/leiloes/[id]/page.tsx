@@ -1,9 +1,12 @@
 import { notFound } from 'next/navigation';
 import { cookies } from 'next/headers';
 import type { Metadata } from 'next';
+import Image from 'next/image';
 import { createClient, createAnonClient } from '@/lib/supabase-server';
 import LotGrid from '@/components/auctions/LotGrid';
 import { LotData } from '@/components/auctions/LotBiddingModal';
+import { imageUrl } from '@/lib/storage';
+import { escapeJsonLd } from '@/lib/json-ld';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -234,8 +237,46 @@ export default async function AuctionPage(props: { params: Promise<{ id: string 
     : null;
   const ytId = ytMatch ? ytMatch[1] : null;
 
+  // JSON-LD Event — mesmo padrão @graph já usado em /leiloes (listagem, ver
+  // app/(public)/leiloes/page.tsx), adaptado pra um item só. eventAttendanceMode
+  // fica fixo em Online porque auction_events não tem coluna de localização
+  // (mesma limitação já existente na listagem — ev.location lá também nunca
+  // existe pra um auction_event, então cai sempre no ramo "online"); não dá
+  // pra inventar um Place que não existe no banco.
+  const jsonLdDateLocale = lang === 'es' ? 'es-AR' : 'pt-BR';
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Event',
+    name: auctionTitle,
+    startDate: new Date(auction.date).toISOString(),
+    endDate: new Date(new Date(auction.date).getTime() + 4 * 60 * 60 * 1000).toISOString(),
+    url: `https://tauzeclass.com.br/leiloes/${auctionId}`,
+    eventAttendanceMode: 'https://schema.org/OnlineEventAttendanceMode',
+    // Mesmo mapeamento da listagem: só 'cancelled' vira EventCancelled;
+    // schema.org não tem um status "concluído" e 'closed' (encerrado
+    // normalmente) não é semanticamente um cancelamento.
+    eventStatus: auction.status === 'cancelled'
+      ? 'https://schema.org/EventCancelled'
+      : 'https://schema.org/EventScheduled',
+    location: { '@type': 'VirtualLocation', url: `https://tauzeclass.com.br/leiloes/${auctionId}` },
+    description: T.descriptionText(
+      new Date(auction.date).toLocaleDateString(jsonLdDateLocale),
+      new Date(auction.date).toLocaleTimeString(jsonLdDateLocale, { hour: '2-digit', minute: '2-digit' })
+    ),
+    image: auction.cover
+      ? auction.cover.startsWith('http')
+        ? auction.cover
+        : `https://rfzuzuobwuanmbrcthqe.supabase.co/storage/v1/object/public/ad-images/${auction.cover}`
+      : 'https://tauzeclass.com.br/assets/hero_farm.webp',
+    organizer: { '@type': 'Organization', name: 'Tauze Class', url: 'https://tauzeclass.com.br' },
+  };
+
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: escapeJsonLd(jsonLd) }}
+      />
       <div className="container" style={{ paddingTop: 'calc(var(--header-h) + 2rem)', paddingBottom: '4rem' }}>
 
         {/* Banner/Header */}
@@ -291,10 +332,13 @@ export default async function AuctionPage(props: { params: Promise<{ id: string 
             </div>
           ) : (
             <div style={{ position: 'relative', height: '400px', borderRadius: '8px', overflow: 'hidden', background: '#0f172a' }}>
-              <img
-                src={auction.cover || '/assets/hero_farm.webp'}
+              <Image
+                src={imageUrl(auction.cover)}
                 alt={T.coverAlt(auctionTitle)}
-                style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'brightness(0.7)' }}
+                fill
+                sizes="100vw"
+                style={{ objectFit: 'cover', filter: 'brightness(0.7)' }}
+                priority
               />
               {isScheduled && (
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)' }}>

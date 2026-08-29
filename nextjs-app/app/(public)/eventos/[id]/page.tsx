@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation'
+import { notFound, permanentRedirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { createAnonClient } from '@/lib/supabase-server'
 import Image from 'next/image'
@@ -6,6 +6,8 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 import { imageUrl } from '@/lib/storage'
 import { t as _t } from '@/lib/constants'
+import { parseEventDate } from '@/lib/event-date'
+import { escapeJsonLd } from '@/lib/json-ld'
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -50,25 +52,50 @@ async function getLang(): Promise<Lang> {
 
 export const revalidate = 3600; // ISR — eventos raramente mudam
 
+type FoundEvento = {
+  kind: 'evento';
+  title: string;
+  date: string;
+  cover: string | null;
+  location?: string;
+  organizer?: string;
+  link?: string;
+};
+type FoundAuction = { kind: 'auction' };
+type FoundRecord = FoundAuction | FoundEvento;
+
 // BUG CRÍTICO CORRIGIDO (teste completo do site, 2026-08-24): esta página só
 // consultava auction_events — as 8 "feiras" reais vindas da tabela `eventos`
 // (Expointer, Agrishow, ExpoZebu etc., listadas em /eventos junto com os
 // leilões) sempre devolviam 404 ao clicar. Agora tenta auction_events
 // primeiro e cai para `eventos` se não achar, igual à normalização já feita
 // em app/(public)/eventos/page.tsx.
-async function findEvent(id: string, lang: Lang) {
+//
+// DUPLICAÇÃO DE CONTEÚDO CORRIGIDA (achado de validação, 2026-08-29):
+// /leiloes/[id] já é a página completa de um leilão (lances, catálogo,
+// vídeo ao vivo) — renderizar aqui um resumo do MESMO auction_event, numa
+// URL diferente, é near-duplicate content pro Google (confirmado ao vivo:
+// o mesmo id de auction_events respondia HTTP 200 nas duas rotas, com o
+// mesmo título, cada uma com seu próprio <link rel="canonical">). Como o
+// card de leilão na listagem /eventos ainda linka pra cá (EventCard.tsx
+// aponta sempre pra /eventos/{id}, nunca sabe se o registro é um leilão),
+// esta função agora só confirma a EXISTÊNCIA do auction_event (kind:
+// 'auction') — quem decide o que fazer com isso é generateMetadata/a página
+// (redirect de vez pra /leiloes/{id}, sem renderizar resumo nenhum). Só um
+// registro de `eventos` de verdade retorna os dados completos (kind:
+// 'evento') pra render abaixo.
+async function findEvent(id: string, lang: Lang): Promise<FoundRecord | null> {
   const sb = createAnonClient();
 
   const { data: auction } = await sb
     .from('auction_events')
-    .select('id, title, title_es, date, cover, status')
+    .select('id')
     .eq('id', id)
     .neq('status', 'draft')
     .maybeSingle();
 
   if (auction) {
-    const title = lang === 'es' && auction.title_es ? auction.title_es : auction.title;
-    return { title, date: auction.date, cover: auction.cover, location: undefined, organizer: undefined, link: undefined };
+    return { kind: 'auction' };
   }
 
   const { data: evento } = await sb
@@ -81,7 +108,7 @@ async function findEvent(id: string, lang: Lang) {
     const title = lang === 'es' && evento.title_es ? evento.title_es : evento.title;
     const location = lang === 'es' && evento.location_str_es ? evento.location_str_es : evento.location_str;
     const organizer = lang === 'es' && evento.organizer_es ? evento.organizer_es : evento.organizer;
-    return { title, date: evento.date, cover: evento.image, location, organizer, link: evento.link };
+    return { kind: 'evento', title, date: evento.date, cover: evento.image, location, organizer, link: evento.link };
   }
 
   return null;
@@ -105,7 +132,24 @@ export async function generateMetadata({
   if (!UUID_REGEX.test(id)) return { title: tt.notFound };
 
   const data = await findEvent(id, lang);
-  if (!data) return { title: tt.notFound };
+  // BUG CRÍTICO CORRIGIDO (achado de validação, 2026-08-29): pra um id
+  // formalmente válido mas inexistente, esta função só devolvia um Metadata
+  // com título "não encontrado" — nunca chamava notFound(). generateMetadata
+  // roda ANTES do corpo da página começar a streamar (esta rota herda o
+  // Suspense de app/(public)/eventos/loading.tsx), então a página inteira
+  // respondia HTTP 200 pra um evento que não existe (soft-404, confirmado ao
+  // vivo com curl). Mesmo padrão já corrigido em anuncio/[id]/page.tsx.
+  if (!data) notFound();
+
+  // DUPLICAÇÃO DE CONTEÚDO CORRIGIDA — ver comentário de findEvent() acima.
+  // redirect() aqui (e não só no corpo da página) é necessário pelo mesmo
+  // motivo do notFound() acima: por causa do loading.tsx herdado, um
+  // redirect() chamado só no corpo chegaria tarde demais pra virar um
+  // redirect HTTP de verdade (a resposta já teria começado a streamar como
+  // 200) — viraria só uma <meta> de redirect client-side. Permanent (308)
+  // porque a duplicidade é estrutural: este id SEMPRE vai pertencer a
+  // /leiloes, nunca a uma página de evento própria.
+  if (data.kind === 'auction') permanentRedirect(`/leiloes/${id}`);
 
   const coverUrl = data.cover
     ? data.cover.startsWith('http')
@@ -168,14 +212,71 @@ export default async function EventDetailPage({
     notFound()
   }
 
-  const event = await findEvent(id, lang)
+  const found = await findEvent(id, lang)
 
-  if (!event) {
+  if (!found) {
     notFound()
   }
 
+  // DUPLICAÇÃO DE CONTEÚDO CORRIGIDA — ver comentário de findEvent() e
+  // generateMetadata() acima. Mantido aqui também (defesa em profundidade):
+  // generateMetadata já redireciona antes do streaming começar em condições
+  // normais, mas se algum dia rodar sem esse Suspense herdado, o corpo
+  // continua correto por si só.
+  if (found.kind === 'auction') {
+    permanentRedirect(`/leiloes/${id}`)
+  }
+
+  const event = found
+
+  // JSON-LD Event — mesmo padrão @graph já usado em /eventos (listagem),
+  // adaptado pra um item só. isOnline usa a MESMA regra da listagem
+  // (app/(public)/eventos/page.tsx): sem location_str cadastrado, ou
+  // contendo "online", trata como evento online — nunca inventa um Place
+  // que não existe no banco.
+  const isOnline = !event.location || event.location.toLowerCase().includes('online');
+  const parsedTime = parseEventDate(event.date);
+  const startDateStr = !isNaN(parsedTime) ? new Date(parsedTime).toISOString() : new Date().toISOString();
+  const endDateStr = !isNaN(parsedTime)
+    ? new Date(parsedTime + 4 * 60 * 60 * 1000).toISOString()
+    : new Date(Date.now() + 86400000).toISOString();
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Event',
+    name: event.title,
+    startDate: startDateStr,
+    endDate: endDateStr,
+    url: `https://tauzeclass.com.br/eventos/${id}`,
+    eventAttendanceMode: isOnline
+      ? 'https://schema.org/OnlineEventAttendanceMode'
+      : 'https://schema.org/OfflineEventAttendanceMode',
+    eventStatus: 'https://schema.org/EventScheduled',
+    location: isOnline
+      ? { '@type': 'VirtualLocation', url: `https://tauzeclass.com.br/eventos/${id}` }
+      : {
+          '@type': 'Place',
+          name: event.location || (lang === 'es' ? 'Ubicación del Evento' : 'Local do Evento'),
+          address: {
+            '@type': 'PostalAddress',
+            addressLocality: event.location || 'Brasil',
+            addressCountry: 'BR',
+          },
+        },
+    description: event.title,
+    image: event.cover
+      ? event.cover.startsWith('http')
+        ? event.cover
+        : `https://rfzuzuobwuanmbrcthqe.supabase.co/storage/v1/object/public/ad-images/${event.cover}`
+      : 'https://tauzeclass.com.br/assets/hero_farm.webp',
+    organizer: { '@type': 'Organization', name: 'Tauze Class', url: 'https://tauzeclass.com.br' },
+  };
+
   return (
     <div style={{ marginTop: 'var(--header-h)', flex: 1, paddingBottom: '4rem' }}>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: escapeJsonLd(jsonLd) }}
+      />
       <div className="list-hero">
         <div className="container">
           <div className="list-hero-inner">

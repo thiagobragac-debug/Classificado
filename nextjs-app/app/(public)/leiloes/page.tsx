@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import type { Metadata } from 'next';
 import AuctionsBrowser from '@/components/auctions/AuctionsBrowser';
 import { createAnonClient } from '@/lib/supabase-server';
+import { escapeJsonLd } from '@/lib/json-ld';
 
 // BUG CORRIGIDO (auditoria de i18n, 2026-08-26/27): metadata era um objeto
 // estático sempre em português — o <title>/description da aba nunca mudava
@@ -24,6 +25,15 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title,
     description,
+    // Canonical fixo intencional: a página aceita filtros via searchParams
+    // (status, q, month — ver fetchAuctions logo abaixo) que mudam os
+    // resultados listados, mas o title/description gerados aqui não variam
+    // por filtro (permanecem os mesmos para qualquer combinação de
+    // status/q/month). Não há conteúdo distinto por parâmetro que
+    // justifique um canonical dinâmico; pelo contrário, apontar toda
+    // variação de filtro para a URL base evita fragmentar o SEO da página
+    // entre inúmeras combinações de query (duplicate content / index
+    // bloat).
     alternates: { canonical: 'https://tauzeclass.com.br/leiloes' },
     openGraph: {
       title: ogTitle,
@@ -43,13 +53,6 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export const revalidate = 60; // ISR 1 minuto
-
-function escapeJsonLd(obj: object): string {
-  return JSON.stringify(obj)
-    .replace(/</g, '\\u003c')
-    .replace(/>/g, '\\u003e')
-    .replace(/&/g, '\\u0026');
-}
 
 // BUG CORRIGIDO (varredura cruzada de cenários): factoriza os filtros
 // compartilhados (status/mês/ordenação) pra poderem ser reaplicados em
