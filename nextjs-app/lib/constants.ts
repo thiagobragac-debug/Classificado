@@ -315,12 +315,12 @@ export const POPULAR_TAGS: Record<string, string[]> = {
 export const FOOTER_LINKS = {
   pt: {
     ads: [
-      { label: 'Animais',  href: '/listagem?categoria=cat-bovinos'  },
-      { label: 'Insumos',  href: '/listagem?categoria=cat-insumos'  },
-      { label: 'Máquinas', href: '/listagem?categoria=cat-maquinas' },
-      { label: 'Imóveis',  href: '/listagem?categoria=cat-imoveis'  },
-      { label: 'Genética', href: '/listagem?categoria=cat-genetica' },
-      { label: 'Serviços', href: '/listagem?categoria=cat-servicos' },
+      { label: 'Animais',  href: '/categoria/cat-bovinos'  },
+      { label: 'Insumos',  href: '/categoria/cat-insumos'  },
+      { label: 'Máquinas', href: '/categoria/cat-maquinas' },
+      { label: 'Imóveis',  href: '/categoria/cat-imoveis'  },
+      { label: 'Genética', href: '/categoria/cat-genetica' },
+      { label: 'Serviços', href: '/categoria/cat-servicos' },
     ],
     help: [
       { label: 'Central de Ajuda',        href: '/institucional?page=ajuda'      },
@@ -339,12 +339,12 @@ export const FOOTER_LINKS = {
   },
   es: {
     ads: [
-      { label: 'Animales',   href: '/listagem?categoria=cat-bovinos'  },
-      { label: 'Insumos',    href: '/listagem?categoria=cat-insumos'  },
-      { label: 'Maquinaria', href: '/listagem?categoria=cat-maquinas' },
-      { label: 'Inmuebles',  href: '/listagem?categoria=cat-imoveis'  },
-      { label: 'Genética',   href: '/listagem?categoria=cat-genetica' },
-      { label: 'Servicios',  href: '/listagem?categoria=cat-servicos' },
+      { label: 'Animales',   href: '/categoria/cat-bovinos'  },
+      { label: 'Insumos',    href: '/categoria/cat-insumos'  },
+      { label: 'Maquinaria', href: '/categoria/cat-maquinas' },
+      { label: 'Inmuebles',  href: '/categoria/cat-imoveis'  },
+      { label: 'Genética',   href: '/categoria/cat-genetica' },
+      { label: 'Servicios',  href: '/categoria/cat-servicos' },
     ],
     help: [
       { label: 'Centro de Ayuda',          href: '/institucional?page=ajuda'      },

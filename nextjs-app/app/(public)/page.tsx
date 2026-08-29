@@ -196,9 +196,9 @@ export default async function Home() {
         "@type": "ItemList",
         "name": jl.featuredCategories,
         "itemListElement": [
-          { "@type": "ListItem", "position": 1, "name": jl.bovinos, "url": `${siteUrl}/listagem?categoria=cat-bovinos` },
-          { "@type": "ListItem", "position": 2, "name": jl.maquinas, "url": `${siteUrl}/listagem?categoria=cat-maquinas` },
-          { "@type": "ListItem", "position": 3, "name": jl.imoveis, "url": `${siteUrl}/listagem?categoria=cat-imoveis` }
+          { "@type": "ListItem", "position": 1, "name": jl.bovinos, "url": `${siteUrl}/categoria/cat-bovinos` },
+          { "@type": "ListItem", "position": 2, "name": jl.maquinas, "url": `${siteUrl}/categoria/cat-maquinas` },
+          { "@type": "ListItem", "position": 3, "name": jl.imoveis, "url": `${siteUrl}/categoria/cat-imoveis` }
         ]
       }
     ]

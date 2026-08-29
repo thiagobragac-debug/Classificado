@@ -42,7 +42,7 @@ export async function CategoriesSection() {
             return (
               <Link
                 key={cat.id}
-                href={`/listagem?categoria=${cat.id}`}
+                href={`/categoria/${cat.id}`}
                 className="cat-card"
                 role="listitem"
                 style={{ borderColor: 'transparent' }}
