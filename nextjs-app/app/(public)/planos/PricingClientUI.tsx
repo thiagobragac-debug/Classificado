@@ -9,6 +9,7 @@ import type { Lang } from '@/lib/constants'
 import { getCurrencySymbol as sharedGetCurrencySymbol, formatCurrencyAmount } from '@/lib/currency'
 import CheckoutModal from '@/components/ui/CheckoutModal'
 import { useConfirm } from '@/components/ui/ConfirmProvider'
+import { escapeJsonLd } from '@/lib/json-ld'
 import styles from './page.module.css'
 
 export interface Plan {
@@ -213,6 +214,24 @@ export default function PricingClientUI({ initialPlans, plansError = false }: { 
   const { session } = useAuth()
   const { lang } = useLang()
   const t = TRANSLATIONS[lang]
+
+  // BUG CORRIGIDO (auditoria de SEO, 2ª rodada — cobertura de dados
+  // estruturados): esta página já tem 4 perguntas/respostas reais e
+  // traduzidas (a seção FAQ mais abaixo), candidata óbvia a FAQPage —
+  // nenhuma página do site tinha esse schema. Rich result de FAQ no
+  // Google (quando elegível) ocupa mais espaço visual no resultado de
+  // busca, aumentando CTR justo na página que fecha a assinatura.
+  const faqJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: [
+      { '@type': 'Question', name: t.faqCancelQ, acceptedAnswer: { '@type': 'Answer', text: t.faqCancelA } },
+      { '@type': 'Question', name: t.faqChangeQ, acceptedAnswer: { '@type': 'Answer', text: t.faqChangeA } },
+      { '@type': 'Question', name: t.faqPaymentQ, acceptedAnswer: { '@type': 'Answer', text: t.faqPaymentA } },
+      { '@type': 'Question', name: t.faqAdsQ, acceptedAnswer: { '@type': 'Answer', text: t.faqAdsA } },
+    ],
+  }
+
   const [userPlanId, setUserPlanId] = useState<string | null>(null)
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null)
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly')
@@ -572,6 +591,10 @@ export default function PricingClientUI({ initialPlans, plansError = false }: { 
 
         {/* FAQ SECTION */}
         <section className={styles.faqSection}>
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: escapeJsonLd(faqJsonLd) }}
+          />
           <h2>{t.faqTitle}</h2>
           <FAQItem
             id="cancelamento"

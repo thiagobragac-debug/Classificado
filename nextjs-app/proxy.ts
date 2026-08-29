@@ -170,6 +170,16 @@ function buildCsp(nonce: string, pathname: string): string {
       'https://nominatim.openstreetmap.org',  // geocodificação reversa (StepLocation)
       ...STRIPE_CONNECT,
       ...MP_CONNECT,
+      // BUG CORRIGIDO (auditoria de SEO, 2ª rodada): GA4 (app/(public)/
+      // layout.tsx, carregado só se NEXT_PUBLIC_GA_MEASUREMENT_ID existir)
+      // usa nonce pra passar em script-src, mas o beacon de medição em si
+      // é um fetch/sendBeacon — isso é connect-src, o nonce não cobre.
+      // Sem esses hosts aqui, o script carregaria mas todo evento seria
+      // bloqueado em silêncio pelo CSP assim que alguém configurar a env
+      // var, dando a falsa impressão de que o analytics "não funciona".
+      'https://www.google-analytics.com',
+      'https://analytics.google.com',
+      'https://www.googletagmanager.com',
     ]),
     // Frames: YouTube (leilões ao vivo) + iframes de cartão dos gateways
     directive('frame-src', ['https://www.youtube.com', ...STRIPE_FRAME, ...MP_FRAME]),

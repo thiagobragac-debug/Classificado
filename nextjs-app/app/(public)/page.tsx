@@ -177,6 +177,21 @@ export default async function Home() {
           "query-input": "required name=search_term_string"
         }
       },
+      // BUG CORRIGIDO (auditoria de SEO, 2ª rodada — cobertura de dados
+      // estruturados): a home já tinha WebSite/ItemList, mas nenhum
+      // Organization — o Google usa esse tipo pra entender QUEM opera o
+      // site (aparece no painel de conhecimento, ajuda a desambiguar a
+      // marca em buscas pelo nome). Sem `logo` e `sameAs` de propósito:
+      // não existe arquivo de logo em public/ nem link social real (o
+      // rodapé usa href="#" pros ícones de Instagram/Facebook/WhatsApp —
+      // ver Footer.tsx) — inventar esses valores seria dado estruturado
+      // falso. Adicionar os dois assim que existirem de verdade.
+      {
+        "@type": "Organization",
+        "name": "Tauze Class",
+        "url": siteUrl,
+        "description": jl.websiteDescription,
+      },
       {
         "@type": "ItemList",
         "name": jl.featuredCategories,

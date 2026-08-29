@@ -92,6 +92,19 @@ export async function generateMetadata(): Promise<Metadata> {
       apple: '/icon-192.svg',
       shortcut: '/api/favicon',
     },
+    // BUG CORRIGIDO (auditoria de SEO, 2ª rodada): nenhuma verificação do
+    // Google Search Console (nem Bing) existia no código — a propriedade
+    // do site não tinha como ser comprovada via meta tag, bloqueando o
+    // envio do sitemap.xml e o acesso aos relatórios de indexação/cobertura.
+    // Lê de env var — sem valor configurado, o campo de Metadata do Next
+    // sai vazio (não gera <meta> nenhuma), então isso é um no-op até
+    // alguém colar o código real de verificação nas envs de produção.
+    ...(process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION ? {
+      verification: {
+        ...(process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION ? { google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION } : {}),
+        ...(process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION ? { other: { 'msvalidate.01': process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION } } : {}),
+      },
+    } : {}),
   };
 }
 
@@ -168,6 +181,35 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </AuthProvider>
           </CategoriesProvider>
         </LangProvider>
+        {/* BUG CORRIGIDO (auditoria de SEO, 2ª rodada): não havia NENHUM
+            analytics/tracking no site inteiro — sem isso, não dá pra medir
+            se qualquer correção de SEO desta auditoria (ou qualquer decisão
+            de produto) teve efeito real em tráfego/conversão. Carrega o
+            GA4 só se NEXT_PUBLIC_GA_MEASUREMENT_ID estiver configurado —
+            sem a env var (hoje), isso é um no-op completo, sem inventar
+            nenhum ID de propriedade que não existe. */}
+        {process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
+          <>
+            <Script
+              src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID}`}
+              strategy="afterInteractive"
+              nonce={nonce}
+            />
+            <Script
+              id="ga4-init"
+              strategy="afterInteractive"
+              nonce={nonce}
+              dangerouslySetInnerHTML={{
+                __html: `
+                  window.dataLayer = window.dataLayer || [];
+                  function gtag(){dataLayer.push(arguments);}
+                  gtag('js', new Date());
+                  gtag('config', '${process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID}');
+                `,
+              }}
+            />
+          </>
+        )}
         {/* Service Worker — nonce necessário para CSP nonce-based */}
         <Script
           id="sw-registration"
