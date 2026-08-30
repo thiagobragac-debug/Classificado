@@ -82,12 +82,22 @@ export async function POST(req: Request) {
       return NextResponse.json({ received: true, handled: false })
     }
 
+    // BUG CORRIGIDO (re-auditoria, 2026-08-30): webhook_events.id usava
+    // event.eventId cru, sem namespace por gateway. Stripe usa IDs
+    // prefixados (evt_...), mas o Mercado Pago cai no fallback `mp_${dataId}`
+    // — um id numérico da própria plataforma, sem garantia de unicidade
+    // global entre gateways diferentes. Uma colisão (mesmo improvável)
+    // faria o segundo evento ser descartado como duplicata e o entitlement
+    // do usuário nunca seria atualizado. Namespacing por gateway elimina
+    // essa classe de colisão sem custo — cada gateway já sabe seu próprio id.
+    const eventKey = event.eventId ? `${gateway}:${event.eventId}` : null
+
     // --- Idempotency Check (read-only) ---
-    if (event.eventId) {
+    if (eventKey) {
       const { data: existingEvent } = await supabase
         .from('webhook_events')
         .select('id')
-        .eq('id', event.eventId)
+        .eq('id', eventKey)
         .maybeSingle()
 
       if (existingEvent) {
@@ -137,10 +147,10 @@ export async function POST(req: Request) {
     }
 
     // --- Idempotency: only mark as processed once we know we CAN process it ---
-    if (event.eventId) {
+    if (eventKey) {
       const { error: insertError } = await supabase
         .from('webhook_events')
-        .insert({ id: event.eventId, gateway, event_type: event.type })
+        .insert({ id: eventKey, gateway, event_type: event.type })
 
       if (insertError) {
         console.error(`[Webhook:${gateway}] Idempotency race condition blocked for event ${event.eventId}:`, insertError.message)
@@ -318,8 +328,17 @@ export async function POST(req: Request) {
         // perdendo o entitlement de troca de plano pra sempre já na 1ª
         // retentativa. Apaga a linha de idempotência antes de relançar, pra
         // um retry genuíno do gateway poder reprocessar o evento do zero.
-        if (event.eventId) {
-          const { error: rollbackErr } = await supabase.from('webhook_events').delete().eq('id', event.eventId)
+        // BUG CORRIGIDO (re-auditoria, 2026-08-30): a linha de idempotência é
+        // gravada com `id = eventKey` (namespaced por gateway, ver topo desta
+        // função), mas este rollback ainda apagava por `event.eventId` cru —
+        // nunca encontrava a linha (DELETE sem match não gera erro), então o
+        // registro "fantasma" permanecia. Um retry genuíno do gateway batia
+        // na checagem de duplicata do topo, era descartado como "já
+        // processado", e o entitlement da troca de plano se perdia pra
+        // sempre em silêncio — exatamente o bug que este rollback existe
+        // pra evitar.
+        if (eventKey) {
+          const { error: rollbackErr } = await supabase.from('webhook_events').delete().eq('id', eventKey)
           if (rollbackErr) console.error(`[Webhook:${gateway}] Failed to roll back idempotency row for event ${event.eventId}:`, rollbackErr.message)
         }
         throw new Error('Failed to claim plan_changed event: ' + claimErr.message)
@@ -490,6 +509,11 @@ export async function POST(req: Request) {
     // evento explicitamente "não suportado" (tratado mais acima, antes deste
     // catch) deve retornar 200 de propósito.
     const status = isAuthError ? 400 : 500
-    return NextResponse.json({ error: err.message }, { status })
+    // BUG CORRIGIDO: rota pública e sem autenticação (o gateway chama de
+    // fora) devolvia err.message cru — reconhecimento de configuração
+    // desnecessário (ex.: confirmar pra um atacante qual gateway está com
+    // segredo vazio). A mensagem completa já foi logada no console.error
+    // acima; o gateway só precisa do status HTTP pra saber se deve reenviar.
+    return NextResponse.json({ error: 'Webhook processing failed' }, { status })
   }
 }

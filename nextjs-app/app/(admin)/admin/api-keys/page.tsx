@@ -6,6 +6,18 @@ import { getSupabase } from '@/lib/supabase'
 import { showToast } from '@/lib/toast'
 import { useConfirm } from '@/components/ui/ConfirmProvider'
 
+// BUG CORRIGIDO (achado de usabilidade): o seletor de permissões era um
+// <select multiple> nativo — exige Ctrl/Cmd+clique para marcar mais de uma
+// opção (pouco descoberto no desktop) e é inviável em touch/tablet (não há
+// como fazer "ctrl+clique" num toque). Vira uma lista de checkboxes, uma por
+// permissão, mantendo o mesmo array `form.permissions`.
+const PERMISSIONS = [
+  { value: 'read_ads', label: 'Leitura de Anúncios' },
+  { value: 'write_ads', label: 'Escrita de Anúncios' },
+  { value: 'read_users', label: 'Leitura de Usuários' },
+  { value: 'full_access', label: 'Acesso Total (Admin)' },
+]
+
 export default function AdminApiKeys() {
   const { confirm } = useConfirm()
   const [keys, setKeys] = useState<any[]>([])
@@ -22,13 +34,68 @@ export default function AdminApiKeys() {
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false)
+  // BUG CORRIGIDO (auditoria de segurança, 2026-08-30): o formulário nunca
+  // enviava expires_at, então toda chave nascia com expiração nula — perpétua
+  // na prática, mesmo a coluna e a checagem de expiração já existindo
+  // (lib/api-auth.ts) e havendo uma Edge Function dedicada a avisar sobre
+  // chaves expirando. Padrão de 12 meses; o admin pode limpar o campo pra
+  // criar uma chave sem expiração, mas isso deixa de ser o padrão silencioso.
+  // Valida uma data "AAAA-MM-DD" (de <input type="date"> ou de window.prompt)
+  // e devolve o ISO string persistível (23:59:59 local) ou null (sem
+  // expiração) — compartilhada entre handleSave e handleRenew.
+  //
+  // BUG CORRIGIDO (re-auditoria, 2026-08-30): a validação original de
+  // handleRenew comparava Date.parse() sobre o texto CRU do prompt, mas o
+  // valor de fato persistido é `${data}T23:59:59` — o parser "legado" do V8
+  // aceita formatos (com espaço, por extenso, sem zero à esquerda) que a
+  // string combinada não aceita, então uma entrada "válida" na checagem
+  // virava `Invalid time value` no `.toISOString()` seguinte (exceção não
+  // tratada, tela travava sem nenhum toast). Regex estrita primeiro, e a
+  // validação roda sobre o MESMO valor que será gravado.
+  //
+  // BUG CORRIGIDO (re-auditoria, 2026-08-30): comparar de volta com
+  // `toISOString().slice(0,10)` (UTC) rejeitaria datas locais válidas em
+  // qualquer fuso atrás de UTC (Brasil incluso — 30/08 23:59:59 local vira
+  // 31/08 de madrugada em UTC). Usa getters locais (getFullYear/getMonth/
+  // getDate), que também pegam data de calendário inexistente (ex:
+  // 2026-02-30 rola silenciosamente pra 03/03 — a comparação de volta
+  // detecta isso sem precisar de lib de datas).
+  //
+  // `handleSave` não tinha essa blindagem (só o <input type="date"> nativo
+  // impedia valor malformado na prática) — extraído aqui pra cobrir os dois
+  // lugares com a mesma garantia.
+  const parseExpiresAtInput = (dateStr: string): { valor: string | null; erro?: string } => {
+    if (dateStr === '') return { valor: null }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      return { valor: null, erro: 'Data inválida. Use o formato AAAA-MM-DD.' }
+    }
+    const [ano, mes, dia] = dateStr.split('-').map(Number)
+    const dataCompleta = new Date(`${dateStr}T23:59:59`)
+    if (
+      Number.isNaN(dataCompleta.getTime()) ||
+      dataCompleta.getFullYear() !== ano ||
+      dataCompleta.getMonth() + 1 !== mes ||
+      dataCompleta.getDate() !== dia
+    ) {
+      return { valor: null, erro: 'Data inválida — confira o dia informado.' }
+    }
+    return { valor: dataCompleta.toISOString() }
+  }
+
+  const defaultExpiresAt = () => {
+    const d = new Date()
+    d.setFullYear(d.getFullYear() + 1)
+    return d.toISOString().slice(0, 10)
+  }
+
   const [form, setForm] = useState({
     partner_name: '',
     email: '',
     permissions: ['read_ads'],
     environment: 'production',
     rate_limit: 100,
-    is_active: true
+    is_active: true,
+    expires_at: defaultExpiresAt()
   })
 
   useEffect(() => {
@@ -44,7 +111,16 @@ export default function AdminApiKeys() {
     const supabase = getSupabase()
     const from = (currentPage - 1) * pageSize
     const to = from + pageSize - 1
-    const { data, count, error } = await supabase.from('api_keys').select('*', { count: 'exact' }).order('created_at', { ascending: false }).range(from, to)
+    // BUG CORRIGIDO (auditoria de segurança, 2026-08-30): select('*') incluía
+    // secret_hash na resposta pro navegador do admin — não reversível (SHA-256
+    // de 256 bits), mas exposição desnecessária de um dado sensível a
+    // qualquer coisa que intercepte o tráfego do painel (extensão, proxy de
+    // debug). Lista explícita de colunas em vez de '*'.
+    const { data, count, error } = await supabase
+      .from('api_keys')
+      .select('id, partner_name, email, permissions, environment, rate_limit, is_active, expires_at, created_at, last_used_at', { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(from, to)
     if (!error && data) {
       setKeys(data)
       if (count !== null) setTotalKeys(count)
@@ -82,8 +158,47 @@ export default function AdminApiKeys() {
     }
   }
 
+  const handleRenew = async (id: string, partnerName: string) => {
+    // Ação simples de renovação (auditoria de segurança, 2026-08-30) — não há
+    // tela de edição pra chaves existentes, então pede só a nova data em vez
+    // de reabrir o modal inteiro de criação.
+    const novaData = window.prompt(
+      `Nova data de expiração para "${partnerName}" (formato AAAA-MM-DD). Deixe em branco para remover a expiração.`,
+      defaultExpiresAt()
+    )
+    if (novaData === null) return // cancelado
+
+    const { valor: novoValor, erro } = parseExpiresAtInput(novaData)
+    if (erro) {
+      showToast(erro, 'error')
+      return
+    }
+
+    const supabase = getSupabase()
+    // BUG CORRIGIDO (re-auditoria, 2026-08-30): sem .select(), o PostgREST
+    // devolve sucesso mesmo com 0 linhas afetadas (RLS bloqueou, ou o
+    // registro já não existe) — mesma classe de bug já corrigida em
+    // handleToggleStatus/handleDelete, que faltava aqui.
+    const { data, error } = await supabase.from('api_keys').update({ expires_at: novoValor }).eq('id', id).select()
+    if (error) {
+      showToast('Erro ao renovar: ' + error.message, 'error')
+      return
+    }
+    if (!data || data.length === 0) {
+      showToast('Nenhuma chave foi atualizada — verifique permissões ou se o registro ainda existe.', 'error')
+      return
+    }
+    setKeys(keys.map(k => k.id === id ? { ...k, expires_at: novoValor } : k))
+    showToast('Expiração atualizada.', 'success')
+  }
+
   const handleDelete = async (id: string) => {
-    if (!(await confirm('Deseja realmente excluir esta chave?'))) return
+    // BUG CORRIGIDO (achado de usabilidade): o confirm() era genérico e
+    // idêntico pra qualquer linha — sem o nome do parceiro, o admin não
+    // tinha como confirmar visualmente que ia excluir a chave certa.
+    const chave = keys.find(k => k.id === id)
+    const nomeParceiro = chave?.partner_name || 'esta chave'
+    if (!(await confirm(`Deseja realmente excluir a chave do parceiro "${nomeParceiro}"? Essa ação não pode ser desfeita.`))) return
     const supabase = getSupabase()
     const { data, error } = await supabase.from('api_keys').delete().eq('id', id).select()
     if (!error && data && data.length > 0) {
@@ -117,13 +232,22 @@ export default function AdminApiKeys() {
 
   const handleSave = async () => {
     if (!form.partner_name || !form.email) return showToast('Preencha nome do parceiro e e-mail', 'error')
-    
+
+    // BUG CORRIGIDO (re-auditoria, 2026-08-30): handleSave não tinha a mesma
+    // blindagem de data de handleRenew — na prática o <input type="date">
+    // nativo já impede valor malformado, mas por consistência (e por não
+    // depender só do browser se algum dia o campo mudar de tipo) usa a
+    // mesma validação compartilhada.
+    const { valor: expiresAt, erro: erroData } = parseExpiresAtInput(form.expires_at)
+    if (erroData) return showToast(erroData, 'error')
+
     const supabase = getSupabase()
     const secret = generateSecret()        // Raw token — shown to admin ONCE, never stored
     const secretHash = await hashSecret(secret) // SHA-256 hash — stored in DB
 
     const payload = {
       ...form,
+      expires_at: expiresAt,
       secret_hash: secretHash,             // ✅ Only the hash persists
       updated_at: new Date().toISOString()
     }
@@ -162,7 +286,7 @@ export default function AdminApiKeys() {
             Dashboard de Uso
           </Link>
           <button className="adm-btn adm-btn--primary" onClick={() => {
-            setForm({ partner_name: '', email: '', permissions: ['read_ads'], environment: 'production', rate_limit: 100, is_active: true })
+            setForm({ partner_name: '', email: '', permissions: ['read_ads'], environment: 'production', rate_limit: 100, is_active: true, expires_at: defaultExpiresAt() })
             setIsModalOpen(true)
           }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -171,7 +295,7 @@ export default function AdminApiKeys() {
         </div>
       </div>
 
-      <div className="adm-stats-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)', marginBottom: '24px' }}>
+      <div className="adm-stats-grid" style={{ marginBottom: '24px' }}>
         <div className="adm-stat-card">
           <div><div className="adm-stat-val">{total}</div><div className="adm-stat-lbl">Total de Integrações</div></div>
         </div>
@@ -196,14 +320,15 @@ export default function AdminApiKeys() {
                 <th>Permissões</th>
                 <th>Status</th>
                 <th>Criado em</th>
+                <th>Expira em</th>
                 <th style={{ textAlign: 'right' }}>Ações</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '20px' }}>Carregando chaves...</td></tr>
+                <tr><td colSpan={7} style={{ textAlign: 'center', padding: '20px' }}>Carregando chaves...</td></tr>
               ) : keys.length === 0 ? (
-                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '20px' }}>Nenhuma chave gerada ainda.</td></tr>
+                <tr><td colSpan={7} style={{ textAlign: 'center', padding: '20px' }}>Nenhuma chave gerada ainda.</td></tr>
               ) : keys.map(k => (
                 <tr key={k.id}>
                   <td>
@@ -222,8 +347,18 @@ export default function AdminApiKeys() {
                   <td style={{ fontSize: '0.85rem', color: 'var(--adm-text-muted)' }}>
                     {new Date(k.created_at).toLocaleDateString()}
                   </td>
+                  <td style={{ fontSize: '0.85rem' }}>
+                    {k.expires_at ? (
+                      <span style={{ color: new Date(k.expires_at) < new Date() ? 'var(--adm-red)' : 'var(--adm-text-muted)' }}>
+                        {new Date(k.expires_at).toLocaleDateString()}
+                      </span>
+                    ) : (
+                      <span className="adm-badge adm-badge--amber">Nunca</span>
+                    )}
+                  </td>
                   <td style={{ textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                      <button className="adm-btn adm-btn--sm adm-btn--outline" onClick={() => handleRenew(k.id, k.partner_name)}>Renovar</button>
                       <button className="adm-btn adm-btn--sm adm-btn--outline" onClick={() => handleToggleStatus(k.id, k.is_active)}>
                         {k.is_active ? 'Desativar' : 'Ativar'}
                       </button>
@@ -321,19 +456,41 @@ export default function AdminApiKeys() {
                 </div>
                 <div className="adm-field">
                   <label>Rate Limit (req/min)</label>
-                  <input type="number" className="adm-input" value={form.rate_limit} onChange={e => { const n = parseInt(e.target.value); setForm({ ...form, rate_limit: isNaN(n) ? 0 : n }) }} />
+                  <input type="number" min={0} className="adm-input" value={form.rate_limit} onChange={e => { const n = parseInt(e.target.value); setForm({ ...form, rate_limit: isNaN(n) ? 0 : Math.max(0, n) }) }} />
                 </div>
               </div>
 
               <div className="adm-field">
+                <label>Expira em</label>
+                <input type="date" className="adm-input" value={form.expires_at} onChange={e => setForm({ ...form, expires_at: e.target.value })} />
+                <small style={{ color: 'var(--adm-text-muted)', display: 'block', marginTop: '4px' }}>
+                  Deixe em branco para uma chave sem expiração (não recomendado — parceiros que encerram o contrato continuam com acesso válido indefinidamente).
+                </small>
+              </div>
+
+              <div className="adm-field">
                 <label>Permissões</label>
-                <select className="adm-select" multiple size={3} value={form.permissions} onChange={e => setForm({ ...form, permissions: Array.from(e.target.selectedOptions, option => option.value) })} style={{ height: 'auto', padding: '8px' }}>
-                  <option value="read_ads">Leitura de Anúncios</option>
-                  <option value="write_ads">Escrita de Anúncios</option>
-                  <option value="read_users">Leitura de Usuários</option>
-                  <option value="full_access">Acesso Total (Admin)</option>
-                </select>
-                <p style={{ fontSize: '0.75rem', color: 'var(--adm-text-muted)', marginTop: '4px' }}>Segure Ctrl (ou Cmd) para selecionar múltiplas permissões.</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', border: '1px solid var(--adm-border)', borderRadius: '8px', padding: '12px 14px' }}>
+                  {PERMISSIONS.map(perm => (
+                    <label key={perm.value} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem', color: 'var(--adm-text)', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={form.permissions.includes(perm.value)}
+                        onChange={e => {
+                          const checked = e.target.checked
+                          setForm(f => ({
+                            ...f,
+                            permissions: checked
+                              ? [...f.permissions, perm.value]
+                              : f.permissions.filter(v => v !== perm.value),
+                          }))
+                        }}
+                        style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                      />
+                      {perm.label}
+                    </label>
+                  ))}
+                </div>
               </div>
             </div>
 

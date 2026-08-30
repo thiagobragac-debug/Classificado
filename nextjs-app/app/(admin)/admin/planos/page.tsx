@@ -205,7 +205,7 @@ export default function AdminPlanos() {
         </button>
       </div>
 
-      <div className="adm-stats-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)', marginBottom: '20px' }}>
+      <div className="adm-stats-grid" style={{ marginBottom: '20px' }}>
         <div className="adm-stat-card">
           <div><div className="adm-stat-val">{total}</div><div className="adm-stat-lbl">Total de Planos</div></div>
         </div>
@@ -344,7 +344,10 @@ export default function AdminPlanos() {
                 </div>
                 <div className="adm-field">
                   <label>Ícone (Emoji)</label>
-                  <input type="text" className="adm-input" value={form.icon} onChange={e => setForm({ ...form, icon: e.target.value })} placeholder="🚀" />
+                  <input type="text" className="adm-input" maxLength={2} value={form.icon} onChange={e => setForm({ ...form, icon: e.target.value })} placeholder="🚀" />
+                  <div style={{ fontSize: '0.75rem', color: 'var(--adm-text-muted)', marginTop: '6px' }}>
+                    Cole um único emoji (ex: 🚀). Windows: <kbd>Win</kbd>+<kbd>.</kbd> · Mac: <kbd>Cmd</kbd>+<kbd>Ctrl</kbd>+<kbd>Espaço</kbd>
+                  </div>
                 </div>
               </div>
 

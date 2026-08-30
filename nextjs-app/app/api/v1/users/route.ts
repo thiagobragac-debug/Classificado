@@ -1,6 +1,4 @@
 import { NextRequest } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import { SUPABASE_URL, SUPABASE_ANON } from '@/lib/supabase'
 import {
   authenticateApiKey,
   hasPermission,
@@ -9,7 +7,9 @@ import {
   apiError,
   corsHeaders,
   rateLimitHeaders,
+  getServiceClient,
 } from '@/lib/api-auth'
+import { flattenOne } from '@/lib/supabase'
 
 export async function OPTIONS() {
   return new Response(null, { status: 204, headers: corsHeaders('GET, OPTIONS') })
@@ -20,7 +20,13 @@ export async function OPTIONS() {
 // Private fields (email, phone) are only returned for full_access keys.
 export async function GET(request: NextRequest) {
   const startTime = Date.now()
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, { auth: { persistSession: false } })
+  // BUG CORRIGIDO (varredura de segurança): usava a anon key — depois que
+  // profiles.phone_whatsapp foi revogado do papel "anon" (vazamento crítico
+  // corrigido nesta mesma varredura), esta rota não conseguiria mais ler o
+  // telefone nem pra chave full_access. A autorização de quem pode ver o
+  // quê já é 100% da aplicação (permissão da chave), service_role é o
+  // client certo.
+  const supabase = getServiceClient()
 
   const auth = await authenticateApiKey(request)
   if (!auth.ok || !auth.apiKey) return apiError(auth.error!, auth.status!)
@@ -46,10 +52,27 @@ export async function GET(request: NextRequest) {
   const from           = (page - 1) * limit
 
   // Public-safe fields — no email, no phone for non-full_access keys
-  const isFullAccess = apiKey.permissions.includes('full_access')
-  const selectFields = isFullAccess
-    ? 'id, name, avatar_url, bio, country, state, city, plan, verified, ads_count, created_at, phone_whatsapp, banner_url'
-    : 'id, name, avatar_url, bio, country, state, city, plan, verified, ads_count, created_at, banner_url'
+  const isFullAccess = hasPermission(apiKey, 'full_access')
+  // BUG CORRIGIDO: `plan` não é coluna de `profiles` (vive em
+  // `user_secrets`, ver várias correções equivalentes no admin) — todo
+  // GET aqui falhava com 42703 (coluna inexistente), endpoint 100% quebrado
+  // pra qualquer chave.
+  //
+  // BUG CORRIGIDO (revisão do diff): `!inner` só é necessário pra permitir
+  // filtrar por `plan` (embed sem !inner não é filtrável no PostgREST) —
+  // mas estava aplicado incondicionalmente, mesmo em requisições sem
+  // ?plan=. Um INNER JOIN faz o Postgrest excluir da resposta E do `count`
+  // qualquer profile sem linha em user_secrets (hoje nenhum, mas é
+  // invariante de trigger, não constraint de banco — nada impede um drift
+  // futuro) — um parceiro perderia usuários da paginação em silêncio, sem
+  // erro, mesmo sem ter pedido filtro de plano nenhum. Só usa !inner quando
+  // o filtro de fato vai ser aplicado.
+  // BUG CORRIGIDO (fechamento pré-produção): phone_whatsapp mudou de
+  // profiles pra user_secrets (migration 20260829130000, RLS self-only) —
+  // service_role ignora RLS, então só o embed precisa acompanhar a coluna.
+  const secretFields = isFullAccess ? 'plan, phone_whatsapp' : 'plan'
+  const embed = plan ? `user_secrets!inner(${secretFields})` : `user_secrets(${secretFields})`
+  const selectFields = `id, name, avatar_url, bio, country, state, city, verified, ads_count, created_at, banner_url, ${embed}`
 
   let q = supabase
     .from('profiles')
@@ -59,7 +82,7 @@ export async function GET(request: NextRequest) {
 
   if (country)               q = q.eq('country', country)
   if (verifiedParam === 'true') q = q.eq('verified', true)  // only filter when explicitly requested
-  if (plan)                  q = q.eq('plan', plan)
+  if (plan)                  q = q.eq('user_secrets.plan', plan)
 
 
   const { data, error, count } = await q
@@ -70,12 +93,20 @@ export async function GET(request: NextRequest) {
     return apiError('Internal server error', 500)
   }
 
+  // Achata user_secrets.plan pro formato plano que a API sempre devolveu
+  const flattened = (data || []).map((u: any) => ({
+    ...u,
+    plan: flattenOne(u.user_secrets)?.plan,
+    phone_whatsapp: flattenOne(u.user_secrets)?.phone_whatsapp,
+    user_secrets: undefined,
+  }))
+
   logRequest({ apiKey, request, statusCode: 200, durationMs })
 
   const totalPages = count ? Math.ceil(count / limit) : 1
   return Response.json(
     {
-      data,
+      data: flattened,
       meta: {
         page,
         limit,

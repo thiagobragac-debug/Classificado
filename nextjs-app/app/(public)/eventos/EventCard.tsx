@@ -23,7 +23,10 @@ interface EventCardProps {
 export default function EventCard({ ev, lang = 'pt' }: EventCardProps) {
   const t = (key: string) => _t(key, lang)
   let day = '--';
-  let month = 'TBD';
+  // BUG CORRIGIDO (achado de usabilidade): fallback era a string literal
+  // "TBD" (inglês), único ponto não-PT/ES do produto. Agora vem do
+  // dicionário PT/ES (lib/constants.ts).
+  let month = t('events_date_tbd');
 
   // GAP CORRIGIDO (auditoria completa, 2026-08-25): esta badge usava um
   // regex próprio, mais simples que o já corrigido em page.tsx (usado só
@@ -56,10 +59,18 @@ export default function EventCard({ ev, lang = 'pt' }: EventCardProps) {
           <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 800, color: 'var(--clr-primary)', lineHeight: 1 }}>{day}</span>
           <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--clr-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{month}</span>
         </div>
-        {/* Fallback description overlay */}
-        <div style={{ position: 'absolute', bottom: '12px', left: '16px', right: '16px', color: 'white', fontSize: 'var(--fs-sm)', fontWeight: 500, display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
-          {ev.description || t('events_card_fallback_desc')}
-        </div>
+        {/* BUG CORRIGIDO (achado de usabilidade): nenhuma query mapeia uma
+            coluna description real (confirmado direto no banco: nem
+            `eventos` nem `auction_events` têm essa coluna) — este overlay
+            caía sempre no mesmo texto de preenchimento fixo pra TODO
+            evento, afirmando um resumo que não existe. Agora só renderiza
+            quando houver descrição de verdade (se uma coluna real for
+            adicionada e mapeada no futuro). */}
+        {ev.description && (
+          <div style={{ position: 'absolute', bottom: '12px', left: '16px', right: '16px', color: 'white', fontSize: 'var(--fs-sm)', fontWeight: 500, display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
+            {ev.description}
+          </div>
+        )}
       </div>
       <div className="event-card-body" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', flex: 1, background: 'white' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>

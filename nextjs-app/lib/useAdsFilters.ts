@@ -5,6 +5,8 @@ import { useDebounce } from 'use-debounce';
 export interface AdsFilters {
   busca: string;
   categoria: string;
+  subcategoria: string;
+  finalidade: string;
   pais: string;
   estado: string;
   cidade: string;
@@ -26,6 +28,8 @@ export function useAdsFilters(initialGeo?: { pais: string | null; estado: string
   const [debouncedBusca] = useDebounce(buscaRaw, 350);
 
   const categoria = searchParams.get('categoria') || '';
+  const subcategoria = searchParams.get('subcategoria') || '';
+  const finalidade = searchParams.get('finalidade') || '';
   const pais = searchParams.get('pais') || initialGeo?.pais || '';
   const estado = searchParams.get('estado') || initialGeo?.estado || '';
   const cidade = searchParams.get('cidade') || initialGeo?.cidade || '';
@@ -40,6 +44,8 @@ export function useAdsFilters(initialGeo?: { pais: string | null; estado: string
   const filters = useMemo<AdsFilters>(() => ({
     busca: debouncedBusca,
     categoria,
+    subcategoria,
+    finalidade,
     pais,
     estado,
     cidade,
@@ -49,9 +55,9 @@ export function useAdsFilters(initialGeo?: { pais: string | null; estado: string
     destaque,
     negociavel,
     page
-  }), [debouncedBusca, categoria, pais, estado, cidade, precoMin, precoMax, ordem, destaque, negociavel, page]);
+  }), [debouncedBusca, categoria, subcategoria, finalidade, pais, estado, cidade, precoMin, precoMax, ordem, destaque, negociavel, page]);
 
-  const hasFilters = !!(categoria || pais || estado || cidade || precoMin || precoMax || destaque || negociavel || debouncedBusca);
+  const hasFilters = !!(categoria || subcategoria || finalidade || pais || estado || cidade || precoMin || precoMax || destaque || negociavel || debouncedBusca);
 
   // BUG CORRIGIDO (teste completo do site, 2026-08-24): getPageUrl usava
   // `filters` (derivado do useSearchParams() do React — uma snapshot do
@@ -74,6 +80,8 @@ export function useAdsFilters(initialGeo?: { pais: string | null; estado: string
     const params = new URLSearchParams();
     if (f.busca) params.set('busca', f.busca);
     if (f.categoria) params.set('categoria', f.categoria);
+    if (f.subcategoria) params.set('subcategoria', f.subcategoria);
+    if (f.finalidade) params.set('finalidade', f.finalidade);
     if (f.pais) params.set('pais', f.pais);
     if (f.estado) params.set('estado', f.estado);
     if (f.cidade) params.set('cidade', f.cidade);
@@ -101,7 +109,17 @@ export function useAdsFilters(initialGeo?: { pais: string | null; estado: string
 
   // Setters helpers
   const setBusca = useCallback((v: string) => applyFilters({ busca: v }), [applyFilters]);
-  const setCategoria = useCallback((v: string) => applyFilters({ categoria: v }), [applyFilters]);
+  const setCategoria = useCallback((v: string) => applyFilters({ categoria: v, subcategoria: '', finalidade: '' }), [applyFilters]);
+  const setSubcategoria = useCallback((v: string) => applyFilters({ subcategoria: v }), [applyFilters]);
+  // Subcategoria (raça/tipo) aceita múltipla seleção no filtro — lista
+  // separada por vírgula na URL (ex.: ?subcategoria=sub-a,sub-b). Diferente
+  // do formulário de anúncio, onde continua sendo uma escolha só.
+  const toggleSubcategoria = useCallback((id: string) => {
+    const current = latestFiltersRef.current.subcategoria ? latestFiltersRef.current.subcategoria.split(',') : [];
+    const next = current.includes(id) ? current.filter(v => v !== id) : [...current, id];
+    applyFilters({ subcategoria: next.join(',') });
+  }, [applyFilters]);
+  const setFinalidade = useCallback((v: string) => applyFilters({ finalidade: v }), [applyFilters]);
   const setPais = useCallback((v: string) => applyFilters({ pais: v }), [applyFilters]);
   const setEstado = useCallback((v: string) => applyFilters({ estado: v }), [applyFilters]);
   const setCidade = useCallback((v: string) => applyFilters({ cidade: v }), [applyFilters]);
@@ -116,6 +134,8 @@ export function useAdsFilters(initialGeo?: { pais: string | null; estado: string
   return {
     busca: buscaRaw, setBusca, debouncedBusca,
     categoria, setCategoria,
+    subcategoria, setSubcategoria, toggleSubcategoria,
+    finalidade, setFinalidade,
     pais, setPais,
     estado, setEstado,
     cidade, setCidade,

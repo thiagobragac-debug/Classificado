@@ -140,6 +140,12 @@ export default function AdminApiUsage() {
   function BarChart({ data, color = '#16a34a', label = 'total' }: { data: { label: string; value: number }[]; color?: string; label?: string }) {
     const max = Math.max(...data.map(d => d.value), 1)
     const W = 700, H = 160, barW = Math.floor((W - 40) / (data.length || 1)) - 3
+    // BUG CORRIGIDO (achado de usabilidade): rótulo do eixo X só aparecia
+    // com <=14 barras — no período de 30 dias, TODOS os rótulos somiam,
+    // deixando o gráfico ilegível (nenhuma referência de qual dia é qual
+    // barra). Agora mostra 1 rótulo a cada N barras (N calculado pra caber
+    // no máximo ~10 rótulos), em vez de esconder todos.
+    const labelStep = Math.max(1, Math.ceil(data.length / 10))
     return (
       <svg viewBox={`0 0 ${W} ${H + 30}`} style={{ width: '100%', display: 'block' }}>
         {data.map((d, i) => {
@@ -149,9 +155,9 @@ export default function AdminApiUsage() {
           return (
             <g key={i}>
               <rect x={x} y={y} width={barW} height={bh} rx={3} fill={color} opacity={0.85} />
-              {data.length <= 14 && (
+              {i % labelStep === 0 && (
                 <text x={x + barW / 2} y={H + 18} textAnchor="middle" fontSize={10} fill="var(--adm-text-muted)" style={{ fontFamily: 'Inter,sans-serif' }}>
-                  {d.label.slice(5)}
+                  {d.label.length >= 10 ? d.label.slice(5) : d.label}
                 </text>
               )}
               {d.value > 0 && (
@@ -184,7 +190,7 @@ export default function AdminApiUsage() {
       </div>
 
       {/* KPI cards */}
-      <div className="adm-stats-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)', marginBottom: '24px' }}>
+      <div className="adm-stats-grid" style={{ marginBottom: '24px' }}>
         <div className="adm-stat-card">
           <div><div className="adm-stat-val">{totals.total.toLocaleString()}</div><div className="adm-stat-lbl">Total de Chamadas</div></div>
           <div className="adm-stat-icon adm-stat-icon--blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>

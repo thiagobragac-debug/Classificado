@@ -52,8 +52,28 @@ export function AdBanner({ position }: { position: string }) {
   const linkUrl = activeBanner.link_url || activeBanner.link || '#';
   const bannerName = activeBanner.name || 'Banner';
 
-  // Sanitizar URL relativa/absoluta
-  const safeLink = linkUrl.startsWith('javascript') ? '#' : linkUrl;
+  // BUG CORRIGIDO (re-auditoria de segurança, 2026-08-30): blocklist
+  // `startsWith('javascript')` bypassável com maiúsculas ou espaço/tab
+  // inicial (ex: " javascript:..."). link_url vem de um campo de texto
+  // livre no admin (banners), renderizado em target="_blank" pra todo
+  // visitante — allowlist de protocolo em vez de blocklist, mesmo critério
+  // de sanitizeLogoUrl em components/Header.tsx. Rotas internas relativas
+  // (ex: '/planos') continuam permitidas sem passar pelo parser de URL
+  // absoluta.
+  const safeLink = (() => {
+    // BUG CORRIGIDO (re-auditoria, 2026-08-30): "//evil.com" também começa
+    // com '/' — é uma URL protocol-relative que o browser resolve pro
+    // protocolo atual (https:), então "aceitar por começar com /" deixava
+    // passar um domínio externo sem cair no parser de URL absoluta abaixo.
+    if (linkUrl.startsWith('/') && !linkUrl.startsWith('//')) return linkUrl;
+    try {
+      const parsed = new URL(linkUrl);
+      if (['http:', 'https:'].includes(parsed.protocol)) return linkUrl;
+    } catch {
+      // URL absoluta inválida — cai no fallback abaixo
+    }
+    return '#';
+  })();
 
   return (
     <div className="promo-container" style={{

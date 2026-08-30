@@ -1,12 +1,22 @@
 import { NextRequest } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { SUPABASE_URL, SUPABASE_ANON } from './supabase'
+import { resolverIpConfiavel, ipParaRateLimit } from './ip-utils'
+import { dentroDoLimiteFallback } from './rate-limit-fallback'
 
 // ─── Supabase Client for API auth ─────────────────────────────────────────────
-// Uses service role key when available. Falls back to anon key — covered by RLS policies.
+// BUG CORRIGIDO (revisão de código): o fallback silencioso pra anon key fazia
+// esta função parecer funcionar mesmo sem SUPABASE_SERVICE_ROLE_KEY configurada
+// — mas todo write/log desta rota depende de service_role (RLS bloqueia a anon
+// key nessas tabelas), então o degrade era silencioso e só quebraria em
+// produção, sem aviso nenhum em deploy/build. Loga alto e cedo em vez de
+// mascarar a variável de ambiente faltando.
 function getServiceClient() {
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || SUPABASE_ANON
-  return createClient(SUPABASE_URL, serviceKey, { auth: { persistSession: false } })
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!serviceKey) {
+    console.error('[api-auth] SUPABASE_SERVICE_ROLE_KEY não configurada — usando anon key, writes/rate-limit/log desta API vão falhar em silêncio por RLS.')
+  }
+  return createClient(SUPABASE_URL, serviceKey || SUPABASE_ANON, { auth: { persistSession: false } })
 }
 
 // ─── SHA-256 hash (Web Crypto API — Edge & Node compatible) ───────────────────
@@ -66,7 +76,37 @@ export async function authenticateApiKey(request: NextRequest): Promise<AuthResu
     .eq('secret_hash', hash)
     .single()
 
-  if (error || !apiKey) return { ok: false, error: 'Invalid API key', status: 401 }
+  if (error || !apiKey) {
+    // BUG CORRIGIDO (auditoria de segurança, 2026-08-30): tokens inexistentes
+    // não tinham limite algum por IP — um flood de tentativas inválidas gerava
+    // carga ilimitada de consultas indexadas em api_keys. O limite só conta
+    // tentativas que já falharam (chaves válidas nunca passam por aqui), então
+    // um parceiro legítimo de alto volume não é afetado.
+    //
+    // BUG CORRIGIDO (re-auditoria, 2026-08-30): a primeira versão usava
+    // `|| 'sem-ip'` como chave de bucket quando não havia header confiável —
+    // recriando, ao contrário do resto do projeto, um balde compartilhado
+    // entre todo cliente sem IP identificável (mesmo anti-padrão que
+    // resolverIpConfiavel() existe justamente para evitar; ver lib/ip-utils.ts
+    // e o uso em contact/route.ts). Sem IP confiável, pula o rate limit em vez
+    // de agrupar estranhos no mesmo balde — mesma filosofia de fail-open já
+    // usada em proxy.ts pros mesmos casos (dev local, proxy mal configurado).
+    // ipParaRateLimit trunca IPv6 no prefixo /64 (mesmo motivo de proxy.ts):
+    // um endereço IPv6 completo rotaciona fácil demais pra servir de chave
+    // de rate limit contra varredura de chaves inválidas.
+    const ip = resolverIpConfiavel(request.headers)
+    if (ip) {
+      const podeTentar = await dentroDoLimiteFallback(supabase, {
+        bucket: `apikey_invalida_${ipParaRateLimit(ip)}`,
+        limit: 30,
+        windowSeconds: 60,
+        logPrefix: 'api-auth',
+        sensivel: true, // é o próprio controle contra varredura de chaves inválidas — merece alerta se o fail-open disparar
+      })
+      if (!podeTentar) return { ok: false, error: 'Too many invalid attempts', status: 429 }
+    }
+    return { ok: false, error: 'Invalid API key', status: 401 }
+  }
   if (!apiKey.is_active) return { ok: false, error: 'API key is revoked', status: 401 }
   if (apiKey.expires_at && new Date(apiKey.expires_at) < new Date()) {
     return { ok: false, error: 'API key has expired', status: 401 }
@@ -92,7 +132,11 @@ export function hasPermission(apiKey: ApiKey, required: string): boolean {
 export async function checkRateLimit(
   apiKey: ApiKey
 ): Promise<{ allowed: boolean; remaining: number; resetAt: string }> {
-  const limit = apiKey.rate_limit || 100
+  // BUG CORRIGIDO (auditoria de segurança, 2026-08-30): `0` é falsy em JS, então
+  // `rate_limit: 0 || 100` sempre resolvia pra 100 — um admin que tentasse
+  // suspender uma chave suspeita zerando o limite, na prática liberava 100
+  // req/min. `??` só cai pro padrão quando o valor é null/undefined.
+  const limit = apiKey.rate_limit ?? 100
   const resetAt = new Date(Date.now() + 60 * 1000).toISOString()
   const supabase = getServiceClient()
 
@@ -123,7 +167,32 @@ export async function checkRateLimit(
     }
   }
 
-  // ── DB fallback (sliding window via api_request_logs) ────────────────────
+  // ── DB fallback (janela deslizante via RPC) ────────────────────────────────
+  // BUG CORRIGIDO (auditoria de segurança, 2026-08-30): a versão anterior
+  // decidia `allowed` contando linhas de api_request_logs — mas esse insert
+  // só acontece de forma assíncrona DEPOIS da resposta (logRequest é
+  // fire-and-forget, ver abaixo). Uma rajada de requisições concorrentes lia
+  // a mesma contagem baixa antes de qualquer uma se registrar, deixando
+  // passar bem mais que o limite configurado. check_rate_limit (mesma RPC já
+  // usada em todo o resto do projeto para login/checkout/contato) fecha essa
+  // corrida específica ao contar e gravar dentro da MESMA chamada — a leitura
+  // não fica mais exposta a um insert assíncrono que só acontece depois da
+  // resposta. Ressalva (re-auditoria, 2026-08-30): a função em si (SELECT
+  // count + INSERT em statements separados, sem lock) não é atômica de
+  // verdade sob concorrência real dentro da própria RPC — só fecha a corrida
+  // "leitura vs. log assíncrono" que motivou esta troca, não elimina 100% de
+  // overshoot sob rajada. Suficiente aqui; não é o limite de última linha
+  // pra dados de cartão (esse é tokenize-card, que já loga no Sentry via
+  // `sensivel: true` quando o fail-open dispara).
+  const allowed = await dentroDoLimiteFallback(supabase, {
+    bucket: `apikey_${apiKey.id}`,
+    limit,
+    windowSeconds: 60,
+    logPrefix: 'api-auth-ratelimit',
+  })
+
+  // `remaining` continua vindo da contagem de logs — é só informativo (vai no
+  // header X-RateLimit-Remaining), não decide mais se a requisição passa.
   const windowStart = new Date(Date.now() - 60 * 1000).toISOString()
   const { count } = await supabase
     .from('api_request_logs')
@@ -131,9 +200,8 @@ export async function checkRateLimit(
     .eq('api_key_id', apiKey.id)
     .gte('created_at', windowStart)
 
-  const used      = count || 0
-  const remaining = Math.max(0, limit - used)
-  return { allowed: used < limit, remaining, resetAt }
+  const remaining = Math.max(0, limit - (count || 0))
+  return { allowed, remaining, resetAt }
 }
 
 // ─── Log Request (fire-and-forget) ────────────────────────────────────────────
@@ -148,9 +216,12 @@ export function logRequest(params: {
   // de UPDATE em api_keys — os dois writes abaixo falhavam em silêncio, porque
   // o .catch() de fire-and-forget engole o erro.
   const supabase = getServiceClient()
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-             || request.headers.get('x-real-ip')
-             || '0.0.0.0'
+  // BUG CORRIGIDO (varredura de segurança): lia o PRIMEIRO item de
+  // x-forwarded-for — exatamente a parte que o cliente controla (mesmo erro
+  // já documentado e corrigido em geoip/route.ts). Um parceiro mal-
+  // intencionado forjava o IP gravado no log de auditoria de uso da chave.
+  // resolverIpConfiavel usa os headers de plataforma / o ÚLTIMO item real.
+  const ip = resolverIpConfiavel(request.headers) || '0.0.0.0'
 
   Promise.all([
     supabase.from('api_request_logs').insert({
@@ -178,8 +249,14 @@ export function apiError(message: string, status: number, extra?: Record<string,
 }
 
 export function rateLimitHeaders(apiKey: ApiKey, remaining: number, resetAt: string) {
+  // BUG CORRIGIDO (re-auditoria, 2026-08-30): devolvia apiKey.rate_limit cru
+  // — se vier null/undefined do banco (o tipo TS não garante isso em
+  // runtime; foi exatamente essa premissa que motivou o fix do `?? 100` em
+  // checkRateLimit), o header dizia "null" enquanto o limite REALMENTE
+  // aplicado já era 100. Mesma resolução usada lá, pra header e aplicação
+  // nunca divergirem.
   return {
-    'X-RateLimit-Limit': String(apiKey.rate_limit),
+    'X-RateLimit-Limit': String(apiKey.rate_limit ?? 100),
     'X-RateLimit-Remaining': String(remaining),
     'X-RateLimit-Reset': resetAt,
   }

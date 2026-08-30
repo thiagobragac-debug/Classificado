@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { createAdminClient } from '@/lib/supabase-admin'
+import { flattenOne } from '@/lib/supabase'
 
 // Lista usuários para o admin (Gerenciar Usuários).
 //
@@ -99,7 +100,7 @@ export async function GET(request: Request) {
     emailMatchIds = (emailMatches || []).map((r: any) => r.id)
   }
 
-  let q = admin.from('profiles').select('*, user_secrets(is_blocked, plan, email), ads(count)', { count: 'exact' })
+  let q = admin.from('profiles').select('*, user_secrets(is_blocked, plan, email, phone_whatsapp), ads(count)', { count: 'exact' })
   if (country) q = q.ilike('country', `%${country}%`)
   if (secretIds) q = q.in('id', secretIds)
   if (search) {
@@ -125,9 +126,12 @@ export async function GET(request: Request) {
 
   const users = (data || []).map((u: any) => ({
     ...u,
-    is_blocked: Array.isArray(u.user_secrets) ? u.user_secrets[0]?.is_blocked : u.user_secrets?.is_blocked,
-    plan: planLabel(Array.isArray(u.user_secrets) ? u.user_secrets[0]?.plan : u.user_secrets?.plan),
-    email: Array.isArray(u.user_secrets) ? u.user_secrets[0]?.email : u.user_secrets?.email,
+    is_blocked: flattenOne(u.user_secrets)?.is_blocked,
+    plan: planLabel(flattenOne(u.user_secrets)?.plan),
+    email: flattenOne(u.user_secrets)?.email,
+    // BUG CORRIGIDO (fechamento pré-produção): phone_whatsapp mudou de
+    // profiles pra user_secrets (ver migration 20260829130000).
+    phone_whatsapp: flattenOne(u.user_secrets)?.phone_whatsapp,
     ads_count: Array.isArray(u.ads) ? u.ads[0]?.count : (u.ads?.count || 0),
     user_secrets: undefined,
     ads: undefined,

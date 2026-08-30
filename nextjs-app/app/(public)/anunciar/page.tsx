@@ -39,7 +39,7 @@ export default async function AnunciarPage({
     // .eq('user_id', user.id) previne Information Disclosure entre usuários
     const { data } = await supabase
       .from('ads')
-      .select('id, title_pt, category_id, price, description, images, video_url, country, state, city, condition, negotiable, currency, price_unit_pt, status')
+      .select('id, title_pt, category_id, subcategory_id, purpose, price, description, images, video_url, country, state, city, condition, negotiable, currency, price_unit_pt, status')
       .eq('id', id)
       .eq('user_id', user.id) // ← CRÍTICO: garante que só o dono acessa
       .maybeSingle();
@@ -55,7 +55,7 @@ export default async function AnunciarPage({
     // Resume draft do usuário logado
     const { data: draftData } = await supabase
       .from('ads')
-      .select('id, title_pt, category_id, price, description, images, video_url, country, state, city, condition, negotiable, currency, price_unit_pt, status')
+      .select('id, title_pt, category_id, subcategory_id, purpose, price, description, images, video_url, country, state, city, condition, negotiable, currency, price_unit_pt, status')
       .eq('user_id', user.id)
       .eq('status', 'draft')
       .order('created_at', { ascending: false })

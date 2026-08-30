@@ -17,6 +17,8 @@ const TRANSLATIONS = {
     noMessages: 'Nenhuma mensagem', noConversations: 'Você ainda não tem conversas.',
     back: 'Voltar',
     loadError: 'Erro ao carregar suas mensagens.',
+    noResultsTitle: 'Nenhum resultado para "{search}"',
+    clearSearch: 'Limpar busca',
   },
   es: {
     title: 'Mensajes', subtitle: 'Conversaciones sobre tus anuncios',
@@ -27,6 +29,8 @@ const TRANSLATIONS = {
     noMessages: 'Ningún mensaje', noConversations: 'Todavía no tienes conversaciones.',
     back: 'Volver',
     loadError: 'Error al cargar tus mensajes.',
+    noResultsTitle: 'Ningún resultado para "{search}"',
+    clearSearch: 'Limpiar búsqueda',
   },
 };
 
@@ -228,13 +232,26 @@ export function MessagesTab({ userId }: { userId: string }) {
       ) : error ? (
         <div className={styles.emptyState}>{t.loadError}</div>
       ) : convList.length === 0 ? (
-        <div className={styles.emptyState}>
-          <div className={styles.emptyStateIcon}>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" color="var(--clr-text-light)"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        // BUG CORRIGIDO (achado de usabilidade): quando havia conversas mas a
+        // busca não encontrava nenhuma, aparecia o mesmo onboarding de "você
+        // ainda não tem conversas" — confuso pra quem sabe que já tem
+        // conversas, só o termo buscado não bateu com nenhuma.
+        search.trim() && Object.keys(conversations).length > 0 ? (
+          <div className={styles.emptyState}>
+            <h3 className={styles.emptyStateTitle}>{t.noResultsTitle.replace('{search}', search)}</h3>
+            <button onClick={() => setSearch('')} className={styles.secondaryButton} style={{ marginTop: '1rem' }}>
+              {t.clearSearch}
+            </button>
           </div>
-          <h3 className={styles.emptyStateTitle}>{t.noMessages}</h3>
-          <p className={styles.emptyStateDesc}>{t.noConversations}</p>
-        </div>
+        ) : (
+          <div className={styles.emptyState}>
+            <div className={styles.emptyStateIcon}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" color="var(--clr-text-light)"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </div>
+            <h3 className={styles.emptyStateTitle}>{t.noMessages}</h3>
+            <p className={styles.emptyStateDesc}>{t.noConversations}</p>
+          </div>
+        )
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '.75rem' }}>
           {convList.map(conv => {

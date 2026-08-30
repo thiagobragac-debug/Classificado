@@ -39,7 +39,7 @@ export default async function PainelPage() {
       // email_verified e phone_verified — ProfileTab usa esses campos pros
       // badges de verificação, que por isso sempre mostravam "Não Enviado"/
       // "Pendente" mesmo com o status real já atualizado no banco.
-      .select('id, name, display_name, avatar_url, phone_whatsapp, bio, city, state, country, kyc_status, email_verified, phone_verified')
+      .select('id, name, display_name, avatar_url, bio, city, state, country, kyc_status, email_verified, phone_verified')
       .eq('id', user.id)
       .single(),
     supabase
@@ -52,7 +52,10 @@ export default async function PainelPage() {
       // esses valores vazios pro updateProfile() — apagando CPF/endereço
       // reais em QUALQUER salvamento, mesmo editando só a bio. is_admin
       // continua propositalmente fora da lista — lógica de admin é server-only.
-      .select('plan, document_number, zip_code, street, number, complement, neighborhood')
+      // phone_whatsapp mudou de profiles pra cá (fechamento pré-produção,
+      // vazamento de telefone pra qualquer usuário autenticado via RLS
+      // pública de profiles).
+      .select('plan, document_number, zip_code, street, number, complement, neighborhood, phone_whatsapp')
       .eq('id', user.id)
       .maybeSingle()
   ]);
@@ -66,6 +69,7 @@ export default async function PainelPage() {
     number: secretsData?.number || '',
     complement: secretsData?.complement || '',
     neighborhood: secretsData?.neighborhood || '',
+    phone_whatsapp: secretsData?.phone_whatsapp || '',
     // is_admin propositalmente omitido — lógica de admin deve ser server-only
   } : null;
 
@@ -82,7 +86,7 @@ export default async function PainelPage() {
       // email_verified e phone_verified — ProfileTab usa esses campos pros
       // badges de verificação, que por isso sempre mostravam "Não Enviado"/
       // "Pendente" mesmo com o status real já atualizado no banco.
-      .select('id, name, display_name, avatar_url, phone_whatsapp, bio, city, state, country, kyc_status, email_verified, phone_verified')
+      .select('id, name, display_name, avatar_url, bio, city, state, country, kyc_status, email_verified, phone_verified')
       .single();
 
     if (newProfileRaw) {
@@ -97,6 +101,7 @@ export default async function PainelPage() {
         number: '',
         complement: '',
         neighborhood: '',
+        phone_whatsapp: '',
       };
     } else {
       console.error('Erro ao auto-criar perfil:', insertError);

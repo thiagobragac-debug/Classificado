@@ -59,6 +59,10 @@ export default function VerificacoesPage() {
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [counts, setCounts] = useState({ total: 0, pending: 0, approved: 0, rejected: 0 })
+  // Filtro por status da fila — '' = todos. Os 4 cards de contagem continuam
+  // mostrando os totais globais (não afetados pelo filtro), como nas outras
+  // telas de admin (ex.: usuarios/page.tsx).
+  const [statusFilter, setStatusFilter] = useState<'' | 'pending' | 'approved' | 'rejected'>('')
 
   // Modal de documentos
   const [docModal, setDocModal] = useState<any | null>(null)
@@ -90,26 +94,29 @@ export default function VerificacoesPage() {
   // Lightbox de imagem individual
   const [lightbox, setLightbox] = useState<string | null>(null)
 
-  useEffect(() => { loadRequests() }, [page])
+  useEffect(() => { loadRequests() }, [page, statusFilter])
+  useEffect(() => { setPage(1) }, [statusFilter])
   useEffect(() => { loadCounts() }, [])
 
   async function loadRequests() {
     setLoading(true)
-    const supabase = getSupabase()
-    const from = (page - 1) * PAGE_SIZE
-    const to = from + PAGE_SIZE - 1
-
-    const { data, count, error } = await supabase
-      .from('verification_requests')
-      .select('*, profiles(name, display_name, phone_whatsapp)', { count: 'exact' })
-      .order('created_at', { ascending: false })
-      .range(from, to)
-
-    if (data) setRequests(data)
-    if (count !== null) setTotal(count)
-    // GAP CORRIGIDO: falha aqui deixava a tela em "Nenhuma solicitação
-    // encontrada" sem nenhum aviso — indistinguível de fila vazia.
-    if (error) showToast('Erro ao carregar solicitações: ' + error.message, 'error')
+    // BUG CORRIGIDO (fechamento pré-produção): esta consulta era feita direto
+    // do browser (embed profiles(phone_whatsapp)) — migrada para
+    // /api/admin/verifications (service_role) junto da correção que moveu
+    // phone_whatsapp pra user_secrets (migration 20260829130000).
+    try {
+      const params = new URLSearchParams({ page: String(page) })
+      if (statusFilter) params.set('status', statusFilter)
+      const res = await fetch(`/api/admin/verifications?${params.toString()}`)
+      const payload = await res.json()
+      if (!res.ok) throw new Error(payload.error || 'Falha ao carregar solicitações')
+      setRequests(payload.requests)
+      setTotal(payload.total)
+    } catch (err) {
+      // GAP CORRIGIDO: falha aqui deixava a tela em "Nenhuma solicitação
+      // encontrada" sem nenhum aviso — indistinguível de fila vazia.
+      showToast('Erro ao carregar solicitações: ' + (err as Error).message, 'error')
+    }
     setLoading(false)
   }
 
@@ -201,10 +208,20 @@ export default function VerificacoesPage() {
           <h1 className="adm-page-title">Solicitações de Verificação</h1>
           <p className="adm-page-sub">Aprove ou rejeite os pedidos de Selo de Vendedor Verificado enviados pelos usuários.</p>
         </div>
+        <select
+          className="adm-select"
+          value={statusFilter}
+          onChange={e => setStatusFilter(e.target.value as '' | 'pending' | 'approved' | 'rejected')}
+        >
+          <option value="">Todos os status</option>
+          <option value="pending">Pendentes</option>
+          <option value="approved">Aprovadas</option>
+          <option value="rejected">Rejeitadas</option>
+        </select>
       </div>
 
       {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
+      <div className="adm-stats-grid" style={{ marginBottom: '24px' }}>
         {[
           { label: 'Total',      value: counts.total,    color: 'var(--adm-text)' },
           { label: 'Pendentes',  value: counts.pending,  color: '#f59e0b' },
@@ -402,42 +419,67 @@ export default function VerificacoesPage() {
                 </div>
               )}
 
-              {/* Docs grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
-                {[
-                  { label: 'CNH / RG — Frente', url: docUrls?.document_front ?? '' },
-                  { label: 'CNH / RG — Verso',  url: docUrls?.document_back ?? '' },
-                  { label: 'Selfie c/ Documento', url: docUrls?.selfie ?? '' },
-                ].map(({ label, url }) => (
-                  <div key={label}>
-                    <p style={{ margin: '0 0 8px', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--adm-text-muted)' }}>{label}</p>
-                    <div
-                      onClick={() => setLightbox(url)}
-                      style={{ cursor: 'zoom-in', borderRadius: '10px', overflow: 'hidden', border: '2px solid var(--adm-border)', position: 'relative' }}
-                      title="Clique para ampliar"
-                    >
-                      <img
-                        src={url}
-                        alt={label}
-                        style={{ width: '100%', height: '180px', objectFit: 'cover', display: 'block' }}
-                        onError={e => {
-                          const el = e.target as HTMLImageElement
-                          el.style.height = '80px'
-                          el.style.objectFit = 'contain'
-                          el.style.padding = '20px'
-                          el.style.background = '#f8fafc'
-                        }}
-                      />
-                      <div style={{ position: 'absolute', bottom: 6, right: 6, background: 'rgba(0,0,0,0.45)', borderRadius: '6px', padding: '2px 7px', color: 'white', fontSize: '0.7rem' }}>
-                        🔍 Ampliar
+              {/* Docs grid — só renderiza as <img> depois que docUrls resolver.
+                  Antes disso o grid vinha com src="" incondicionalmente,
+                  disparando onError (imagem quebrada) ao mesmo tempo em que a
+                  mensagem acima dizia "carregando". */}
+              {docUrls !== null ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
+                  {[
+                    { label: 'CNH / RG — Frente', url: docUrls?.document_front ?? '' },
+                    { label: 'CNH / RG — Verso',  url: docUrls?.document_back ?? '' },
+                    { label: 'Selfie c/ Documento', url: docUrls?.selfie ?? '' },
+                  ].map(({ label, url }) => (
+                    <div key={label}>
+                      <p style={{ margin: '0 0 8px', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--adm-text-muted)' }}>{label}</p>
+                      <div
+                        onClick={() => setLightbox(url)}
+                        style={{ cursor: 'zoom-in', borderRadius: '10px', overflow: 'hidden', border: '2px solid var(--adm-border)', position: 'relative' }}
+                        title="Clique para ampliar"
+                      >
+                        <img
+                          src={url}
+                          alt={label}
+                          style={{ width: '100%', height: '180px', objectFit: 'cover', display: 'block' }}
+                          onError={e => {
+                            const el = e.target as HTMLImageElement
+                            el.style.height = '80px'
+                            el.style.objectFit = 'contain'
+                            el.style.padding = '20px'
+                            el.style.background = '#f8fafc'
+                          }}
+                        />
+                        <div style={{ position: 'absolute', bottom: 6, right: 6, background: 'rgba(0,0,0,0.45)', borderRadius: '6px', padding: '2px 7px', color: 'white', fontSize: '0.7rem' }}>
+                          🔍 Ampliar
+                        </div>
+                      </div>
+                      <a href={url} target="_blank" rel="noreferrer" style={{ display: 'block', textAlign: 'center', marginTop: '6px', fontSize: '0.78rem', color: 'var(--adm-text-muted)', textDecoration: 'none' }}>
+                        ↗ Abrir original
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              ) : !docUrlsError ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
+                  <style jsx>{`
+                    @keyframes kycDocSpin { to { transform: rotate(360deg); } }
+                    .kyc-doc-spinner {
+                      width: 28px; height: 28px; border-radius: 50%;
+                      border: 3px solid var(--adm-border);
+                      border-top-color: var(--adm-text-muted);
+                      animation: kycDocSpin 0.8s linear infinite;
+                    }
+                  `}</style>
+                  {['CNH / RG — Frente', 'CNH / RG — Verso', 'Selfie c/ Documento'].map(label => (
+                    <div key={label}>
+                      <p style={{ margin: '0 0 8px', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--adm-text-muted)' }}>{label}</p>
+                      <div style={{ borderRadius: '10px', border: '2px solid var(--adm-border)', height: '180px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--adm-hover)' }}>
+                        <span className="kyc-doc-spinner" />
                       </div>
                     </div>
-                    <a href={url} target="_blank" rel="noreferrer" style={{ display: 'block', textAlign: 'center', marginTop: '6px', fontSize: '0.78rem', color: 'var(--adm-text-muted)', textDecoration: 'none' }}>
-                      ↗ Abrir original
-                    </a>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : null}
 
               {docModal.status === 'rejected' && docModal.reason && (
                 <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px', color: '#b91c1c', fontSize: '0.9rem' }}>

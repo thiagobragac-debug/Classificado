@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient, getSettings } from '@/lib/supabase-admin'
 import { selectGateway, asaasAdapter, GatewayAdapter } from '@/lib/gateways'
 import { resolverIpConfiavel } from '@/lib/ip-utils'
+import { dentroDoLimiteFallback } from '@/lib/rate-limit-fallback'
 import { getRequestLang } from '@/lib/api-lang'
 
 // BUG CORRIGIDO (validação do zero, rodada 6, revisão adversarial): esta
@@ -72,12 +73,13 @@ export async function POST(req: Request) {
     // ÚNICA rota que recebe PAN/CVV em claro — sem rate limit, vira um
     // oráculo de card-testing usando nossas próprias credenciais Asaas.
     // Limite mais apertado que /api/checkout por causa disso.
-    const { data: dentroDoLimite } = await supabase.rpc('check_rate_limit', {
-      p_bucket: `tokenize_card_${user.id}`,
-      p_limit: 5,
-      p_window_seconds: 60,
+    const permitido = await dentroDoLimiteFallback(supabase, {
+      bucket: `tokenize_card_${user.id}`,
+      limit: 5,
+      logPrefix: 'tokenize-card',
+      sensivel: true, // PAN/CVV em claro — alertar no Sentry se o fail-open disparar aqui
     })
-    if (dentroDoLimite === false) {
+    if (!permitido) {
       return NextResponse.json({ error: tx.tooManyAttempts }, { status: 429 })
     }
 

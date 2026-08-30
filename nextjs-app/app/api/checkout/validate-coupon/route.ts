@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { createClient } from '@/lib/supabase-server'
 import { getRequestLang } from '@/lib/api-lang'
+import { dentroDoLimiteFallback } from '@/lib/rate-limit-fallback'
 
 // BUG CORRIGIDO (validação do zero, rodada 6): toda mensagem desta rota
 // voltava em português regardless do idioma ativo (tc_lang) — o
@@ -72,12 +73,12 @@ export async function POST(req: Request) {
     // Limite mais folgado que /api/checkout (10/60s): errar o código do
     // cupom algumas vezes é uso legítimo — o objetivo aqui é barrar
     // força-bruta automatizada, não atrapalhar quem digita errado.
-    const { data: dentroDoLimite } = await authClient.rpc('check_rate_limit', {
-      p_bucket: `validate_coupon_${user.id}`,
-      p_limit: 20,
-      p_window_seconds: 60,
+    const permitido = await dentroDoLimiteFallback(authClient, {
+      bucket: `validate_coupon_${user.id}`,
+      limit: 20,
+      logPrefix: 'validate-coupon',
     })
-    if (dentroDoLimite === false) {
+    if (!permitido) {
       return NextResponse.json({ valid: false, error: tx.tooManyAttempts }, { status: 429 })
     }
 

@@ -42,6 +42,8 @@ export const adsSearchParamsSchema = z.object({
   estado: z.union([z.string(), z.array(z.string())]).transform(val => Array.isArray(val) ? val[0] : val).optional(),
   cidade: z.union([z.string(), z.array(z.string())]).transform(val => Array.isArray(val) ? val[0] : val).optional(),
   categoria: z.union([z.string(), z.array(z.string())]).transform(val => Array.isArray(val) ? val[0] : val).optional(),
+  subcategoria: z.union([z.string(), z.array(z.string())]).transform(val => Array.isArray(val) ? val[0] : val).optional(),
+  finalidade: z.union([z.string(), z.array(z.string())]).transform(val => Array.isArray(val) ? val[0] : val).optional(),
   seller_id: z.string().optional(),
   preco_min: z.coerce.number().optional(),
   preco_max: z.coerce.number().optional(),
@@ -96,6 +98,11 @@ export async function getAdsListagem(params: AdsSearchParams, geoContext: any) {
 
   // Filtros geográficos e de categoria
   if (params.categoria) q = q.eq('category_id', params.categoria);
+  // Subcategoria aceita múltipla seleção no filtro (lista separada por
+  // vírgula na URL, ex.: ?subcategoria=sub-a,sub-b) — usa .in() em vez de
+  // .eq() pra cobrir tanto o caso de 1 quanto o de várias raças escolhidas.
+  if (params.subcategoria) q = q.in('subcategory_id', params.subcategoria.split(',').filter(Boolean));
+  if (params.finalidade) q = q.eq('purpose', params.finalidade);
   if (params.seller_id) q = q.eq('user_id', params.seller_id);
   
   const pais = params.pais || geoContext.pais;

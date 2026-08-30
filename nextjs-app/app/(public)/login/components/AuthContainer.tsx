@@ -35,6 +35,11 @@ export function AuthContainer() {
   const [mode, setMode] = useState<AuthMode>('login')
   const [alertInfo, setAlertInfo] = useState<{ msg: string; type: 'success' | 'error' } | null>(null)
   const [forgotEmail, setForgotEmail] = useState('')
+  // BUG CORRIGIDO (auditoria de usabilidade): ao concluir o cadastro ou
+  // voltar de "esqueci senha", o e-mail já digitado se perdia e o usuário
+  // tinha que redigitá-lo na tela de login. Guarda o último e-mail conhecido
+  // para repassar como initialEmail à LoginForm nesses dois retornos.
+  const [knownEmail, setKnownEmail] = useState('')
 
   useEffect(() => {
     if (searchParams.get('mode') === 'register') {
@@ -163,18 +168,19 @@ export function AuthContainer() {
       <AnimatePresence mode="wait">
         {mode === 'login' && (
           <motion.div key="login" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.2 }}>
-            <LoginForm 
-              onSetAlert={handleSetAlert} 
-              onNavigateToForgot={navigateToForgot} 
+            <LoginForm
+              onSetAlert={handleSetAlert}
+              onNavigateToForgot={navigateToForgot}
+              initialEmail={knownEmail}
             />
           </motion.div>
         )}
 
         {mode === 'register' && (
           <motion.div key="register" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }}>
-            <RegisterForm 
-              onSetAlert={handleSetAlert} 
-              onSuccess={() => setMode('login')} 
+            <RegisterForm
+              onSetAlert={handleSetAlert}
+              onSuccess={(email) => { if (email) setKnownEmail(email); setMode('login') }}
             />
           </motion.div>
         )}
@@ -183,7 +189,7 @@ export function AuthContainer() {
           <motion.div key="forgot" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.2 }}>
             <ForgotPasswordForm
               onSetAlert={handleSetAlert}
-              onBack={() => { setMode('login'); setAlertInfo(null); }}
+              onBack={() => { setKnownEmail(forgotEmail); setMode('login'); setAlertInfo(null); }}
               initialEmail={forgotEmail}
             />
           </motion.div>

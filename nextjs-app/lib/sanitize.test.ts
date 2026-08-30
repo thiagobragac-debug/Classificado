@@ -45,6 +45,35 @@ describe('sanitizeHtml', () => {
     expect(sanitizeHtml(null)).toBe('');
     expect(sanitizeHtml(undefined)).toBe('');
   });
+
+  // BUG CORRIGIDO (re-auditoria de segurança, 2026-08-30): a allowlist de
+  // leitura de anuncio/[id]/page.tsx divergia desta (sem 'a'/'u'/'s'), então
+  // um link, sublinhado ou tachado formatado no editor sobrevivia à
+  // gravação e desaparecia só na página pública. Trava aqui a allowlist que
+  // agora é compartilhada entre escrita e leitura.
+  it('preserva sublinhado e tachado (toolbar do editor de descrição)', () => {
+    expect(sanitizeHtml('<u>sublinhado</u> e <s>tachado</s>')).toBe('<u>sublinhado</u> e <s>tachado</s>');
+  });
+
+  it('preserva link com href/target/rel', () => {
+    const out = sanitizeHtml('<a href="https://exemplo.com" target="_blank">site</a>');
+    expect(out).toContain('href="https://exemplo.com"');
+    expect(out).toContain('site');
+  });
+
+  // BUG CORRIGIDO (re-auditoria de segurança, 2026-08-30): href/target
+  // passaram a sobreviver de verdade nesta rodada — sem isto, um link com
+  // target="_blank" e sem rel="noopener" permite que a página de destino
+  // acesse window.opener e redirecione a aba original (reverse tabnabbing).
+  it('força rel="noopener noreferrer" quando target="_blank"', () => {
+    const out = sanitizeHtml('<a href="https://exemplo.com" target="_blank">site</a>');
+    expect(out).toContain('rel="noopener noreferrer"');
+  });
+
+  it('não força rel quando não há target="_blank" (não muda comportamento de link interno)', () => {
+    const out = sanitizeHtml('<a href="/interno">site</a>');
+    expect(out).not.toContain('rel=');
+  });
 });
 
 describe('sanitizeText', () => {

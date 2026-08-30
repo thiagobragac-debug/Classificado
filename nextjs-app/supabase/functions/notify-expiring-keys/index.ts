@@ -11,6 +11,11 @@ const SUPABASE_URL   = Deno.env.get('SUPABASE_URL')!
 const SERVICE_KEY    = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 // Optional: set WEBHOOK_NOTIFY_URL to POST expiring key data to an external endpoint
 const WEBHOOK_URL    = Deno.env.get('WEBHOOK_NOTIFY_URL')
+// Segredo dedicado (recomendado — auditoria de segurança, 2026-08-30):
+// `supabase secrets set EDGE_CRON_SECRET=<valor aleatório>` e usar o mesmo
+// valor no header Authorization do agendamento. Sem essa env var, cai no
+// comportamento anterior (service role key como bearer) por compatibilidade.
+const CRON_SECRET    = Deno.env.get('EDGE_CRON_SECRET') || SERVICE_KEY
 
 interface ExpiringKey {
   id: string
@@ -23,7 +28,12 @@ interface ExpiringKey {
 Deno.serve(async (req: Request) => {
   // Verify request is from Supabase scheduler or an authorized caller
   const authHeader = req.headers.get('Authorization')
-  if (authHeader !== `Bearer ${SERVICE_KEY}`) {
+  // BUG CORRIGIDO (re-auditoria, 2026-08-30): faltava o guard `!CRON_SECRET`
+  // que data-retention-job e translate-ad já têm — sem ele, se tanto
+  // EDGE_CRON_SECRET quanto SUPABASE_SERVICE_ROLE_KEY estivessem ausentes do
+  // ambiente da function, CRON_SECRET viraria `undefined` e a comparação
+  // passaria pra quem mandasse literalmente "Bearer undefined".
+  if (!CRON_SECRET || authHeader !== `Bearer ${CRON_SECRET}`) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
   }
 

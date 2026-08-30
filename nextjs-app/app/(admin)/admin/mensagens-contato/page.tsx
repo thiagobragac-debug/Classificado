@@ -85,8 +85,11 @@ export default function AdminMensagensContato() {
 
     const { data, error } = await supabase.from('contact_messages').update(updates).eq('id', id).select()
     if (!error && data && data.length > 0) {
-      setMessages(messages.map(m => m.id === id ? { ...m, status } : m))
       showToast(status === 'resolved' ? 'Mensagem marcada como respondida.' : 'Mensagem reaberta.', 'success')
+      // BUG CORRIGIDO: com filtro/paginação real de servidor, um patch só
+      // local deixava a mensagem visível mesmo depois de deixar de bater
+      // com o filtro de status atual. Recarrega de verdade.
+      loadMessages()
       loadCounts()
     } else if (!error) {
       showToast('Nenhuma linha foi atualizada — verifique permissões ou se o registro ainda existe.', 'error')
@@ -104,7 +107,7 @@ export default function AdminMensagensContato() {
         <p className="adm-page-sub">Mensagens enviadas pelo formulário "Fale Conosco" (/institucional?page=contato).</p>
       </div>
 
-      <div className="adm-stats-grid" style={{ gridTemplateColumns: 'repeat(3,1fr)', marginBottom: '20px' }}>
+      <div className="adm-stats-grid" style={{ marginBottom: '20px' }}>
         <div className="adm-stat-card">
           <div><div className="adm-stat-val">{total}</div><div className="adm-stat-lbl">Total</div></div>
         </div>

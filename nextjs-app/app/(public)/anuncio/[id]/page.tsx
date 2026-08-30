@@ -2,9 +2,10 @@ import { notFound } from 'next/navigation';
 import { createHash } from 'crypto';
 import { headers, cookies } from 'next/headers';
 import Link from 'next/link';
-import DOMPurify from 'isomorphic-dompurify';
+import { sanitizeHtml } from '@/lib/sanitize';
 import { AdGallery } from '@/components/ads/AdGallery';
 import { AdSidebar } from '@/components/ads/AdSidebar';
+import { MobileMessageCtaButton } from '@/components/ads/MobileMessageCtaButton';
 import { SimilarAds } from '@/components/ads/SimilarAds';
 import { ShareButton } from '@/components/ads/ShareButton';
 import { RecentViewTracker } from '@/components/ads/RecentViewTracker';
@@ -43,6 +44,7 @@ const PAGE_TEXT: Record<Lang, {
   priceLabel: string;
   talkToSeller: string;
   whatsappUnavailable: string;
+  sendMessageCta: string;
 }> = {
   pt: {
     notFoundTitle: 'Anúncio não encontrado',
@@ -57,6 +59,7 @@ const PAGE_TEXT: Record<Lang, {
     priceLabel: 'Valor sugerido',
     talkToSeller: 'Falar com Vendedor',
     whatsappUnavailable: 'WhatsApp não disponível',
+    sendMessageCta: 'Enviar Mensagem',
   },
   es: {
     notFoundTitle: 'Anuncio no encontrado',
@@ -71,6 +74,7 @@ const PAGE_TEXT: Record<Lang, {
     priceLabel: 'Valor sugerido',
     talkToSeller: 'Hablar con el Vendedor',
     whatsappUnavailable: 'WhatsApp no disponible',
+    sendMessageCta: 'Enviar Mensaje',
   },
 };
 
@@ -295,11 +299,16 @@ export default async function AdDetailsPage({ params, searchParams }: { params: 
   const preferredState = geoContext.estado || ad.state;
 
   // ─── Sanitização do HTML de description ────────────────────
-  // Necessário mesmo com DOMPurify no save, pois registros antigos podem não ter sido sanitizados
-  const allowedTags = ['b', 'i', 'em', 'strong', 'p', 'br', 'ul', 'ol', 'li', 'h3', 'h4'];
-  const safeDescription = ad.description
-    ? DOMPurify.sanitize(ad.description, { ALLOWED_TAGS: allowedTags, ALLOWED_ATTR: [] })
-    : null;
+  // Necessário mesmo com sanitização no save, pois registros antigos podem
+  // não ter sido sanitizados.
+  //
+  // BUG CORRIGIDO (re-auditoria de segurança, 2026-08-30): esta allowlist
+  // vivia duplicada aqui, divergente da usada na escrita (lib/sanitize.ts) —
+  // sem 'a'/'u'/'s', então um link ou sublinhado/tachado formatado pelo
+  // usuário no editor (RichTextEditor.tsx expõe os dois) sobrevivia à
+  // gravação e desaparecia só nesta página pública. Usa a mesma função
+  // (sanitizeHtml) da escrita — uma allowlist só, nunca mais diverge.
+  const safeDescription = sanitizeHtml(ad.description);
 
   // BUG CORRIGIDO (auditoria de SEO): três problemas no Product/Offer:
   //  1. `ad.images?.map(...) || [FALLBACK_IMG]` — array VAZIO (`[]`) é
@@ -492,9 +501,11 @@ export default async function AdDetailsPage({ params, searchParams }: { params: 
             // AdSidebar desktop, que já desabilita) — um vendedor sem
             // WhatsApp cadastrado fazia esse botão abrir o JSON cru de erro
             // de /api/contact-seller numa nova aba.
-            <button className="btn btn--accent ad-mobile-cta-button" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
-              {tx.whatsappUnavailable}
-            </button>
+            //
+            // BUG CORRIGIDO (varredura de usabilidade): virava um botão morto
+            // desabilitado, mesmo "Enviar Mensagem Interna" já existindo mais
+            // acima na mesma tela (AdSidebar) — agora rola/foca até lá.
+            <MobileMessageCtaButton label={tx.sendMessageCta} />
           )}
         </div>
       </div>

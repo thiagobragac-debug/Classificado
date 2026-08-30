@@ -6,6 +6,8 @@ import { Category } from './AdCard';
 export interface AdsFilterContextType {
   lang: string;
   categories: Category[];
+  subcategories: { id: string; name_pt: string; name_es?: string | null }[];
+  subcategoryCounts: Record<string, number>;
   countries: string[];
   states: string[];
   cities: string[];
@@ -18,7 +20,12 @@ export interface AdsFilterContextType {
   busca: string;
   categoria: string;
   setCategoria: (v: string) => void;
-  
+  subcategoria: string;
+  setSubcategoria: (v: string) => void;
+  toggleSubcategoria: (v: string) => void;
+  finalidade: string;
+  setFinalidade: (v: string) => void;
+
   pais: string;
   setPais: (v: string) => void;
   estado: string;

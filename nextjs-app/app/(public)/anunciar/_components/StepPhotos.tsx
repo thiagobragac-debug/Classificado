@@ -45,6 +45,7 @@ const TRANSLATIONS = {
     publish: 'Publicar Anúncio',
     videoTypeError: 'Envie um arquivo de vídeo (mp4 ou webm).',
     videoSizeError: 'O vídeo deve ter no máximo 50 MB.',
+    photoSizeError: (name: string) => `A imagem ${name} deve ter no máximo 10 MB.`,
     loginRequiredForMedia: 'Você precisa estar logado para enviar fotos ou vídeo. Faça login e continue de onde parou.',
     photoUploadError: (name: string) => `Erro ao fazer upload da imagem ${name}. Tente novamente.`,
     videoUploadError: 'Erro ao fazer upload do vídeo. Tente novamente.',
@@ -77,6 +78,7 @@ const TRANSLATIONS = {
     publish: 'Publicar Anuncio',
     videoTypeError: 'Envía un archivo de video (mp4 o webm).',
     videoSizeError: 'El video debe tener un máximo de 50 MB.',
+    photoSizeError: (name: string) => `La imagen ${name} debe tener un máximo de 10 MB.`,
     loginRequiredForMedia: 'Necesitas iniciar sesión para subir fotos o video. Inicia sesión y continúa donde lo dejaste.',
     photoUploadError: (name: string) => `Error al subir la imagen ${name}. Inténtalo de nuevo.`,
     videoUploadError: 'Error al subir el video. Inténtalo de nuevo.',
@@ -136,6 +138,12 @@ function usePlanMediaLimits(lang: Lang) {
   return limits
 }
 
+// SVG é vetor e pode conter <script>/handlers embutidos (XSS armazenado se
+// servido inline) — allowlist explícita de tipos raster em vez do antigo
+// `file.type.startsWith('image/')`, que também deixava passar image/svg+xml.
+const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+const MAX_PHOTO_SIZE = 10 * 1024 * 1024 // 10 MB, antes da compressão
+
 export function StepPhotos({ onPrev, isSubmitting }: StepPhotosProps) {
   const { setValue, watch, getValues, formState: { errors } } = useFormContext<AnuncioFormValues>()
   const { lang } = useLang()
@@ -151,7 +159,19 @@ export function StepPhotos({ onPrev, isSubmitting }: StepPhotosProps) {
   const { maxPhotos, hasVideo } = usePlanMediaLimits(lang)
 
   const compressImage = (file: File, maxPx = 1280, quality = 0.82): Promise<File> => {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
+      // Se a compressão falhar por qualquer motivo (canvas indisponível,
+      // imagem corrompida, FileReader falhando), caímos de volta pro
+      // arquivo original — mas sem pular a checagem de tamanho que
+      // handleFiles já fez antes de chamar compressImage. Isso cobre
+      // também qualquer chamador futuro que não faça essa checagem antes.
+      const fallbackToOriginal = () => {
+        if (file.size > MAX_PHOTO_SIZE) {
+          reject(new Error('PHOTO_TOO_LARGE'))
+        } else {
+          resolve(file)
+        }
+      }
       const reader = new FileReader()
       reader.onload = (ev) => {
         const img = new Image()
@@ -164,12 +184,12 @@ export function StepPhotos({ onPrev, isSubmitting }: StepPhotosProps) {
           const canvas = document.createElement('canvas')
           canvas.width = w; canvas.height = h
           const ctx = canvas.getContext('2d')
-          if (!ctx) return resolve(file)
-          
+          if (!ctx) return fallbackToOriginal()
+
           const isPng = file.type === 'image/png'
           if (!isPng) { ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, w, h) }
           ctx.drawImage(img, 0, 0, w, h)
-          
+
           ctx.fillStyle = 'rgba(255, 255, 255, 0.7)'
           ctx.font = `bold ${Math.max(16, w * 0.04)}px sans-serif`
           ctx.textAlign = 'right'
@@ -179,17 +199,18 @@ export function StepPhotos({ onPrev, isSubmitting }: StepPhotosProps) {
           ctx.shadowOffsetX = 1
           ctx.shadowOffsetY = 1
           ctx.fillText('Tauze Class', w - (w * 0.02), h - (h * 0.02))
-          
+
           const mime = isPng ? 'image/png' : 'image/jpeg'
           canvas.toBlob((blob) => {
-            if (!blob || blob.size >= file.size) return resolve(file)
+            if (!blob || blob.size >= file.size) return fallbackToOriginal()
             resolve(new File([blob], file.name, { type: mime, lastModified: Date.now() }))
           }, mime, quality)
         }
-        img.onerror = () => resolve(file)
+        img.onerror = () => fallbackToOriginal()
         if (ev.target?.result) img.src = ev.target.result as string
+        else fallbackToOriginal()
       }
-      reader.onerror = () => resolve(file)
+      reader.onerror = () => fallbackToOriginal()
       reader.readAsDataURL(file)
     })
   }
@@ -208,10 +229,14 @@ export function StepPhotos({ onPrev, isSubmitting }: StepPhotosProps) {
       showToast(tr.loginRequiredForMedia, 'error')
       return
     }
-    const valid = Array.from(files).filter(f => f.type.startsWith('image/'))
+    const valid = Array.from(files).filter(f => ACCEPTED_IMAGE_TYPES.includes(f.type))
+
+    const oversized = valid.filter(f => f.size > MAX_PHOTO_SIZE)
+    oversized.forEach(f => showToast(tr.photoSizeError(f.name), 'error'))
+    const withinSize = valid.filter(f => f.size <= MAX_PHOTO_SIZE)
 
     const availableSlots = maxPhotos - fotos.length
-    const toProcess = valid.slice(0, availableSlots)
+    const toProcess = withinSize.slice(0, availableSlots)
 
     if (toProcess.length > 0) {
       setUploadingCount(prev => prev + toProcess.length)
@@ -240,6 +265,10 @@ export function StepPhotos({ onPrev, isSubmitting }: StepPhotosProps) {
             showToast(tr.loginRequiredForMedia, 'error')
             setUploadingCount(0)
             break
+          }
+          if (err?.message === 'PHOTO_TOO_LARGE') {
+            showToast(tr.photoSizeError(file.name), 'error')
+            continue
           }
           console.error('[StepPhotos] Falha ao enviar imagem:', err.message)
           showToast(tr.photoUploadError(file.name), 'error')
@@ -399,7 +428,7 @@ export function StepPhotos({ onPrev, isSubmitting }: StepPhotosProps) {
         {!hasVideo ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.9rem 1rem', background: 'var(--clr-surface-alt, #f8fafc)', borderRadius: '0.6rem', color: 'var(--clr-muted)', fontSize: '0.88rem' }}>
             <Lock size={16} />
-            {tr.videoLocked} <a href="/planos" style={{ color: 'var(--clr-primary)', fontWeight: 600 }}>{tr.upgrade}</a>
+            {tr.videoLocked} <a href="/planos" target="_blank" rel="noopener" style={{ color: 'var(--clr-primary)', fontWeight: 600 }}>{tr.upgrade}</a>
           </div>
         ) : video ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>

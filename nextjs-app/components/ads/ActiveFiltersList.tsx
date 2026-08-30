@@ -1,11 +1,14 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useAdsFilters } from '@/lib/useAdsFilters';
 import { useAutoGeo } from '@/lib/useAutoGeo';
 import { clearGeoCache } from '@/lib/useGeoLocation';
 import { Category } from '@/components/ads/AdCard';
 import { useLang } from '@/lib/lang-context';
 import { useSearchParams } from 'next/navigation';
+import { getSupabase } from '@/lib/supabase';
+import { getPurposeOptions } from '@/lib/purposeOptions';
 
 const TRANSLATIONS = {
   pt: {
@@ -30,14 +33,39 @@ export default function ActiveFiltersList({ categories, initialGeo, disableAutoG
   const searchParams = useSearchParams();
 
   const {
-    busca, categoria, pais, estado, cidade,
+    busca, categoria, subcategoria, finalidade, pais, estado, cidade,
     precoMin, precoMax, destaque, negociavel,
-    applyFilters, clearFilters, setCategoria, setPais, setEstado, setCidade, setPrice, setDestaque, setNegociavel, setBusca
+    applyFilters, clearFilters, setCategoria, toggleSubcategoria, setFinalidade, setPais, setEstado, setCidade, setPrice, setDestaque, setNegociavel, setBusca
   } = useAdsFilters(initialGeo);
 
   const { geoLabel, advanceGeoLevel, suppressAutoGeo } = useAutoGeo(
     pais, setPais, estado, setEstado, cidade, setCidade, applyFilters, initialGeo, searchParams, disableAutoGeo, lang
   );
+
+  // Nomes das subcategorias ativas — buscados à parte porque este componente
+  // só recebe a lista de `categories` via prop. Subcategoria aceita múltipla
+  // seleção (lista separada por vírgula), então busca todos os ids de uma
+  // vez com .in() em vez de um fetch por id.
+  const [subcategoriaNames, setSubcategoriaNames] = useState<Record<string, string>>({});
+  const selectedSubcategorias = subcategoria ? subcategoria.split(',') : [];
+  useEffect(() => {
+    if (selectedSubcategorias.length === 0) {
+      setSubcategoriaNames({});
+      return;
+    }
+    let isActive = true;
+    getSupabase()
+      .from('subcategories')
+      .select('id, name_pt, name_es')
+      .in('id', selectedSubcategorias)
+      .then(({ data }: { data: any[] | null }) => {
+        if (!isActive || !data) return;
+        const names: Record<string, string> = {};
+        for (const row of data) names[row.id] = lang === 'es' && row.name_es ? row.name_es : row.name_pt;
+        setSubcategoriaNames(names);
+      });
+    return () => { isActive = false; };
+  }, [subcategoria, lang]);
 
   const getActiveFilters = () => {
     const list = [];
@@ -46,7 +74,15 @@ export default function ActiveFiltersList({ categories, initialGeo, disableAutoG
       const catName = categories.find(c => c.id === categoria)?.[lang === 'es' ? 'name_es' : 'name_pt'] || categoria;
       list.push({ key: 'categoria', label: catName, action: () => { setCategoria(''); }});
     }
-    
+    for (const id of selectedSubcategorias) {
+      const name = subcategoriaNames[id];
+      if (name) list.push({ key: `subcategoria-${id}`, label: name, action: () => toggleSubcategoria(id) });
+    }
+    if (finalidade) {
+      const purposeName = getPurposeOptions(categoria).find(p => p.value === finalidade)?.[lang === 'es' ? 'label_es' : 'label_pt'] || finalidade;
+      list.push({ key: 'finalidade', label: purposeName, action: () => { setFinalidade(''); }});
+    }
+
     if (geoLabel && (pais || estado || cidade)) {
       list.push({ key: 'geoLabel', label: geoLabel, action: advanceGeoLevel, isGeo: true });
     } else if (pais || estado || cidade) {

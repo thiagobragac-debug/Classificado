@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Image from 'next/image';
 import { ChevronLeft, ChevronRight, Play, X, Grid } from 'lucide-react';
@@ -19,6 +19,8 @@ const TRANSLATIONS = {
     nextAria: 'Próxima imagem',
     imageAlt: 'Imagem',
     closeAria: 'Fechar',
+    expandAria: 'Ampliar imagem',
+    dialogAria: 'Galeria de imagens em tela cheia',
   },
   es: {
     seeAllPhotos: (n: number) => `Ver todas las ${n} fotos`,
@@ -26,6 +28,8 @@ const TRANSLATIONS = {
     nextAria: 'Imagen siguiente',
     imageAlt: 'Imagen',
     closeAria: 'Cerrar',
+    expandAria: 'Ampliar imagen',
+    dialogAria: 'Galería de imágenes en pantalla completa',
   },
 } as const;
 
@@ -40,6 +44,8 @@ export function AdGallery({ images, videoUrl, title, lang = 'pt' }: AdGalleryPro
   const tt = TRANSLATIONS[lang];
   const [currentIdx, setCurrentIdx] = useState(0);
   const [showLightbox, setShowLightbox] = useState(false);
+  const closeBtnRef = useRef<HTMLButtonElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
 
   const media: { type: 'video' | 'image'; url: string }[] = [];
   if (videoUrl) media.push({ type: 'video', url: videoUrl });
@@ -59,6 +65,9 @@ export function AdGallery({ images, videoUrl, title, lang = 'pt' }: AdGalleryPro
   };
 
   const openLightbox = (idx: number) => {
+    // Guarda o elemento com foco no momento da abertura (miniatura clicada
+    // ou ativada via teclado) pra devolver o foco a ele no fechamento.
+    previouslyFocusedRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setCurrentIdx(idx);
     setShowLightbox(true);
     document.body.style.overflow = 'hidden';
@@ -67,6 +76,23 @@ export function AdGallery({ images, videoUrl, title, lang = 'pt' }: AdGalleryPro
   const closeLightbox = () => {
     setShowLightbox(false);
     document.body.style.overflow = 'auto';
+    previouslyFocusedRef.current?.focus();
+  };
+
+  // Move o foco pro botão de fechar assim que o lightbox abre — sem isso o
+  // foco ficava "perdido" (continuava na miniatura, agora coberta pelo
+  // overlay), quebrando a semântica de diálogo modal.
+  useEffect(() => {
+    if (showLightbox) closeBtnRef.current?.focus();
+  }, [showLightbox]);
+
+  // Ativa a mesma ação de clique via teclado (Enter/Espaço) — usado pelas
+  // miniaturas, que são divs (não <button>) por causa do layout do grid.
+  const handleActivateKey = (e: React.KeyboardEvent, action: () => void) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      action();
+    }
   };
 
   // BUG CORRIGIDO (teste completo do site, 2026-08-24): sem handler de
@@ -85,13 +111,24 @@ export function AdGallery({ images, videoUrl, title, lang = 'pt' }: AdGalleryPro
   return (
     <>
       <div className="gallery-main-wrapper" style={{ position: 'relative' }}>
-        {/* DESKTOP GRID */}
-        {totalMedia >= 3 && (
+        {/* DESKTOP GRID — só renderiza quando há imagens suficientes pra
+            preencher as 4 células secundárias (grid fixo 3 colunas x 2
+            linhas). Com menos que isso (3 ou 4 mídias no total), o grid
+            deixava células vazias (buracos) porque só existiam divs pros
+            itens de fato presentes; nesse caso cai no carrossel abaixo
+            (mesma correção sugerida na auditoria: proporcional ao total
+            real OU carrossel também no desktop — optamos pelo carrossel,
+            que já existe e funciona pra 1-2 mídias). */}
+        {totalMedia >= 5 && (
           <div className="gallery-airbnb-grid">
             {/* Imagem Principal */}
-            <div 
+            <div
               style={{ gridRow: 'span 2', position: 'relative', cursor: 'pointer', overflow: 'hidden' }}
               onClick={() => openLightbox(0)}
+              onKeyDown={(e) => handleActivateKey(e, () => openLightbox(0))}
+              tabIndex={0}
+              role="button"
+              aria-label={tt.expandAria}
               className="gallery-grid-item"
             >
               {media[0].type === 'video' ? (
@@ -105,10 +142,14 @@ export function AdGallery({ images, videoUrl, title, lang = 'pt' }: AdGalleryPro
 
             {/* Imagens secundárias */}
             {media.slice(1, 5).map((item, idx) => (
-              <div 
+              <div
                 key={idx}
                 style={{ position: 'relative', cursor: 'pointer', overflow: 'hidden', backgroundColor: '#1e293b' }}
                 onClick={() => openLightbox(idx + 1)}
+                onKeyDown={(e) => handleActivateKey(e, () => openLightbox(idx + 1))}
+                tabIndex={0}
+                role="button"
+                aria-label={tt.expandAria}
                 className="gallery-grid-item"
               >
                 {item.type === 'video' ? (
@@ -134,12 +175,14 @@ export function AdGallery({ images, videoUrl, title, lang = 'pt' }: AdGalleryPro
           </div>
         )}
 
-        {/* MOBILE CAROUSEL */}
-        <div 
-          className={totalMedia >= 3 ? "gallery-mobile-carousel" : ""}
-          style={{ 
-            position: 'relative', 
-            width: '100%', 
+        {/* MOBILE CAROUSEL — mesmo limiar (>=5) do grid desktop acima: só vira
+            "carrossel exclusivo de mobile" quando o grid é exibido; com menos
+            mídias, esta div é a única visualização (mobile e desktop). */}
+        <div
+          className={totalMedia >= 5 ? "gallery-mobile-carousel" : ""}
+          style={{
+            position: 'relative',
+            width: '100%',
             backgroundColor: '#1e293b',
             borderRadius: '1rem',
             overflow: 'hidden',
@@ -151,6 +194,10 @@ export function AdGallery({ images, videoUrl, title, lang = 'pt' }: AdGalleryPro
             cursor: 'pointer'
           }}
           onClick={() => openLightbox(currentIdx)}
+          onKeyDown={(e) => handleActivateKey(e, () => openLightbox(currentIdx))}
+          tabIndex={0}
+          role="button"
+          aria-label={tt.expandAria}
         >
           {totalMedia > 1 && (
             <>
@@ -202,6 +249,9 @@ export function AdGallery({ images, videoUrl, title, lang = 'pt' }: AdGalleryPro
           desse aninhamento por completo. */}
       {showLightbox && typeof document !== 'undefined' && createPortal(
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={tt.dialogAria}
           onClick={closeLightbox}
           style={{
             position: 'fixed',
@@ -214,6 +264,7 @@ export function AdGallery({ images, videoUrl, title, lang = 'pt' }: AdGalleryPro
             justifyContent: 'center'
           }}>
           <button
+            ref={closeBtnRef}
             onClick={closeLightbox}
             aria-label={tt.closeAria}
             style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', zIndex: 10000 }}

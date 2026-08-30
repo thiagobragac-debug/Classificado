@@ -222,6 +222,24 @@ export async function proxy(request: NextRequest) {
   // Rotas de API recebem headers de segurança mas não passam pela autenticação
   // SSR — cada handler valida a própria credencial (sessão ou API key).
   if (pathname.startsWith('/api')) {
+    // BUG CORRIGIDO (auditoria de segurança, 2026-08-30): /api/admin/** não
+    // tinha rate limiting algum — relevante só no cenário de uma sessão de
+    // admin já comprometida (roubo de sessão, XSS), usada pra automatizar
+    // abuso em volume (convites em massa, bloqueio em massa). Cada handler já
+    // reexige is_admin(); isto é defesa em profundidade, não a autenticação
+    // em si. Mesmo mecanismo e limite já usados para /login e /auth.
+    if (pathname.startsWith('/api/admin')) {
+      const ipAdmin = resolverIpConfiavel(request.headers);
+      if (ipAdmin && !(await dentroDoLimite(`admin_${ipParaRateLimit(ipAdmin)}`))) {
+        return applySecurityHeaders(
+          new NextResponse('Too Many Requests', {
+            status: 429,
+            headers: { 'Retry-After': String(JANELA_SEGUNDOS) },
+          }),
+          API_CSP
+        );
+      }
+    }
     return applySecurityHeaders(NextResponse.next(), API_CSP);
   }
 

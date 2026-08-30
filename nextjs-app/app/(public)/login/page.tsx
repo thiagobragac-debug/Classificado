@@ -37,8 +37,21 @@ const getCachedPlatformLogo = unstable_cache(
     try {
       const supabase = createClient(SUPABASE_URL, SUPABASE_ANON)
       const { data } = await supabase.from('platform_settings').select('value').eq('key', 'tc_logo_url').single()
-      if (data?.value && !data.value.startsWith('javascript')) {
-        return data.value
+      // BUG CORRIGIDO (re-auditoria de segurança, 2026-08-30): blocklist
+      // `startsWith('javascript')` bypassável (maiúsculas, espaço/tab
+      // inicial) — mesma allowlist de protocolo já usada em
+      // components/Header.tsx::sanitizeLogoUrl.
+      if (data?.value) {
+        try {
+          const parsed = new URL(data.value)
+          if (['http:', 'https:', 'data:'].includes(parsed.protocol)) {
+            if (parsed.protocol !== 'data:' || data.value.startsWith('data:image/')) {
+              return data.value
+            }
+          }
+        } catch {
+          // URL relativa/inválida — não aceita o valor bruto
+        }
       }
     } catch (error) {
       console.error('Failed to fetch platform logo:', error)

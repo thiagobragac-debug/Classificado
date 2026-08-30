@@ -14,6 +14,13 @@ export default function AdminDashboard() {
     reports: 0,
     revenue: 0
   })
+  // BUG CORRIGIDO (achado de usabilidade, 2026-08-29): os KPIs nasciam
+  // zerados e só eram atualizados depois de loadRealStats() terminar, sem
+  // nenhum estado de carregamento — um admin abrindo o dashboard via
+  // conexão lenta via "0 Denúncias Abertas" / "0 Usuários" e não tinha como
+  // distinguir isso de "carregando" vs. "de fato zero". Mesmo padrão de
+  // `loading` (default true) já usado em anúncios/denúncias/mensagens.
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     loadRealStats()
@@ -64,6 +71,8 @@ export default function AdminDashboard() {
       // GAP CORRIGIDO: sem try/catch, uma falha de rede deixava o dashboard
       // travado em zeros sem nenhum aviso ao admin.
       showToast('Erro ao carregar estatísticas: ' + (err as Error).message, 'error')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -75,36 +84,54 @@ export default function AdminDashboard() {
       </div>
 
       {/* Stats */}
-      <div className="adm-stats-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)', marginBottom: '20px' }}>
-        <div className="adm-stat-card">
+      {/* BUG CORRIGIDO (achado de usabilidade, 2026-08-29): eram divs estáticas
+          sem link nenhum, diferente do banner "Revisar Agora" de /admin/denuncias
+          — cada cartão agora leva pra tela correspondente (Denúncias já filtrada
+          por status=pending, mesmo recorte que o botão "Revisar Agora" usa). */}
+      <div className="adm-stats-grid" style={{ marginBottom: '20px' }}>
+        <Link href="/admin/usuarios" className="adm-stat-card adm-stat-card--link">
           <div>
-            <div className="adm-stat-val">{stats.activeUsers}</div>
+            {loading ? <div className="adm-skel-val" /> : <div className="adm-stat-val">{stats.activeUsers}</div>}
             {/* BUG CORRIGIDO: rótulo "Ativos" mas a query conta TODO profile
                 cadastrado, inclusive bloqueados (sem filtro de is_blocked,
                 coluna que sequer existe em profiles) — renomeado pra bater
                 com o que de fato é medido. */}
             <div className="adm-stat-lbl">Usuários Cadastrados</div>
           </div>
-        </div>
-        <div className="adm-stat-card">
+        </Link>
+        <Link href="/admin/anuncios" className="adm-stat-card adm-stat-card--link">
           <div>
-            <div className="adm-stat-val">{stats.adsCount}</div>
+            {loading ? <div className="adm-skel-val" /> : <div className="adm-stat-val">{stats.adsCount}</div>}
             <div className="adm-stat-lbl">Total de Anúncios</div>
           </div>
-        </div>
-        <div className="adm-stat-card">
+        </Link>
+        <Link href="/admin/assinaturas" className="adm-stat-card adm-stat-card--link">
           <div>
-            <div className="adm-stat-val" style={{ fontSize: '1.4rem', color: 'var(--adm-green)' }}>R$ {stats.revenue}</div>
+            {loading ? <div className="adm-skel-val" /> : <div className="adm-stat-val" style={{ fontSize: '1.4rem', color: 'var(--adm-green)' }}>R$ {stats.revenue}</div>}
             <div className="adm-stat-lbl">Receita do Mês</div>
           </div>
-        </div>
-        <div className="adm-stat-card">
+        </Link>
+        <Link href="/admin/denuncias?status=pending" className="adm-stat-card adm-stat-card--link">
           <div>
-            <div className="adm-stat-val" style={{ color: 'var(--adm-red)' }}>{stats.reports}</div>
+            {loading ? <div className="adm-skel-val" /> : <div className="adm-stat-val" style={{ color: 'var(--adm-red)' }}>{stats.reports}</div>}
             <div className="adm-stat-lbl">Denúncias Abertas</div>
           </div>
-        </div>
+        </Link>
       </div>
+
+      <style jsx>{`
+        .adm-stat-card--link { text-decoration: none; color: inherit; cursor: pointer; }
+        .adm-skel-val {
+          height: 28px; width: 64px; margin-bottom: 4px; border-radius: var(--adm-r-sm);
+          background: linear-gradient(90deg, var(--adm-surface-2) 25%, var(--adm-surface-3) 50%, var(--adm-surface-2) 75%);
+          background-size: 200% 100%;
+          animation: adm-dash-skel-shine 1.4s infinite;
+        }
+        @keyframes adm-dash-skel-shine {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+      `}</style>
     </>
   )
 }

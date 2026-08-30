@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import { createClient, createAnonClient } from '@/lib/supabase-server';
+import { isSafeExternalUrl } from '@/lib/sanitize';
 import LotGrid from '@/components/auctions/LotGrid';
 import { LotData } from '@/components/auctions/LotBiddingModal';
 import { imageUrl } from '@/lib/storage';
@@ -312,7 +313,10 @@ export default async function AuctionPage(props: { params: Promise<{ id: string 
             </div>
 
             {auction.catalog && (
-              <a href={auction.catalog} target="_blank" rel="noopener noreferrer" className="btn btn--outline" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+              /* BUG CORRIGIDO (re-auditoria de segurança, 2026-08-30): href
+                 sem validação de protocolo — sem input de UI pra este campo
+                 hoje, mas fecha a lacuna por defesa em profundidade. */
+              <a href={isSafeExternalUrl(auction.catalog) ? auction.catalog : '#'} target="_blank" rel="noopener noreferrer" className="btn btn--outline" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
                 <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" strokeWidth="2" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                 {T.downloadCatalog}
               </a>
@@ -367,18 +371,23 @@ export default async function AuctionPage(props: { params: Promise<{ id: string 
         </div>
 
         {/* Patrocínio */}
+        {/* BUG CORRIGIDO (achado de usabilidade, leilões): este CTA era
+            full-width com fonte 2rem — mais chamativo que qualquer botão
+            "Dar Lance" da página (LotBiddingModal), competindo com a ação
+            principal do leilão. Reduzido a um link secundário (largura
+            automática, cor neutra, fonte menor), reservando o destaque
+            máximo pros CTAs de lance. */}
         <div style={{ marginTop: '4rem', textAlign: 'center' }}>
           <a href="/institucional?page=contato" className="btn" style={{
-            display: 'block',
-            width: '100%',
-            background: 'var(--clr-primary)',
-            color: 'white',
-            fontSize: '2rem',
-            fontWeight: 700,
-            padding: '1.5rem',
-            borderRadius: '12px',
+            display: 'inline-flex',
+            background: 'transparent',
+            color: '#94a3b8',
+            fontSize: '0.9rem',
+            fontWeight: 600,
+            padding: '0.65rem 1.5rem',
+            borderRadius: '999px',
+            border: '1px solid rgba(255,255,255,0.2)',
             textDecoration: 'none',
-            boxShadow: '0 4px 6px -1px rgba(22, 163, 74, 0.2), 0 2px 4px -2px rgba(22, 163, 74, 0.2)'
           }}>
             {T.sponsorAuction}
           </a>

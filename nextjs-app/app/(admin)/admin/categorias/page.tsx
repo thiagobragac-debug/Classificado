@@ -167,8 +167,15 @@ export default function AdminCategorias() {
       showToast('Categoria excluída!', 'success')
       // Excluir pode deixar a página atual com menos itens que o esperado
       // (ex.: era a última categoria da última página) — recarrega de
-      // verdade em vez de só remover localmente.
-      loadCategories()
+      // verdade em vez de só remover localmente. Se a categoria excluída
+      // era o único item da página atual e não é a primeira página, volta
+      // uma página antes de recarregar — senão a tabela fica vazia com
+      // dados só em páginas anteriores.
+      if (categories.length === 1 && currentPage > 1) {
+        setCurrentPage(prev => prev - 1)
+      } else {
+        loadCategories()
+      }
       loadCounts()
     } else if (error?.code === '23503') {
       showToast('Não é possível excluir: existem anúncios cadastrados nesta categoria.', 'error')
@@ -212,7 +219,7 @@ export default function AdminCategorias() {
         </div>
       </div>
 
-      <div className="adm-stats-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)', marginBottom: '24px' }}>
+      <div className="adm-stats-grid" style={{ marginBottom: '24px' }}>
         <div className="adm-stat-card">
           <div><div className="adm-stat-val">{total}</div><div className="adm-stat-lbl">Total Categorias</div></div>
           <div className="adm-stat-icon adm-stat-icon--green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></div>
@@ -326,6 +333,9 @@ export default function AdminCategorias() {
                 <div className="adm-field">
                   <label>Ícone (Emoji)</label>
                   <input type="text" className="adm-input" maxLength={2} style={{ fontSize: '1.2rem', textAlign: 'center' }} value={form.icon} onChange={e => setForm({ ...form, icon: e.target.value })} />
+                  <div style={{ fontSize: '0.75rem', color: 'var(--adm-text-muted)', marginTop: '6px' }}>
+                    Cole um único emoji (ex: 🐐). Windows: <kbd>Win</kbd>+<kbd>.</kbd> · Mac: <kbd>Cmd</kbd>+<kbd>Ctrl</kbd>+<kbd>Espaço</kbd>
+                  </div>
                 </div>
                 <div className="adm-field">
                   <label>Cor Principal</label>

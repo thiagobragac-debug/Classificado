@@ -3,7 +3,9 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import { createClient } from '@/lib/supabase-server'
+import { flattenOne } from '@/lib/supabase'
 import { ConfirmProvider } from '@/components/ui/ConfirmProvider'
+import AdminMobileMenuButton from '@/components/admin/AdminMobileMenuButton'
 import './admin/admin-v2.css'
 
 export const metadata = {
@@ -36,9 +38,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     .eq('id', user.id)
     .single()
 
-  const isAdmin = Array.isArray(profile?.user_secrets) 
-    ? profile?.user_secrets[0]?.is_admin 
-    : (profile?.user_secrets as any)?.is_admin;
+  const isAdmin = flattenOne(profile?.user_secrets)?.is_admin;
     
   if (!isAdmin) {
     redirect('/')
@@ -53,7 +53,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <ConfirmProvider>
           <div className="adm-layout">
             {/* Sidebar */}
-          <aside className="adm-sidebar">
+          <aside className="adm-sidebar" id="adm-sidebar">
             <div className="adm-sidebar-logo">
               <div className="adm-logo-mark">TC</div>
               <div className="adm-logo-text">
@@ -107,6 +107,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               <Link href="/admin/categorias" className="adm-nav-item">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
                 <span>Categorias</span>
+              </Link>
+              <Link href="/admin/subcategorias" className="adm-nav-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/><path d="M4 4l3 3"/></svg>
+                <span>Subcategorias</span>
               </Link>
               <Link href="/admin/cupons" className="adm-nav-item">
                 {/* BUG CORRIGIDO (validação adversarial final): este item usava o
@@ -171,6 +175,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             {/* Topbar */}
             <header className="adm-topbar">
               <div className="adm-breadcrumb">
+                <AdminMobileMenuButton />
                 <strong>Painel de Administração</strong>
               </div>
               <div className="adm-topbar-right">

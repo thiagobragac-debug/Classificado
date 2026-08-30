@@ -7,7 +7,7 @@ import { useLang } from '@/lib/lang-context'
 
 interface RegisterFormProps {
   onSetAlert: (msg: string, type: 'success' | 'error') => void
-  onSuccess: () => void
+  onSuccess: (email?: string) => void
 }
 
 // Mensagens de toast/resultado de submissão e aria-labels exclusivos deste
@@ -20,6 +20,8 @@ const TRANSLATIONS = {
     createError: 'Erro ao criar conta.',
     hidePassword: 'Ocultar senha',
     showPassword: 'Mostrar senha',
+    confirmPassword: 'Confirmar Senha',
+    confirmPasswordPh: '••••••••',
   },
   es: {
     successCreated: '¡Cuenta creada con éxito! Ya puedes iniciar sesión.',
@@ -27,6 +29,8 @@ const TRANSLATIONS = {
     createError: 'Error al crear la cuenta.',
     hidePassword: 'Ocultar contraseña',
     showPassword: 'Mostrar contraseña',
+    confirmPassword: 'Confirmar Contraseña',
+    confirmPasswordPh: '••••••••',
   },
 } as const
 
@@ -43,7 +47,11 @@ export function RegisterForm({ onSetAlert, onSuccess }: RegisterFormProps) {
     phone: z.string().min(10, t('err_phone')),
     cep: z.string().min(8, t('err_cep')),
     email: z.string().email(t('err_email')),
-    password: z.string().min(8, t('err_pass_min'))
+    password: z.string().min(8, t('err_pass_min')),
+    confirmPassword: z.string().min(8, t('err_pass_min')),
+  }).refine(data => data.password === data.confirmPassword, {
+    message: t('err_pass_mismatch'),
+    path: ['confirmPassword'],
   }), [t])
 
   type RegisterData = z.infer<typeof registerSchema>
@@ -76,7 +84,7 @@ export function RegisterForm({ onSetAlert, onSuccess }: RegisterFormProps) {
       }
 
       onSetAlert(tr.successCreated, 'success')
-      onSuccess()
+      onSuccess(data.email)
     } catch (err: any) {
       // BUG CORRIGIDO (i18n): qualquer erro do Supabase fora do caso
       // "already registered" vazava cru em inglês na UI.
@@ -133,12 +141,13 @@ export function RegisterForm({ onSetAlert, onSuccess }: RegisterFormProps) {
             type="text" 
             className={`form-input ${errors.doc ? 'is-invalid' : ''}`} 
             placeholder={t('auth_doc_ph')}
-            maxLength={20} 
+            maxLength={20}
             aria-invalid={!!errors.doc}
-            aria-describedby={errors.doc ? "reg-doc-error" : undefined}
-            {...register('doc')} 
+            aria-describedby={errors.doc ? "reg-doc-error reg-doc-hint" : "reg-doc-hint"}
+            {...register('doc')}
           />
         </div>
+        <small id="reg-doc-hint" style={{ color: 'var(--clr-text-muted)', fontSize: '0.78rem', marginTop: '0.25rem', display: 'block' }}>{t('auth_doc_ph')}</small>
         {errors.doc && <span id="reg-doc-error" role="alert" style={{ color: '#dc2626', fontSize: '0.8rem', marginTop: '0.2rem', display: 'block' }}>{errors.doc.message}</span>}
       </div>
 
@@ -152,10 +161,11 @@ export function RegisterForm({ onSetAlert, onSuccess }: RegisterFormProps) {
             className={`form-input ${errors.phone ? 'is-invalid' : ''}`} 
             placeholder={t('auth_phone_ph')}
             aria-invalid={!!errors.phone}
-            aria-describedby={errors.phone ? "reg-phone-error" : undefined}
-            {...register('phone')} 
+            aria-describedby={errors.phone ? "reg-phone-error reg-phone-hint" : "reg-phone-hint"}
+            {...register('phone')}
           />
         </div>
+        <small id="reg-phone-hint" style={{ color: 'var(--clr-text-muted)', fontSize: '0.78rem', marginTop: '0.25rem', display: 'block' }}>{t('auth_phone_ph')}</small>
         {errors.phone && <span id="reg-phone-error" role="alert" style={{ color: '#dc2626', fontSize: '0.8rem', marginTop: '0.2rem', display: 'block' }}>{errors.phone.message}</span>}
       </div>
 
@@ -169,10 +179,11 @@ export function RegisterForm({ onSetAlert, onSuccess }: RegisterFormProps) {
             className={`form-input ${errors.cep ? 'is-invalid' : ''}`} 
             placeholder={t('auth_cep_ph')}
             aria-invalid={!!errors.cep}
-            aria-describedby={errors.cep ? "reg-cep-error" : undefined}
-            {...register('cep')} 
+            aria-describedby={errors.cep ? "reg-cep-error reg-cep-hint" : "reg-cep-hint"}
+            {...register('cep')}
           />
         </div>
+        <small id="reg-cep-hint" style={{ color: 'var(--clr-text-muted)', fontSize: '0.78rem', marginTop: '0.25rem', display: 'block' }}>{t('auth_cep_ph')}</small>
         {errors.cep && <span id="reg-cep-error" role="alert" style={{ color: '#dc2626', fontSize: '0.8rem', marginTop: '0.2rem', display: 'block' }}>{errors.cep.message}</span>}
       </div>
 
@@ -223,6 +234,23 @@ export function RegisterForm({ onSetAlert, onSuccess }: RegisterFormProps) {
           </button>
         </div>
         {errors.password && <span id="reg-password-error" role="alert" style={{ color: '#dc2626', fontSize: '0.8rem', marginTop: '0.2rem', display: 'block' }}>{errors.password.message}</span>}
+      </div>
+
+      <div className="form-group" style={{ marginBottom: '2rem' }}>
+        <label htmlFor="reg-confirm-password" className="form-label">{tr.confirmPassword}</label>
+        <div className="input-with-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          <input
+            id="reg-confirm-password"
+            type={showPassword ? "text" : "password"}
+            className={`form-input ${errors.confirmPassword ? 'is-invalid' : ''}`}
+            placeholder={tr.confirmPasswordPh}
+            aria-invalid={!!errors.confirmPassword}
+            aria-describedby={errors.confirmPassword ? "reg-confirm-password-error" : undefined}
+            {...register('confirmPassword')}
+          />
+        </div>
+        {errors.confirmPassword && <span id="reg-confirm-password-error" role="alert" style={{ color: '#dc2626', fontSize: '0.8rem', marginTop: '0.2rem', display: 'block' }}>{errors.confirmPassword.message}</span>}
       </div>
 
       <button type="submit" className="btn btn--primary btn--lg" style={{ width: '100%', justifyContent: 'center' }} disabled={loading}>

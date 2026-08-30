@@ -6,8 +6,10 @@ import { getSupabase, uploadAdImage } from '@/lib/supabase'
 import { imageUrl } from '@/lib/storage'
 import { showToast } from '@/lib/toast'
 import Link from 'next/link'
+import { useConfirm } from '@/components/ui/ConfirmProvider'
 
 export default function AdminLeiloes() {
+  const { confirm } = useConfirm()
   const [auctions, setAuctions] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -24,7 +26,8 @@ export default function AdminLeiloes() {
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [form, setForm] = useState({ 
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [form, setForm] = useState({
     title: '', 
     date: '', 
     status: 'scheduled',
@@ -108,8 +111,11 @@ export default function AdminLeiloes() {
     const supabase = getSupabase()
     const { data, error } = await supabase.from('auction_events').update({ status: newStatus }).eq('id', id).select()
     if (!error && data && data.length > 0) {
-      setAuctions(auctions.map(a => a.id === id ? { ...a, status: newStatus } : a))
       showToast(`Status do leilão atualizado para ${newStatus}!`, 'success')
+      // BUG CORRIGIDO: com filtro/paginação real de servidor, um patch só
+      // local deixava o leilão visível mesmo depois de deixar de bater com
+      // o filtro de status atual. Recarrega de verdade.
+      loadAuctions()
       loadCounts()
     } else if (!error) {
       showToast('Nenhuma linha foi atualizada — verifique permissões ou se o registro ainda existe.', 'error')
@@ -118,12 +124,46 @@ export default function AdminLeiloes() {
     }
   }
 
+  const emptyForm = { title: '', date: '', status: 'scheduled', youtube: '', cover: '', catalog: '', min_bid: 0, step: 0, commission: 0, accepts_bids: true }
+
+  const openNew = () => {
+    setEditingId(null)
+    setForm(emptyForm)
+    setIsModalOpen(true)
+  }
+
+  // GAP CORRIGIDO: não existia UI de edição de leilão no admin — corrigir
+  // título/data/lance mínimo/comissão/capa depois de criado exigia mexer
+  // direto no banco. Mesmo padrão de openEdit já usado em auction_lots
+  // ([id]/page.tsx).
+  const openEdit = (auc: any) => {
+    setEditingId(auc.id)
+    // datetime-local espera "YYYY-MM-DDTHH:mm" no horário local; auc.date
+    // vem em ISO/UTC do banco.
+    const d = new Date(auc.date)
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const localDateTime = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+    setForm({
+      title: auc.title || '',
+      date: localDateTime,
+      status: auc.status,
+      youtube: auc.youtube || '',
+      cover: auc.cover || '',
+      catalog: auc.catalog || '',
+      min_bid: auc.min_bid || 0,
+      step: auc.step || 0,
+      commission: auc.commission || 0,
+      accepts_bids: auc.accepts_bids ?? true
+    })
+    setIsModalOpen(true)
+  }
+
   const handleSave = async () => {
     if (!form.title || !form.date) {
       return showToast('Preencha o título e a data', 'error')
     }
     const supabase = getSupabase()
-    const { data, error } = await supabase.from('auction_events').insert([{
+    const payload = {
       title: form.title,
       date: new Date(form.date).toISOString(),
       status: form.status,
@@ -134,17 +174,38 @@ export default function AdminLeiloes() {
       step: Number(form.step) || 0,
       commission: Number(form.commission) || 0,
       accepts_bids: form.accepts_bids
-    }]).select()
+    }
+
+    if (editingId) {
+      const { data, error } = await supabase.from('auction_events').update(payload).eq('id', editingId).select()
+      if (!error && data && data.length > 0) {
+        setIsModalOpen(false)
+        setEditingId(null)
+        setForm(emptyForm)
+        showToast('Leilão atualizado com sucesso!', 'success')
+        loadAuctions()
+        loadCounts()
+      } else if (!error) {
+        showToast('Nenhum leilão foi atualizado — verifique permissões ou se o registro ainda existe.', 'error')
+      } else {
+        showToast('Erro ao atualizar leilão: ' + error.message, 'error')
+      }
+      return
+    }
+
+    const { data, error } = await supabase.from('auction_events').insert([payload]).select()
 
     if (!error && data) {
-      // BUG CORRIGIDO (reteste do site, 2026-08-25): o insert otimista não
-      // tinha o campo lotsCount (só calculado em loadAuctions), então a
-      // linha nova mostrava "lotes" sem número até um F5. Um leilão
-      // recém-criado sempre tem 0 lotes.
-      setAuctions([{ ...data[0], lotsCount: 0 }, ...auctions])
       setIsModalOpen(false)
-      setForm({ title: '', date: '', status: 'scheduled', youtube: '', cover: '', catalog: '', min_bid: 0, step: 0, commission: 0, accepts_bids: true })
+      setForm(emptyForm)
       showToast('Leilão criado com sucesso!', 'success')
+      // BUG CORRIGIDO: a lista é ordenada por `date` (data do evento, não
+      // criação) e agora é paginada de verdade no servidor — inserir
+      // otimista no topo do array local ficava com a ordenação errada, o
+      // "Mostrando X de Y" desatualizado, e podia até duplicar/pular um
+      // item na página seguinte porque o .range() do servidor desconhecia
+      // essa linha extra. Recarrega de verdade em vez de inserir na mão.
+      loadAuctions()
       loadCounts()
     } else {
       showToast('Erro ao criar leilão: ' + error?.message, 'error')
@@ -187,17 +248,29 @@ export default function AdminLeiloes() {
 
   const handleBulkStatusUpdate = async (newStatus: string) => {
     if (selectedIds.length === 0) return
+
+    // GAP CORRIGIDO: "Cancelar Todos" cancelava leilões de verdade sem
+    // nenhuma confirmação, a poucos pixels do botão que só limpa a seleção
+    // — fácil de clicar no errado. Confirma e avisa se algum selecionado
+    // está Ao Vivo.
+    if (newStatus === 'cancelled') {
+      const selecionados = auctions.filter(a => selectedIds.includes(a.id))
+      const temAoVivo = selecionados.some(a => a.status === 'live')
+      const mensagem = `Cancelar ${selectedIds.length} ${selectedIds.length === 1 ? 'leilão selecionado' : 'leilões selecionados'}?${temAoVivo ? ' Atenção: pelo menos um está Ao Vivo no momento.' : ''}`
+      if (!(await confirm(mensagem, 'Cancelar leilões'))) return
+    }
+
     const supabase = getSupabase()
-    
+
     const { data, error } = await supabase.from('auction_events')
       .update({ status: newStatus })
       .in('id', selectedIds)
       .select()
 
     if (!error && data && data.length > 0) {
-      setAuctions(auctions.map(a => selectedIds.includes(a.id) ? { ...a, status: newStatus } : a))
       showToast(`${data.length} leilões atualizados para ${newStatus}!`, 'success')
       setSelectedIds([])
+      loadAuctions()
       loadCounts()
     } else if (!error) {
       showToast('Nenhum leilão foi atualizado — verifique permissões ou se os registros ainda existem.', 'error')
@@ -219,22 +292,14 @@ export default function AdminLeiloes() {
           <p className="adm-page-sub">Crie eventos, gerencie transmissões e associe lotes.</p>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
-          {selectedIds.length > 0 && (
-            <div style={{ display: 'flex', gap: '4px' }}>
-              <button className="adm-btn adm-btn--outline" onClick={() => handleBulkStatusUpdate('scheduled')}>Agendar</button>
-              <button className="adm-btn adm-btn--outline" onClick={() => handleBulkStatusUpdate('live')}>Iniciar</button>
-              <button className="adm-btn adm-btn--outline" onClick={() => handleBulkStatusUpdate('closed')}>Finalizar</button>
-              <button className="adm-btn adm-btn--outline" style={{ color: 'var(--adm-red)', borderColor: 'var(--adm-red)' }} onClick={() => handleBulkStatusUpdate('cancelled')}>Cancelar</button>
-            </div>
-          )}
-          <button className="adm-btn adm-btn--primary" onClick={() => setIsModalOpen(true)}>
+          <button className="adm-btn adm-btn--primary" onClick={openNew}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Novo Leilão
           </button>
         </div>
       </div>
 
-      <div className="adm-stats-grid" style={{ gridTemplateColumns: 'repeat(5,1fr)', marginBottom: '20px' }}>
+      <div className="adm-stats-grid" style={{ marginBottom: '20px' }}>
         <div className="adm-stat-card">
           <div><div className="adm-stat-val">{total}</div><div className="adm-stat-lbl">Total</div></div>
           <div className="adm-stat-icon adm-stat-icon--green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></div>
@@ -326,8 +391,9 @@ export default function AdminLeiloes() {
                   </td>
                   <td style={{ textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
+                      <button className="adm-btn adm-btn--sm adm-btn--outline" onClick={() => openEdit(auc)}>Editar</button>
                       {['scheduled', 'active', 'draft'].includes(auc.status) && (
-                        <button className="adm-btn adm-btn--sm adm-btn--outline" style={{ color: 'var(--adm-red)', borderColor: 'var(--adm-red)' }} onClick={() => handleStatusUpdate(auc.id, 'live')}>Iniciar Transmissão</button>
+                        <button className="adm-btn adm-btn--sm adm-btn--outline" style={{ color: 'var(--adm-green)', borderColor: 'var(--adm-green)' }} onClick={() => handleStatusUpdate(auc.id, 'live')}>Iniciar Transmissão</button>
                       )}
                       {auc.status === 'live' && (
                         <button className="adm-btn adm-btn--sm adm-btn--outline" onClick={() => handleStatusUpdate(auc.id, 'closed')}>Finalizar</button>
@@ -393,14 +459,14 @@ export default function AdminLeiloes() {
       </div>
 
       {isModalOpen && (
-        <div className="adm-overlay open" onClick={(e) => e.target === e.currentTarget && setIsModalOpen(false)}>
+        <div className="adm-overlay open" onClick={(e) => { if (e.target === e.currentTarget) { setIsModalOpen(false); setEditingId(null) } }}>
           <div className="adm-modal" style={{ maxWidth: '800px', padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             <div style={{ padding: '28px 32px 20px', borderBottom: '1px solid var(--adm-border)' }}>
               <h3 className="adm-modal-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--adm-accent-pale)', color: 'var(--adm-accent)', display: 'grid', placeItems: 'center' }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                 </div>
-                Novo Leilão / Remate
+                {editingId ? 'Editar Leilão / Remate' : 'Novo Leilão / Remate'}
               </h3>
             </div>
             
@@ -464,9 +530,9 @@ export default function AdminLeiloes() {
             </div>
 
             <div className="adm-modal-footer" style={{ margin: 0, padding: '20px 32px', borderTop: '1px solid var(--adm-border)', background: 'var(--adm-surface-2)', borderRadius: '0 0 var(--adm-r-xl) var(--adm-r-xl)' }}>
-              <button className="adm-btn adm-btn--outline" onClick={() => setIsModalOpen(false)}>Cancelar</button>
+              <button className="adm-btn adm-btn--outline" onClick={() => { setIsModalOpen(false); setEditingId(null) }}>Cancelar</button>
               <button className="adm-btn adm-btn--primary" onClick={handleSave} disabled={uploading}>
-                {uploading ? 'Salvando...' : 'Criar Leilão'}
+                {uploading ? 'Salvando...' : (editingId ? 'Salvar Alterações' : 'Criar Leilão')}
               </button>
             </div>
           </div>
@@ -485,7 +551,7 @@ export default function AdminLeiloes() {
             {selectedIds.length} selecionado{selectedIds.length > 1 ? 's' : ''}
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', borderLeft: '1px solid var(--adm-border)', paddingLeft: '20px' }}>
-            <button className="adm-btn adm-btn--sm adm-btn--outline" onClick={() => setSelectedIds([])}>Cancelar</button>
+            <button className="adm-btn adm-btn--sm adm-btn--outline" onClick={() => setSelectedIds([])}>Limpar seleção</button>
             <button className="adm-btn adm-btn--sm adm-btn--primary" style={{ background: 'var(--adm-green)', borderColor: 'var(--adm-green)' }} onClick={() => handleBulkStatusUpdate('live')}>Mover para Ao Vivo</button>
             <button className="adm-btn adm-btn--sm adm-btn--primary" style={{ background: 'var(--adm-amber)', borderColor: 'var(--adm-amber)' }} onClick={() => handleBulkStatusUpdate('scheduled')}>Mover para Agendado</button>
             <button className="adm-btn adm-btn--sm adm-btn--outline" style={{ color: 'var(--adm-text-muted)' }} onClick={() => handleBulkStatusUpdate('closed')}>Finalizar Todos</button>

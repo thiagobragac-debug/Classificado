@@ -77,12 +77,19 @@ export default function AdminDepoimentos() {
     }
 
     const supabase = getSupabase()
+    // BUG CORRIGIDO (achado de usabilidade): o input tinha min=1/max=5 só de
+    // aparência (atributos HTML não bloqueiam digitação nem colagem de
+    // valores fora da faixa) e handleSave não validava — um valor como 0, 8
+    // ou -3 ia direto pro banco. Clamp aqui garante a faixa mesmo se algo
+    // escapar do onChange do campo (ex.: registro antigo carregado com
+    // rating fora de 1-5).
+    const ratingValidado = Math.min(5, Math.max(1, rating))
     const payload = {
       text,
       text_es: textEs || null,
       author,
       loc,
-      rating
+      rating: ratingValidado
     }
 
     if (editingId) {
@@ -135,7 +142,7 @@ export default function AdminDepoimentos() {
         </div>
       </div>
 
-      <div className="adm-stats-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)', marginBottom: '20px' }}>
+      <div className="adm-stats-grid" style={{ marginBottom: '20px' }}>
         <div className="adm-stat-card">
           <div><div className="adm-stat-val">{testimonials.length}</div><div className="adm-stat-lbl">Total</div></div>
         </div>
@@ -268,7 +275,7 @@ export default function AdminDepoimentos() {
 
               <div className="adm-form-group">
                 <label className="adm-label">Nota (1 a 5)</label>
-                <input type="number" min="1" max="5" className="adm-input" value={rating} onChange={e => { const n = parseInt(e.target.value); if (!isNaN(n)) setRating(n) }} />
+                <input type="number" min="1" max="5" className="adm-input" value={rating} onChange={e => { const n = parseInt(e.target.value); if (!isNaN(n)) setRating(Math.min(5, Math.max(1, n))) }} />
               </div>
 
               <div className="adm-form-group">

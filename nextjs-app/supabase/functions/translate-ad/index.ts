@@ -2,7 +2,26 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Edge Function para ser chamada via Database Webhook sempre que um Anúncio for inserido
+//
+// BUG CORRIGIDO (auditoria de segurança, 2026-08-30, achado alto): esta
+// função grava em `ads` via service_role (bypassando RLS e os triggers de
+// moderação) sem validar a origem da chamada — qualquer POST externo com
+// {"type":"INSERT","record":{"id":"<ad-id-real>",...}} conseguia reescrever
+// title_es de qualquer anúncio da plataforma. Configure um segredo em
+// Database Webhooks > este webhook > HTTP Headers (nome sugerido:
+// X-Webhook-Secret) com o mesmo valor de TRANSLATE_AD_WEBHOOK_SECRET
+// (`supabase secrets set TRANSLATE_AD_WEBHOOK_SECRET=<valor aleatório>`).
+const WEBHOOK_SECRET = Deno.env.get('TRANSLATE_AD_WEBHOOK_SECRET') ?? ''
+
 serve(async (req) => {
+  const recebido = req.headers.get('X-Webhook-Secret')
+  if (!WEBHOOK_SECRET || recebido !== WEBHOOK_SECRET) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
   try {
     const payload = await req.json();
     const ad = payload.record;

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase-admin';
 import { resolverIpConfiavel, ipParaRateLimit } from '@/lib/ip-utils';
+import { dentroDoLimiteFallback } from '@/lib/rate-limit-fallback';
 
 // Substitui o <form> fake que vinha embutido no HTML de institutional_pages
 // (page=contato) — tinha um onsubmit puramente cosmético que fingia sucesso
@@ -65,14 +66,13 @@ export async function POST(request: NextRequest) {
     // extensions do navegador, ou de propósito por um script), permitindo
     // gerar baldes praticamente infinitos a partir da mesma conexão.
     // ipParaRateLimit trunca no prefixo /64 (ver lib/ip-utils.ts).
-    const { data: dentroDoLimite, error: rateLimitError } = await admin.rpc('check_rate_limit', {
-      p_bucket: `contact_form_${ipParaRateLimit(ip)}`,
-      p_limit: 3,
-      p_window_seconds: 600,
+    const permitido = await dentroDoLimiteFallback(admin, {
+      bucket: `contact_form_${ipParaRateLimit(ip)}`,
+      limit: 3,
+      windowSeconds: 600,
+      logPrefix: 'contact',
     });
-    if (rateLimitError) {
-      console.error('[contact] Erro ao checar rate limit:', rateLimitError.message);
-    } else if (dentroDoLimite === false) {
+    if (!permitido) {
       return NextResponse.json({ error: 'Too Many Requests' }, { status: 429 });
     }
   }

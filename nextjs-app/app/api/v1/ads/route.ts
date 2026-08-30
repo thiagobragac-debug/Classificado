@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { SUPABASE_URL, SUPABASE_ANON } from '@/lib/supabase'
+import { sanitizeHtml } from '@/lib/sanitize'
 import {
   authenticateApiKey,
   hasPermission,
@@ -138,13 +139,21 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // user_id: only full_access keys may specify an arbitrary user_id
-  // Other keys must provide it but it is still required (the API key partner is responsible)
+  // BUG CORRIGIDO (varredura de segurança): o comentário original já dizia
+  // "only full_access keys may specify an arbitrary user_id", mas a checagem
+  // abaixo dele só repetia a mesma condição de write_ads/full_access já
+  // validada por hasPermission() logo acima — redundante, nunca bloqueava
+  // nada. Qualquer chave write_ads (sem full_access) conseguia criar
+  // anúncio em nome de QUALQUER user_id existente, sem consentimento do
+  // dono. Não existe conceito de "usuário vinculado à chave" neste modelo
+  // (confirmado em app/(admin)/admin/api-keys/page.tsx), então não há
+  // user_id "seguro" pra uma chave sem full_access usar — a única correção
+  // consistente com a intenção documentada é exigir full_access mesmo.
   if (!body.user_id) {
     return apiError('Missing required field: user_id', 400)
   }
-  if (!apiKey.permissions.includes('full_access') && !apiKey.permissions.includes('write_ads')) {
-    return apiError('Insufficient permissions to create ads', 403)
+  if (!hasPermission(apiKey, 'full_access')) {
+    return apiError('Forbidden: creating an ad on behalf of another user requires the full_access permission', 403)
   }
 
   // Sanitize and build payload — only allow safe fields via API
@@ -159,7 +168,10 @@ export async function POST(request: NextRequest) {
   const payload = {
     title_pt:      String(body.title_pt).slice(0, 200),
     title_es:      body.title_es ? String(body.title_es).slice(0, 200) : null,
-    description:   body.description ? String(body.description).slice(0, 5000) : null,
+    // BUG CORRIGIDO (re-auditoria de segurança, 2026-08-30): DOMPurify.sanitize()
+    // sem config (allowlist default, permite <img>/style/etc.) trocado pela
+    // mesma allowlist restrita usada no resto do projeto (lib/sanitize.ts).
+    description:   body.description ? sanitizeHtml(String(body.description)).slice(0, 5000) : null,
     price:         Number(body.price),
     currency:      String(body.currency || 'BRL').toUpperCase().slice(0, 3),
     price_unit_pt: body.price_unit_pt ? String(body.price_unit_pt).slice(0, 50) : null,

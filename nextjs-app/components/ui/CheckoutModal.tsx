@@ -467,10 +467,11 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
           <h3 style={{ fontSize: '1.25rem', margin: 0, fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span>💳</span> {t.title}
           </h3>
-          <button onClick={onClose} aria-label={t.close} style={{
+          <button onClick={onClose} disabled={loading} aria-label={t.close} style={{
             background: 'none', border: 'none', fontSize: '1.5rem', color: '#64748b',
-            cursor: 'pointer', width: '32px', height: '32px', display: 'flex',
-            alignItems: 'center', justifyContent: 'center', borderRadius: '50%'
+            cursor: loading ? 'not-allowed' : 'pointer', width: '32px', height: '32px', display: 'flex',
+            alignItems: 'center', justifyContent: 'center', borderRadius: '50%',
+            opacity: loading ? 0.4 : 1
           }}>&times;</button>
         </div>
 
@@ -513,6 +514,12 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
                     <input
                       id="coupon" type="text" value={couponCode}
                       onChange={e => setCouponCode(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          if (!loadingCoupon && couponCode) handleApplyCoupon()
+                        }
+                      }}
                       placeholder={t.couponPlaceholder}
                       style={{ flex: 1, padding: '10px 14px', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '8px' }}
                     />

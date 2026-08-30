@@ -1,6 +1,4 @@
 import { NextRequest } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import { SUPABASE_URL, SUPABASE_ANON } from '@/lib/supabase'
 import {
   authenticateApiKey,
   hasPermission,
@@ -9,7 +7,9 @@ import {
   apiError,
   corsHeaders,
   rateLimitHeaders,
+  getServiceClient,
 } from '@/lib/api-auth'
+import { flattenOne } from '@/lib/supabase'
 
 // ─── OPTIONS (CORS preflight) ─────────────────────────────────────────────────
 export async function OPTIONS() {
@@ -22,7 +22,13 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const startTime = Date.now()
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, { auth: { persistSession: false } })
+  // BUG CORRIGIDO (varredura de segurança): usava a anon key pra ler o
+  // anúncio — depois que profiles.phone_whatsapp foi revogado do papel
+  // "anon" (vazamento crítico corrigido nesta mesma varredura), essa query
+  // não conseguiria mais ler o telefone nem pra chave full_access. A
+  // autorização de quem pode ver o quê já é 100% da aplicação (permissão
+  // da chave, checada abaixo) — service_role é o client certo aqui.
+  const supabase = getServiceClient()
 
   // 1. Authenticate
   const auth = await authenticateApiKey(request)
@@ -56,10 +62,22 @@ export async function GET(
   }
 
   // 5. Query
-  const { data, error } = await supabase
+  // BUG CORRIGIDO (varredura de segurança, vazamento de dados): incluía
+  // phone_whatsapp pra QUALQUER chave com read_ads — o próprio endpoint de
+  // listagem (GET /api/v1/ads) e /api/v1/users já tratam telefone como
+  // campo restrito a full_access; este era o único que vazava sem essa
+  // checagem.
+  const isFullAccess = hasPermission(apiKey, 'full_access')
+  // BUG CORRIGIDO (fechamento pré-produção): phone_whatsapp mudou de
+  // profiles pra user_secrets (migration 20260829130000, RLS self-only) —
+  // service_role ignora RLS, então só o embed precisa acompanhar a coluna.
+  const profileFields = isFullAccess
+    ? 'id, name, avatar_url, verified, user_secrets(phone_whatsapp)'
+    : 'id, name, avatar_url, verified'
+  const { data: rawData, error } = await supabase
     .from('ads')
     .select(
-      'id, title_pt, title_es, description, price, currency, price_unit_pt, negotiable, condition, status, featured, images, category_id, city, state, country, location_text, video_url, tags_pt, views_count, created_at, updated_at, expires_at, profiles!user_id(id, name, avatar_url, verified, phone_whatsapp)'
+      `id, title_pt, title_es, description, price, currency, price_unit_pt, negotiable, condition, status, featured, images, category_id, city, state, country, location_text, video_url, tags_pt, views_count, created_at, updated_at, expires_at, profiles!user_id(${profileFields})`
     )
     .eq('id', id)
     .eq('status', 'active')
@@ -67,9 +85,19 @@ export async function GET(
 
   const durationMs = Date.now() - startTime
 
-  if (error || !data) {
+  if (error || !rawData) {
     logRequest({ apiKey, request, statusCode: 404, durationMs })
     return apiError('Ad not found or not active', 404)
+  }
+
+  const rawProfile = Array.isArray(rawData.profiles) ? rawData.profiles[0] : rawData.profiles
+  const data = {
+    ...rawData,
+    profiles: rawProfile && isFullAccess ? {
+      ...rawProfile,
+      phone_whatsapp: flattenOne((rawProfile as any).user_secrets)?.phone_whatsapp,
+      user_secrets: undefined,
+    } : rawProfile,
   }
 
   // 6. Log (fire-and-forget)

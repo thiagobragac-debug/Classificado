@@ -5,6 +5,54 @@ import { getSupabase, getSession } from '@/lib/supabase'
 import { showToast } from '@/lib/toast'
 import { useConfirm } from '@/components/ui/ConfirmProvider'
 
+// GAP CORRIGIDO (achado de usabilidade #3): "Local Alvo" era texto livre pra
+// Estado/País, mas o filtro público (getBanners() em lib/supabase.ts) compara
+// com o valor normalizado vindo da geolocalização do visitante — grafias que
+// não batessem exatamente (acentuação, abreviação, digitação livre) faziam o
+// banner nunca aparecer pra ninguém. Listas fixas por país garantem que todo
+// banner novo grava um valor normalizado e consistente, mesmo espírito do
+// campo de cidade estruturado logo abaixo. Mesmo conjunto de nomes canônicos
+// usado em app/(public)/anunciar/_components/StepLocation.tsx (não
+// importado daqui de propósito: esse componente é local ao wizard público,
+// fora da área desta tela de admin).
+const MERCOSUL_COUNTRIES = ['Brasil', 'Argentina', 'Uruguai', 'Paraguai']
+
+const BR_STATE_NAMES = [
+  'Acre', 'Alagoas', 'Amapá', 'Amazonas', 'Bahia', 'Ceará', 'Distrito Federal',
+  'Espírito Santo', 'Goiás', 'Maranhão', 'Mato Grosso', 'Mato Grosso do Sul',
+  'Minas Gerais', 'Pará', 'Paraíba', 'Paraná', 'Pernambuco', 'Piauí',
+  'Rio de Janeiro', 'Rio Grande do Norte', 'Rio Grande do Sul', 'Rondônia',
+  'Roraima', 'Santa Catarina', 'São Paulo', 'Sergipe', 'Tocantins',
+]
+
+const AR_PROVINCES = [
+  'Buenos Aires', 'Catamarca', 'Chaco', 'Chubut',
+  'Ciudad Autónoma de Buenos Aires', 'Córdoba', 'Corrientes', 'Entre Ríos',
+  'Formosa', 'Jujuy', 'La Pampa', 'La Rioja', 'Mendoza', 'Misiones',
+  'Neuquén', 'Río Negro', 'Salta', 'San Juan', 'San Luis', 'Santa Cruz',
+  'Santa Fe', 'Santiago del Estero', 'Tierra del Fuego', 'Tucumán',
+]
+
+const UY_DEPARTMENTS = [
+  'Artigas', 'Canelones', 'Cerro Largo', 'Colonia', 'Durazno', 'Flores',
+  'Florida', 'Lavalleja', 'Maldonado', 'Montevideo', 'Paysandú',
+  'Río Negro', 'Rivera', 'Rocha', 'Salto', 'San José', 'Soriano',
+  'Tacuarembó', 'Treinta y Tres',
+]
+
+const PY_DEPARTMENTS = [
+  'Concepción', 'San Pedro', 'Cordillera', 'Guairá', 'Caaguazú', 'Caazapá',
+  'Itapúa', 'Misiones', 'Paraguarí', 'Alto Paraná', 'Central', 'Ñeembucú',
+  'Amambay', 'Canindeyú', 'Presidente Hayes', 'Boquerón', 'Alto Paraguay',
+  'Asunción',
+]
+
+// Lista única (deduplicada — 'Misiones' e 'Río Negro' existem em mais de um
+// país) e ordenada, já que o alvo "Estado" do banner não distingue país.
+const MERCOSUL_STATES = Array.from(
+  new Set([...BR_STATE_NAMES, ...AR_PROVINCES, ...UY_DEPARTMENTS, ...PY_DEPARTMENTS])
+).sort((a, b) => a.localeCompare(b, 'pt'))
+
 export default function AdminBanners() {
   const { confirm } = useConfirm()
   const [banners, setBanners] = useState<any[]>([])
@@ -123,8 +171,15 @@ export default function AdminBanners() {
     const { data, error } = await supabase.from('banners').delete().eq('id', id).select()
     if (!error && data && data.length > 0) {
       // Excluir pode deixar a página atual com menos itens que o esperado
-      // — recarrega de verdade em vez de só remover localmente.
-      loadBanners()
+      // — recarrega de verdade em vez de só remover localmente. Se o
+      // banner excluído era o único item da página atual e não é a
+      // primeira página, volta uma página antes de recarregar — senão a
+      // tabela fica vazia com dados só em páginas anteriores.
+      if (banners.length === 1 && currentPage > 1) {
+        setCurrentPage(prev => prev - 1)
+      } else {
+        loadBanners()
+      }
       loadCounts()
     } else if (!error) {
       showToast('Nenhum banner foi excluído — verifique suas permissões.', 'error')
@@ -211,7 +266,7 @@ export default function AdminBanners() {
         </button>
       </div>
 
-      <div className="adm-stats-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)', marginBottom: '20px' }}>
+      <div className="adm-stats-grid" style={{ marginBottom: '20px' }}>
         <div className="adm-stat-card">
           <div><div className="adm-stat-val">{total}</div><div className="adm-stat-lbl">Total de Banners</div></div>
         </div>
@@ -254,7 +309,7 @@ export default function AdminBanners() {
                   </td>
                   <td>
                     <div style={{ fontWeight: 600 }}>{b.name}</div>
-                    {b.link_url && <a href={b.link_url} target="_blank" style={{ fontSize: '0.8rem', color: 'var(--adm-primary)', textDecoration: 'none' }} title={b.link_url}>🔗 Ver Link</a>}
+                    {b.link_url && <a href={b.link_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.8rem', color: 'var(--adm-primary)', textDecoration: 'none' }} title={b.link_url}>🔗 Ver Link</a>}
                   </td>
                   <td>
                     <div style={{ fontSize: '0.85rem' }}>Posição: <strong style={{ color: 'var(--adm-text)' }}>{b.position}</strong></div>
@@ -370,18 +425,49 @@ export default function AdminBanners() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--adm-border)' }}>
                 <div className="adm-field">
                   <label>Abrangência</label>
-                  <select className="adm-select" value={form.target_type} onChange={e => setForm({ ...form, target_type: e.target.value, target_location: '' })}>
+                  <select
+                    className="adm-select"
+                    value={form.target_type}
+                    onChange={e => {
+                      const newType = e.target.value
+                      // GAP CORRIGIDO (achado de usabilidade #4): antes, trocar a
+                      // Abrangência limpava target_location no mesmo evento, mesmo
+                      // ao editar um banner existente — descartava o texto/seleção
+                      // já preenchidos sem nenhum aviso. Agora só limpa quando o
+                      // valor atual é realmente incompatível com o novo tipo (o
+                      // formato "Cidade|UF" indo pra um tipo que não é cidade, ou
+                      // vice-versa); nos demais casos (ex.: trocar entre País e
+                      // Estado, ou entrar/sair de Global e Mercosul) o valor
+                      // preenchido é preservado.
+                      const isCityFormat = form.target_location.includes('|')
+                      const goingToCity = newType === 'city'
+                      const incompatible = form.target_location !== '' && isCityFormat !== goingToCity
+                      setForm({ ...form, target_type: newType, target_location: incompatible ? '' : form.target_location })
+                    }}
+                  >
                     <option value="global">Global (Todos)</option>
                     <option value="mercosul">Mercosul</option>
                     <option value="country">País</option>
-                    <option value="state">Estado (BR)</option>
+                    <option value="state">Estado / Província</option>
                     <option value="city">Cidade (BR)</option>
                   </select>
                 </div>
-                {form.target_type !== 'global' && form.target_type !== 'mercosul' && form.target_type !== 'city' && (
+                {form.target_type === 'country' && (
                   <div className="adm-field">
-                    <label>Local Alvo ({form.target_type})</label>
-                    <input type="text" className="adm-input" value={form.target_location} onChange={e => setForm({ ...form, target_location: e.target.value })} placeholder={`Ex: ${form.target_type === 'country' ? 'Brasil' : form.target_type === 'state' ? 'SP' : 'São Paulo'}`} />
+                    <label>País Alvo</label>
+                    <select className="adm-select" value={form.target_location} onChange={e => setForm({ ...form, target_location: e.target.value })}>
+                      <option value="">Selecione...</option>
+                      {MERCOSUL_COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                )}
+                {form.target_type === 'state' && (
+                  <div className="adm-field">
+                    <label>Estado / Província Alvo</label>
+                    <select className="adm-select" value={form.target_location} onChange={e => setForm({ ...form, target_location: e.target.value })}>
+                      <option value="">Selecione...</option>
+                      {MERCOSUL_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
                   </div>
                 )}
                 {form.target_type === 'city' && (

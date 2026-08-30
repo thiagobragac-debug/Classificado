@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import useSWR from 'swr';
 import { getMyBilling, getSupabase } from '@/lib/supabase';
+import { useConfirm } from '@/components/ui/ConfirmProvider';
 import { useLang } from '@/lib/lang-context';
 import { formatPrice } from '@/lib/currency';
 import styles from '../painel.module.css';
@@ -15,6 +16,7 @@ const TRANSLATIONS = {
     plan: 'Plano', current: 'ATUAL',
     cancelling: 'Cancelando...', cancelSubscription: 'Cancelar Assinatura',
     upgrade: 'Fazer Upgrade',
+    confirmTitle: 'Confirmação',
     // BUG CORRIGIDO (feature aprovada pelo usuário): renomeado de "Histórico
     // de Faturas" — subscriptions não é um livro-razão de faturas (uma linha
     // por cobrança/mês), é o estado da(s) assinatura(s) do usuário. Chamar
@@ -41,6 +43,7 @@ const TRANSLATIONS = {
     plan: 'Plan', current: 'ACTUAL',
     cancelling: 'Cancelando...', cancelSubscription: 'Cancelar Suscripción',
     upgrade: 'Hacer Upgrade',
+    confirmTitle: 'Confirmación',
     invoiceHistory: 'Historial de Suscripciones',
     allInvoices: 'Todas', approved: 'Activas', pending: 'Pendientes',
     noInvoices: 'Ninguna suscripción encontrada.',
@@ -61,6 +64,7 @@ const TRANSLATIONS = {
 
 export function BillingTab({ user, planMeta }: { user: any, planMeta: any }) {
   const { lang } = useLang();
+  const { confirm } = useConfirm();
   const t = TRANSLATIONS[lang as keyof typeof TRANSLATIONS] || TRANSLATIONS.pt;
   const [filter, setFilter] = useState('all');
   const [page, setPage] = useState(1);
@@ -123,7 +127,11 @@ export function BillingTab({ user, planMeta }: { user: any, planMeta: any }) {
   const planDesc = lang === 'es' && planI18n?.description_es ? planI18n.description_es : planMeta.desc;
 
   const handleCancelSubscription = async () => {
-    if (!confirm(t.confirmCancel)) return;
+    // BUG CORRIGIDO (achado de usabilidade): confirm() nativo usa o
+    // idioma do sistema operacional, não o PT/ES do site — MyAdsTab.tsx
+    // já usa o useConfirm() estilizado (ConfirmProvider) pro mesmo tipo
+    // de ação destrutiva.
+    if (!(await confirm(t.confirmCancel, t.confirmTitle))) return;
 
     setIsCancelling(true);
     setCancelMessage(null);

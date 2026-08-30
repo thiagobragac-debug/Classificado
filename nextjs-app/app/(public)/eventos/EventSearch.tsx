@@ -64,15 +64,35 @@ export default function EventSearch({ lang = 'pt' }: { lang?: Lang }) {
             <circle cx="12" cy="10" r="3"/>
           </svg>
         </button>
-        <input 
-          type="text" 
+        <input
+          type="text"
           placeholder={isLocating ? t('events_locating') : t('events_search_placeholder')}
-          style={{ borderLeft: '1px solid #e5e7eb', paddingLeft: '16px', width: '100%', borderTop: 'none', borderRight: 'none', borderBottom: 'none', outline: 'none' }} 
+          style={{ borderLeft: '1px solid #e5e7eb', paddingLeft: '16px', width: '100%', borderTop: 'none', borderRight: 'none', borderBottom: 'none', outline: 'none' }}
           autoComplete="off"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           disabled={isLocating}
         />
+        {/* BUG CORRIGIDO (achado de usabilidade): o único jeito de limpar a
+            busca era o link "Limpar busca e ver todos", que só aparecia
+            quando a busca dava ZERO resultados (ver page.tsx) — com
+            resultados, não havia atalho nenhum pra limpar. Este botão "x"
+            aparece sempre que houver texto no campo, independente de haver
+            resultados. */}
+        {searchQuery && (
+          <button
+            type="button"
+            onClick={() => {
+              setSearchQuery('')
+              router.push('/eventos')
+            }}
+            aria-label={t('events_clear_search')}
+            title={t('events_clear_search')}
+            style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--clr-text-muted)', padding: '0 12px', display: 'flex', alignItems: 'center', fontSize: '1rem', lineHeight: 1 }}
+          >
+            ✕
+          </button>
+        )}
         <button type="submit" className="hero-search-btn">{t('events_search_btn')}</button>
       </form>
     </div>

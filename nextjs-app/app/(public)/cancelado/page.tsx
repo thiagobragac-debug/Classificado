@@ -2,7 +2,6 @@
 
 import React from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { useLang } from '@/lib/lang-context'
 
 const TRANSLATIONS = {
@@ -21,7 +20,6 @@ const TRANSLATIONS = {
 } as const
 
 export default function CanceladoPage() {
-  const router = useRouter()
   const { lang } = useLang()
   const tr = TRANSLATIONS[lang]
 
@@ -57,13 +55,13 @@ export default function CanceladoPage() {
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          <button onClick={() => router.back()} style={{
+          <Link href="/planos" style={{
             padding: '0.85rem 1.5rem', background: 'linear-gradient(135deg,#ef4444,#dc2626)',
             border: 'none', borderRadius: '12px', color: '#fff', fontSize: '1rem',
-            fontWeight: 700, cursor: 'pointer'
+            fontWeight: 700, textDecoration: 'none', display: 'block'
           }}>
             {tr.retry}
-          </button>
+          </Link>
           <Link href="/planos" style={{
             padding: '0.85rem 1.5rem', background: 'rgba(255,255,255,0.05)',
             border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px',

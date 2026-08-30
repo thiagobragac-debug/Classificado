@@ -32,6 +32,8 @@ const TRANSLATIONS = {
     fallbackDescription: 'Termos de uso, política de privacidade, cookies e demais informações institucionais do Tauze Class — o maior classificado do agronegócio do Mercosul.',
     siteSuffix: 'Tauze Class, o maior classificado do agronegócio do Mercosul.',
     loadError: 'Erro ao carregar as páginas institucionais. Tente novamente em instantes.',
+    retry: 'Tentar novamente',
+    backHome: 'Voltar para o início',
   },
   es: {
     breadcrumbInstitutional: 'Institucional',
@@ -41,6 +43,8 @@ const TRANSLATIONS = {
     fallbackDescription: 'Términos de uso, política de privacidad, cookies y demás información institucional de Tauze Class — el clasificado más grande del agronegocio del Mercosur.',
     siteSuffix: 'Tauze Class, el clasificado más grande del agronegocio del Mercosur.',
     loadError: 'Error al cargar las páginas institucionales. Intentá de nuevo en unos instantes.',
+    retry: 'Intentar de nuevo',
+    backHome: 'Volver al inicio',
   },
 } as const;
 
@@ -177,13 +181,65 @@ export default async function InstitucionalPage({
   // BUG CORRIGIDO (varredura cruzada de cenários): uma falha real de fetch
   // (rede, RLS) caía no mesmo `!pages` de "nenhuma página configurada" —
   // indistinguível de uma falha genuína de indisponibilidade do banco.
+  // BUG CORRIGIDO (achado de usabilidade): estes dois branches retornavam só
+  // uma <div> isolada, fora do shell da página (sem breadcrumb, sem nav, sem
+  // saída) — mesmo padrão de erro já corrigido em app/(public)/eventos/
+  // page.tsx (que envolve seu próprio estado de erro no hero+breadcrumb da
+  // página normal). Agora os dois casos reaproveitam o mesmo hero com
+  // breadcrumb da renderização normal (abaixo) e oferecem "Tentar novamente"
+  // (recarrega a mesma rota) e um link de volta pra "/".
   if (pagesError) {
     console.error('Erro ao carregar páginas institucionais:', pagesError.message);
-    return <div style={{ padding: '100px', textAlign: 'center' }}>{TRANSLATIONS[lang].loadError}</div>;
+    return (
+      <main style={{ minHeight: '80vh', paddingBottom: '4rem' }}>
+        <div className="list-hero" style={{ marginTop: 'var(--header-h)' }}>
+          <div className="container">
+            <div className="list-hero-inner">
+              <div>
+                <nav aria-label={lang === 'es' ? 'Navegación' : 'Navegação'} className="breadcrumb">
+                  <Link href="/">{_t('nav_home', lang)}</Link>
+                  <span aria-hidden="true">›</span>
+                  <span>{TRANSLATIONS[lang].breadcrumbInstitutional}</span>
+                </nav>
+                <h1 className="list-hero-title">{TRANSLATIONS[lang].fallbackTitle}</h1>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="container" style={{ padding: '4rem 0', textAlign: 'center' }}>
+          <p style={{ marginBottom: '1.5rem' }}>{TRANSLATIONS[lang].loadError}</p>
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <Link href="/institucional" className="btn btn--accent">{TRANSLATIONS[lang].retry}</Link>
+            <Link href="/" className="btn btn--outline">{TRANSLATIONS[lang].backHome}</Link>
+          </div>
+        </div>
+      </main>
+    );
   }
 
   if (!pages || pages.length === 0) {
-    return <div style={{ padding: '100px', textAlign: 'center' }}>{TRANSLATIONS[lang].emptyPages}</div>;
+    return (
+      <main style={{ minHeight: '80vh', paddingBottom: '4rem' }}>
+        <div className="list-hero" style={{ marginTop: 'var(--header-h)' }}>
+          <div className="container">
+            <div className="list-hero-inner">
+              <div>
+                <nav aria-label={lang === 'es' ? 'Navegación' : 'Navegação'} className="breadcrumb">
+                  <Link href="/">{_t('nav_home', lang)}</Link>
+                  <span aria-hidden="true">›</span>
+                  <span>{TRANSLATIONS[lang].breadcrumbInstitutional}</span>
+                </nav>
+                <h1 className="list-hero-title">{TRANSLATIONS[lang].fallbackTitle}</h1>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="container" style={{ padding: '4rem 0', textAlign: 'center' }}>
+          <p style={{ marginBottom: '1.5rem' }}>{TRANSLATIONS[lang].emptyPages}</p>
+          <Link href="/" className="btn btn--outline">{TRANSLATIONS[lang].backHome}</Link>
+        </div>
+      </main>
+    );
   }
 
   const currentPageData = pages.find(p => p.id === pageParam);

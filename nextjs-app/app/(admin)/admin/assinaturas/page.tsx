@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
+import { useDebounce } from 'use-debounce'
 import { getSupabase } from '@/lib/supabase'
 import { showToast } from '@/lib/toast'
 import { useConfirm } from '@/components/ui/ConfirmProvider'
@@ -11,13 +12,32 @@ export default function AdminAssinaturas() {
   const [loading, setLoading] = useState(true)
   const [processingId, setProcessingId] = useState<string | null>(null)
 
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 15
+  // BUG CORRIGIDO (achado de usabilidade — paginação): a tela carregava até
+  // 100 assinaturas de uma vez e paginava/filtrava tudo em memória, ao
+  // contrário de telas irmãs (ex.: /admin/api-keys). Agora a paginação roda
+  // de verdade no servidor via .range(), e os KPIs vêm de contagens/soma
+  // globais separadas (loadCounts()), não do array já paginado.
+  const [totalSubscriptions, setTotalSubscriptions] = useState(0)
+  const [counts, setCounts] = useState({ total: 0, ativos: 0, atrasados: 0, cancelados: 0, mrr: 0 })
+
   // Filters
   const [search, setSearch] = useState('')
+  const [debouncedSearch] = useDebounce(search, 300)
   const [statusFilter, setStatusFilter] = useState('Todos')
 
   useEffect(() => {
-    loadSubscriptions()
+    loadCounts()
   }, [])
+
+  useEffect(() => {
+    loadSubscriptions()
+  }, [currentPage, debouncedSearch, statusFilter])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [debouncedSearch, statusFilter])
 
   // BUG CORRIGIDO (validação de 2026-08-26): consulta direto do browser
   // (getSupabase(), anon key) nunca conseguia ler o e-mail de nenhum
@@ -28,16 +48,40 @@ export default function AdminAssinaturas() {
     setLoading(true)
     const supabase = getSupabase()
     const { data: { session } } = await supabase.auth.getSession()
-    const res = await fetch('/api/admin/subscriptions', {
+    const params = new URLSearchParams({ page: String(currentPage), pageSize: String(pageSize) })
+    if (debouncedSearch) params.set('search', debouncedSearch)
+    if (statusFilter !== 'Todos') params.set('status', statusFilter)
+    const res = await fetch('/api/admin/subscriptions?' + params.toString(), {
       headers: { Authorization: `Bearer ${session?.access_token}` },
     })
     const body = await res.json()
     if (res.ok) {
       setSubscriptions(body.subscriptions || [])
+      setTotalSubscriptions(body.total || 0)
     } else {
       showToast('Erro ao carregar assinaturas: ' + (body.error || ''), 'error')
     }
     setLoading(false)
+  }
+
+  async function loadCounts() {
+    const supabase = getSupabase()
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/admin/subscriptions?counts=true', {
+      headers: { Authorization: `Bearer ${session?.access_token}` },
+    })
+    const body = await res.json()
+    if (res.ok) {
+      setCounts({
+        total: body.total || 0,
+        ativos: body.ativos || 0,
+        atrasados: body.atrasados || 0,
+        cancelados: body.cancelados || 0,
+        mrr: body.mrr || 0,
+      })
+    } else {
+      showToast('Erro ao carregar contadores: ' + (body.error || ''), 'error')
+    }
   }
 
   // BUG CRÍTICO CORRIGIDO (teste completo do site, 2026-08-24): este handler
@@ -66,7 +110,8 @@ export default function AdminAssinaturas() {
       })
       const body = await res.json()
       if (res.ok) {
-        setSubscriptions(subscriptions.map(s => s.id === id ? { ...s, status: 'cancelled' } : s))
+        loadSubscriptions()
+        loadCounts()
         showToast('Assinatura cancelada.', 'success')
       } else {
         showToast('Erro ao cancelar: ' + (body.error || res.statusText), 'error')
@@ -89,7 +134,8 @@ export default function AdminAssinaturas() {
       })
       const body = await res.json()
       if (res.ok) {
-        setSubscriptions(subscriptions.map(s => s.id === id ? { ...s, status: 'active' } : s))
+        loadSubscriptions()
+        loadCounts()
         showToast('Assinatura reativada.', 'success')
       } else {
         showToast('Erro ao reativar: ' + (body.error || res.statusText), 'error')
@@ -99,25 +145,10 @@ export default function AdminAssinaturas() {
     }
   }
 
-  const filteredSubscriptions = subscriptions.filter(s => {
-    if (search && !(s.profiles?.name?.toLowerCase().includes(search.toLowerCase()) || s.profiles?.email?.toLowerCase().includes(search.toLowerCase()))) return false
-    if (statusFilter !== 'Todos' && s.status !== statusFilter) return false
-    return true
-  })
+  // KPIs: globais, vindos de loadCounts() — não dependem da página/filtro atual
+  const { total, ativos, atrasados, cancelados, mrr } = counts
 
-  // BUG CORRIGIDO: os valores de status aqui ('overdue'/'canceled') nunca
-  // batiam com os valores reais gravados pelo webhook/checkout ('past_due'/
-  // 'cancelled', 2 L) — qualquer atraso ou cancelamento vindo do fluxo real
-  // ficava com KPI zerado, badge cru sem estilo, e SEM NENHUM botão de ação
-  // na tela (a linha não caía em nenhuma das condições de renderização).
-  // KPIs
-  const total = subscriptions.length
-  const ativos = subscriptions.filter(s => s.status === 'active').length
-  const atrasados = subscriptions.filter(s => s.status === 'past_due').length
-  const cancelados = subscriptions.filter(s => s.status === 'cancelled').length
-  
-  // MRR sum of active
-  const mrr = subscriptions.filter(s => s.status === 'active').reduce((acc, curr) => acc + (curr.price || 0), 0)
+  const totalPages = Math.ceil(totalSubscriptions / pageSize)
 
   return (
     <>
@@ -129,7 +160,7 @@ export default function AdminAssinaturas() {
       {/* BUG CORRIGIDO (reteste do site, 2026-08-25): `atrasados` já era
           calculado mas não tinha card nenhum no grid — uma assinatura
           past_due entrava no Total sem aparecer em nenhum indicador dedicado. */}
-      <div className="adm-stats-grid" style={{ gridTemplateColumns: 'repeat(5,1fr)', marginBottom: '20px' }}>
+      <div className="adm-stats-grid" style={{ marginBottom: '20px' }}>
         <div className="adm-stat-card">
           <div><div className="adm-stat-val">{total}</div><div className="adm-stat-lbl">Total</div></div>
         </div>
@@ -177,7 +208,9 @@ export default function AdminAssinaturas() {
             <tbody>
               {loading ? (
                 <tr><td colSpan={7} style={{ textAlign: 'center', padding: '20px' }}>Carregando...</td></tr>
-              ) : filteredSubscriptions.map(sub => (
+              ) : subscriptions.length === 0 ? (
+                <tr><td colSpan={7} style={{ textAlign: 'center', padding: '20px' }}>Nenhuma assinatura encontrada.</td></tr>
+              ) : subscriptions.map(sub => (
                 <tr key={sub.id}>
                   <td>
                     <div style={{ fontWeight: 600 }}>{sub.profiles?.name || 'Desconhecido'}</div>
@@ -221,6 +254,49 @@ export default function AdminAssinaturas() {
               ))}
             </tbody>
           </table>
+        </div>
+        {/* PAGINATION FOOTER */}
+        <div style={{ padding: '16px 24px', borderTop: '1px solid var(--adm-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--adm-surface)', borderRadius: '0 0 var(--adm-r-xl) var(--adm-r-xl)' }}>
+          <div style={{ fontSize: '14px', color: 'var(--adm-text-secondary)' }}>
+            Mostrando de <strong style={{ color: 'var(--adm-text)' }}>{totalSubscriptions === 0 ? 0 : ((currentPage - 1) * pageSize) + 1}</strong> até <strong style={{ color: 'var(--adm-text)' }}>{Math.min(currentPage * pageSize, totalSubscriptions)}</strong> de <strong style={{ color: 'var(--adm-text)' }}>{totalSubscriptions}</strong> itens
+          </div>
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <button
+              className="adm-btn adm-btn--outline adm-btn--sm"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+            >
+              Anterior
+            </button>
+
+            {Array.from({ length: totalPages }).map((_, i) => {
+              if (totalPages > 7) {
+                if (i !== 0 && i !== totalPages - 1 && Math.abs(currentPage - 1 - i) > 1) {
+                  if (Math.abs(currentPage - 1 - i) === 2) return <span key={i} style={{ padding: '0 8px', color: 'var(--adm-text-secondary)' }}>...</span>
+                  return null
+                }
+              }
+
+              return (
+                <button
+                  key={i}
+                  className={`adm-btn adm-btn--sm ${currentPage === i + 1 ? 'adm-btn--primary' : 'adm-btn--outline'}`}
+                  style={{ width: '36px', height: '36px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                  onClick={() => setCurrentPage(i + 1)}
+                >
+                  {i + 1}
+                </button>
+              )
+            })}
+
+            <button
+              className="adm-btn adm-btn--outline adm-btn--sm"
+              disabled={currentPage === totalPages || totalPages === 0}
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+            >
+              Próxima
+            </button>
+          </div>
         </div>
       </div>
     </>

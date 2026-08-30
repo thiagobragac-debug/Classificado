@@ -145,6 +145,13 @@ export default function VerificacaoClient() {
   const handleGovBrIndisponivel = () => {
     showToast(t.govbrToast, 'info')
     setShowManual(true)
+    // BUG CORRIGIDO (achado de usabilidade): o clique só disparava o toast
+    // e expandia o card "Envio Manual" mais abaixo, sem nenhum scroll ou
+    // destaque — em telas menores o card expandido ficava fora da área
+    // visível, e o clique parecia não ter feito nada.
+    if (typeof document !== 'undefined') {
+      document.getElementById('verificacao-manual-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
   }
 
   // BUG CORRIGIDO (varredura cruzada de cenários): os 3 <input type="file">
@@ -284,7 +291,7 @@ export default function VerificacaoClient() {
           </div>
 
           {/* Opção 3: Manual */}
-          <div style={{ background: 'white', border: '1px solid #e2e8f0', padding: '24px', borderRadius: '12px' }}>
+          <div id="verificacao-manual-card" style={{ background: 'white', border: '1px solid #e2e8f0', padding: '24px', borderRadius: '12px', scrollMarginTop: '90px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: showManual ? '20px' : '0' }}>
               <div>
                 <h3 style={{ margin: '0 0 8px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -348,7 +355,12 @@ export default function VerificacaoClient() {
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, marginBottom: '6px' }}>{t.selfieLabel}</label>
-                  <input type="file" accept="image/*,capture=camera" onChange={e => { const f = e.target.files?.[0]; if (f && validateFile(f)) setSelfie(f); else e.target.value = '' }} style={{ display: 'block', width: '100%', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '6px' }} />
+                  {/* BUG CORRIGIDO (achado de usabilidade): accept="image/*,capture=camera"
+                      é sintaxe inválida — capture é um atributo próprio do
+                      <input>, não um valor dentro de accept. Só a selfie
+                      ganha capture="user" (abre a câmera frontal direto);
+                      documentos frente/verso continuam sem capture. */}
+                  <input type="file" accept="image/*" capture="user" onChange={e => { const f = e.target.files?.[0]; if (f && validateFile(f)) setSelfie(f); else e.target.value = '' }} style={{ display: 'block', width: '100%', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '6px' }} />
                 </div>
 
                 <button

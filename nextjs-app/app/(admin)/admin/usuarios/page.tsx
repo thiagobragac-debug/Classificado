@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react'
 import { useDebounce } from 'use-debounce'
 import { showToast } from '@/lib/toast'
+import { useConfirm } from '@/components/ui/ConfirmProvider'
 
 // Mapeia os rótulos exibidos na UI para os valores reais aceitos por
 // /api/admin/users (status/plan) — ver STATUS_MAP/PLAN_MAP abaixo.
@@ -10,6 +11,7 @@ const STATUS_MAP: Record<string, string> = { 'Ativo': 'active', 'Bloqueado': 'bl
 const PLAN_MAP: Record<string, string> = { 'Premium': 'premium', 'Pro': 'pro', 'Grátis': 'free' }
 
 export default function AdminUsuarios() {
+  const { confirm } = useConfirm()
   const [users, setUsers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -37,6 +39,7 @@ export default function AdminUsuarios() {
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviting, setInviting] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   const [selectedUserForDetails, setSelectedUserForDetails] = useState<any>(null)
 
@@ -121,6 +124,12 @@ export default function AdminUsuarios() {
 
   const handleBlockToggle = async (userId: string, currentStatus: boolean) => {
     const newStatus = !currentStatus
+    // GAP CORRIGIDO: bloquear derruba a sessão do usuário na hora (ban
+    // nativo do GoTrue, ver /api/admin/block-user) — confirmado ao vivo que
+    // o login já falha imediatamente após a chamada. Não tinha nenhuma
+    // confirmação, diferente de ações equivalentes em outras telas
+    // (cancelar assinatura, excluir categoria/cupom/chave).
+    if (newStatus && !(await confirm('Bloquear este usuário? O acesso dele é cortado imediatamente.'))) return
     try {
       await setBlocked([userId], newStatus)
       setUsers(users.map(u => u.id === userId ? { ...u, is_blocked: newStatus } : u))
@@ -157,48 +166,53 @@ export default function AdminUsuarios() {
   // aplicando os mesmos filtros mas sem paginação (?export=true), pra
   // exportar TODOS os resultados filtrados, não só os 15 visíveis.
   const handleExport = async () => {
-    let exportUsers: any[] = users
+    setExporting(true)
     try {
-      const params = buildParams({ export: 'true' })
-      const res = await fetch('/api/admin/users?' + params.toString())
-      const payload = await res.json()
-      if (res.ok) {
-        exportUsers = payload.users || []
-      } else {
-        showToast('Erro ao exportar: ' + (payload.error || res.statusText), 'error')
+      let exportUsers: any[] = users
+      try {
+        const params = buildParams({ export: 'true' })
+        const res = await fetch('/api/admin/users?' + params.toString())
+        const payload = await res.json()
+        if (res.ok) {
+          exportUsers = payload.users || []
+        } else {
+          showToast('Erro ao exportar: ' + (payload.error || res.statusText), 'error')
+          return
+        }
+      } catch (err) {
+        showToast('Erro ao exportar: ' + (err as Error).message, 'error')
         return
       }
-    } catch (err) {
-      showToast('Erro ao exportar: ' + (err as Error).message, 'error')
-      return
+
+      const headers = ['Nome', 'Email', 'País', 'Plano', 'Status', 'Data Cadastro']
+      const rows = exportUsers.map(u => [
+        u.name || '',
+        u.email || '',
+        u.country || '',
+        u.plan || 'Grátis',
+        u.is_blocked ? 'Bloqueado' : 'Ativo',
+        new Date(u.created_at).toLocaleDateString()
+      ])
+
+      // BUG CORRIGIDO: campos concatenados com ',' sem escaping — um nome ou
+      // e-mail com vírgula (raro, mas legítimo, ex. "Silva, João") deslocava
+      // as colunas do CSV gerado a partir dali. RFC 4180: envolve em aspas
+      // duplas e duplica aspas internas.
+      const csvEscape = (v: string) => `"${String(v).replace(/"/g, '""')}"`
+      const csvContent = "data:text/csv;charset=utf-8,"
+        + headers.map(csvEscape).join(",") + "\n"
+        + rows.map(row => row.map(csvEscape).join(",")).join("\n");
+
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", "usuarios_export.csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } finally {
+      setExporting(false)
     }
-
-    const headers = ['Nome', 'Email', 'País', 'Plano', 'Status', 'Data Cadastro']
-    const rows = exportUsers.map(u => [
-      u.name || '',
-      u.email || '',
-      u.country || '',
-      u.plan || 'Grátis',
-      u.is_blocked ? 'Bloqueado' : 'Ativo',
-      new Date(u.created_at).toLocaleDateString()
-    ])
-
-    // BUG CORRIGIDO: campos concatenados com ',' sem escaping — um nome ou
-    // e-mail com vírgula (raro, mas legítimo, ex. "Silva, João") deslocava
-    // as colunas do CSV gerado a partir dali. RFC 4180: envolve em aspas
-    // duplas e duplica aspas internas.
-    const csvEscape = (v: string) => `"${String(v).replace(/"/g, '""')}"`
-    const csvContent = "data:text/csv;charset=utf-8,"
-      + headers.map(csvEscape).join(",") + "\n"
-      + rows.map(row => row.map(csvEscape).join(",")).join("\n");
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "usuarios_export.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   }
 
   const toggleSelectAll = () => {
@@ -219,6 +233,7 @@ export default function AdminUsuarios() {
 
   const handleBulkBlock = async (shouldBlock: boolean) => {
     if (selectedIds.length === 0) return
+    if (shouldBlock && !(await confirm(`Bloquear ${selectedIds.length} usuário${selectedIds.length > 1 ? 's' : ''}? O acesso deles é cortado imediatamente.`))) return
     // Escrevia em profiles.is_blocked — coluna removida pela migration
     // 20260723072100_split_user_secrets.sql, ou seja, não bloqueava ninguém.
     try {
@@ -270,9 +285,9 @@ export default function AdminUsuarios() {
           <p className="adm-page-sub" style={{ margin: 0, color: 'var(--adm-text-muted)' }}>Verifique, bloqueie e gerencie os usuários do portal.</p>
         </div>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          <button className="adm-btn adm-btn--outline" onClick={handleExport}>
+          <button className="adm-btn adm-btn--outline" onClick={handleExport} disabled={exporting}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Exportar CSV
+            {exporting ? 'Exportando...' : 'Exportar CSV'}
           </button>
           <button className="adm-btn adm-btn--primary" onClick={() => setIsInviteModalOpen(true)}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -281,7 +296,7 @@ export default function AdminUsuarios() {
         </div>
       </div>
 
-      <div className="adm-stats-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)', marginBottom: '20px' }}>
+      <div className="adm-stats-grid" style={{ marginBottom: '20px' }}>
         <div className="adm-stat-card">
           <div><div className="adm-stat-val">{total}</div><div className="adm-stat-lbl">Total</div></div>
         </div>
@@ -327,9 +342,11 @@ export default function AdminUsuarios() {
             <thead>
               <tr>
                 <th style={{ width: '40px' }}>
-                  <input type="checkbox" style={{ accentColor: 'var(--adm-accent)' }} 
+                  <input type="checkbox" style={{ accentColor: 'var(--adm-accent)' }}
                          checked={users.length > 0 && selectedIds.length === users.length}
-                         onChange={toggleSelectAll} />
+                         onChange={toggleSelectAll}
+                         title="Selecionar todos nesta página"
+                         aria-label="Selecionar todos nesta página" />
                 </th>
                 <th>Usuário</th>
                 <th>País</th>
@@ -460,7 +477,7 @@ export default function AdminUsuarios() {
         }}>
           <div style={{ fontWeight: 600, color: 'var(--adm-accent)', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-            {selectedIds.length} selecionado{selectedIds.length > 1 ? 's' : ''}
+            {selectedIds.length} selecionado(s) nesta página
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', borderLeft: '1px solid var(--adm-border)', paddingLeft: '20px' }}>
             <button className="adm-btn adm-btn--sm adm-btn--outline" onClick={() => setSelectedIds([])}>Cancelar</button>
@@ -472,7 +489,10 @@ export default function AdminUsuarios() {
 
       {/* Invite Modal */}
       {isInviteModalOpen && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={e => { if (e.target === e.currentTarget) setIsInviteModalOpen(false) }}
+        >
           <div style={{ background: 'var(--adm-surface)', padding: '30px', borderRadius: '12px', width: '400px', maxWidth: '90%' }}>
             <h2 style={{ margin: '0 0 15px 0' }}>Convidar Usuário</h2>
             <p style={{ color: 'var(--adm-text-muted)', marginBottom: '20px', fontSize: '0.9rem' }}>Um e-mail será enviado com um link mágico para o usuário configurar sua conta e senha.</p>
@@ -503,7 +523,10 @@ export default function AdminUsuarios() {
 
       {/* User Details Modal */}
       {selectedUserForDetails && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={e => { if (e.target === e.currentTarget) setSelectedUserForDetails(null) }}
+        >
           <div style={{ background: 'var(--adm-surface)', padding: '30px', borderRadius: '12px', width: '500px', maxWidth: '90%', maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h2 style={{ margin: 0 }}>Detalhes do Cadastro</h2>

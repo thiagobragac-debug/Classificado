@@ -3,3 +3,7 @@ node_modules/
 .env
 .env.local
 .DS_Store
+
+# Claude Code: settings locais e worktrees isolados (ex.: .claude/worktrees/*
+# contem checkouts git inteiros de outras branches — nunca deve ser versionado)
+.claude/

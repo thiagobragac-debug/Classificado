@@ -43,3 +43,6 @@ next-env.d.ts
 # rascunhos e saidas locais
 *.log
 *.diff
+
+# cache local da Supabase CLI (regenerado a cada `supabase link`/comando)
+supabase/.temp/

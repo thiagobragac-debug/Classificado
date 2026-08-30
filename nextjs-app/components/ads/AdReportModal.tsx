@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getSupabase } from '@/lib/supabase';
 import { X, CheckCircle, AlertTriangle } from 'lucide-react';
 import { useLang } from '@/lib/lang-context';
@@ -79,21 +79,47 @@ export function AdReportModal({ adId, isOpen, onClose }: AdReportModalProps) {
   const [reportSent, setReportSent] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const containerRef = useRef<HTMLDivElement>(null);
 
+  // Focus trap — mesmo padrão de components/seller/ReviewModal.tsx (Tab/
+  // Shift+Tab preso dentro do modal, foco inicial no primeiro elemento
+  // focável). Antes só tratava Escape, deixando o Tab vazar pro conteúdo
+  // atrás do overlay.
   useEffect(() => {
+    if (!isOpen) {
+      document.body.style.overflow = '';
+      return;
+    }
+    document.body.style.overflow = 'hidden'; // Prevent background scrolling
+
+    // Lido a cada Tab (não guardado uma única vez) porque o conteúdo do
+    // modal muda depois de enviar a denúncia (reportSent troca pra tela de
+    // sucesso, com outro conjunto de elementos focáveis).
+    const getFocusable = () =>
+      containerRef.current?.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      ) ?? null;
+
+    getFocusable()?.[0]?.focus();
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
+      if (e.key === 'Escape') {
         handleClose();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const focusable = getFocusable();
+      if (!focusable || focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+      } else {
+        if (document.activeElement === last) { e.preventDefault(); first.focus(); }
       }
     };
 
-    if (isOpen) {
-      document.body.style.overflow = 'hidden'; // Prevent background scrolling
-      document.addEventListener('keydown', handleKeyDown);
-    } else {
-      document.body.style.overflow = '';
-    }
-
+    document.addEventListener('keydown', handleKeyDown);
     return () => {
       document.body.style.overflow = '';
       document.removeEventListener('keydown', handleKeyDown);
@@ -169,6 +195,7 @@ export function AdReportModal({ adId, isOpen, onClose }: AdReportModalProps) {
       }}
     >
       <div
+        ref={containerRef}
         className="report-modal-box"
         role="dialog"
         aria-modal="true"

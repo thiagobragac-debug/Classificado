@@ -10,6 +10,7 @@ import { Mail, Lock, Eye, EyeOff, Loader2 } from 'lucide-react'
 interface LoginFormProps {
   onSetAlert: (msg: string, type: 'success' | 'error') => void
   onNavigateToForgot: (email: string) => void
+  initialEmail?: string
 }
 
 // Mensagens de erro genéricas e aria-labels exclusivos deste formulário —
@@ -47,7 +48,7 @@ function getSafeRedirect(raw: string | null, fallback = '/painel'): string {
   return fallback
 }
 
-export function LoginForm({ onSetAlert, onNavigateToForgot }: LoginFormProps) {
+export function LoginForm({ onSetAlert, onNavigateToForgot, initialEmail = '' }: LoginFormProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { t, lang } = useLang()
@@ -64,7 +65,8 @@ export function LoginForm({ onSetAlert, onNavigateToForgot }: LoginFormProps) {
   type LoginData = z.infer<typeof loginSchema>
 
   const { register, handleSubmit, formState: { errors }, watch } = useForm<LoginData>({
-    resolver: zodResolver(loginSchema)
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: initialEmail }
   })
 
   const emailValue = watch('email')

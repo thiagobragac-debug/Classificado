@@ -201,7 +201,9 @@ function FAQItem({ question, answer, id }: { question: string, answer: string, i
         {question} <span className={styles.faqArrow} aria-hidden="true">▾</span>
       </button>
       <div id={`faq-answer-${id}`} className={styles.faqA}>
-        <p>{answer}</p>
+        <div className={styles.faqAInner}>
+          <p>{answer}</p>
+        </div>
       </div>
     </div>
   )

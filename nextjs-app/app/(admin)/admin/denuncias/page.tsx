@@ -36,6 +36,22 @@ export default function AdminDenuncias() {
     loadCounts()
   }, [])
 
+  // Aplica filtro inicial vindo por query string (ex.: cartão "Denúncias
+  // Abertas" do Dashboard linkando pra cá com ?status=pending) — lido do
+  // próprio window (sem useSearchParams) pra não exigir Suspense boundary
+  // nesta página, que já é 100% client-rendered.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const statusParam = params.get('status')
+    const severityParam = params.get('severity')
+    if (statusParam && ['pending', 'resolved', 'dismissed'].includes(statusParam)) {
+      setStatusFilter(statusParam)
+    }
+    if (severityParam && ['high', 'medium', 'low'].includes(severityParam)) {
+      setSeverityFilter(severityParam)
+    }
+  }, [])
+
   useEffect(() => {
     loadReports()
   }, [currentPage, debouncedSearch, severityFilter, statusFilter])
@@ -108,8 +124,11 @@ export default function AdminDenuncias() {
     const supabase = getSupabase()
     const { data, error } = await supabase.from('reports').update({ status: 'dismissed', resolved_at: new Date().toISOString() }).eq('id', id).select()
     if (!error && data && data.length > 0) {
-      setReports(reports.map(r => r.id === id ? { ...r, status: 'dismissed' } : r))
       showToast('Denúncia marcada como falso positivo.', 'success')
+      // BUG CORRIGIDO: com filtro/paginação real de servidor, um patch só
+      // local deixava a denúncia visível mesmo depois de deixar de bater
+      // com o filtro de status atual. Recarrega de verdade.
+      loadReports()
       loadCounts()
     } else if (!error) {
       showToast('Nenhuma linha foi atualizada — verifique permissões ou se o registro ainda existe.', 'error')
@@ -136,8 +155,8 @@ export default function AdminDenuncias() {
     const { data: reportData, error: reportError } = await supabase.from('reports').update({ status: 'resolved', resolved_at: new Date().toISOString() }).eq('id', reportId).select()
 
     if (!reportError && reportData && reportData.length > 0) {
-      setReports(reports.map(r => r.id === reportId ? { ...r, status: 'resolved' } : r))
       showToast('Anúncio banido e denúncia resolvida com sucesso!', 'success')
+      loadReports()
       loadCounts()
     } else if (!reportError) {
       showToast('Anúncio banido, mas a denúncia não foi encontrada para ser fechada — verifique permissões.', 'error')
@@ -164,8 +183,8 @@ export default function AdminDenuncias() {
     const { data, error } = await supabase.from('reports').update({ status: 'pending', resolved_at: null }).eq('id', id).select()
 
     if (!error && data && data.length > 0) {
-      setReports(reports.map(r => r.id === id ? { ...r, status: 'pending' } : r))
       showToast('Decisão revertida! Denúncia e anúncio de volta para análise.', 'success')
+      loadReports()
       loadCounts()
     } else if (!error) {
       showToast('Nenhuma linha foi atualizada — verifique permissões ou se o registro ainda existe.', 'error')
@@ -175,12 +194,18 @@ export default function AdminDenuncias() {
   }
 
   const handleResolveAll = async () => {
-    if (!(await confirm('Tem certeza que deseja resolver TODAS as denúncias pendentes que batem com o filtro atual (não só as desta página)?'))) return
     const supabase = getSupabase()
 
-    // BUG CORRIGIDO: com paginação real, `reports` só tem a página atual —
-    // "resolver todas as filtradas" precisa buscar os IDs no servidor, não
-    // só os que já estão carregados na tela.
+    // BUG CORRIGIDO (achado de usabilidade, 2026-08-29): o confirm() usava
+    // texto genérico ("TODAS as denúncias pendentes") porque a contagem real
+    // (idsToResolve.length) só era calculada DEPOIS da confirmação — o admin
+    // aprovava uma ação em massa sem saber se eram 3 ou 300 denúncias.
+    // Agora os IDs são buscados ANTES do confirm() pra poder interpolar a
+    // contagem real na própria pergunta.
+    //
+    // BUG CORRIGIDO (mantido): com paginação real, `reports` só tem a página
+    // atual — "resolver todas as filtradas" precisa buscar os IDs no
+    // servidor, não só os que já estão carregados na tela.
     let idsQuery = supabase.from('reports').select('id').eq('status', 'pending')
     if (severityFilter) idsQuery = idsQuery.eq('severity', severityFilter)
     if (debouncedSearch) {
@@ -201,6 +226,10 @@ export default function AdminDenuncias() {
     if (idsError) return showToast('Erro ao buscar denúncias pendentes: ' + idsError.message, 'error')
     const idsToResolve = (pendingIds || []).map((r: any) => r.id)
     if (idsToResolve.length === 0) return showToast('Nenhuma denúncia pendente nos filtros atuais.', 'success')
+
+    const count = idsToResolve.length
+    const confirmMsg = `Tem certeza que deseja resolver ${count} denúncia${count > 1 ? 's' : ''} pendente${count > 1 ? 's' : ''} que bate${count > 1 ? 'm' : ''} com o filtro atual (não só as desta página)?`
+    if (!(await confirm(confirmMsg))) return
 
     const { data, error } = await supabase.from('reports').update({ status: 'resolved', resolved_at: new Date().toISOString() }).in('id', idsToResolve).select()
     if (!error && data && data.length > 0) {
@@ -269,9 +298,9 @@ export default function AdminDenuncias() {
       .select()
 
     if (!error && data && data.length > 0) {
-      setReports(reports.map(r => selectedIds.includes(r.id) ? { ...r, status: newStatus } : r))
       showToast(`${data.length} denúncias marcadas como ${newStatus}!`, 'success')
       setSelectedIds([])
+      loadReports()
       loadCounts()
     } else if (!error) {
       showToast('Nenhuma denúncia foi atualizada — verifique permissões ou se os registros ainda existem.', 'error')
@@ -337,7 +366,7 @@ export default function AdminDenuncias() {
         </div>
       )}
 
-      <div className="adm-stats-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)', marginBottom: '20px' }}>
+      <div className="adm-stats-grid" style={{ marginBottom: '20px' }}>
         <div className="adm-stat-card">
           <div><div className="adm-stat-val">{total}</div><div className="adm-stat-lbl">Total Denúncias</div></div>
           <div className="adm-stat-icon adm-stat-icon--blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg></div>

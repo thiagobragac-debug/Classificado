@@ -17,6 +17,14 @@ const LangContext = createContext<LangContextValue>({
   t: (k) => k,
 });
 
+// Mesmo padrão do cookie 'tc_lang' setado no servidor (proxy.ts: sameSite:
+// 'lax'). Secure só quando https — em dev local (http) o atributo Secure
+// impediria o navegador de gravar o cookie.
+function setLangCookie(value: Lang) {
+  const secure = typeof location !== 'undefined' && location.protocol === 'https:' ? '; Secure' : '';
+  document.cookie = `tc_lang=${value}; path=/; max-age=31536000; SameSite=Lax${secure}`;
+}
+
 export function LangProvider({ children, initialLang }: { children: React.ReactNode, initialLang?: Lang }) {
   const [lang, setLangState] = useState<Lang>(initialLang || 'pt');
   const router = useRouter();
@@ -44,7 +52,7 @@ export function LangProvider({ children, initialLang }: { children: React.ReactN
     const saved = localStorage.getItem('tc_lang') as Lang | null;
     if ((saved === 'es' || saved === 'pt') && saved !== lang) {
       setLangState(saved);
-      document.cookie = `tc_lang=${saved}; path=/; max-age=31536000`;
+      setLangCookie(saved);
       document.documentElement.lang = saved === 'es' ? 'es' : 'pt-BR';
       router.refresh();
     }
@@ -53,7 +61,7 @@ export function LangProvider({ children, initialLang }: { children: React.ReactN
   const setLang = useCallback((l: Lang) => {
     setLangState(l);
     localStorage.setItem('tc_lang', l);
-    document.cookie = `tc_lang=${l}; path=/; max-age=31536000`;
+    setLangCookie(l);
     document.documentElement.lang = l === 'es' ? 'es' : 'pt-BR';
     // BUG CORRIGIDO (reteste do site, 2026-08-25): trocar idioma só
     // atualizava estado do cliente + cookie, sem nunca re-renderizar as

@@ -196,9 +196,12 @@ export function useAutoGeo(
       setGeoLevel(null); setGeoLabel(null);
       autoAppliedRef.current = null;
       suppressedRef.current = true;
-      // Delete the geo cookies so the server won't re-inject geo from cookie on next request
+      // Delete the geo cookies so the server won't re-inject geo from cookie on next request.
+      // Mesmo padrão do cookie 'tc_lang' (proxy.ts: sameSite: 'lax') — Secure só
+      // quando https, senão o atributo impediria a escrita em dev local (http).
       try {
-        document.cookie = 'user_geo_v1=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        const secure = typeof location !== 'undefined' && location.protocol === 'https:' ? '; Secure' : '';
+        document.cookie = `user_geo_v1=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax${secure}`;
         clearGeoCache();
       } catch { /* ignore */ }
       applyFilters({ pais: '', estado: '', cidade: '' });

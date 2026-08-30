@@ -92,8 +92,15 @@ export default function AdminCupons() {
     const { data, error } = await supabase.from('coupons').delete().eq('id', id).select()
     if (!error && data && data.length > 0) {
       // Excluir pode deixar a página atual com menos itens que o esperado
-      // — recarrega de verdade em vez de só remover localmente.
-      loadCoupons()
+      // — recarrega de verdade em vez de só remover localmente. Se o cupom
+      // excluído era o único item da página atual e não é a primeira
+      // página, volta uma página antes de recarregar — senão a tabela fica
+      // vazia com dados só em páginas anteriores.
+      if (coupons.length === 1 && currentPage > 1) {
+        setCurrentPage(prev => prev - 1)
+      } else {
+        loadCoupons()
+      }
       loadCounts()
     } else if (!error) {
       showToast('Nenhum cupom foi excluído — verifique suas permissões.', 'error')
@@ -200,7 +207,7 @@ export default function AdminCupons() {
         </button>
       </div>
 
-      <div className="adm-stats-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)', marginBottom: '24px' }}>
+      <div className="adm-stats-grid" style={{ marginBottom: '24px' }}>
         <div className="adm-stat-card">
           <div><div className="adm-stat-val">{total}</div><div className="adm-stat-lbl">Total de Cupons</div></div>
           <div className="adm-stat-icon adm-stat-icon--green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></div>

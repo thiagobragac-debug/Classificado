@@ -9,6 +9,13 @@ import { createBrowserClient } from '@supabase/ssr';
 export const SUPABASE_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 export const SUPABASE_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
+// PostgREST embeda relação 1:1 ora como objeto, ora como array de 1 item
+// (depende de FK/inferência de cardinalidade) — usado nos vários lugares que
+// juntam profiles/ads com user_secrets (relação 1:1 por id compartilhado).
+export function flattenOne<T>(rel: T | T[] | null | undefined): T | null {
+  return (Array.isArray(rel) ? rel[0] : rel) ?? null;
+}
+
 // Singleton do cliente (browser)
 let _sb: ReturnType<typeof createBrowserClient> | null = null;
 export function getSupabase() {
@@ -42,7 +49,7 @@ export async function getCurrentUser() {
 
   const profile = profileRaw ? {
     ...profileRaw,
-    plan: Array.isArray(profileRaw.user_secrets) ? profileRaw.user_secrets[0]?.plan : profileRaw.user_secrets?.plan
+    plan: flattenOne(profileRaw.user_secrets)?.plan
   } : null;
 
   return { ...session.user, profile };
@@ -133,7 +140,7 @@ export async function getAds({
       p_country: country || null,
       p_limit: limit,
       p_offset: from
-    }).select('id, title_pt, title_es, price, currency, status, featured, images, category_id, city, state, country, created_at, views_count, expires_at, profiles(name, avatar_url, verified, phone_whatsapp)');
+    }).select('id, title_pt, title_es, price, currency, status, featured, images, category_id, city, state, country, created_at, views_count, expires_at, profiles(name, avatar_url, verified)');
     
     if (signal) rpcQ = rpcQ.abortSignal(signal);
     const { data, error } = await rpcQ.limit(limit);
@@ -147,7 +154,7 @@ export async function getAds({
 
   let q = getSupabase()
     .from('ads')
-    .select('id, title_pt, title_es, price, currency, status, featured, images, category_id, city, state, country, created_at, views_count, expires_at, profiles(name, avatar_url, verified, phone_whatsapp)')
+    .select('id, title_pt, title_es, price, currency, status, featured, images, category_id, city, state, country, created_at, views_count, expires_at, profiles(name, avatar_url, verified)')
     .eq('status', status)
     .order('featured', { ascending: false })
     .order('created_at', { ascending: false })
@@ -176,7 +183,13 @@ export async function getAds({
 export async function getAdById(id: string) {
   const { data, error } = await getSupabase()
     .from('ads')
-    .select('*, profiles(id, name, display_name, avatar_url, verified, phone_whatsapp, country, created_at), categories(name_pt, name_es, icon)')
+    // BUG CORRIGIDO (varredura de segurança, vazamento de dados): função
+    // sem chamador hoje (código morto), mas o mesmo padrão desta query já
+    // vazou telefone de vendedor pro RSC payload público em
+    // app/(public)/anuncio/[id]/page.tsx antes de ser corrigido lá (ver
+    // comentário "GAP DE SEGURANÇA CORRIGIDO" naquele arquivo). Removido
+    // preventivamente aqui também.
+    .select('*, profiles(id, name, display_name, avatar_url, verified, country, created_at), categories(name_pt, name_es, icon)')
     .eq('id', id)
     .maybeSingle();
   if (error) throw error;
@@ -189,6 +202,8 @@ export interface AdPayload {
   title_pt: string;
   description: string;
   category_id: string;
+  subcategory_id?: string | null;
+  purpose?: string | null;
   price: number | null;
   currency: string;
   price_unit_pt?: string | null;
@@ -214,8 +229,15 @@ export async function createAd(payload: AdPayload) {
   };
 
   if (safePayload.description) {
-    const DOMPurify = (await import('isomorphic-dompurify')).default;
-    safePayload.description = DOMPurify.sanitize(safePayload.description);
+    // BUG CORRIGIDO (re-auditoria de segurança, 2026-08-30): DOMPurify.sanitize()
+    // sem config usa a allowlist DEFAULT da lib — bem mais permissiva que o
+    // necessário aqui (mantém <img>, <table>, <h1>, atributo style etc.).
+    // Hoje isso só não vira XSS porque a leitura pública (anuncio/[id]/page.tsx)
+    // re-sanitiza com allowlist restrita antes de renderizar — mas depender de
+    // um único choke point de leitura é frágil. Usa a mesma allowlist restrita
+    // do resto do projeto (lib/sanitize.ts), escrita e leitura consistentes.
+    const { sanitizeHtml } = await import('./sanitize');
+    safePayload.description = sanitizeHtml(safePayload.description);
   }
 
   const { data, error } = await getSupabase().from('ads').insert([safePayload]).select().single();
@@ -228,8 +250,9 @@ export async function updateAd(id: string, payload: AdPayload) {
   if (!session) throw new Error('Not authenticated');
 
   if (payload.description) {
-    const DOMPurify = (await import('isomorphic-dompurify')).default;
-    payload.description = DOMPurify.sanitize(payload.description);
+    // Ver comentário equivalente em createAd() — mesma correção.
+    const { sanitizeHtml } = await import('./sanitize');
+    payload.description = sanitizeHtml(payload.description);
   }
 
   // .eq('user_id', session.user.id) garante que o usuário só edita seus próprios anúncios
@@ -385,47 +408,6 @@ export function subscribeToMessages(userId: string, callback: (payload: any) => 
   return channel;
 }
 
-// ─── STATS ─────────────────────────────────────────────────────
-
-export async function fetchPlatformStats() {
-  try {
-    const sb = getSupabase();
-    const [
-      { count: adsCount },
-      { count: auctionsCount },
-      { count: bovinosCount },
-      { count: maquinasCount },
-      { data: settings }
-    ] = await Promise.all([
-      sb.from('ads').select('*', { count: 'exact', head: true }).eq('status', 'active'),
-      sb.from('auctions').select('*', { count: 'exact', head: true }).eq('status', 'live'),
-      sb.from('ads').select('*', { count: 'exact', head: true }).eq('status', 'active').eq('category_id', 'cat-bovinos'),
-      sb.from('ads').select('*', { count: 'exact', head: true }).eq('status', 'active').eq('category_id', 'cat-maquinas'),
-      sb.from('platform_settings').select('key, value'),
-    ]);
-    const sMap: Record<string, string> = {};
-    if (settings) settings.forEach((s: any) => sMap[s.key] = s.value);
-    const getVal = (key: string, realCount: number | null) => {
-      const adminVal = parseInt(sMap[key] || '0');
-      return (realCount || 0) + adminVal;
-    };
-    return {
-      total_bovinos: getVal('tc_cnt_bovinos', bovinosCount),
-      total_sellers: getVal('tc_cnt_users', 0),
-      total_auctions: getVal('tc_cnt_auctions', auctionsCount),
-      total_machines: getVal('tc_cnt_maquinas', maquinasCount),
-      total_ads: getVal('tc_cnt_ads', adsCount),
-      total_countries: getVal('tc_cnt_paises', 4),
-      total_cities: getVal('tc_cnt_cidades', 120),
-      format: sMap['tc_cnt_format'] || 'k',
-      plus: sMap['tc_cnt_plus'] !== 'false'
-    };
-  } catch (e) {
-    console.error('Erro em fetchPlatformStats:', e);
-    return null;
-  }
-}
-
 // ─── LEILÕES ───────────────────────────────────────────────────
 
 export async function getAuctions({ status = 'live', limit = 20 } = {}) {
@@ -544,9 +526,13 @@ export async function getCities(estadoId: string) {
 // ─── PERFIL ─────────────────────────────────────────────────────
 
 export async function getSellerProfile(userId: string) {
+  // BUG CORRIGIDO (varredura de segurança, vazamento de dados): função sem
+  // chamador hoje (código morto), mas expunha phone_whatsapp de OUTRO
+  // usuário pra quem chamasse — mesma classe de vazamento já corrigida em
+  // app/(public)/anuncio/[id]/page.tsx. Removido preventivamente.
   const { data, error } = await getSupabase()
     .from('profiles')
-    .select('id, name, display_name, avatar_url, verified, phone_whatsapp, country, created_at')
+    .select('id, name, display_name, avatar_url, verified, country, created_at')
     .eq('id', userId).maybeSingle();
   if (error) throw error;
   return data;
@@ -563,8 +549,13 @@ export async function getSellerAds(userId: string) {
 
 // ─── PAINEL ─────────────────────────────────────────────────────
 
+// BUG CORRIGIDO (fechamento pré-produção): phone_whatsapp mudou de profiles
+// pra user_secrets (RLS self-only) — vazava pra qualquer usuário autenticado
+// via profiles antes (RLS de profiles é pública, só a coluna era revogada de
+// anon). Precisa entrar aqui pra updateProfile() gravar no lugar certo.
 const SECRET_KEYS = ['document_type', 'document_number', 'zip_code', 'street',
-  'number', 'complement', 'neighborhood', 'kyc_doc_url', 'kyc_selfie_url', 'account_type'];
+  'number', 'complement', 'neighborhood', 'kyc_doc_url', 'kyc_selfie_url', 'account_type',
+  'phone_whatsapp'];
 
 export async function updateProfile(userId: string, updates: Record<string, any>) {
   const profileUpdates: Record<string, any> = {};
@@ -591,14 +582,14 @@ export async function getProfile(userId: string) {
     // Selecionar colunas específicas — sem select('*') que exporia campos sensíveis
     getSupabase()
       .from('profiles')
-      .select('id, name, display_name, avatar_url, phone_whatsapp, bio, city, state, country, verified, kyc_status, created_at')
+      .select('id, name, display_name, avatar_url, bio, city, state, country, verified, kyc_status, created_at')
       .eq('id', userId)
       .maybeSingle(),
     // user_secrets: apenas dados que o próprio usuário precisa ver no painel
     // NUNCA retornar: is_admin (client não deve saber), kyc_doc_url/kyc_selfie_url (URLs de storage privado)
     getSupabase()
       .from('user_secrets')
-      .select('plan, document_type, zip_code, street, number, complement, neighborhood')
+      .select('plan, document_type, zip_code, street, number, complement, neighborhood, phone_whatsapp')
       .eq('id', userId)
       .maybeSingle(),
   ]);

@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { createAnonClient } from '@/lib/supabase-server'
 import Image from 'next/image'
 import Link from 'next/link'
+import { isSafeExternalUrl } from '@/lib/sanitize'
 import type { Metadata } from 'next'
 import { imageUrl } from '@/lib/storage'
 import { t as _t } from '@/lib/constants'
@@ -27,8 +28,6 @@ const TRANSLATIONS = {
     online: 'Online',
     organization: 'Organização:',
     officialSite: 'Site oficial do evento →',
-    description: 'Descrição',
-    noDescription: 'Nenhuma descrição disponível para este evento.',
   },
   es: {
     notFound: 'Evento no encontrado',
@@ -40,8 +39,6 @@ const TRANSLATIONS = {
     online: 'Online',
     organization: 'Organización:',
     officialSite: 'Sitio oficial del evento →',
-    description: 'Descripción',
-    noDescription: 'No hay descripción disponible para este evento.',
   },
 } as const;
 
@@ -321,17 +318,24 @@ export default async function EventDetailPage({
             </p>
           )}
           {event.link && (
-            <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
-              <a href={event.link} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--clr-primary)' }}>
+            <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              {/* BUG CORRIGIDO (re-auditoria de segurança, 2026-08-30): href
+                  sem validação de protocolo — sem UI de admin pra este campo
+                  hoje, mas fecha a lacuna por defesa em profundidade, mesmo
+                  padrão de components/Header.tsx::sanitizeLogoUrl. */}
+              <a href={isSafeExternalUrl(event.link) ? event.link : '#'} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--clr-primary)' }}>
                 {tt.officialSite}
               </a>
             </p>
           )}
-
-          <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.5rem' }}>{tt.description}</h3>
-          <p style={{ color: 'var(--clr-text-muted)', lineHeight: 1.6 }}>
-            {tt.noDescription}
-          </p>
+          {/* BUG CORRIGIDO (achado de usabilidade): existia aqui uma seção
+              "Descrição" que sempre mostrava o mesmo texto fixo de
+              "nenhuma descrição disponível" — nenhuma query desta página
+              mapeia (nem existe) uma coluna description em `eventos`
+              (confirmado direto no banco), então a seção nunca teve
+              conteúdo real pra nenhum evento. Removida em vez de manter um
+              preenchimento fixo que nunca varia; se uma coluna real for
+              adicionada no futuro, a seção volta a fazer sentido. */}
         </div>
       </div>
     </div>

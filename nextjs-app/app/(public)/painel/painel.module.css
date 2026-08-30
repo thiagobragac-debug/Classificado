@@ -32,6 +32,18 @@
   top: calc(var(--header-h, 70px) + 1.5rem);
 }
 
+/* BUG CORRIGIDO (achado de usabilidade): em coluna única (mobile) a sidebar
+   continuava position:sticky do layout desktop, cobrindo o conteúdo das abas
+   (ex.: formulário de perfil) ao rolar a página. Precisa vir DEPOIS da regra
+   base acima (mesma especificidade — quem vence é a ordem no arquivo), não
+   dentro do @media que fica lá no topo, senão a base sobrescreve de volta. */
+@media (max-width: 860px) {
+  .sidebar {
+    position: static;
+    top: auto;
+  }
+}
+
 .sidebarHeader {
   background: linear-gradient(135deg, rgba(22, 163, 74, 0.95), rgba(21, 128, 61, 0.95));
   padding: 2rem 1.5rem 1.75rem;

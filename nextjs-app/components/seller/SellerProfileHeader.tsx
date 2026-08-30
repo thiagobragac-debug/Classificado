@@ -18,7 +18,7 @@ const TRANSLATIONS = {
     verifiedSeller: 'Vendedor Verificado', verified: 'Verificado',
     shareTitle: (name: string) => `Perfil de ${name}`,
     shareText: (name: string) => `Confira os anúncios de ${name} no Classificados.`,
-    linkCopied: 'Link copiado para a área de transferência!',
+    copied: 'Copiado!',
     avatarOf: (name: string) => `Avatar de ${name}`,
   },
   es: {
@@ -29,7 +29,7 @@ const TRANSLATIONS = {
     verifiedSeller: 'Vendedor Verificado', verified: 'Verificado',
     shareTitle: (name: string) => `Perfil de ${name}`,
     shareText: (name: string) => `Consulta los anuncios de ${name} en Clasificados.`,
-    linkCopied: '¡Enlace copiado al portapapeles!',
+    copied: '¡Copiado!',
     avatarOf: (name: string) => `Avatar de ${name}`,
   },
 };
@@ -50,6 +50,7 @@ export default function SellerProfileHeader({
   bannerUrl?: string | null;
 }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   const { lang } = useLang();
   const tr = TRANSLATIONS[lang];
 
@@ -67,8 +68,12 @@ export default function SellerProfileHeader({
           url: window.location.href,
         });
       } else {
+        // BUG CORRIGIDO (varredura de usabilidade): fallback usava alert()
+        // nativo, diferente do padrão de troca de texto/ícone inline já
+        // usado em components/ads/AdSidebar.tsx (botão Compartilhar).
         await navigator.clipboard.writeText(window.location.href);
-        alert(tr.linkCopied);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
       }
     } catch {
       // silent — share/clipboard errors are user-initiated cancellations
@@ -165,7 +170,7 @@ export default function SellerProfileHeader({
             <div className={styles.sellerActions}>
               <button onClick={handleShare} className={styles.btnShare} aria-label={tr.shareProfile}>
                 <Share2 size={16} />
-                <span>{tr.share}</span>
+                <span>{copied ? tr.copied : tr.share}</span>
               </button>
               <button onClick={() => setIsModalOpen(true)} className={styles.btnReview}>
                 <Star size={16} fill="currentColor" strokeWidth={0} /> {tr.evaluate}

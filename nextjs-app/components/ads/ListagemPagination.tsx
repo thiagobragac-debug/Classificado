@@ -4,13 +4,23 @@ import { useAdsFilters } from '@/lib/useAdsFilters';
 import { useLang } from '@/lib/lang-context';
 import Link from 'next/link';
 
+// GAP CORRIGIDO (auditoria de usabilidade): só mostrava "Página N", sem
+// total nem forma de o usuário saber se está perto do fim da lista.
+const TRANSLATIONS = {
+  pt: { pageOf: (page: number, total: number) => `Página ${page} de ${total}` },
+  es: { pageOf: (page: number, total: number) => `Página ${page} de ${total}` },
+};
+
 export default function ListagemPagination({
-  hasMore
+  hasMore,
+  totalPages
 }: {
-  hasMore: boolean
+  hasMore: boolean,
+  totalPages: number
 }) {
   const { page, getPageUrl } = useAdsFilters();
-  const { t } = useLang();
+  const { lang, t } = useLang();
+  const T = TRANSLATIONS[lang as keyof typeof TRANSLATIONS] || TRANSLATIONS.pt;
 
   return (
     <div style={{ marginTop: 'auto', paddingTop: 'var(--sp-10)' }}>
@@ -32,7 +42,7 @@ export default function ListagemPagination({
         )}
 
         <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 600, color: 'var(--clr-text)' }}>
-          {t('pagination_page')} {page}
+          {T.pageOf(page, totalPages)}
         </span>
 
         {!hasMore ? (

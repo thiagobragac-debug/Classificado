@@ -86,7 +86,10 @@ export const I18N = {
     events_title: 'Agenda de Eventos',
     events_subtitle: 'Descubra as maiores feiras, exposições e congressos do Agronegócio.',
     events_highlights: 'Grandes Destaques Nacionais',
-    events_card_fallback_desc: 'Confira os detalhes deste grande evento do Agronegócio.',
+    // GAP CORRIGIDO (achado de usabilidade): fallback do badge de data era a
+    // string literal "TBD" (inglês) quando parseEventDate não conseguia
+    // extrair dia/mês — único ponto não-PT/ES do produto. Ver EventCard.tsx.
+    events_date_tbd: 'A definir',
     events_featured_badge: 'Destaque Oficial',
     events_live: 'Ao Vivo',
     events_no_location: 'Local a definir',
@@ -205,7 +208,7 @@ export const I18N = {
     events_title: 'Agenda de Eventos',
     events_subtitle: 'Descubre las mayores ferias, exposiciones y congresos del Agronegocio.',
     events_highlights: 'Grandes Destacados Nacionales',
-    events_card_fallback_desc: 'Conoce los detalles de este gran evento del Agronegocio.',
+    events_date_tbd: 'A definir',
     events_featured_badge: 'Destacado Oficial',
     events_live: 'En Vivo',
     events_no_location: 'Ubicación a definir',

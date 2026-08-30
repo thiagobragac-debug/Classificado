@@ -8,6 +8,7 @@ import { useDebouncedCallback } from 'use-debounce';
 import { useLang } from '@/lib/lang-context';
 import { showToast } from '@/lib/toast';
 import { imageUrl } from '@/lib/storage';
+import { isSafeExternalUrl } from '@/lib/sanitize';
 import Countdown from './Countdown';
 import styles from '@/app/(public)/leiloes/leiloes.module.css';
 
@@ -64,6 +65,11 @@ const TRANSLATIONS = {
     reminderDenied: 'Permissão de notificação negada.',
     reminderAlreadyOn: 'Lembrete já está ativado para este evento!',
     reminderBlocked: 'Você bloqueou as notificações. Habilite nas configurações do navegador.',
+    // BUG CORRIGIDO (achado de usabilidade, leilões): mesmo padrão de
+    // resumo de filtros ativos já usado em components/ads/ActiveFiltersList.tsx.
+    activeFilters: 'FILTROS ATIVOS:',
+    removeFilter: (label: string) => `Remover filtro de ${label}`,
+    clearAll: 'Limpar Todos',
   },
   es: {
     liveNow: 'Transmisión En Vivo',
@@ -98,6 +104,9 @@ const TRANSLATIONS = {
     reminderDenied: 'Permiso de notificación denegado.',
     reminderAlreadyOn: '¡El recordatorio ya está activado para este evento!',
     reminderBlocked: 'Bloqueaste las notificaciones. Habilitalas en la configuración del navegador.',
+    activeFilters: 'FILTROS ACTIVOS:',
+    removeFilter: (label: string) => `Quitar filtro de ${label}`,
+    clearAll: 'Limpiar Todos',
   },
 } as const;
 
@@ -125,6 +134,55 @@ export default function AuctionsBrowser({ events, loadError }: { events: Auction
       params.delete(key);
     }
     router.push(`/leiloes?${params.toString()}`, { scroll: false });
+  };
+
+  // BUG CORRIGIDO (achado de usabilidade, leilões): AuctionsBrowser tinha 3
+  // filtros (busca, data, status) mas nada mostrava quais estavam ativos nem
+  // dava um jeito rápido de limpá-los — mesmo padrão (reduzido) já usado em
+  // components/ads/ActiveFiltersList.tsx.
+  const activeAuctionFilters = (() => {
+    const list: { key: string; label: string; action: () => void }[] = [];
+
+    const qParam = searchParams.get('q');
+    if (qParam) {
+      list.push({
+        key: 'q',
+        label: `"${qParam}"`,
+        action: () => { setSearchQuery(''); handleFilterChange('q', ''); },
+      });
+    }
+
+    const monthParam = searchParams.get('month');
+    if (monthParam) {
+      const monthDate = new Date(`${monthParam}T00:00:00`);
+      const monthLabel = isNaN(monthDate.getTime()) ? monthParam : monthDate.toLocaleDateString(dateLocale);
+      list.push({
+        key: 'month',
+        label: monthLabel,
+        action: () => { setMonthFilter(''); handleFilterChange('month', ''); },
+      });
+    }
+
+    const statusParam = searchParams.get('status');
+    if (statusParam && statusParam !== 'active') {
+      const statusLabel = statusParam === 'todos' ? T.statusAll
+        : statusParam === 'closed' ? T.statusClosed
+        : statusParam === 'cancelled' ? T.statusCancelled
+        : statusParam;
+      list.push({
+        key: 'status',
+        label: statusLabel,
+        action: () => handleFilterChange('status', ''),
+      });
+    }
+
+    return list;
+  })();
+
+  const clearAllAuctionFilters = () => {
+    setSearchQuery('');
+    setMonthFilter('');
+    router.push('/leiloes', { scroll: false });
   };
 
   const [currentHeroIndex, setCurrentHeroIndex] = useState(0);
@@ -180,7 +238,9 @@ export default function AuctionsBrowser({ events, loadError }: { events: Auction
                 <div className={styles.heroActions}>
                   <Link href={`/leiloes/${heroEvent.id}`} className="btn btn--outline" style={{ color: 'white', borderColor: 'rgba(255,255,255,0.3)' }}>{T.accessAuction}</Link>
                   {heroEvent.catalog && (
-                    <a href={heroEvent.catalog} target="_blank" rel="noopener noreferrer" className="btn btn--accent" style={{ background: '#10b981', color: 'white', border: 'none' }}>
+                    /* BUG CORRIGIDO (re-auditoria de segurança, 2026-08-30): href
+                       sem validação de protocolo — defesa em profundidade. */
+                    <a href={isSafeExternalUrl(heroEvent.catalog) ? heroEvent.catalog : '#'} target="_blank" rel="noopener noreferrer" className="btn btn--accent" style={{ background: '#10b981', color: 'white', border: 'none' }}>
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                       {T.downloadCatalog}
                     </a>
@@ -191,7 +251,17 @@ export default function AuctionsBrowser({ events, loadError }: { events: Auction
               <div className={styles.countdownWrapper}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
                   <h3 className={styles.countdownTitle}>{getEventState(heroEvent).isLive ? T.happeningNow : T.timeLeft}</h3>
-                  {getEventState(heroEvent).isScheduled && <Countdown targetDateStr={heroEvent.date} />}
+                  {getEventState(heroEvent).isScheduled && (
+                    <Countdown
+                      targetDateStr={heroEvent.date}
+                      // BUG CORRIGIDO (achado de usabilidade, leilões): sem isso, ao
+                      // zerar o contador a página ficava com o badge "AGENDADO" e a
+                      // área do cronômetro em branco até um F5 manual — o status real
+                      // ('live') só existe no servidor. router.refresh() busca o
+                      // status atualizado assim que o contador expira.
+                      onExpire={() => router.refresh()}
+                    />
+                  )}
                 </div>
               </div>
             </div>
@@ -259,6 +329,45 @@ export default function AuctionsBrowser({ events, loadError }: { events: Auction
 
         </div>
       </div>
+
+      {activeAuctionFilters.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--sp-2)', alignItems: 'center', marginBottom: 'var(--sp-4)' }}>
+          <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--clr-text-muted)', fontWeight: 600 }}>{T.activeFilters}</span>
+          {activeAuctionFilters.map(f => (
+            <span
+              key={f.key}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                background: 'var(--clr-primary-pale)', color: 'var(--clr-primary-mid)',
+                padding: '4px 12px', borderRadius: 'var(--r-full)',
+                fontSize: 'var(--fs-xs)', fontWeight: 600,
+                border: '1px solid var(--clr-primary-soft)'
+              }}
+            >
+              {f.label}
+              <button
+                aria-label={T.removeFilter(f.label)}
+                onClick={f.action}
+                style={{
+                  background: 'rgba(22,163,74,0.15)', color: 'var(--clr-primary)',
+                  border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', width: '16px', height: '16px', borderRadius: '50%'
+                }}
+              >✕</button>
+            </span>
+          ))}
+          <button
+            onClick={clearAllAuctionFilters}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontSize: 'var(--fs-xs)', color: 'var(--clr-text-light)',
+              textDecoration: 'underline', fontWeight: 500, marginLeft: 'var(--sp-2)'
+            }}
+          >
+            {T.clearAll}
+          </button>
+        </div>
+      )}
 
       <div className="ads-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
         {events.length === 0 ? (

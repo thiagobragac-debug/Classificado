@@ -20,6 +20,8 @@ const TRANSLATIONS = {
     seeAd: 'Ver anúncio →',
     removeError: 'Ocorreu um erro ao remover o favorito.',
     loadError: 'Erro ao carregar seus favoritos.',
+    noResultsTitle: 'Nenhum resultado para "{search}"',
+    clearSearch: 'Limpar busca',
   },
   es: {
     title: 'Favoritos', subtitle: 'Anuncios que guardaste',
@@ -31,6 +33,8 @@ const TRANSLATIONS = {
     seeAd: 'Ver anuncio →',
     removeError: 'Ocurrió un error al quitar el favorito.',
     loadError: 'Error al cargar tus favoritos.',
+    noResultsTitle: 'Ningún resultado para "{search}"',
+    clearSearch: 'Limpiar búsqueda',
   },
 };
 
@@ -135,16 +139,31 @@ export function FavoritesTab({ userId }: { userId: string }) {
       ) : error ? (
         <div className={styles.emptyState}>{t.loadError}</div>
       ) : filtered.length === 0 ? (
-        <div className={styles.emptyState} style={{ padding: '4rem 2rem', border: '1px dashed var(--clr-border)', borderRadius: '1rem', background: 'white' }}>
-          <div className={styles.emptyStateIcon} style={{ width: '80px', height: '80px', background: 'var(--clr-bg-alt)', color: 'var(--clr-text-light)', border: 'none' }}>
-            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        // BUG CORRIGIDO (achado de usabilidade): quando havia favoritos mas a
+        // busca não encontrava nenhum, aparecia o mesmo onboarding de "conta
+        // zerada" (com CTA para explorar anúncios), confuso pra quem sabe que
+        // já tem favoritos salvos — só o termo buscado não bateu com nada.
+        search.trim() && favs.length > 0 ? (
+          <div className={styles.emptyState} style={{ padding: '3rem 2rem', border: '1px dashed var(--clr-border)', borderRadius: '1rem', background: 'white' }}>
+            <h3 className={styles.emptyStateTitle} style={{ fontSize: '1.25rem', fontWeight: 800 }}>
+              {t.noResultsTitle.replace('{search}', search)}
+            </h3>
+            <button onClick={() => setSearch('')} className={styles.secondaryButton} style={{ marginTop: '1rem' }}>
+              {t.clearSearch}
+            </button>
           </div>
-          <h3 className={styles.emptyStateTitle} style={{ fontSize: '1.5rem', marginTop: '1.5rem', fontWeight: 800 }}>{t.emptyTitle}</h3>
-          <p className={styles.emptyStateDesc} style={{ fontSize: '1rem', maxWidth: '420px', lineHeight: 1.6, color: 'var(--clr-text-muted)' }}>
-            {t.emptyDesc}
-          </p>
-          <Link href="/listagem" className={styles.primaryButton} style={{ marginTop: '1.5rem', padding: '0.85rem 2.5rem', fontSize: '1.1rem', borderRadius: '2rem' }}>{t.explore}</Link>
-        </div>
+        ) : (
+          <div className={styles.emptyState} style={{ padding: '4rem 2rem', border: '1px dashed var(--clr-border)', borderRadius: '1rem', background: 'white' }}>
+            <div className={styles.emptyStateIcon} style={{ width: '80px', height: '80px', background: 'var(--clr-bg-alt)', color: 'var(--clr-text-light)', border: 'none' }}>
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+            </div>
+            <h3 className={styles.emptyStateTitle} style={{ fontSize: '1.5rem', marginTop: '1.5rem', fontWeight: 800 }}>{t.emptyTitle}</h3>
+            <p className={styles.emptyStateDesc} style={{ fontSize: '1rem', maxWidth: '420px', lineHeight: 1.6, color: 'var(--clr-text-muted)' }}>
+              {t.emptyDesc}
+            </p>
+            <Link href="/listagem" className={styles.primaryButton} style={{ marginTop: '1.5rem', padding: '0.85rem 2.5rem', fontSize: '1.1rem', borderRadius: '2rem' }}>{t.explore}</Link>
+          </div>
+        )
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem' }}>
           {filtered.filter(Boolean).map((ad: any) => {

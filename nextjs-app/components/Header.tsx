@@ -16,7 +16,11 @@ function sanitizeLogoUrl(url: string | null): string | null {
     if (parsed.protocol === 'data:' && !url.startsWith('data:image/')) return null;
     return url;
   } catch {
-    return url.startsWith('javascript') ? null : url;
+    // URL relativa/inválida (sem esquema reconhecível pelo parser) — mesmo
+    // critério do Footer.tsx: sem allowlist de protocolo pra confirmar,
+    // não aceita o valor bruto (bloqueava só 'javascript' via blocklist,
+    // que bypassa com maiúsculas, espaço/tab inicial etc.).
+    return null;
   }
 }
 

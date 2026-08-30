@@ -363,11 +363,15 @@ export default function LotBiddingModal({ lot, onClose, userId, isLive = true, i
           <div style={{ flex: '1 1 500px', background: '#000', minHeight: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {lot.video ? (
               isYoutube && ytId ? (
+                // BUG CORRIGIDO (achado de usabilidade, leilões): faltava
+                // &mute=1 — as políticas de autoplay do navegador bloqueiam
+                // vídeo com áudio ligado (page.tsx:326 já usava mute=1 no
+                // player principal do leilão).
                 <iframe
                   width="100%"
                   height="100%"
                   style={{ minHeight: '400px', border: 'none' }}
-                  src={`https://www.youtube.com/embed/${ytId}?autoplay=1`}
+                  src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1`}
                   allow="autoplay; encrypted-media"
                   allowFullScreen
                   title={T.lotVideoTitle(lot.lot_number)}
@@ -469,9 +473,15 @@ export default function LotBiddingModal({ lot, onClose, userId, isLive = true, i
                           onClick={() => requestBid(bidAmount)}
                           disabled={bidding}
                           className="btn btn--outline"
-                          style={{ padding: '0.75rem', fontSize: '0.9rem', background: 'rgba(34,197,94,0.1)', borderColor: '#22c55e', color: '#22c55e' }}
+                          style={{ padding: '0.6rem 0.75rem', fontSize: '0.85rem', lineHeight: 1.25, background: 'rgba(34,197,94,0.1)', borderColor: '#22c55e', color: '#22c55e', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}
                         >
-                          + {BRL.format(inc)}
+                          {/* BUG CORRIGIDO (achado de usabilidade, leilões): o
+                              botão mostrava só o incremento (+R$500) — a
+                              confirmação seguinte exibia o total (R$2.500),
+                              que podia surpreender quem só olhou o botão.
+                              Mostra as duas informações aqui também. */}
+                          <span>+ {BRL.format(inc)}</span>
+                          <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>→ {BRL.format(bidAmount)}</span>
                         </button>
                       );
                     })}

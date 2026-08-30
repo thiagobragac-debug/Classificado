@@ -1,11 +1,12 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useFormContext } from 'react-hook-form'
 import { MapPin, Target } from 'lucide-react'
 import styles from '../page.module.css'
 import { AnuncioFormValues } from './schema'
 import { useLang } from '@/lib/lang-context'
+import { showToast } from '@/lib/toast'
 
 // Strings exclusivas deste passo do wizard — padrão local de TRANSLATIONS,
 // igual components/ads/AdsSidebar.tsx. Os `value` dos países permanecem em
@@ -24,11 +25,12 @@ const TRANSLATIONS = {
     uruguai: 'Uruguai',
     paraguai: 'Paraguai',
     stateLabel: 'Estado',
-    statePh: 'Ex: Mato Grosso do Sul',
+    selectCountryFirst: 'Selecione o país primeiro',
     cityLabel: 'Cidade',
     cityPh: 'Ex: Campo Grande',
     back: 'Voltar',
     nextStep: 'Próximo Passo',
+    locationError: 'Não foi possível detectar sua localização automaticamente. Preencha os campos manualmente.',
   },
   es: {
     header: 'Ubicación',
@@ -42,11 +44,12 @@ const TRANSLATIONS = {
     uruguai: 'Uruguay',
     paraguai: 'Paraguay',
     stateLabel: 'Estado / Provincia',
-    statePh: 'Ej: Mato Grosso do Sul',
+    selectCountryFirst: 'Selecciona el país primero',
     cityLabel: 'Ciudad',
     cityPh: 'Ej: Campo Grande',
     back: 'Volver',
     nextStep: 'Siguiente Paso',
+    locationError: 'No se pudo detectar tu ubicación automáticamente. Completa los campos manualmente.',
   },
 } as const
 
@@ -85,11 +88,70 @@ const BR_STATES: Record<string, string> = {
   'Tocantins': 'TO', 'TO': 'Tocantins',
 }
 
+// Nomes completos dos estados brasileiros, extraídos do mapa bidirecional
+// acima (as chaves cujo valor tem 2 caracteres são sempre os nomes
+// completos — o valor é a sigla correspondente).
+const BR_STATE_NAMES = Object.keys(BR_STATES).filter((k) => BR_STATES[k].length === 2)
+
+// GAP CORRIGIDO (achado de usabilidade #1): "Estado" era texto livre no
+// wizard, mas o filtro público (AdsSidebar.tsx) é um <select> alimentado
+// pelos valores já gravados no banco — grafias que não batessem
+// exatamente (acentuação, abreviação, digitação livre) deixavam o
+// anúncio invisível pra quem filtra por estado. Listas fixas por país
+// garantem que todo anúncio novo grava um valor normalizado e consistente.
+const AR_PROVINCES = [
+  'Buenos Aires', 'Catamarca', 'Chaco', 'Chubut',
+  'Ciudad Autónoma de Buenos Aires', 'Córdoba', 'Corrientes', 'Entre Ríos',
+  'Formosa', 'Jujuy', 'La Pampa', 'La Rioja', 'Mendoza', 'Misiones',
+  'Neuquén', 'Río Negro', 'Salta', 'San Juan', 'San Luis', 'Santa Cruz',
+  'Santa Fe', 'Santiago del Estero', 'Tierra del Fuego', 'Tucumán',
+]
+
+const UY_DEPARTMENTS = [
+  'Artigas', 'Canelones', 'Cerro Largo', 'Colonia', 'Durazno', 'Flores',
+  'Florida', 'Lavalleja', 'Maldonado', 'Montevideo', 'Paysandú',
+  'Río Negro', 'Rivera', 'Rocha', 'Salto', 'San José', 'Soriano',
+  'Tacuarembó', 'Treinta y Tres',
+]
+
+const PY_DEPARTMENTS = [
+  'Concepción', 'San Pedro', 'Cordillera', 'Guairá', 'Caaguazú', 'Caazapá',
+  'Itapúa', 'Misiones', 'Paraguarí', 'Alto Paraná', 'Central', 'Ñeembucú',
+  'Amambay', 'Canindeyú', 'Presidente Hayes', 'Boquerón', 'Alto Paraguay',
+  'Asunción',
+]
+
+// Mapeia o `value` do <select> de país (ver JSX abaixo — mantido em PT,
+// canônico no banco) para a lista de estados/províncias correspondente.
+const STATE_OPTIONS: Record<string, string[]> = {
+  'Brasil': BR_STATE_NAMES,
+  'Argentina': AR_PROVINCES,
+  'Uruguai': UY_DEPARTMENTS,
+  'Paraguai': PY_DEPARTMENTS,
+}
+
 export function StepLocation({ onNext, onPrev }: StepLocationProps) {
-  const { register, trigger, setValue, formState: { errors } } = useFormContext<AnuncioFormValues>()
+  const methods = useFormContext<AnuncioFormValues>()
+  const { register, trigger, setValue, setFocus, watch, formState: { errors } } = methods
   const { lang } = useLang()
   const tr = TRANSLATIONS[lang]
   const [isLocating, setIsLocating] = useState(false)
+
+  const pais = watch('pais') as string | undefined
+  const stateOptions = (pais && STATE_OPTIONS[pais]) || []
+
+  // Zera o estado (e a cidade, que depende dele) quando o país muda DEPOIS
+  // do mount — mesmo padrão do efeito de categoria em StepData.tsx. No
+  // mount, `pais` pode já vir de um rascunho/anúncio existente (com estado
+  // correspondente), que não pode ser apagado.
+  const prevPaisRef = useRef<string | undefined>(undefined)
+  useEffect(() => {
+    if (prevPaisRef.current !== undefined && prevPaisRef.current !== pais) {
+      setValue('estado', '', { shouldValidate: false })
+      setValue('cidade', '', { shouldValidate: false })
+    }
+    prevPaisRef.current = pais
+  }, [pais, setValue])
 
   const fetchLocation = async () => {
     setIsLocating(true)
@@ -116,8 +178,14 @@ export function StepLocation({ onNext, onPrev }: StepLocationProps) {
         if (paisNormalizado) setValue('pais', paisNormalizado, { shouldValidate: true })
       }
       if (state) {
-        const stateCode = BR_STATES[state] || state
-        setValue('estado', stateCode.length === 2 ? stateCode : state, { shouldValidate: true })
+        // GAP CORRIGIDO (achado de usabilidade #1): "estado" agora é um
+        // <select> com nomes completos fixos (ver STATE_OPTIONS acima) — se
+        // o provedor de geo devolver a sigla de 2 letras (caso do Brasil),
+        // normalizamos pro nome completo, senão o valor não bate com
+        // nenhuma <option> e o select fica preso em "Selecione...".
+        const trimmed = state.trim()
+        const stateFull = trimmed.length === 2 ? (BR_STATES[trimmed.toUpperCase()] || trimmed) : trimmed
+        setValue('estado', stateFull, { shouldValidate: true })
       }
       if (city) setValue('cidade', city, { shouldValidate: true })
       setIsLocating(false)
@@ -131,6 +199,11 @@ export function StepLocation({ onNext, onPrev }: StepLocationProps) {
       } catch(e) {
         console.warn("Could not fetch location via IP", e)
         setIsLocating(false)
+        // GAP CORRIGIDO (achado de usabilidade #4): esta é a última tentativa
+        // da cascata (GPS -> OSM -> IP) — se ela falhar, nenhuma localização
+        // foi preenchida e o usuário não tinha nenhum feedback, além do
+        // console.warn invisível pra ele.
+        showToast(tr.locationError, 'error')
       }
     }
 
@@ -154,11 +227,21 @@ export function StepLocation({ onNext, onPrev }: StepLocationProps) {
   }
 
   const handleNext = async () => {
-    const isStepValid = await trigger(['pais', 'estado', 'cidade'])
+    const fields = ['pais', 'estado', 'cidade'] as const
+    const isStepValid = await trigger(fields)
     if (isStepValid) {
       onNext()
     } else {
-      document.querySelector('form')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      // GAP CORRIGIDO (achado de usabilidade #2): rolar só até o topo do
+      // form não ajuda quando o campo inválido já está visível mas sem
+      // foco (ou quando o form é mais alto que a viewport) — o usuário
+      // não sabia qual campo corrigir. Foca o primeiro campo com erro.
+      const firstInvalid = fields.find((f) => methods.getFieldState(f).invalid)
+      if (firstInvalid) {
+        setFocus(firstInvalid)
+      } else {
+        document.querySelector('form')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
     }
   }
 
@@ -200,7 +283,10 @@ export function StepLocation({ onNext, onPrev }: StepLocationProps) {
         </div>
         <div>
           <label htmlFor="step-estado" className={styles.inputLabel}>{tr.stateLabel} <span>*</span></label>
-          <input id="step-estado" type="text" className={styles.formInput} placeholder={tr.statePh} {...register('estado')} />
+          <select id="step-estado" className={styles.formInput} disabled={!pais} {...register('estado')}>
+            <option value="">{pais ? tr.selectPlaceholder : tr.selectCountryFirst}</option>
+            {stateOptions.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
           {errors.estado && <span className={styles.errorText}>{errors.estado.message}</span>}
         </div>
         <div>

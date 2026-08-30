@@ -108,8 +108,13 @@ export default function AdminAnuncios() {
     const supabase = getSupabase()
     const { data, error } = await supabase.from('ads').update({ status: newStatus }).eq('id', adId).select()
     if (!error && data && data.length > 0) {
-      setAds(ads.map(a => a.id === adId ? { ...a, status: newStatus } : a))
       showToast(`Anúncio atualizado para ${newStatus}!`, 'success')
+      // BUG CORRIGIDO: com filtro/paginação real de servidor, um patch só
+      // local deixava o anúncio visível na tela mesmo depois de deixar de
+      // bater com o filtro de status atual (ex.: filtrar "Pendente" e
+      // aprovar um item — ele sumiria sozinho antes, quando a lista inteira
+      // era refiltrada em memória a cada render). Recarrega de verdade.
+      loadAds()
       loadCounts()
     } else if (!error) {
       showToast('Nenhuma linha foi atualizada — verifique permissões ou se o registro ainda existe.', 'error')
@@ -162,11 +167,6 @@ export default function AdminAnuncios() {
     const succeededIds = results.filter(r => !r.error).map(r => r.id)
     const failed = results.filter(r => r.error)
 
-    if (succeededIds.length > 0) {
-      const succeededSet = new Set(succeededIds)
-      setAds(ads.map(a => succeededSet.has(a.id) ? { ...a, status: newStatus } : a))
-    }
-
     if (failed.length === 0) {
       showToast(`${succeededIds.length} anúncios atualizados para ${newStatus}!`, 'success')
     } else if (succeededIds.length === 0) {
@@ -176,6 +176,10 @@ export default function AdminAnuncios() {
     }
 
     setSelectedIds(failed.map(r => r.id)) // mantém selecionados só os que falharam, pra inspeção
+    // BUG CORRIGIDO: mesmo motivo do handleStatusUpdate individual — recarrega
+    // de verdade em vez de só corrigir o array local, pra itens que deixaram
+    // de bater com o filtro atual sumirem da tela.
+    loadAds()
     loadCounts()
   }
 
@@ -275,7 +279,7 @@ export default function AdminAnuncios() {
       </div>
 
       {/* Mini Stats */}
-      <div className="adm-stats-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)', marginBottom: '20px' }}>
+      <div className="adm-stats-grid" style={{ marginBottom: '20px' }}>
         <div className="adm-stat-card">
           <div><div className="adm-stat-val">{total}</div><div className="adm-stat-lbl">Total</div></div>
           <div className="adm-stat-icon adm-stat-icon--green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></div>
@@ -327,7 +331,7 @@ export default function AdminAnuncios() {
                   <input 
                     type="checkbox" 
                     style={{ accentColor: 'var(--adm-accent)' }} 
-                    checked={totalFiltered > 0 && selectedIds.length === totalFiltered}
+                    checked={ads.length > 0 && selectedIds.length === ads.length}
                     onChange={toggleSelectAll}
                   />
                 </th>

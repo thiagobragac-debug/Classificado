@@ -4,26 +4,31 @@ import { AdBanner } from '@/components/AdBanner';
 import { Category, COUNTRY_FLAGS } from './AdCard';
 import { useAdsFilter } from './AdsFilterContext';
 import { clearGeoCache } from '@/lib/useGeoLocation';
+import { getPurposeOptions, getSubcategoryLabels } from '@/lib/purposeOptions';
 
 const TRANSLATIONS = {
   pt: {
     filters: 'Filtros', clear: 'Limpar', search: 'Buscar anúncios...',
     category: 'Categoria', allCats: 'Todas as Categorias',
+    purpose: 'Finalidade', allPurposes: 'Todas as Finalidades',
+    clearSelection: 'Limpar seleção',
     location: 'Localização', allCountries: 'Todos os Países',
     allStates: 'Todos os Estados', allCities: 'Todas as Cidades',
     priceRange: 'Faixa de Preço', min: 'Mínimo', max: 'Máximo', upTo: 'Até',
     offerType: 'Tipo de Oferta', onlyFeatured: 'Apenas Destaques',
-    negotiable: 'Negociável', apply: 'Aplicar Filtros', closeFilters: 'Fechar filtros',
+    negotiable: 'Negociável', closeFilters: 'Fechar filtros',
     searchPlaceholder: 'Buscar raça, marca...', priceShortcutsAria: 'Atalhos de preço'
   },
   es: {
     filters: 'Filtros', clear: 'Limpiar', search: 'Buscar anuncios...',
     category: 'Categoría', allCats: 'Todas las Categorías',
+    purpose: 'Finalidad', allPurposes: 'Todas las Finalidades',
+    clearSelection: 'Limpiar selección',
     location: 'Ubicación', allCountries: 'Todos los Países',
     allStates: 'Todos los Estados', allCities: 'Todas las Ciudades',
     priceRange: 'Rango de Precio', min: 'Mínimo', max: 'Máximo', upTo: 'Hasta',
     offerType: 'Tipo de Oferta', onlyFeatured: 'Solo Destacados',
-    negotiable: 'Negociable', apply: 'Aplicar Filtros', closeFilters: 'Cerrar filtros',
+    negotiable: 'Negociable', closeFilters: 'Cerrar filtros',
     searchPlaceholder: 'Buscar raza, marca...', priceShortcutsAria: 'Atajos de precio'
   }
 };
@@ -43,15 +48,18 @@ function FilterGroup({ title, defaultOpen = false, children }: { title: string; 
 
 export default function AdsSidebar() {
   const {
-    lang, categories, countries, states, cities,
+    lang, categories, subcategories, subcategoryCounts, countries, states, cities,
     hasFilters, clearFilters, applyFilters, handleSearch,
-    busca, categoria, setCategoria,
+    busca, categoria, setCategoria, subcategoria, setSubcategoria, toggleSubcategoria, finalidade, setFinalidade,
     pais, setPais, estado, setEstado, cidade, setCidade,
-    precoMin, setPrecoMin, precoMax, setPrecoMax, setPrice,
+    precoMin, precoMax, setPrice,
     destaque, setDestaque, negociavel, setNegociavel
   } = useAdsFilter();
 
   const t = TRANSLATIONS[lang as keyof typeof TRANSLATIONS] || TRANSLATIONS.pt;
+  const purposeOptions = getPurposeOptions(categoria);
+  const subcategoryLabels = getSubcategoryLabels(categoria);
+  const selectedSubcategorias = subcategoria ? subcategoria.split(',') : [];
 
   // BUG CORRIGIDO (varredura cruzada de cenários): o campo de busca chamava
   // handleSearch (-> applyFilters -> router.push) a CADA tecla digitada, sem
@@ -65,6 +73,16 @@ export default function AdsSidebar() {
   const [buscaInput, setBuscaInput] = useState(busca);
   useEffect(() => { setBuscaInput(busca); }, [busca]);
   const debouncedSearch = useDebouncedCallback((v: string) => handleSearch(v), 350);
+
+  // Mesmo BUG CORRIGIDO acima, só que na faixa de preço: os inputs chamavam
+  // setPrecoMin/setPrecoMax (que já disparam applyFilters/router.push) a
+  // cada dígito. Mesma solução: estado local pro feedback instantâneo,
+  // navegação de verdade só 500ms depois de parar de digitar.
+  const [precoMinInput, setPrecoMinInput] = useState(precoMin);
+  const [precoMaxInput, setPrecoMaxInput] = useState(precoMax);
+  useEffect(() => { setPrecoMinInput(precoMin); }, [precoMin]);
+  useEffect(() => { setPrecoMaxInput(precoMax); }, [precoMax]);
+  const debouncedPriceApply = useDebouncedCallback((min: string, max: string) => applyFilters({ precoMin: min, precoMax: max }), 500);
 
   // Mobile FAB state
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -111,20 +129,58 @@ export default function AdsSidebar() {
         </div>
       </div>
 
-      <FilterGroup title={t.category}>
+      <FilterGroup title={t.category} defaultOpen={true}>
         <label className="filter-option category-option">
-          <input type="radio" name="category" value="" checked={categoria === ''} onChange={() => { setCategoria(''); applyFilters({ categoria: '' }); }} />
+          <input type="radio" name="category" value="" checked={categoria === ''} onChange={() => { setCategoria(''); applyFilters({ categoria: '', subcategoria: '', finalidade: '' }); }} />
           <span className="cat-icon-wrap" style={{ color: 'var(--clr-text-muted)', fontSize: '14px' }}>🗂️</span>
           <span>{t.allCats}</span>
         </label>
         {categories.map(cat => (
           <label key={cat.id} className="filter-option category-option">
-            <input type="radio" name="category" value={cat.id} checked={categoria === cat.id} onChange={() => { setCategoria(cat.id); applyFilters({ categoria: cat.id }); }} />
-            <span className="cat-icon-wrap" style={{ color: cat.color || 'var(--clr-text-muted)' }} dangerouslySetInnerHTML={{ __html: cat.icon || '🗂️' }} />
+            <input type="radio" name="category" value={cat.id} checked={categoria === cat.id} onChange={() => { setCategoria(cat.id); applyFilters({ categoria: cat.id, subcategoria: '', finalidade: '' }); }} />
+            {/* BUG CORRIGIDO (re-auditoria de segurança, 2026-08-30): cat.icon é
+                um emoji de texto (admin limita a 2 caracteres) — nunca precisou
+                de dangerouslySetInnerHTML. Um admin comprometido gravando HTML
+                arbitrário nesse campo afetaria todo visitante da listagem. */}
+            <span className="cat-icon-wrap" style={{ color: cat.color || 'var(--clr-text-muted)' }}>{cat.icon || '🗂️'}</span>
             <span>{lang === 'es' ? cat.name_es : cat.name_pt}</span>
           </label>
         ))}
       </FilterGroup>
+
+      {categoria && subcategories.length > 0 && (
+        // key={categoria}: remonta o grupo (e reseta o acordeão pra aberto)
+        // sempre que a categoria muda — sem isso, o grupo aparecia fechado
+        // e o usuário precisava notar e clicar pra descobrir que existia.
+        <FilterGroup key={`sub-${categoria}`} title={lang === 'es' ? subcategoryLabels.label_es : subcategoryLabels.label_pt} defaultOpen={true}>
+          {selectedSubcategorias.length > 0 && (
+            <button type="button" className="filter-clear" style={{ marginBottom: '8px' }} onClick={() => { setSubcategoria(''); applyFilters({ subcategoria: '' }); }}>
+              {t.clearSelection}
+            </button>
+          )}
+          {subcategories.map(sub => (
+            <label key={sub.id} className="filter-option category-option">
+              <input type="checkbox" name="subcategory" value={sub.id} checked={selectedSubcategorias.includes(sub.id)} onChange={() => toggleSubcategoria(sub.id)} />
+              <span>{lang === 'es' && sub.name_es ? sub.name_es : sub.name_pt} ({subcategoryCounts[sub.id] || 0})</span>
+            </label>
+          ))}
+        </FilterGroup>
+      )}
+
+      {categoria && purposeOptions.length > 0 && (
+        <FilterGroup key={`purpose-${categoria}`} title={t.purpose} defaultOpen={true}>
+          <label className="filter-option category-option">
+            <input type="radio" name="purpose" value="" checked={finalidade === ''} onChange={() => { setFinalidade(''); applyFilters({ finalidade: '' }); }} />
+            <span>{t.allPurposes}</span>
+          </label>
+          {purposeOptions.map(p => (
+            <label key={p.value} className="filter-option category-option">
+              <input type="radio" name="purpose" value={p.value} checked={finalidade === p.value} onChange={() => { setFinalidade(p.value); applyFilters({ finalidade: p.value }); }} />
+              <span>{lang === 'es' ? p.label_es : p.label_pt}</span>
+            </label>
+          ))}
+        </FilterGroup>
+      )}
 
       <FilterGroup title={t.location}>
         <div className="location-group">
@@ -177,10 +233,10 @@ export default function AdsSidebar() {
       <FilterGroup title={t.priceRange}>
         <div className="price-input-group">
           <input type="number" className="price-input-clean" placeholder={t.min} aria-label={t.min}
-            value={precoMin} onChange={e => setPrecoMin(e.target.value)} />
+            value={precoMinInput} onChange={e => { setPrecoMinInput(e.target.value); debouncedPriceApply(e.target.value, precoMaxInput); }} />
           <div className="price-divider"></div>
           <input type="number" className="price-input-clean" placeholder={t.max} aria-label={t.max}
-            value={precoMax} onChange={e => setPrecoMax(e.target.value)} />
+            value={precoMaxInput} onChange={e => { setPrecoMaxInput(e.target.value); debouncedPriceApply(precoMinInput, e.target.value); }} />
         </div>
         <div className="price-shortcuts" role="group" aria-label={t.priceShortcutsAria}>
           <button className="price-shortcut" onClick={() => { setPrice('', '5000'); applyFilters({ precoMin: '', precoMax: '5000' }); }}>{t.upTo} 5k</button>
@@ -203,9 +259,13 @@ export default function AdsSidebar() {
         </label>
       </FilterGroup>
 
-      <button className="btn btn--primary" onClick={() => applyFilters()} style={{ width: '100%', marginTop: 'var(--sp-4)' }}>
-        {t.apply}
-      </button>
+      {/* GAP CORRIGIDO (auditoria de usabilidade): o botão "Aplicar Filtros"
+          era um placebo — todo setter acima (radios, checkboxes, selects)
+          já chama applyFilters()/router.push() internamente assim que o
+          usuário interage, e os campos de texto/preço têm seu próprio
+          debounce (ver buscaInput/precoMinInput acima). Clicar no botão
+          nunca fazia nada que o comportamento já não tivesse feito sozinho;
+          removido para não sugerir uma etapa manual que não existe. */}
 
       {/* Ad Banner dinâmico da Sidebar */}
       <AdBanner position="listagem_sidebar" />

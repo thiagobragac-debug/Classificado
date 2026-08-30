@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, getSettings } from '@/lib/supabase-admin'
 import { resolverIpConfiavel } from '@/lib/ip-utils'
+import { dentroDoLimiteFallback } from '@/lib/rate-limit-fallback'
 import {
   selectGateway,
   stripeAdapter,
@@ -109,12 +110,12 @@ export async function POST(req: Request) {
     // rota nunca teve nenhum freio de taxa, diferente de /api/contact-seller
     // (Upstash). Reaproveita check_rate_limit, o mesmo RPC com janela no
     // Postgres que /login já usa como rede de segurança sem Upstash.
-    const { data: dentroDoLimite } = await supabase.rpc('check_rate_limit', {
-      p_bucket: `checkout_${user.id}`,
-      p_limit: 10,
-      p_window_seconds: 60,
+    const permitido = await dentroDoLimiteFallback(supabase, {
+      bucket: `checkout_${user.id}`,
+      limit: 10,
+      logPrefix: 'checkout',
     })
-    if (dentroDoLimite === false) {
+    if (!permitido) {
       return NextResponse.json({ error: tx.tooManyAttempts }, { status: 429 })
     }
 
@@ -269,6 +270,14 @@ export async function POST(req: Request) {
       }
       appliedCoupon = couponData
     }
+
+    // BUG CORRIGIDO: um cupom percentual (ex.: 33,33%) produz resíduo de
+    // ponto flutuante (66.60333000000001) — Stripe e Pagar.me já convertem
+    // pra centavos com Math.round antes de enviar, mas Mercado Pago e Asaas
+    // recebem o valor em reais direto, sem arredondar. Arredonda aqui, uma
+    // vez só, pros 4 gateways ficarem consistentes e subscriptions.price
+    // não gravar resíduo.
+    finalPrice = Math.round(finalPrice * 100) / 100
 
     const gatewayPlan: GatewayPlan = {
       id: String(plan.id),

@@ -9,6 +9,7 @@ const MESSAGES = {
     tituloMin: 'O título deve ter no mínimo 5 caracteres',
     tituloMax: 'O título deve ter no máximo 100 caracteres',
     categoria: 'A categoria é obrigatória',
+    subcategoria: 'A subcategoria é obrigatória',
     descricaoMin: 'A descrição deve ter no mínimo 10 caracteres',
     descricaoMax: 'A descrição deve ter no máximo 5000 caracteres',
     pais: 'O país é obrigatório',
@@ -17,11 +18,13 @@ const MESSAGES = {
     fotoUrl: 'A foto deve ser uma URL válida',
     fotoMax: 'Você pode enviar no máximo 30 fotos',
     videoUrl: 'O vídeo deve ser uma URL válida',
+    precoInvalido: 'O preço deve ser um número válido e não negativo',
   },
   es: {
     tituloMin: 'El título debe tener al menos 5 caracteres',
     tituloMax: 'El título debe tener como máximo 100 caracteres',
     categoria: 'La categoría es obligatoria',
+    subcategoria: 'La subcategoría es obligatoria',
     descricaoMin: 'La descripción debe tener al menos 10 caracteres',
     descricaoMax: 'La descripción debe tener como máximo 5000 caracteres',
     pais: 'El país es obligatorio',
@@ -30,8 +33,20 @@ const MESSAGES = {
     fotoUrl: 'La foto debe ser una URL válida',
     fotoMax: 'Puedes enviar un máximo de 30 fotos',
     videoUrl: 'El video debe ser una URL válida',
+    precoInvalido: 'El precio debe ser un número válido y no negativo',
   },
 } as const;
+
+// Mesma normalização usada no submit do wizard (AnunciarWizard.tsx): o valor
+// vem do CurrencyInput (react-number-format) já sem separador de milhar,
+// mas aceitamos também vírgula decimal (padrão BR) por segurança, já que
+// initialData/parsed também alimentam este campo a partir de `price.toString()`.
+function isValidPrecoString(value: string): boolean {
+  const clean = value.replace(/[^\d.,]/g, '').replace(',', '.');
+  if (clean === '') return true;
+  const num = Number(clean);
+  return !isNaN(num) && num >= 0;
+}
 
 // Fábrica do schema: as mensagens de erro variam com `lang`, mas o
 // FORMATO dos dados é o mesmo nos dois idiomas — por isso AnuncioFormValues
@@ -42,9 +57,14 @@ export function createAnuncioSchema(lang: Lang = 'pt') {
   return z.object({
     titulo: z.string().min(5, m.tituloMin).max(100, m.tituloMax),
     categoria: z.string().min(1, m.categoria),
+    subcategoria: z.string().min(1, m.subcategoria),
+    finalidade: z.string().nullable().optional(),
     descricao: z.string().min(10, m.descricaoMin).max(5000, m.descricaoMax),
     moeda: z.string(),
-    preco: z.string().nullable().optional(),
+    preco: z.string().nullable().optional().refine(
+      (val) => !val || isValidPrecoString(val),
+      m.precoInvalido
+    ),
     aNegociar: z.boolean(),
     unidadePreco: z.string().nullable().optional(),
     condicao: z.string().nullable().optional(),

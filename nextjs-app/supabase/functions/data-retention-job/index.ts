@@ -6,9 +6,33 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+// Segredo dedicado (recomendado — ver auditoria de segurança, 2026-08-30):
+// `supabase secrets set EDGE_CRON_SECRET=<valor aleatório>` e configurar o
+// mesmo valor no header Authorization do agendamento (Dashboard > Edge
+// Functions > Schedule). Sem essa env var, cai no padrão anterior (a própria
+// service role key como bearer) por compatibilidade — mas evite deixar assim:
+// a chave mais poderosa do projeto trafegando em header HTTP roteado por um
+// agendador externo é exposição desnecessária.
+const CRON_SECRET = Deno.env.get('EDGE_CRON_SECRET') || SERVICE_KEY
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
+  }
+
+  // BUG CORRIGIDO (auditoria de segurança, 2026-08-30, achado crítico): esta
+  // função deleta anúncios reais (via service_role, bypassando RLS) e não
+  // validava nenhuma autenticação — qualquer pessoa que descobrisse a URL
+  // pública podia invocá-la repetidamente (DoS de custo de execução, e
+  // exclusão de dados de produção sem autorização nenhuma). Mesmo padrão já
+  // usado em notify-expiring-keys/index.ts.
+  const authHeader = req.headers.get('Authorization')
+  if (!CRON_SECRET || authHeader !== `Bearer ${CRON_SECRET}`) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
   }
 
   try {

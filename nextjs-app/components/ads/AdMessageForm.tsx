@@ -1,8 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { getSupabase } from '@/lib/supabase';
 import { useLang } from '@/lib/lang-context';
+
+// Mesmo padrão de components/seller/ReviewModal.tsx (textarea com
+// maxLength + contador "X/limite" visível).
+const MAX_MESSAGE_LENGTH = 1000;
 
 // Traduções locais deste componente (padrão de components/ads/AdsSidebar.tsx)
 // — o formulário nunca importava useLang, então placeholder, erros e o toast
@@ -11,6 +16,7 @@ const TRANSLATIONS = {
   pt: {
     placeholder: 'Olá! Tenho interesse neste anúncio e gostaria de mais informações...',
     needLogin: 'Você precisa estar logado para enviar mensagens.',
+    loginCta: 'Fazer login',
     rateLimited: 'Muitas mensagens em pouco tempo. Aguarde um momento.',
     genericError: 'Erro ao enviar. Tente novamente.',
     success: '✓ Mensagem enviada com sucesso!',
@@ -20,6 +26,7 @@ const TRANSLATIONS = {
   es: {
     placeholder: '¡Hola! Estoy interesado en este anuncio y me gustaría más información...',
     needLogin: 'Debes iniciar sesión para enviar mensajes.',
+    loginCta: 'Iniciar sesión',
     rateLimited: 'Demasiados mensajes en poco tiempo. Espera un momento.',
     genericError: 'Error al enviar. Inténtalo de nuevo.',
     success: '✓ ¡Mensaje enviado con éxito!',
@@ -39,6 +46,22 @@ export function AdMessageForm({ adId, receiverId }: AdMessageFormProps) {
   const [msgText, setMsgText] = useState('');
   const [msgStatus, setMsgStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [msgSending, setMsgSending] = useState(false);
+  // BUG CORRIGIDO (varredura de usabilidade): a sessão só era checada dentro
+  // de sendMessage(), no clique de enviar — um visitante deslogado digitava
+  // a mensagem inteira só pra descobrir, ao clicar, que precisava logar (e
+  // perdia o texto). Agora checa ao montar e mostra um estado dedicado no
+  // lugar do textarea pra quem não está logado.
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const sb = getSupabase();
+      const { data: { session } } = await sb.auth.getSession();
+      if (active) setIsLoggedIn(!!session);
+    })();
+    return () => { active = false; };
+  }, []);
 
   const sendMessage = async () => {
     if (!msgText.trim()) return;
@@ -90,8 +113,25 @@ export function AdMessageForm({ adId, receiverId }: AdMessageFormProps) {
     setMsgSending(false);
   };
 
+  // id usado pelo CTA fixo mobile (app/(public)/anuncio/[id]/page.tsx) pra
+  // dar scroll + foco até aqui quando o vendedor não tem WhatsApp cadastrado.
+  if (isLoggedIn === false) {
+    return (
+      <div id="ad-message-form" className="msg-body" style={{ marginTop: '1rem', background: 'var(--clr-surface-alt)', padding: '1rem', borderRadius: '0.8rem' }}>
+        <p style={{ margin: 0, marginBottom: '0.75rem', color: 'var(--clr-text-muted)', fontSize: '0.9rem' }}>{tr.needLogin}</p>
+        <Link
+          href="/login"
+          className="btn btn-primary"
+          style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', display: 'flex', justifyContent: 'center', textDecoration: 'none' }}
+        >
+          {tr.loginCta}
+        </Link>
+      </div>
+    );
+  }
+
   return (
-    <div className="msg-body" style={{ marginTop: '1rem', background: 'var(--clr-surface-alt)', padding: '1rem', borderRadius: '0.8rem' }}>
+    <div id="ad-message-form" className="msg-body" style={{ marginTop: '1rem', background: 'var(--clr-surface-alt)', padding: '1rem', borderRadius: '0.8rem' }}>
       {msgStatus && (
         <div 
           className={`msg-alert ${msgStatus.type}`}
@@ -113,6 +153,7 @@ export function AdMessageForm({ adId, receiverId }: AdMessageFormProps) {
         placeholder={tr.placeholder}
         value={msgText}
         onChange={e => setMsgText(e.target.value)}
+        maxLength={MAX_MESSAGE_LENGTH}
         style={{
           width: '100%',
           minHeight: '100px',
@@ -120,10 +161,13 @@ export function AdMessageForm({ adId, receiverId }: AdMessageFormProps) {
           borderRadius: '0.5rem',
           border: '1px solid var(--clr-border)',
           resize: 'vertical',
-          marginBottom: '1rem',
+          marginBottom: '0.25rem',
           fontFamily: 'inherit'
         }}
       />
+      <p style={{ fontSize: '0.78rem', color: 'var(--clr-text-muted)', textAlign: 'right', marginTop: 0, marginBottom: '1rem' }}>
+        {msgText.length}/{MAX_MESSAGE_LENGTH}
+      </p>
       <button
         className="btn btn-primary"
         onClick={sendMessage}

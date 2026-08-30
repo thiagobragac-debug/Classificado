@@ -120,13 +120,34 @@ function PasswordField({
 export default function AdminConfiguracoes() {
   const [activeTab, setActiveTab] = useState('brand')
   const [settings, setSettings] = useState<Settings>({})
+  // BUG CORRIGIDO (achado de usabilidade): formulário longo (várias abas,
+  // incluindo segredos de gateway de pagamento) sem nenhum aviso de
+  // alterações pendentes — fechar a aba ou trocar de página perdia tudo em
+  // silêncio. `initialSettings` guarda o snapshot carregado do servidor
+  // para comparação; mesmo padrão de proteção contra fechamento acidental
+  // já usado no wizard de anúncio (AnunciarWizard.tsx).
+  const [initialSettings, setInitialSettings] = useState<Settings>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [logoPreviewError, setLogoPreviewError] = useState(false)
   const [chavesSecretas, setChavesSecretas] = useState<Set<string>>(new Set())
   const [secretasPreenchidas, setSecretasPreenchidas] = useState<Set<string>>(new Set())
 
+  const isDirty = JSON.stringify(settings) !== JSON.stringify(initialSettings)
+
   useEffect(() => { loadSettings() }, [])
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault()
+        e.returnValue = '' // Required for legacy browsers
+        return ''
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [isDirty])
 
   // Leitura e escrita passam por /api/admin/settings. Antes o painel falava
   // direto com o PostgREST usando a anon key, e como o admin autenticado
@@ -141,6 +162,7 @@ export default function AdminConfiguracoes() {
       const payload = await res.json()
       if (!res.ok) throw new Error(payload.error || 'Falha ao carregar')
       setSettings(payload.settings)
+      setInitialSettings(payload.settings)
       setChavesSecretas(new Set<string>(payload.chavesSecretas))
       setSecretasPreenchidas(new Set<string>(payload.secretasPreenchidas))
     } catch (err) {
@@ -850,9 +872,18 @@ export default function AdminConfiguracoes() {
                     </>
                   )}
                 </button>
-                <span style={{ fontSize: '.8rem', color: 'var(--adm-text-light)' }}>
-                  Alterações aplicadas imediatamente após salvar.
-                </span>
+                {isDirty ? (
+                  <span style={{ fontSize: '.8rem', fontWeight: 700, color: 'var(--adm-amber)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                    Alterações não salvas
+                  </span>
+                ) : (
+                  <span style={{ fontSize: '.8rem', color: 'var(--adm-text-light)' }}>
+                    Alterações aplicadas imediatamente após salvar.
+                  </span>
+                )}
               </div>
 
             </form>

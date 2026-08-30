@@ -1,11 +1,15 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { Ad, Category } from '@/components/ads/AdCard';
 import AdsSidebar from '@/components/ads/AdsSidebar';
 import { AdsFilterContext } from '@/components/ads/AdsFilterContext';
 import { useAdsFilters } from '@/lib/useAdsFilters';
 import { useGeoCascading } from '@/lib/useGeoCascading';
+import { clearGeoCache } from '@/lib/useGeoLocation';
 import { useLang } from '@/lib/lang-context';
+import { getSupabase } from '@/lib/supabase';
+import { getPurposeOptions } from '@/lib/purposeOptions';
 import ActiveFiltersList from './ActiveFiltersList';
 import AdsGrid from './AdsGrid';
 import ListagemPagination from './ListagemPagination';
@@ -24,6 +28,9 @@ const TRANSLATIONS = {
     emptyTitle: 'Nenhum anúncio encontrado',
     emptyDesc: 'Não encontramos resultados exatos para estes filtros. Que tal ajustar as categorias ou remover o filtro de localização?',
     emptyBtn: 'Limpar Filtros e Tentar Novamente',
+    emptyBtnRemove: (label: string) => `Remover filtro de ${label}`,
+    emptyBtnClearAll: 'Ou limpar todos os filtros',
+    priceRangeLabel: 'faixa de preço',
   },
   es: {
     allAds: 'Todos los Anuncios',
@@ -38,6 +45,9 @@ const TRANSLATIONS = {
     emptyTitle: 'Ningún anuncio encontrado',
     emptyDesc: 'No encontramos resultados exactos para estos filtros. ¿Qué tal ajustar las categorías o quitar el filtro de ubicación?',
     emptyBtn: 'Limpiar Filtros e Intentar de Nuevo',
+    emptyBtnRemove: (label: string) => `Quitar filtro de ${label}`,
+    emptyBtnClearAll: 'O limpiar todos los filtros',
+    priceRangeLabel: 'rango de precio',
   }
 };
 
@@ -70,6 +80,8 @@ export default function AdsBrowser({
   const {
     busca, setBusca,
     categoria, setCategoria,
+    subcategoria, setSubcategoria, toggleSubcategoria,
+    finalidade, setFinalidade,
     pais, setPais,
     estado, setEstado,
     cidade, setCidade,
@@ -87,6 +99,45 @@ export default function AdsBrowser({
 
   const { countries, states, cities } = useGeoCascading(pais, estado, categoria);
 
+  // Subcategorias dependem só da categoria escolhida no filtro — busca direto
+  // na tabela normalizada (diferente de useGeoCascading, que deriva valores
+  // distintos de `ads`; aqui a fonte é `subcategories`).
+  const [subcategories, setSubcategories] = useState<{ id: string; name_pt: string; name_es?: string | null }[]>([]);
+  // Contagem de anúncios ativos por subcategoria — evita o usuário escolher
+  // uma raça/tipo sem nenhum anúncio. Um único fetch dos ids (sem agregação
+  // no banco) e conta no cliente, mesmo padrão já usado em useGeoCascading.
+  const [subcategoryCounts, setSubcategoryCounts] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (!categoria) {
+      setSubcategories([]);
+      setSubcategoryCounts({});
+      return;
+    }
+    let isActive = true;
+    getSupabase()
+      .from('subcategories')
+      .select('id, name_pt, name_es')
+      .eq('category_id', categoria)
+      .eq('active', true)
+      .order('sort_order', { ascending: true })
+      .then(({ data }: { data: any[] | null }) => {
+        if (isActive && data) setSubcategories(data);
+      });
+    getSupabase()
+      .from('ads')
+      .select('subcategory_id')
+      .eq('category_id', categoria)
+      .eq('status', 'active')
+      .not('subcategory_id', 'is', null)
+      .then(({ data }: { data: any[] | null }) => {
+        if (!isActive || !data) return;
+        const counts: Record<string, number> = {};
+        for (const row of data) counts[row.subcategory_id] = (counts[row.subcategory_id] || 0) + 1;
+        setSubcategoryCounts(counts);
+      });
+    return () => { isActive = false; };
+  }, [categoria]);
+
   const PAGE_SIZE = 24;
   // BUG CORRIGIDO (varredura cruzada de cenários): comparar só o tamanho da
   // página atual faz "Próxima" ficar habilitado incorretamente sempre que o
@@ -94,18 +145,82 @@ export default function AdsBrowser({
   // 24, 48...) — a última página real também teria initialAds.length===24.
   // Usa page × PAGE_SIZE contra o total real (initialTotal, já disponível).
   const hasMore = page * PAGE_SIZE < initialTotal;
+  // GAP CORRIGIDO (auditoria de usabilidade): ListagemPagination só mostrava
+  // "Página N", sem total nem forma de o usuário saber quantas páginas
+  // faltam — reaproveita o mesmo PAGE_SIZE já usado acima pra `hasMore`.
+  const totalPages = Math.max(1, Math.ceil(initialTotal / PAGE_SIZE));
 
   const contextValue = {
-    lang, categories,
+    lang, categories, subcategories, subcategoryCounts,
     countries, states: states.map(s => s.id), cities,
     hasFilters, clearFilters, applyFilters, handleSearch,
-    busca, categoria, setCategoria,
+    busca, categoria, setCategoria, subcategoria, setSubcategoria, toggleSubcategoria, finalidade, setFinalidade,
     pais, setPais, estado, setEstado, cidade, setCidade,
     precoMin, setPrecoMin, precoMax, setPrecoMax, setPrice,
     destaque, setDestaque, negociavel, setNegociavel
   };
 
   const currentCatName = categoria ? (categories.find(c => c.id === categoria)?.[lang === 'es' ? 'name_es' : 'name_pt'] || categoria) : '';
+
+  // GAP CORRIGIDO (sugestão de usabilidade): "Limpar Filtros e Tentar
+  // Novamente" apagava TUDO de uma vez, mesmo quando só o filtro mais
+  // específico (ex.: finalidade) é que zerou os resultados. Sugere remover
+  // só o filtro mais restritivo primeiro — ordem do mais específico pro
+  // mais amplo — preservando o resto da busca já feita.
+  function getNarrowestFilterRemoval(): { label: string; action: () => void } | null {
+    if (finalidade) {
+      const label = getPurposeOptions(categoria).find(p => p.value === finalidade)?.[lang === 'es' ? 'label_es' : 'label_pt'] || finalidade;
+      return { label, action: () => setFinalidade('') };
+    }
+    if (subcategoria) {
+      const names = subcategoria.split(',')
+        .map(id => subcategories.find(s => s.id === id))
+        .filter((s): s is { id: string; name_pt: string; name_es?: string | null } => !!s)
+        .map(s => (lang === 'es' && s.name_es) ? s.name_es : s.name_pt);
+      return { label: names.join(' + ') || subcategoria, action: () => setSubcategoria('') };
+    }
+    if (precoMin || precoMax) {
+      return { label: T.priceRangeLabel, action: () => setPrice('', '') };
+    }
+    // GAP CORRIGIDO (auditoria de usabilidade): a cadeia de prioridade nunca
+    // considerava cidade/estado/país, mesmo esta localização sendo aplicada
+    // automaticamente via geolocalização (ActiveFiltersList/useAutoGeo) sem
+    // nenhuma ação do usuário — a causa mais provável de "0 resultados" pra
+    // quem não percebeu que já estava sendo filtrado pela própria região.
+    // Cidade > estado > país (do mais específico pro mais amplo), antes de
+    // categoria.
+    if (cidade) {
+      return { label: cidade, action: () => setCidade('') };
+    }
+    if (estado) {
+      return { label: estado, action: () => setEstado('') };
+    }
+    if (pais) {
+      return {
+        label: pais, action: () => {
+          // Mesmo padrão de AdsSidebar.tsx (select de país) e
+          // ActiveFiltersList.tsx/useAutoGeo.ts (remoção do último nível de
+          // geo): sem apagar o cookie, o próximo request no servidor
+          // (getGeoParams, sem pais/estado/cidade manuais na URL) reinjeta a
+          // mesma geolocalização via initialGeo, fazendo o filtro "voltar"
+          // sozinho um instante depois de parecer removido.
+          try {
+            document.cookie = 'user_geo_v1=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+            clearGeoCache();
+          } catch { /* ignore */ }
+          setPais('');
+        }
+      };
+    }
+    if (categoria) {
+      return { label: currentCatName, action: () => setCategoria('') };
+    }
+    if (busca) {
+      return { label: `"${busca}"`, action: () => setBusca('') };
+    }
+    return null;
+  }
+  const narrowestFilter = getNarrowestFilterRemoval();
 
   return (
     <AdsFilterContext.Provider value={contextValue}>
@@ -174,15 +289,27 @@ export default function AdsBrowser({
                   <div style={{ width: '80px', height: '80px', background: 'var(--clr-primary-pale)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2.5rem', marginBottom: 'var(--sp-6)', color: 'var(--clr-primary)', boxShadow: '0 0 0 10px rgba(34,197,94,0.05)' }}>🔍</div>
                   <h3 style={{ fontSize: 'var(--fs-xl)', fontWeight: 800, color: 'var(--clr-text)', marginBottom: 'var(--sp-2)', letterSpacing: '-0.02em' }}>{T.emptyTitle}</h3>
                   <p style={{ color: 'var(--clr-text-muted)', fontSize: 'var(--fs-base)', maxWidth: '360px', marginBottom: 'var(--sp-8)', lineHeight: 1.6 }}>{T.emptyDesc}</p>
-                  <button onClick={clearFilters} className="btn btn--primary" style={{ padding: '12px 32px' }}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-                    <span>{T.emptyBtn}</span>
-                  </button>
+                  {narrowestFilter ? (
+                    <>
+                      <button onClick={narrowestFilter.action} className="btn btn--primary" style={{ padding: '12px 32px' }}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                        <span>{T.emptyBtnRemove(narrowestFilter.label)}</span>
+                      </button>
+                      <button onClick={clearFilters} style={{ marginTop: 'var(--sp-3)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--clr-text-muted)', fontSize: 'var(--fs-sm)', textDecoration: 'underline' }}>
+                        {T.emptyBtnClearAll}
+                      </button>
+                    </>
+                  ) : (
+                    <button onClick={clearFilters} className="btn btn--primary" style={{ padding: '12px 32px' }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                      <span>{T.emptyBtn}</span>
+                    </button>
+                  )}
                 </div>
               ) : (
                 <>
                   <AdsGrid ads={initialAds} categories={categories} />
-                  <ListagemPagination hasMore={hasMore} />
+                  <ListagemPagination hasMore={hasMore} totalPages={totalPages} />
                 </>
               )}
             </div>

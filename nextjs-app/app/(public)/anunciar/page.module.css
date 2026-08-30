@@ -95,6 +95,9 @@ input[type="checkbox"]:checked + .toggleSwitchSm::after { transform: translateX(
 .inputLabel { display: block; font-weight: 700; font-size: 0.8rem; color: var(--clr-muted); margin-bottom: 0.6rem; text-transform: uppercase; }
 .inputLabel span { color: #ef4444; }
 .errorText { color: #ef4444; font-size: 0.8rem; margin-top: 0.4rem; display: block; }
+.labelRow { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.labelRow .inputLabel { margin-bottom: 0.6rem; }
+.charCounter { font-size: 0.75rem; color: var(--clr-muted); font-weight: 600; white-space: nowrap; }
 .sectionSubHeader { font-size: 1.05rem; font-weight: 800; margin: 0 0 1.2rem 0; }
 .divider { margin-top: 0.5rem; padding-top: 2rem; border-top: 1px solid rgba(0,0,0,0.05); }
 

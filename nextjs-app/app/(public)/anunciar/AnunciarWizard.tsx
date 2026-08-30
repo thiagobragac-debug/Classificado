@@ -11,6 +11,7 @@ import dynamic from 'next/dynamic'
 import { createAd, updateAd } from '@/lib/supabase'
 import { showToast } from '@/lib/toast'
 import { useLang } from '@/lib/lang-context'
+import { sanitizeHtml } from '@/lib/sanitize'
 import styles from './page.module.css'
 import { createAnuncioSchema, AnuncioFormValues, InsertAdDTO } from './_components/schema'
 import { StepData } from './_components/StepData'
@@ -60,7 +61,7 @@ const TRANSLATIONS = {
     step3: 'Fotos',
     savingDraft: 'Salvando rascunho...',
     draftSaved: 'Rascunho salvo',
-    saveError: 'Erro ao salvar:',
+    saveError: 'Não foi possível salvar agora. Suas informações continuam preenchidas — tente novamente em instantes.',
     draftRestored: 'Rascunho recuperado. Você pode continuar de onde parou.',
     draftPermError: 'Erro de permissão no rascunho. Reiniciando novo.',
     almostThere: 'Quase lá! Faça login ou cadastre-se para publicar seu anúncio.',
@@ -78,7 +79,7 @@ const TRANSLATIONS = {
     step3: 'Fotos',
     savingDraft: 'Guardando borrador...',
     draftSaved: 'Borrador guardado',
-    saveError: 'Error al guardar:',
+    saveError: 'No se pudo guardar ahora. Tu información sigue completa — inténtalo de nuevo en unos instantes.',
     draftRestored: 'Borrador recuperado. Puedes continuar donde lo dejaste.',
     draftPermError: 'Error de permiso en el borrador. Reiniciando uno nuevo.',
     almostThere: '¡Ya casi! Inicia sesión o regístrate para publicar tu anuncio.',
@@ -106,7 +107,9 @@ export function AnunciarWizard({ initialData, userProfile, isEditMode }: Anuncia
     defaultValues: {
       titulo: initialData?.title_pt || '',
       categoria: initialData?.category_id || '',
-      descricao: initialData?.description || '',
+      subcategoria: initialData?.subcategory_id || '',
+      finalidade: initialData?.purpose || '',
+      descricao: sanitizeHtml(initialData?.description) || '',
       moeda: initialData?.currency || 'BRL',
       preco: initialData?.price ? initialData.price.toString() : '',
       aNegociar: initialData?.negotiable || false,
@@ -139,7 +142,9 @@ export function AnunciarWizard({ initialData, userProfile, isEditMode }: Anuncia
           reset({
             titulo: parsed.title_pt || '',
             categoria: parsed.category_id || '',
-            descricao: parsed.description || '',
+            subcategoria: parsed.subcategory_id || '',
+            finalidade: parsed.purpose || '',
+            descricao: sanitizeHtml(parsed.description) || '',
             moeda: parsed.currency || 'BRL',
             preco: parsed.price ? parsed.price.toString() : '',
             aNegociar: parsed.negotiable || false,
@@ -217,9 +222,15 @@ export function AnunciarWizard({ initialData, userProfile, isEditMode }: Anuncia
             setSaveStatus('idle')
           }
         } catch (e: any) {
+          // GAP CORRIGIDO (achado de usabilidade #3): a mensagem crua do
+          // Supabase/Postgrest (às vezes em inglês, sem nenhuma ação
+          // sugerida) era guardada em `saveStatus` e renderizada direto pro
+          // usuário. Ela só vai pro console agora; a UI mostra uma mensagem
+          // traduzida e genérica (tr.saveError), com o status sinalizado
+          // apenas como 'error'.
           console.error("Erro ao salvar rascunho em background", e)
-          setSaveStatus(e.message || 'error')
-          
+          setSaveStatus('error')
+
           // Prevenção contra spoofing/falha RLS: se não tem permissão para alterar este draft, limpa o ID
           if (e.code === '403' || e.message?.includes('RLS') || e.code === '42501') {
             setDraftId(null)
@@ -234,6 +245,7 @@ export function AnunciarWizard({ initialData, userProfile, isEditMode }: Anuncia
 
   const preparePayload = (data: AnuncioFormValues, status: InsertAdDTO['status']): InsertAdDTO => {
     const finalCategoryId = data.categoria;
+    const finalSubcategoryId = data.subcategoria;
 
     let parsedPrice = null;
     if (data.preco) {
@@ -246,6 +258,13 @@ export function AnunciarWizard({ initialData, userProfile, isEditMode }: Anuncia
       title_pt: data.titulo,
       description: data.descricao,
       category_id: finalCategoryId,
+      // BUG CORRIGIDO (revisão de código): subcategoria é opcional em várias
+      // categorias — o form guarda '' quando nada foi escolhido, mas
+      // subcategory_id é FK em `subcategories.id`; '' não é um UUID válido e
+      // o insert falhava (23503) sempre que o rascunho era salvo/enviado sem
+      // subcategoria selecionada.
+      subcategory_id: finalSubcategoryId || null,
+      purpose: data.finalidade || null,
       price: parsedPrice,
       currency: data.moeda,
       price_unit_pt: data.unidadePreco || null,
@@ -331,7 +350,7 @@ export function AnunciarWizard({ initialData, userProfile, isEditMode }: Anuncia
       <main className="container">
         <div className={styles.anunciarLayout}>
           
-          <div className={styles.stepProgress} role="tablist" aria-label={tr.progressAria}>
+          <nav className={styles.stepProgress} aria-label={tr.progressAria}>
             <button
               type="button"
               className={`${styles.stepItem} ${currentStep >= 1 ? styles.active : ''}`}
@@ -359,12 +378,12 @@ export function AnunciarWizard({ initialData, userProfile, isEditMode }: Anuncia
             >
               <div className={styles.stepNum}>3</div><span className={styles.stepLabel}>{tr.step3}</span>
             </button>
-          </div>
+          </nav>
 
           <div className={`${styles.saveStatusContainer} ${saveStatus === 'saving' ? styles.saving : (saveStatus === 'saved' ? styles.saved : (saveStatus !== 'idle' ? styles.error : ''))}`} aria-live="polite">
             {saveStatus === 'saving' && <><span className={styles.spinner}></span> {tr.savingDraft}</>}
             {saveStatus === 'saved' && <>{tr.draftSaved}</>}
-            {saveStatus !== 'idle' && saveStatus !== 'saving' && saveStatus !== 'saved' && <>{tr.saveError} {saveStatus}</>}
+            {saveStatus === 'error' && <>{tr.saveError}</>}
           </div>
 
           <FormProvider {...methods}>

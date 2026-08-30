@@ -8,6 +8,7 @@ import { AnuncioFormValues } from './schema'
 import { CurrencyInput } from './CurrencyInput'
 import { getSupabase } from '@/lib/supabase'
 import { useLang } from '@/lib/lang-context'
+import { getPurposeOptions, getSubcategoryLabels } from '@/lib/purposeOptions'
 
 interface StepDataProps {
   onNext: () => void;
@@ -22,9 +23,15 @@ const TRANSLATIONS = {
     titleLabel: 'Título do Anúncio',
     titlePh: 'Ex: Trator Massey Ferguson 2018',
     categoryLabel: 'Categoria',
+    purposeLabel: 'Finalidade',
+    purposeNone: 'Não informar',
     selectPlaceholder: 'Selecione...',
+    selectCategoryFirst: 'Selecione a categoria primeiro',
     categoriesError: 'Não foi possível carregar as categorias.',
     categoriesRetry: 'Tentar novamente',
+    subcategoriesError: 'Não foi possível carregar as subcategorias.',
+    subcategoriesRetry: 'Tentar novamente',
+    subcategoriesEmpty: 'Esta categoria ainda não tem subcategorias cadastradas.',
     descLabel: 'Descrição',
     descPh: 'Descreva detalhes importantes...',
     valuesHeader: 'Valores e Condições',
@@ -56,9 +63,15 @@ const TRANSLATIONS = {
     titleLabel: 'Título del Anuncio',
     titlePh: 'Ej: Tractor Massey Ferguson 2018',
     categoryLabel: 'Categoría',
+    purposeLabel: 'Finalidad',
+    purposeNone: 'No informar',
     selectPlaceholder: 'Seleccionar...',
+    selectCategoryFirst: 'Selecciona la categoría primero',
     categoriesError: 'No se pudieron cargar las categorías.',
     categoriesRetry: 'Intentar de nuevo',
+    subcategoriesError: 'No se pudieron cargar las subcategorías.',
+    subcategoriesRetry: 'Intentar de nuevo',
+    subcategoriesEmpty: 'Esta categoría todavía no tiene subcategorías registradas.',
     descLabel: 'Descripción',
     descPh: 'Describe detalles importantes...',
     valuesHeader: 'Valores y Condiciones',
@@ -87,10 +100,16 @@ const TRANSLATIONS = {
 } as const
 
 export function StepData({ onNext }: StepDataProps) {
-  const { register, control, trigger, watch, setValue, getValues, formState: { errors } } = useFormContext<AnuncioFormValues>()
+  const methods = useFormContext<AnuncioFormValues>()
+  const { register, control, trigger, watch, setValue, setFocus, getValues, formState: { errors } } = methods
   const { lang } = useLang()
   const tr = TRANSLATIONS[lang]
   const moeda = watch('moeda') as string | undefined
+  const categoria = watch('categoria') as string | undefined
+  const titulo = watch('titulo') as string | undefined
+  const descricao = watch('descricao') as string | undefined
+  const tituloLen = titulo?.length || 0
+  const descricaoLen = descricao?.length || 0
   const [categories, setCategories] = useState<any[]>([])
   // BUG CORRIGIDO (varredura cruzada de cenários): sem estado de erro, uma
   // falha real do fetch (rede, RLS) deixava `categories` vazio pra sempre,
@@ -124,6 +143,59 @@ export function StepData({ onNext }: StepDataProps) {
     loadCategories()
   }, [])
 
+  // Subcategoria depende da categoria escolhida — mesmo padrão de
+  // fetch+erro+retry usado acima para `categories`.
+  const [subcategories, setSubcategories] = useState<any[]>([])
+  const [subcategoriesError, setSubcategoriesError] = useState(false)
+  const prevCategoriaRef = React.useRef<string | undefined>(undefined)
+
+  async function loadSubcategories(categoryId?: string) {
+    setSubcategoriesError(false)
+    if (!categoryId) {
+      setSubcategories([])
+      return
+    }
+    const supabase = getSupabase()
+    const { data, error } = await supabase
+      .from('subcategories')
+      .select('*')
+      .eq('category_id', categoryId)
+      .eq('active', true)
+      .order('sort_order', { ascending: true })
+
+    if (!error && data) {
+      setSubcategories(data)
+    } else if (error) {
+      console.error('Erro ao carregar subcategorias:', error.message)
+      setSubcategoriesError(true)
+    }
+  }
+
+  useEffect(() => {
+    // Só zera a subcategoria quando a categoria REALMENTE muda depois do
+    // mount — no mount, `categoria` pode já vir de um rascunho restaurado
+    // (junto com a subcategoria correspondente), que não pode ser apagada.
+    if (prevCategoriaRef.current !== undefined && prevCategoriaRef.current !== categoria) {
+      setValue('subcategoria', '', { shouldValidate: false })
+      setValue('finalidade', '', { shouldValidate: false })
+    }
+    prevCategoriaRef.current = categoria
+    loadSubcategories(categoria)
+  }, [categoria])
+
+  // Finalidade é um conjunto fixo por categoria (sem fetch — ver
+  // lib/purposeOptions.ts), diferente de `subcategories` (que vem do banco).
+  const purposeOptions = getPurposeOptions(categoria)
+  const subcategoryLabels = getSubcategoryLabels(categoria)
+
+  // Mesmo GAP CORRIGIDO do efeito de `categoria` logo abaixo, aplicado à
+  // subcategoria: ressincroniza o <select> depois que as options chegam.
+  useEffect(() => {
+    if (subcategories.length > 0) {
+      setValue('subcategoria', getValues('subcategoria'), { shouldDirty: false, shouldTouch: false })
+    }
+  }, [subcategories, setValue, getValues])
+
   // GAP CORRIGIDO (auditoria completa, 2026-08-25): o <select> de
   // categoria é não-controlado (register()) — seu valor inicial é
   // aplicado pela ref callback no MOUNT, quando só existe a option vazia
@@ -144,11 +216,21 @@ export function StepData({ onNext }: StepDataProps) {
 
   const handleNext = async () => {
     // Validate only this step's fields
-    const isStepValid = await trigger(['titulo', 'categoria', 'descricao', 'moeda', 'preco', 'aNegociar', 'unidadePreco', 'condicao'])
+    const fields = ['titulo', 'categoria', 'subcategoria', 'descricao', 'moeda', 'preco', 'aNegociar', 'unidadePreco', 'condicao'] as const
+    const isStepValid = await trigger(fields)
     if (isStepValid) {
       onNext()
     } else {
-      document.querySelector('form')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      // GAP CORRIGIDO (achado de usabilidade #2): rolar só até o topo do
+      // form não ajuda quando o campo inválido já está visível mas sem
+      // foco (ou quando o form é mais alto que a viewport) — o usuário
+      // não sabia qual campo corrigir. Foca o primeiro campo com erro.
+      const firstInvalid = fields.find((f) => methods.getFieldState(f).invalid)
+      if (firstInvalid) {
+        setFocus(firstInvalid)
+      } else {
+        document.querySelector('form')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
     }
   }
 
@@ -166,12 +248,16 @@ export function StepData({ onNext }: StepDataProps) {
 
       <div className={styles.formGrid64}>
         <div>
-          <label htmlFor="step-titulo" className={styles.inputLabel}>{tr.titleLabel} <span>*</span></label>
+          <div className={styles.labelRow}>
+            <label htmlFor="step-titulo" className={styles.inputLabel}>{tr.titleLabel} <span>*</span></label>
+            <span className={styles.charCounter} style={tituloLen > 100 ? { color: '#ef4444' } : undefined}>{tituloLen}/100</span>
+          </div>
           <input
             id="step-titulo"
             type="text"
             className={styles.formInput}
             placeholder={tr.titlePh}
+            maxLength={100}
             {...register('titulo')}
           />
           {errors.titulo && <span className={styles.errorText}>{errors.titulo.message}</span>}
@@ -196,9 +282,44 @@ export function StepData({ onNext }: StepDataProps) {
             </span>
           )}
         </div>
+        <div>
+          <label htmlFor="step-subcategoria" className={styles.inputLabel}>{lang === 'es' ? subcategoryLabels.label_es : subcategoryLabels.label_pt} <span>*</span></label>
+          <select id="step-subcategoria" className={styles.formInput} disabled={!categoria} {...register('subcategoria')}>
+            <option value="">{categoria ? tr.selectPlaceholder : tr.selectCategoryFirst}</option>
+            {subcategories.map(s => <option key={s.id} value={s.id}>{lang === 'es' && s.name_es ? s.name_es : s.name_pt}</option>)}
+          </select>
+          {errors.subcategoria && <span className={styles.errorText}>{errors.subcategoria.message}</span>}
+          {subcategoriesError && (
+            <span className={styles.errorText}>
+              {tr.subcategoriesError}{' '}
+              <button
+                type="button"
+                onClick={() => loadSubcategories(categoria)}
+                style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', textDecoration: 'underline', cursor: 'pointer', font: 'inherit' }}
+              >
+                {tr.subcategoriesRetry}
+              </button>
+            </span>
+          )}
+          {!subcategoriesError && categoria && subcategories.length === 0 && (
+            <span className={styles.errorText}>{tr.subcategoriesEmpty}</span>
+          )}
+        </div>
+        {purposeOptions.length > 0 && (
+          <div>
+            <label htmlFor="step-finalidade" className={styles.inputLabel}>{tr.purposeLabel}</label>
+            <select id="step-finalidade" className={styles.formInput} {...register('finalidade')}>
+              <option value="">{tr.purposeNone}</option>
+              {purposeOptions.map(p => <option key={p.value} value={p.value}>{lang === 'es' ? p.label_es : p.label_pt}</option>)}
+            </select>
+          </div>
+        )}
 
         <div className={styles.colFull}>
-          <label className={styles.inputLabel}>{tr.descLabel} <span>*</span></label>
+          <div className={styles.labelRow}>
+            <label className={styles.inputLabel}>{tr.descLabel} <span>*</span></label>
+            <span className={styles.charCounter} style={descricaoLen > 5000 ? { color: '#ef4444' } : undefined}>{descricaoLen}/5000</span>
+          </div>
           <Controller
             name="descricao"
             control={control}

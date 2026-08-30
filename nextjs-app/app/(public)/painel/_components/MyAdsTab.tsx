@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import useSWR from 'swr';
+import useSWR, { mutate as mutateGlobal } from 'swr';
 import { getMyAds, toggleAdStatus } from '@/lib/supabase';
 import { deleteAd } from '@/lib/supabase-panel';
 import { showToast } from '@/lib/toast';
@@ -35,6 +35,7 @@ const TRANSLATIONS = {
     quotaError: 'Você atingiu o limite de anúncios ativos do seu plano. Pause outro anúncio ou faça upgrade.',
     prev: '← Anterior', next: 'Próxima →',
     statusActive: 'Ativo', statusPending: 'Pendente', statusPaused: 'Pausado', statusExpired: 'Expirado',
+    noAdsStatus: 'Nenhum anúncio {status} no momento',
   },
   es: {
     title: 'Mis Anuncios', notify: '🔔 Activar Notificaciones', activating: 'Activando...',
@@ -56,6 +57,7 @@ const TRANSLATIONS = {
     quotaError: 'Alcanzaste el límite de anuncios activos de tu plan. Pausa otro anuncio o mejora tu plan.',
     prev: '← Anterior', next: 'Siguiente →',
     statusActive: 'Activo', statusPending: 'Pendiente', statusPaused: 'Pausado', statusExpired: 'Expirado',
+    noAdsStatus: 'Ningún anuncio {status} en este momento',
   },
 };
 
@@ -117,6 +119,11 @@ export function MyAdsTab({ userId, adStats, planMeta }: { userId: string, adStat
     try {
       await deleteAd(id);
       mutate(); // Refetch
+      // BUG CORRIGIDO (achado de usabilidade): a cota da sidebar
+      // (PainelClient) usa uma chave SWR própria ('adStats', userId) —
+      // sem invalidar essa chave aqui, excluir um anúncio ativo não
+      // atualizava o contador de cota até um F5.
+      mutateGlobal(['adStats', userId]);
     } catch {
       showToast(t.deleteError, 'error');
     }
@@ -126,6 +133,7 @@ export function MyAdsTab({ userId, adStats, planMeta }: { userId: string, adStat
     try {
       await toggleAdStatus(id, status);
       mutate(); // Refetch
+      mutateGlobal(['adStats', userId]); // Mantém a cota da sidebar em sincronia (ver handleDelete)
     } catch (err: any) {
       // BUG CORRIGIDO (teste do plano Grátis, 2026-08-25): o catch descartava
       // err.message e sempre mostrava um erro genérico — quando a reativação
@@ -173,20 +181,40 @@ export function MyAdsTab({ userId, adStats, planMeta }: { userId: string, adStat
       ) : error ? (
         <div className={styles.emptyState}>{t.loadError}</div>
       ) : ads.length === 0 ? (
-        <div className={styles.emptyState} style={{ padding: '4rem 2rem', border: '1px dashed var(--clr-border)', borderRadius: '1rem', background: 'white' }}>
-          <div className={styles.emptyStateIcon} style={{ width: '80px', height: '80px', background: 'linear-gradient(135deg, var(--clr-primary), #0ea5e9)', color: 'white', border: 'none', boxShadow: '0 10px 25px rgba(22,163,74,0.2)' }}>
-            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="3" width="18" height="18" rx="2" /><path d="M12 8v8"/><path d="M8 12h8"/>
-            </svg>
+        // BUG CORRIGIDO (achado de usabilidade): um filtro de status
+        // específico (ex. "Pausados") sem resultados reaproveitava o mesmo
+        // onboarding de "crie seu primeiro anúncio" — enganoso pra quem já
+        // tem anúncios (só não tem nenhum NESSE status). O onboarding
+        // completo fica reservado pra quando não há filtro nenhum.
+        statusFilter !== 'all' ? (
+          <div className={styles.emptyState} style={{ padding: '3rem 2rem', border: '1px dashed var(--clr-border)', borderRadius: '1rem', background: 'white' }}>
+            <p className={styles.emptyStateDesc} style={{ fontSize: '1rem', color: 'var(--clr-text-muted)' }}>
+              {t.noAdsStatus.replace('{status}', (STATUS_LABELS[statusFilter]?.label || statusFilter).toLowerCase())}
+            </p>
+            <button
+              onClick={() => { setStatusFilter('all'); setPage(1); }}
+              className={styles.secondaryButton}
+              style={{ marginTop: '1rem' }}
+            >
+              {t.allStatus}
+            </button>
           </div>
-          <h3 className={styles.emptyStateTitle} style={{ fontSize: '1.5rem', marginTop: '1.5rem', fontWeight: 800 }}>{t.emptyTitle}</h3>
-          <p className={styles.emptyStateDesc} style={{ fontSize: '1rem', maxWidth: '420px', lineHeight: 1.6, color: 'var(--clr-text-muted)' }}>
-            {t.emptyDesc}
-          </p>
-          <Link href="/anunciar" className={styles.primaryButton} style={{ marginTop: '1.5rem', padding: '0.85rem 2.5rem', fontSize: '1.1rem', borderRadius: '2rem' }}>
-            {t.publishNow}
-          </Link>
-        </div>
+        ) : (
+          <div className={styles.emptyState} style={{ padding: '4rem 2rem', border: '1px dashed var(--clr-border)', borderRadius: '1rem', background: 'white' }}>
+            <div className={styles.emptyStateIcon} style={{ width: '80px', height: '80px', background: 'linear-gradient(135deg, var(--clr-primary), #0ea5e9)', color: 'white', border: 'none', boxShadow: '0 10px 25px rgba(22,163,74,0.2)' }}>
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" /><path d="M12 8v8"/><path d="M8 12h8"/>
+              </svg>
+            </div>
+            <h3 className={styles.emptyStateTitle} style={{ fontSize: '1.5rem', marginTop: '1.5rem', fontWeight: 800 }}>{t.emptyTitle}</h3>
+            <p className={styles.emptyStateDesc} style={{ fontSize: '1rem', maxWidth: '420px', lineHeight: 1.6, color: 'var(--clr-text-muted)' }}>
+              {t.emptyDesc}
+            </p>
+            <Link href="/anunciar" className={styles.primaryButton} style={{ marginTop: '1.5rem', padding: '0.85rem 2.5rem', fontSize: '1.1rem', borderRadius: '2rem' }}>
+              {t.publishNow}
+            </Link>
+          </div>
+        )
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {ads.map((ad: any) => {

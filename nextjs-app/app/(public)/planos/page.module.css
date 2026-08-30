@@ -368,8 +368,14 @@
 .faqQ:hover { background: var(--clr-surface, #ffffff); }
 .faqArrow { font-size: 1.1rem; transition: transform 0.25s; color: var(--clr-text-muted, #64748b); flex-shrink: 0; }
 .faqItemOpen .faqArrow { transform: rotate(180deg); }
-.faqA { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; background: var(--clr-surface, #ffffff); }
-.faqItemOpen .faqA { max-height: 200px; }
+.faqA { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.3s ease; background: var(--clr-surface, #ffffff); }
+.faqItemOpen .faqA { grid-template-rows: 1fr; }
+/* .faqAInner é o item de grid de fato (sem padding próprio) — precisa ser
+   ele quem tem overflow:hidden, não o <p>, senão o padding do <p> vira uma
+   altura mínima que sobrevive mesmo com a row do grid em 0fr (a caixa não
+   consegue ficar menor que seu próprio padding). Com o padding um nível
+   abaixo (no <p>, que não é item de grid), a linha realmente colapsa a 0. */
+.faqAInner { overflow: hidden; }
 .faqA p { padding: 0.75rem 1.25rem 1rem; color: var(--clr-text-muted, #64748b); font-size: 0.88rem; line-height: 1.65; margin: 0; }
 
 @media (max-width: 900px) {

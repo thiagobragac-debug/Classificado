@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
-import { createAnonClient } from '@/lib/supabase-server';
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
+import { dentroDoLimiteFallback } from '@/lib/rate-limit-fallback';
 
 // ─── Rate Limiting ──────────────────────────────────────────────
 const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
@@ -78,6 +78,23 @@ export async function GET(request: NextRequest) {
         }
       );
     }
+  } else {
+    // BUG CORRIGIDO (varredura de segurança): sem Upstash configurado, esta
+    // rota ficava sem NENHUM limite (diferente de app/api/contact/route.ts
+    // e do próprio proxy.ts, que sempre têm um fallback via Postgres) —
+    // um único usuário autenticado podia colher telefone de vendedor sem
+    // teto algum. Mesma RPC check_rate_limit já usada em proxy.ts.
+    const permitido = await dentroDoLimiteFallback(supabase, {
+      bucket: `contact_user_${user.id}`,
+      limit: 10,
+      logPrefix: 'contact-seller',
+    });
+    if (!permitido) {
+      return NextResponse.json(
+        { error: 'Too Many Requests', message: 'Você enviou muitas solicitações. Aguarde um momento.' },
+        { status: 429, headers: { 'Retry-After': '60' } }
+      );
+    }
   }
 
   // ─── Validação do adId ────────────────────────────────────────
@@ -89,12 +106,19 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid adId format' }, { status: 400 });
   }
 
-  // ─── Busca do anúncio (cliente anônimo — dados públicos) ──────
+  // ─── Busca do anúncio ──────────────────────────────────────────
+  // BUG CORRIGIDO (fechamento pré-produção): phone_whatsapp mudou de
+  // profiles pra user_secrets (migration 20260829130000) — RLS de
+  // user_secrets é self-only, então nem o cliente da sessão (comprador)
+  // consegue mais ler o telefone do VENDEDOR via embed direto (isso é
+  // intencional: é o mesmo modelo de RLS que protege email/documento/etc.).
+  // A leitura cruzada legítima (comprador -> telefone do vendedor de um
+  // anúncio ativo) agora passa pela RPC get_seller_phone, que faz sua
+  // própria checagem de autorização (SECURITY DEFINER).
   try {
-    const anonSb = createAnonClient();
-    const { data: ad, error } = await anonSb
+    const { data: ad, error } = await supabase
       .from('ads')
-      .select('title_pt, title_es, status, profiles(phone_whatsapp)')
+      .select('title_pt, title_es, status')
       .eq('id', adId)
       .eq('status', 'active') // apenas anúncios ativos
       .single();
@@ -103,8 +127,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Ad not found or inactive' }, { status: 404 });
     }
 
-    const profile = Array.isArray(ad.profiles) ? ad.profiles[0] : ad.profiles;
-    const phone = (profile as any)?.phone_whatsapp;
+    const { data: phone, error: phoneError } = await supabase.rpc('get_seller_phone', { p_ad_id: adId });
+    if (phoneError) {
+      console.error('[contact-seller] get_seller_phone falhou:', phoneError.message);
+      return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    }
     if (!phone) {
       return NextResponse.json({ error: 'Seller contact not available' }, { status: 404 });
     }

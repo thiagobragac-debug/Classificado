@@ -76,7 +76,12 @@ export default function AdminInstitutionalPages() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!(await confirm('Deseja realmente excluir esta página institucional?'))) return
+    // BUG CORRIGIDO (achado de usabilidade): o confirm() era genérico e
+    // idêntico pra qualquer linha — sem o título da página, o admin não
+    // tinha como confirmar visualmente que ia excluir a página certa.
+    const pagina = pages.find(p => p.id === id)
+    const titulo = pagina?.title || 'esta página'
+    if (!(await confirm(`Deseja realmente excluir a página "${titulo}"? Essa ação não pode ser desfeita.`))) return
     const supabase = getSupabase()
     const { data, error } = await supabase.from('institutional_pages').delete().eq('id', id).select()
     if (!error && data && data.length > 0) {

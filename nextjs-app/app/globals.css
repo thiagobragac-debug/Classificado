@@ -683,10 +683,16 @@ html.is-logged-in .auth-wrapper a[href="login.html"]::after {
   align-items: center;
   padding-block: clamp(var(--sp-12), 6vh, var(--sp-20));
   width: 100%;
+  /* BUG CORRIGIDO (auditoria de usabilidade — vazamento em celulares reais):
+     grid items têm min-width:auto por padrão, ou seja, a coluna nunca
+     encolhe abaixo do conteúdo mais largo (o .hero-badge abaixo, ~442px em
+     texto longo). Como .hero tem overflow:hidden, o excesso era cortado em
+     silêncio (sem scrollbar) em vez de forçar a coluna/página a rolar. */
+  min-width: 0;
 }
 
 /* ─── HERO LEFT ──── */
-.hero-left { display: flex; flex-direction: column; }
+.hero-left { display: flex; flex-direction: column; min-width: 0; }
 
 .hero-badge {
   display: inline-flex; align-items: center; gap: var(--sp-2);
@@ -697,7 +703,15 @@ html.is-logged-in .auth-wrapper a[href="login.html"]::after {
   color: var(--clr-primary);
   font-size: var(--fs-xs); font-weight: 700;
   text-transform: uppercase; letter-spacing: 0.1em;
-  margin-bottom: var(--sp-5); width: fit-content;
+  margin-bottom: var(--sp-5);
+  /* BUG CORRIGIDO (mesma auditoria acima): width:fit-content deixava o
+     badge crescer até o max-content do texto (~442px, mais largo que
+     qualquer celular) sem nunca respeitar a largura disponível do pai.
+     max-width:100% + flex-wrap:wrap permitem o texto (uppercase, letter-
+     spacing 0.1em, vários países) quebrar linha dentro do próprio badge
+     em vez de vazar. */
+  max-width: 100%;
+  flex-wrap: wrap;
 }
 .hero-badge-dot {
   width: 6px; height: 6px;
@@ -1067,10 +1081,17 @@ html.is-logged-in .auth-wrapper a[href="login.html"]::after {
 .ad-tag { padding: 4px 10px; background: var(--clr-bg-alt); border-radius: 6px; font-size: 11px; font-weight: 600; color: var(--clr-text-muted); }
 .ad-tag--success { background: #DCFCE7; color: var(--clr-success); }
 .ad-card__meta { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); margin-top: auto; }
-.ad-card__location { display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: var(--clr-text-light); min-width: 0; }
+/* BUG CORRIGIDO (auditoria de acessibilidade): --clr-text-light (#94A3B8)
+   sobre o fundo branco do card mede ~2.6:1 de contraste — abaixo do mínimo
+   WCAG AA (4.5:1) pra texto pequeno. --clr-text-muted (#64748B) já é usada
+   em dezenas de outros lugares do site com ~4.6:1 e é a cor padrão de
+   texto secundário; trocada só aqui (não na variável --clr-text-light em
+   si, que segue usada de propósito em contextos decorativos/placeholder
+   onde AA não se aplica). */
+.ad-card__location { display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: var(--clr-text-muted); min-width: 0; }
 .ad-card__location svg { width: 14px; height: 14px; flex-shrink: 0; }
 .ad-card__location span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ad-card__time { font-size: 12px; font-weight: 600; color: var(--clr-text-light); flex-shrink: 0; }
+.ad-card__time { font-size: 12px; font-weight: 600; color: var(--clr-text-muted); flex-shrink: 0; }
 
 
 /* ─── TRUST — White + Colored Cards ──────── */

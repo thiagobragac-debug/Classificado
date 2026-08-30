@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, getSettings } from '@/lib/supabase-admin'
+import { assinaturaConfere } from '@/lib/gateways/signature'
 import {
   stripeAdapter,
   mercadoPagoAdapter,
@@ -47,7 +48,11 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Not configured' }, { status: 503 })
   }
   const authHeader = req.headers.get('authorization')
-  if (authHeader !== `Bearer ${cronSecret}`) {
+  // Comparação em tempo constante (auditoria de segurança, 2026-08-30) — mesma
+  // função já usada pra assinatura de webhook de pagamento (lib/gateways/
+  // signature.ts), reaproveitada aqui pelo mesmo motivo: `!==` vaza quantos
+  // bytes iniciais do segredo o chamador acertou pelo tempo de resposta.
+  if (!assinaturaConfere(`Bearer ${cronSecret}`, authHeader)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

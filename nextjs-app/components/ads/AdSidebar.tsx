@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Share2, Heart, AlertTriangle, CheckCircle, ShieldCheck, Mail } from 'lucide-react';
 import { AdBanner } from '@/components/AdBanner';
@@ -125,6 +125,19 @@ export function AdSidebar({ ad, adTitle, catName, hasWhatsapp }: AdSidebarProps)
   const [copied, setCopied] = useState(false);
   const [msgOpen, setMsgOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+
+  // BUG CORRIGIDO (varredura de usabilidade): CTA fixo mobile sem WhatsApp
+  // não tinha alternativa — virava botão morto mesmo com "Enviar Mensagem
+  // Interna" disponível aqui no sidebar. O CTA (em
+  // app/(public)/anuncio/[id]/page.tsx, fora da árvore deste componente)
+  // dispara este evento pra abrir o formulário e então rolar/focar até ele.
+  // Mesmo padrão de comunicação entre componentes já usado em
+  // Header.tsx/PainelClient.tsx (evento "painel:switchtab").
+  useEffect(() => {
+    const openMessageForm = () => setMsgOpen(true);
+    window.addEventListener('ad:openmessageform', openMessageForm);
+    return () => window.removeEventListener('ad:openmessageform', openMessageForm);
+  }, []);
   // BUG CORRIGIDO (teste do plano Grátis, 2026-08-25): este componente tinha
   // sua própria implementação de "favoritar" que só gravava no localStorage
   // — nunca chamava a RPC toggle_favorite_atomic. O favorito parecia salvar

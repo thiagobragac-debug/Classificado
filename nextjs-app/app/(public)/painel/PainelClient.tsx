@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import useSWR from 'swr';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { logout, getSupabase } from '@/lib/supabase';
 import { useLang } from '@/lib/lang-context';
@@ -125,8 +126,26 @@ export default function PainelClient({ initialUser, initialStats, initialPlanMet
 
   // Props vindas do SSR — sem loading state necessário
   const user = initialUser;
-  const adStats = initialStats;
   const planLabel = lang === 'es' && planLabelEs ? planLabelEs : initialPlanMeta?.label;
+
+  // BUG CORRIGIDO (achado de usabilidade): adStats vinha só do SSR
+  // (initialStats) e nunca revalidava no cliente — pausar, excluir ou
+  // reativar um anúncio em MyAdsTab (que tem seu próprio SWR, com outra
+  // chave) não refletia na cota mostrada aqui na sidebar até um F5.
+  // Usa a mesma RPC get_user_ad_stats já chamada no servidor (page.tsx),
+  // agora sob uma chave SWR compartilhada ('adStats', <userId>) que
+  // MyAdsTab também invalida via mutate() global após qualquer ação que
+  // mude o status de um anúncio.
+  const { data: liveAdStats } = useSWR(
+    user?.id ? ['adStats', user.id] : null,
+    async () => {
+      const { data, error } = await getSupabase().rpc('get_user_ad_stats', { p_user_id: user.id });
+      if (error || !data || data.length === 0) return initialStats;
+      return { total: data[0].total_ads || 0, active: data[0].active_ads || 0 };
+    },
+    { fallbackData: initialStats }
+  );
+  const adStats = liveAdStats || initialStats;
 
   const switchTab = (tab: Tab) => {
     setActiveTab(tab);
