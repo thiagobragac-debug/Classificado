@@ -1,5 +1,4 @@
 import { Metadata } from 'next';
-import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { Suspense } from 'react';
@@ -10,6 +9,8 @@ import { logError } from '@/lib/monitoring';
 import { t as _t, type Lang } from '@/lib/constants';
 import { escapeJsonLd } from '@/lib/json-ld';
 import { imageUrl } from '@/lib/storage';
+import { getLocale } from '@/lib/locale-server';
+import { localizedPath, buildHreflangAlternates } from '@/lib/locale';
 
 // Página de categoria (/categoria/[slug]) — landing pública, indexável, de
 // uma categoria específica. Reaproveita a MESMA lógica de busca/paginação de
@@ -87,7 +88,7 @@ function categoryDisplayName(category: any, lang: Lang): string {
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { slug } = await params;
   const rawParams = await Promise.resolve(searchParams);
-  const lang: Lang = (await cookies()).get('tc_lang')?.value === 'es' ? 'es' : 'pt';
+  const lang: Lang = await getLocale();
   const T = METADATA_TRANSLATIONS[lang];
 
   const ctx = await resolveCategoryContext(slug, rawParams);
@@ -100,28 +101,22 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   // Canonical auto-referente (só o slug da rota — não inclui a sobrescrita
   // por ?categoria=, que é um caso de uso do filtro interativo, não uma
   // variante de conteúdo que mereça URL indexável própria).
-  const canonicalUrl = `${SITE_URL}/categoria/${slug}`;
+  //
+  // BUG CRÍTICO CORRIGIDO (migração de SEO): antes esta página declarava
+  // pt-BR/es apontando pra essa MESMA URL, porque o idioma dependia só do
+  // cookie tc_lang — sem variante de URL própria. Isso mudou: /es/categoria/
+  // {slug} agora é uma URL real e distinta (rewrite em proxy.ts), então o
+  // par hreflang completo (mesmo mecanismo do resto do site) passa a ser
+  // válido de verdade, igual a /listagem.
+  const path = `/categoria/${slug}`;
+  const canonicalUrl = `${SITE_URL}${localizedPath(path, lang)}`;
 
-  // alternates.languages: diferente de anuncio/[id] e vendedor/[id] (que têm
-  // ?lang=pt/?lang=es como URLs de fato distintas), esta página — assim como
-  // /listagem — decide o idioma só pelo cookie tc_lang, sem variante de URL
-  // própria por idioma (o conteúdo interativo da AdsBrowser/LangProvider
-  // também segue só o cookie, não searchParams — ver lib/lang-context.tsx).
-  // Implementar um ?lang= aqui deixaria só o HTML gerado no servidor
-  // (título/breadcrumb) respeitando-o, sem mudar o restante do widget
-  // client-side — pior do que não declarar. Declarar pt-BR/es apontando pra
-  // essa MESMA URL comunica corretamente que ela serve os dois idiomas
-  // (via cookie), sem inventar uma variante que não existe de fato.
   return {
     title,
     description,
     alternates: {
       canonical: canonicalUrl,
-      languages: {
-        'pt-BR': canonicalUrl,
-        'es': canonicalUrl,
-        'x-default': canonicalUrl,
-      },
+      languages: buildHreflangAlternates(SITE_URL, path),
     },
     openGraph: {
       title,
@@ -260,7 +255,7 @@ async function CategoriaContent({ parsedParams, geoContext, lang, categoryName, 
 export default async function CategoriaPage({ params, searchParams }: Props) {
   const { slug } = await params;
   const rawParams = await Promise.resolve(searchParams);
-  const lang: Lang = (await cookies()).get('tc_lang')?.value === 'es' ? 'es' : 'pt';
+  const lang: Lang = await getLocale();
 
   const ctx = await resolveCategoryContext(slug, rawParams);
   if (!ctx) notFound();

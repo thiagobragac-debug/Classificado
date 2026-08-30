@@ -1,15 +1,14 @@
 import React from 'react'
-import { cookies } from 'next/headers'
 import styles from './page.module.css'
 import { t as _t } from '@/lib/constants'
+import { getLocale } from '@/lib/locale-server'
 
 // GAP CORRIGIDO (auditoria de i18n, 2026-08-26/27): skeleton ficava fixo em
 // português mesmo com ES selecionado. loading.tsx é um Server Component e
-// pode ser assíncrono como qualquer outro (mesmo padrão de cookies() já
+// pode ser assíncrono como qualquer outro (mesmo padrão de getLocale() já
 // usado em page.tsx desta mesma rota, inclusive coexistindo com `revalidate`).
 export default async function Loading() {
-  const cookieStore = await cookies()
-  const lang = cookieStore.get('tc_lang')?.value === 'es' ? 'es' : 'pt'
+  const lang = await getLocale()
   const t = (key: string) => _t(key, lang)
 
   return (

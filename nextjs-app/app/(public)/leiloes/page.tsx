@@ -1,16 +1,19 @@
 import { Suspense } from 'react';
-import { cookies } from 'next/headers';
 import type { Metadata } from 'next';
 import AuctionsBrowser from '@/components/auctions/AuctionsBrowser';
 import { createAnonClient } from '@/lib/supabase-server';
 import { escapeJsonLd } from '@/lib/json-ld';
+import { getLocale } from '@/lib/locale-server';
+import { localizedPath, buildHreflangAlternates } from '@/lib/locale';
+
+const SITE_URL = 'https://tauzeclass.com.br';
 
 // BUG CORRIGIDO (auditoria de i18n, 2026-08-26/27): metadata era um objeto
 // estático sempre em português — o <title>/description da aba nunca mudava
 // com o idioma selecionado. generateMetadata lendo o cookie tc_lang segue o
 // mesmo padrão já usado em app/(public)/layout.tsx e app/(public)/eventos/page.tsx.
 export async function generateMetadata(): Promise<Metadata> {
-  const lang = (await cookies()).get('tc_lang')?.value === 'es' ? 'es' : 'pt';
+  const lang = await getLocale();
 
   const title = lang === 'es' ? 'Remates Virtuales' : 'Leilões Virtuais';
   const description = lang === 'es'
@@ -22,23 +25,30 @@ export async function generateMetadata(): Promise<Metadata> {
     : 'Acompanhe os próximos leilões virtuais de animais, máquinas e imóveis rurais no Mercosul.';
   const ogAlt = lang === 'es' ? 'Remates Agro | Tauze Class' : 'Leilões Agro | Tauze Class';
 
+  // Canonical fixo intencional (por locale): a página aceita filtros via
+  // searchParams (status, q, month — ver fetchAuctions logo abaixo) que
+  // mudam os resultados listados, mas o title/description gerados aqui não
+  // variam por filtro. Não há conteúdo distinto por parâmetro que
+  // justifique um canonical dinâmico; pelo contrário, apontar toda
+  // variação de filtro para a URL base do locale ativo evita fragmentar o
+  // SEO da página entre inúmeras combinações de query (duplicate content /
+  // index bloat). BUG CRÍTICO CORRIGIDO (migração de SEO): antes o
+  // canonical/OG url era sempre a URL em PT mesmo quando lang === 'es' —
+  // /es/leiloes agora é uma URL real e distinta (rewrite em proxy.ts).
+  const path = '/leiloes';
+  const canonicalUrl = `${SITE_URL}${localizedPath(path, lang)}`;
+
   return {
     title,
     description,
-    // Canonical fixo intencional: a página aceita filtros via searchParams
-    // (status, q, month — ver fetchAuctions logo abaixo) que mudam os
-    // resultados listados, mas o title/description gerados aqui não variam
-    // por filtro (permanecem os mesmos para qualquer combinação de
-    // status/q/month). Não há conteúdo distinto por parâmetro que
-    // justifique um canonical dinâmico; pelo contrário, apontar toda
-    // variação de filtro para a URL base evita fragmentar o SEO da página
-    // entre inúmeras combinações de query (duplicate content / index
-    // bloat).
-    alternates: { canonical: 'https://tauzeclass.com.br/leiloes' },
+    alternates: {
+      canonical: canonicalUrl,
+      languages: buildHreflangAlternates(SITE_URL, path),
+    },
     openGraph: {
       title: ogTitle,
       description: ogDescription,
-      url: 'https://tauzeclass.com.br/leiloes',
+      url: canonicalUrl,
       type: 'website',
       locale: lang === 'es' ? 'es_AR' : 'pt_BR',
       images: [{ url: 'https://tauzeclass.com.br/assets/og-home.jpg', width: 1200, height: 630, alt: ogAlt }],
@@ -153,7 +163,7 @@ async function fetchAuctions(searchParams: any) {
 
 export default async function LeiloesPage({ searchParams }: { searchParams: Promise<any> }) {
   const { auctions: events, loadError } = await fetchAuctions(searchParams);
-  const lang = (await cookies()).get('tc_lang')?.value === 'es' ? 'es' : 'pt';
+  const lang = await getLocale();
 
   const ORGANIZER = {
     '@type': 'Organization',

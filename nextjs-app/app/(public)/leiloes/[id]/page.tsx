@@ -1,5 +1,4 @@
 import { notFound } from 'next/navigation';
-import { cookies } from 'next/headers';
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import { createClient, createAnonClient } from '@/lib/supabase-server';
@@ -7,7 +6,10 @@ import LotGrid from '@/components/auctions/LotGrid';
 import { LotData } from '@/components/auctions/LotBiddingModal';
 import { imageUrl } from '@/lib/storage';
 import { escapeJsonLd } from '@/lib/json-ld';
+import { getLocale } from '@/lib/locale-server';
+import { localizedPath, buildHreflangAlternates } from '@/lib/locale';
 
+const SITE_URL = 'https://tauzeclass.com.br';
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 // BUG CORRIGIDO (auditoria de i18n, 2026-08-26/27 — confirmado ao vivo
@@ -70,17 +72,13 @@ const TRANSLATIONS = {
   },
 } as const;
 
-async function getLang(): Promise<'pt' | 'es'> {
-  return (await cookies()).get('tc_lang')?.value === 'es' ? 'es' : 'pt';
-}
-
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const lang = await getLang();
+  const lang = await getLocale();
   const T = TRANSLATIONS[lang];
   if (!UUID_REGEX.test(id)) return { title: T.notFound };
 
@@ -110,14 +108,22 @@ export async function generateMetadata({
   const isLive = data.status === 'live';
   const ogTitle = isLive ? T.liveOgPrefix(title) : title;
 
+  // BUG CRÍTICO CORRIGIDO (migração de SEO): /es/leiloes/{id} agora é uma
+  // URL real e distinta (rewrite em proxy.ts), igual ao resto do site.
+  const path = `/leiloes/${id}`;
+  const canonicalUrl = `${SITE_URL}${localizedPath(path, lang)}`;
+
   return {
     title,
     description,
-    alternates: { canonical: `https://tauzeclass.com.br/leiloes/${id}` },
+    alternates: {
+      canonical: canonicalUrl,
+      languages: buildHreflangAlternates(SITE_URL, path),
+    },
     openGraph: {
       title: ogTitle,
       description,
-      url: `https://tauzeclass.com.br/leiloes/${id}`,
+      url: canonicalUrl,
       type: 'website',
       locale: lang === 'es' ? 'es_AR' : 'pt_BR',
       images: coverUrl
@@ -154,7 +160,7 @@ export async function generateStaticParams() {
 export default async function AuctionPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const auctionId = params.id;
-  const lang = await getLang();
+  const lang = await getLocale();
   const T = TRANSLATIONS[lang];
   const dateLocale = lang === 'es' ? 'es-AR' : 'pt-BR';
 

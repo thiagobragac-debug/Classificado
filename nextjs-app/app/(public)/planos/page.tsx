@@ -1,8 +1,8 @@
 import React, { Suspense } from 'react'
-import { cookies } from 'next/headers'
 import type { Metadata } from 'next'
 import { SUPABASE_URL, SUPABASE_ANON } from '@/lib/supabase'
 import PricingClientUI, { Plan } from './PricingClientUI'
+import { getLocale } from '@/lib/locale-server'
 
 type Lang = 'pt' | 'es'
 
@@ -36,13 +36,8 @@ const LOADING_I18N = {
   es: 'Cargando planes...',
 } as const
 
-async function getLang(): Promise<Lang> {
-  const cookieStore = await cookies()
-  return cookieStore.get('tc_lang')?.value === 'es' ? 'es' : 'pt'
-}
-
 export async function generateMetadata(): Promise<Metadata> {
-  const lang = await getLang()
+  const lang = await getLocale()
   return METADATA_I18N[lang]
 }
 
@@ -58,7 +53,7 @@ export default async function PlanosPage() {
   // genuinamente vazia" — PricingClientUI não tinha como distinguir os
   // dois casos e renderizava o grid/tabela em branco sem explicação.
   let plansError = false
-  const lang = await getLang()
+  const lang = await getLocale()
 
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/plans?is_active=eq.true&order=sort_order.asc`, {

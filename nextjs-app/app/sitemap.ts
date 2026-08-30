@@ -1,5 +1,17 @@
 import { MetadataRoute } from 'next';
 import { createAnonClient } from '@/lib/supabase-server';
+import { buildHreflangAlternates } from '@/lib/locale';
+
+// Cada entrada aponta pra URL canônica em PT e declara a variante ES via
+// alternates.languages (mesmo mecanismo de generateMetadata em cada página —
+// ver lib/locale.ts) — NÃO duplica uma entrada <url> própria por locale.
+// Documentação oficial do Next (sitemap.md) e o próprio schema do
+// sitemaps.org recomendam exatamente esse padrão: uma entrada por URL
+// canônica, com <xhtml:link rel="alternate" hreflang="..."> apontando pras
+// variantes, em vez de linhas duplicadas por idioma.
+function withLang(baseUrl: string, path: string) {
+  return buildHreflangAlternates(baseUrl, path);
+}
 
 // Usamos createAnonClient() (não createClient()) porque todo o conteúdo
 // deste sitemap é público — createClient() lê cookies() (API de request-time
@@ -39,36 +51,42 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: new Date(),
       changeFrequency: 'daily',
       priority: 1.0,
+      alternates: { languages: withLang(baseUrl, '/') },
     },
     {
       url: `${baseUrl}/listagem`,
       lastModified: new Date(),
       changeFrequency: 'always',
       priority: 0.9,
+      alternates: { languages: withLang(baseUrl, '/listagem') },
     },
     {
       url: `${baseUrl}/institucional`,
       lastModified: new Date(),
       changeFrequency: 'monthly',
       priority: 0.5,
+      alternates: { languages: withLang(baseUrl, '/institucional') },
     },
     {
       url: `${baseUrl}/planos`,
       lastModified: new Date(),
       changeFrequency: 'monthly',
       priority: 0.6,
+      alternates: { languages: withLang(baseUrl, '/planos') },
     },
     {
       url: `${baseUrl}/eventos`,
       lastModified: new Date(),
       changeFrequency: 'daily',
       priority: 0.8,
+      alternates: { languages: withLang(baseUrl, '/eventos') },
     },
     {
       url: `${baseUrl}/leiloes`,
       lastModified: new Date(),
       changeFrequency: 'daily',
       priority: 0.8,
+      alternates: { languages: withLang(baseUrl, '/leiloes') },
     },
   ];
 
@@ -101,6 +119,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: ad.updated_at || ad.created_at,
       changeFrequency: 'weekly',
       priority: 0.8,
+      alternates: { languages: withLang(baseUrl, `/anuncio/${ad.id}`) },
     }));
 
     // Vendedores com pelo menos um ad ativo — reaproveita os user_id já
@@ -128,6 +147,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: p.updated_at || p.created_at,
       changeFrequency: 'weekly',
       priority: 0.6,
+      alternates: { languages: withLang(baseUrl, `/vendedor/${p.id}`) },
     }));
 
     // Fetch upcoming/live events (auction_events) e feiras (eventos) —
@@ -153,6 +173,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: ev.created_at,
       changeFrequency: 'weekly',
       priority: 0.7,
+      alternates: { languages: withLang(baseUrl, `/eventos/${ev.id}`) },
     }));
 
     // /leiloes/[id] resolve só contra auction_events (ver
@@ -163,6 +184,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: ev.created_at,
       changeFrequency: 'weekly',
       priority: 0.7,
+      alternates: { languages: withLang(baseUrl, `/leiloes/${ev.id}`) },
     }));
 
     return [

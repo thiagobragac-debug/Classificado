@@ -1,6 +1,8 @@
 import { notFound } from 'next/navigation';
 import { createHash } from 'crypto';
-import { headers, cookies } from 'next/headers';
+import { headers } from 'next/headers';
+import { getLocale } from '@/lib/locale-server';
+import { localizedPath, buildHreflangAlternates } from '@/lib/locale';
 import Link from 'next/link';
 import DOMPurify from 'isomorphic-dompurify';
 import { AdGallery } from '@/components/ads/AdGallery';
@@ -74,26 +76,6 @@ const PAGE_TEXT: Record<Lang, {
   },
 };
 
-async function getCookieLang(): Promise<Lang> {
-  const cookieStore = await cookies();
-  return cookieStore.get('tc_lang')?.value === 'es' ? 'es' : 'pt';
-}
-
-// BUG CRÍTICO CORRIGIDO (auditoria de SEO): generateMetadata e o corpo da
-// página tinham cada um a SUA PRÓPRIA cópia dessa lógica de prioridade
-// (searchParams.lang > cookie) — a cópia do corpo (getCookieLang() sozinho,
-// sem olhar searchParams) nunca foi atualizada quando a de generateMetadata
-// ganhou o searchParams.lang. Resultado: as duas URLs do par hreflang
-// (?lang=pt / ?lang=es) tinham título/description diferentes mas o corpo
-// (breadcrumb, categoria, tags, JSON-LD) idêntico, sempre no idioma do
-// cookie — um hreflang que declara duas versões e serve o mesmo HTML pras
-// duas é pior do que não declarar hreflang nenhum. Extraída pra uma função
-// só, usada nos dois lugares, pra nunca mais divergir.
-function resolveLang(spLang: string | string[] | undefined, cookieLang: Lang): Lang {
-  const v = typeof spLang === 'string' ? spLang : undefined;
-  return v === 'es' || v === 'pt' ? v : cookieLang;
-}
-
 function imageUrl(path: string): string {
   if (!path) return FALLBACK_IMG;
   if (path.startsWith('http')) return path;
@@ -131,19 +113,17 @@ function stripHtmlForMeta(html: string, maxLen: number): string {
   return colapsado.length > maxLen ? colapsado.slice(0, maxLen - 1).trimEnd() + '…' : colapsado;
 }
 
-export async function generateMetadata({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  // BUG CORRIGIDO (auditoria de i18n, 2026-08-26): generateMetadata nunca
-  // lia cookies() nem searchParams — o <title>/description ficavam sempre
-  // em pt mesmo com ES selecionado, e os links hreflang ?lang=pt/?lang=es
-  // já declarados abaixo eram só decorativos (não influenciavam o próprio
-  // meta gerado quando um crawler os seguia). searchParams.lang tem
-  // prioridade (é o que o link hreflang carrega); sem ele, cai no cookie
-  // tc_lang, igual ao resto do site.
-  const sp = await searchParams;
-  const spLang = typeof sp?.lang === 'string' ? sp.lang : undefined;
-  const lang: Lang = resolveLang(spLang, await getCookieLang());
+  // BUG CRÍTICO CORRIGIDO (migração de SEO para URLs de idioma reais):
+  // generateMetadata e o corpo da página tinham cada um sua PRÓPRIA cópia
+  // da lógica de prioridade (searchParams.lang > cookie), e divergiram —
+  // exatamente o bug que motivou toda essa migração (hreflang declarando
+  // duas URLs que serviam o MESMO HTML). getLocale() lê o locale decidido
+  // por proxy.ts (prefixo /es na URL, a fonte de verdade agora) — chamado
+  // aqui E no corpo da página, nunca mais duas implementações divergentes.
+  const lang = await getLocale();
   const tx = PAGE_TEXT[lang];
 
   if (!UUID_REGEX.test(id)) {
@@ -179,27 +159,22 @@ export async function generateMetadata({ params, searchParams }: { params: Promi
   const imgUrl = ad.images?.[0] ? imageUrl(ad.images[0]) : FALLBACK_IMG_ABSOLUTE;
   const plainDescription = stripHtmlForMeta(ad.description || '', 160);
 
-  // BUG CORRIGIDO (auditoria de SEO): canonical era o MESMO literal pras
-  // duas variantes de idioma (?lang=pt e ?lang=es geravam o mesmo
-  // canonical, sem o parâmetro) — o Google trata canonical como sinal
-  // mais forte que hreflang quando os dois divergem, então consolidava
-  // tudo na URL sem parâmetro e esvaziava o par hreflang. Cada variante
-  // agora aponta pra si mesma; x-default e "es" genérico (não "es-AR" —
-  // o site atende Argentina/Uruguai/Paraguai igualmente, sem segmentação
-  // por país) substituem o hreflang anterior.
-  const baseUrl = `https://tauzeclass.com.br/anuncio/${id}`;
-  const canonicalUrl = spLang === 'es' || spLang === 'pt' ? `${baseUrl}?lang=${spLang}` : baseUrl;
+  // BUG CRÍTICO CORRIGIDO (migração de SEO): canonical/hreflang usavam
+  // ?lang= como parâmetro — funcionava tecnicamente, mas dependia da MESMA
+  // rota servir dois conteúdos diferentes por querystring, exatamente a
+  // fragilidade que causou o bug do achado acima. Agora /es/anuncio/{id}
+  // é uma URL real e distinta (rewrite em proxy.ts) — canonical auto-
+  // referente por locale, hreflang apontando pras duas URLs de verdade.
+  const path = `/anuncio/${id}`;
+  const siteUrl = 'https://tauzeclass.com.br';
+  const canonicalUrl = `${siteUrl}${localizedPath(path, lang)}`;
 
   return {
     title: title,
     description: plainDescription || tx.metaDescFallback(title),
     alternates: {
       canonical: canonicalUrl,
-      languages: {
-        'pt-BR': `${baseUrl}?lang=pt`,
-        'es': `${baseUrl}?lang=es`,
-        'x-default': baseUrl,
-      },
+      languages: buildHreflangAlternates(siteUrl, path),
     },
     openGraph: {
       title: `${title} | Tauze Class`,
@@ -214,7 +189,7 @@ export async function generateMetadata({ params, searchParams }: { params: Promi
   };
 }
 
-export default async function AdDetailsPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
+export default async function AdDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
   // ─── Validação de formato UUID ──────────────────────────────
@@ -222,14 +197,8 @@ export default async function AdDetailsPage({ params, searchParams }: { params: 
     notFound();
   }
 
-  // BUG CRÍTICO CORRIGIDO (auditoria de SEO): ver comentário de
-  // resolveLang() acima — o corpo da página precisa da MESMA prioridade
-  // (searchParams.lang > cookie) que generateMetadata já usa, senão o
-  // par hreflang declarado lá em cima mente pro Google (título muda,
-  // corpo não).
-  const sp = await searchParams;
-  const spLang = typeof sp?.lang === 'string' ? sp.lang : undefined;
-  const lang = resolveLang(spLang, await getCookieLang());
+  // Mesma fonte de verdade de generateMetadata acima — ver comentário lá.
+  const lang = await getLocale();
   const tx = PAGE_TEXT[lang];
 
   // ─── Cliente por-request (sem singleton de módulo) ──────────

@@ -1,8 +1,10 @@
 import type { Metadata, Viewport } from 'next';
-import { cookies, headers } from 'next/headers';
+import { headers } from 'next/headers';
 import Script from 'next/script';
 import '../globals.css';
 import { LangProvider } from '@/lib/lang-context';
+import { getLocale } from '@/lib/locale-server';
+import { localizedPath, buildHreflangAlternates } from '@/lib/locale';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { AuthProvider } from '@/components/AuthProvider';
@@ -50,10 +52,18 @@ const METADATA_TRANSLATIONS = {
   },
 } as const;
 
+const SITE_URL = 'https://tauzeclass.com.br';
+
 export async function generateMetadata(): Promise<Metadata> {
-  const cookieStore = await cookies();
-  const lang = (cookieStore.get('tc_lang')?.value === 'es' ? 'es' : 'pt') as 'pt' | 'es';
+  const lang = await getLocale();
   const m = METADATA_TRANSLATIONS[lang];
+  // BUG CRÍTICO CORRIGIDO (migração de SEO): canonical era SEMPRE a raiz em
+  // PT, mesmo quando a requisição era /es (a variante em ES "canonicalizava"
+  // pra si mesma incorretamente, contradizendo o próprio hreflang logo
+  // abaixo). Agora é auto-referente por locale, e alternates.languages
+  // aponta pra URL REAL de cada idioma (/ e /es) — antes disso não existia
+  // URL nenhuma em ES pra declarar, só o x-default fazia sentido.
+  const canonicalUrl = `${SITE_URL}${localizedPath('/', lang)}`;
 
   return {
     title: m.title,
@@ -64,7 +74,7 @@ export async function generateMetadata(): Promise<Metadata> {
       type: 'website',
       title: m.ogTitle,
       description: m.ogDescription,
-      url: 'https://tauzeclass.com.br',
+      url: canonicalUrl,
       // Fallback temporário — ainda não existe uma imagem de marca 1200x630
       // dedicada (og-home.jpg nunca existiu em public/assets/). Usa o mesmo
       // fallback já estabelecido em components/ads/AdGallery.tsx e
@@ -80,11 +90,8 @@ export async function generateMetadata(): Promise<Metadata> {
       images: ['https://tauzeclass.com.br/assets/hero_farm.webp'],
     },
     alternates: {
-      canonical: 'https://tauzeclass.com.br',
-      // x-default cobre visitantes sem preferência de idioma detectável
-      // (ex. crawlers) — aponta para a versão em português, que é o idioma
-      // padrão do site (cookie tc_lang ausente cai em 'pt').
-      languages: { 'x-default': 'https://tauzeclass.com.br' },
+      canonical: canonicalUrl,
+      languages: buildHreflangAlternates(SITE_URL, '/'),
     },
     manifest: '/manifest.json',
     icons: {
@@ -120,8 +127,7 @@ const LAYOUT_TRANSLATIONS = {
 } as const;
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const cookieStore = await cookies();
-  const tcLang = (cookieStore.get('tc_lang')?.value || 'pt') as 'pt' | 'es';
+  const tcLang = await getLocale();
   const lt = LAYOUT_TRANSLATIONS[tcLang];
 
   // Ler nonce gerado pelo proxy para usar nos scripts inline

@@ -1,5 +1,4 @@
 import { cache, Suspense } from 'react';
-import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
 import AdsBrowser from '@/components/ads/AdsBrowser';
@@ -7,11 +6,13 @@ import SellerProfileHeader from '@/components/seller/SellerProfileHeader';
 import { getAdsListagem, adsSearchParamsSchema } from '@/lib/services/ads.service';
 import { getAllCategories } from '@/lib/listagem-utils';
 import { createAnonClient } from '@/lib/supabase-server';
+import { getLocale } from '@/lib/locale-server';
+import { localizedPath, buildHreflangAlternates } from '@/lib/locale';
 import { t as _t } from '@/lib/constants';
 
-type Props = { 
-  params: Promise<{ id: string }> | { id: string }, 
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }> | { [key: string]: string | string[] | undefined } 
+type Props = {
+  params: Promise<{ id: string }> | { id: string },
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }> | { [key: string]: string | string[] | undefined }
 };
 
 // Next.js React cache dedups this call per request
@@ -44,16 +45,8 @@ function toAbsoluteImageUrl(url: string | null | undefined): string | null {
 
 export async function generateMetadata(props: Props): Promise<Metadata> {
   const params = await props.params;
-  const searchParams = await props.searchParams;
-  const cookieStore = await cookies();
-  const cookieLang = (cookieStore.get('tc_lang')?.value === 'es' ? 'es' : 'pt') as 'pt' | 'es';
-  // BUG CORRIGIDO (auditoria de SEO): generateMetadata só lia o cookie —
-  // mesma convenção de app/(public)/anuncio/[id]/page.tsx, onde
-  // searchParams.lang (o que o próprio link hreflang carrega) tem
-  // prioridade sobre o cookie.
-  const spLangRaw = searchParams?.lang;
-  const spLang = typeof spLangRaw === 'string' ? spLangRaw : undefined;
-  const lang: 'pt' | 'es' = spLang === 'es' || spLang === 'pt' ? spLang : cookieLang;
+  // Mesma fonte de verdade do resto do site — ver lib/locale-server.ts.
+  const lang = await getLocale();
   const profile = await getProfile(params.id);
 
   if (!profile) return { title: lang === 'es' ? 'Vendedor no encontrado' : 'Vendedor não encontrado' };
@@ -61,14 +54,11 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
   const sellerName = profile.display_name || profile.name || 'Vendedor';
   const ogImage = toAbsoluteImageUrl(profile.avatar_url) || toAbsoluteImageUrl(profile.banner_url) || FALLBACK_OG_IMAGE;
 
-  // BUG CORRIGIDO (auditoria de SEO): faltava alternates.languages — sem o
-  // par hreflang, o Google não sabia que ?lang=pt/?lang=es são a mesma
-  // página em idiomas diferentes. canonical agora aponta pra si mesmo por
-  // variante (mesma lógica de anuncio/[id]/page.tsx): com ?lang= explícito
-  // na URL, o canonical inclui o parâmetro; sem ele (acesso "neutro",
-  // guiado pelo cookie), aponta pra URL base.
-  const baseUrl = `${SITE_URL}/vendedor/${params.id}`;
-  const canonicalUrl = spLang === 'es' || spLang === 'pt' ? `${baseUrl}?lang=${spLang}` : baseUrl;
+  // BUG CRÍTICO CORRIGIDO (migração de SEO): ?lang= dependia da MESMA URL
+  // servir dois conteúdos — /es/vendedor/{id} agora é uma URL real e
+  // distinta (rewrite em proxy.ts), igual ao resto do site.
+  const path = `/vendedor/${params.id}`;
+  const canonicalUrl = `${SITE_URL}${localizedPath(path, lang)}`;
 
   return {
     title: lang === 'es' ? `Productos de ${sellerName}` : `Produtos de ${sellerName}`,
@@ -77,18 +67,14 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
       : `Confira os anúncios e avaliações de ${sellerName} no maior classificado agro do Mercosul.`,
     alternates: {
       canonical: canonicalUrl,
-      languages: {
-        'pt-BR': `${baseUrl}?lang=pt`,
-        'es': `${baseUrl}?lang=es`,
-        'x-default': baseUrl,
-      },
+      languages: buildHreflangAlternates(SITE_URL, path),
     },
     openGraph: {
       title: `${sellerName} — ${lang === 'es' ? 'Clasificados Agro' : 'Classificados Agro'} | Tauze Class`,
       description: lang === 'es'
         ? `Mira los productos de ${sellerName} y consulta su reputación.`
         : `Veja os produtos de ${sellerName} e confira sua reputação.`,
-      url: `${SITE_URL}/vendedor/${params.id}`,
+      url: canonicalUrl,
       type: 'profile',
       locale: lang === 'es' ? 'es_AR' : 'pt_BR',
       images: [{ url: ogImage, width: 1200, height: 630, alt: `${sellerName} | Tauze Class` }],
@@ -108,18 +94,8 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
 export default async function VendedorPage(props: Props) {
   const params = await props.params;
   const searchParams = await props.searchParams;
-  const cookieStore = await cookies();
-  const cookieLang = (cookieStore.get('tc_lang')?.value === 'es' ? 'es' : 'pt') as 'pt' | 'es';
-  // BUG CRÍTICO CORRIGIDO (achado da verificação adversarial desta rodada):
-  // generateMetadata já prioriza searchParams.lang sobre o cookie (mesma
-  // convenção de anuncio/[id]/page.tsx), mas o CORPO da página continuava
-  // só no cookie — as duas URLs do par hreflang que generateMetadata
-  // anuncia (?lang=pt / ?lang=es) serviam o MESMO HTML de corpo (breadcrumb,
-  // h1, JSON-LD), exatamente o bug "hreflang mentiroso" já corrigido em
-  // anuncio/[id]/page.tsx. searchParams.lang tem prioridade aqui também.
-  const spLangRaw = searchParams?.lang;
-  const spLang = typeof spLangRaw === 'string' ? spLangRaw : undefined;
-  const lang: 'pt' | 'es' = spLang === 'es' || spLang === 'pt' ? spLang : cookieLang;
+  // Mesma fonte de verdade de generateMetadata acima.
+  const lang = await getLocale();
   const t = (key: string) => _t(key, lang);
 
   const sp = { ...searchParams, seller_id: params.id };

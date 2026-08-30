@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { cookies } from 'next/headers';
+import { getLocale } from '@/lib/locale-server';
 
 // BUG CORRIGIDO (revalidação do zero da auditoria de i18n): página 404
 // inteira hardcoded em português, sem nenhuma lógica de idioma — qualquer
@@ -20,8 +20,7 @@ const TRANSLATIONS = {
 } as const;
 
 export default async function NotFound() {
-  const cookieStore = await cookies();
-  const lang = cookieStore.get('tc_lang')?.value === 'es' ? 'es' : 'pt';
+  const lang = await getLocale();
   const t = TRANSLATIONS[lang];
 
   return (
