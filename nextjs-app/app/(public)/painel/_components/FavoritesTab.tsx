@@ -165,7 +165,7 @@ export function FavoritesTab({ userId }: { userId: string }) {
                 <div style={{ padding: '1rem' }}>
                   <div style={{ fontWeight: 700, fontSize: '.9rem', color: 'var(--clr-text)', marginBottom: '.4rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adTitle(ad)}</div>
                   <div style={{ fontWeight: 700, color: 'var(--clr-primary-mid)', fontSize: '.95rem', marginBottom: '.5rem' }}>{fMoney(ad.price, ad.currency, lang)}</div>
-                  <Link href={`/anuncio/${ad.id}`} style={{ display: 'block', textAlign: 'center', padding: '.5rem', borderRadius: '.5rem', background: 'var(--clr-primary-pale)', color: 'var(--clr-primary-mid)', fontWeight: 700, fontSize: '.8rem', textDecoration: 'none' }}>
+                  <Link href={`/anuncio/${ad.slug}`} style={{ display: 'block', textAlign: 'center', padding: '.5rem', borderRadius: '.5rem', background: 'var(--clr-primary-pale)', color: 'var(--clr-primary-mid)', fontWeight: 700, fontSize: '.8rem', textDecoration: 'none' }}>
                     {t.seeAd}
                   </Link>
                 </div>

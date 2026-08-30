@@ -85,7 +85,7 @@ export function SimilarAdsCarousel({ ads }: { ads: any[] }) {
           return (
             <Link
               key={ad.id}
-              href={`/anuncio/${ad.id}`}
+              href={`/anuncio/${ad.slug}`}
               className="ad-card fade-in-up"
               style={{ 
                 display: 'flex', 

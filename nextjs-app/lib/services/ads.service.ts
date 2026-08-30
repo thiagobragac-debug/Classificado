@@ -58,6 +58,7 @@ export type AdsSearchParams = z.infer<typeof adsSearchParamsSchema>;
 
 export const adSchema = z.object({
   id: z.string(),
+  slug: z.string(),
   title_pt: z.string(),
   title_es: z.string().nullable().optional(),
   price: z.number().nullable().optional(),
@@ -91,7 +92,7 @@ export async function getAdsListagem(params: AdsSearchParams, geoContext: any) {
     // em espanhol (mesmo padrão já usado pra title_es) — mas este select
     // explícito nunca as buscava, então a listagem sempre caía no fallback
     // _pt, mesmo pra anúncios com tradução real preenchida.
-    .select('id, title_pt, title_es, price, currency, price_unit_pt, price_unit_es, negotiable, country, state, city, location_text, images, tags_pt, tags_es, status, featured, created_at, category_id', { count: 'exact' })
+    .select('id, slug, title_pt, title_es, price, currency, price_unit_pt, price_unit_es, negotiable, country, state, city, location_text, images, tags_pt, tags_es, status, featured, created_at, category_id', { count: 'exact' })
     .eq('status', 'active');
 
   // Filtros geográficos e de categoria

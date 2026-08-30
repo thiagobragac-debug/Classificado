@@ -30,7 +30,7 @@ export function TopSellersSection({ topSellers }: { topSellers: any[] }) {
         ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem' }}>
           {topSellers.map((seller: any, index: number) => (
-            <Link key={seller.id} href={`/vendedor/${seller.id}`} className="top-seller-card glass-card">
+            <Link key={seller.id} href={`/vendedor/${seller.slug}`} className="top-seller-card glass-card">
               <div className="seller-rank">#{index + 1}</div>
               {seller.avatar_url ? (
                 // <img> comum, não next/image: avatar_url é livre (qualquer host que o

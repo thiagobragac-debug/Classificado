@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { createHash } from 'crypto';
 import { headers } from 'next/headers';
 import { getLocale } from '@/lib/locale-server';
@@ -113,8 +113,8 @@ function stripHtmlForMeta(html: string, maxLen: number): string {
   return colapsado.length > maxLen ? colapsado.slice(0, maxLen - 1).trimEnd() + '…' : colapsado;
 }
 
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug: slugParam } = await params;
 
   // BUG CRÍTICO CORRIGIDO (migração de SEO para URLs de idioma reais):
   // generateMetadata e o corpo da página tinham cada um sua PRÓPRIA cópia
@@ -126,15 +126,11 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const lang = await getLocale();
   const tx = PAGE_TEXT[lang];
 
-  if (!UUID_REGEX.test(id)) {
-    return { title: tx.notFoundTitle };
-  }
-
   const supabase = createAnonClient();
   const { data: ad } = await supabase
     .from('ads')
-    .select('title_pt, title_es, description, images, status')
-    .eq('id', id)
+    .select('slug, title_pt, title_es, description, images, status')
+    .eq('slug', slugParam)
     .eq('status', 'active')
     .maybeSingle();
 
@@ -148,7 +144,24 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   // streamar, então chamar notFound() aqui (que já sabia que o anúncio não
   // existe, só nunca chamava) resolve sem precisar remover o skeleton de
   // loading do caminho feliz.
-  if (!ad) notFound();
+  //
+  // MIGRAÇÃO UUID→SLUG: um link antigo (já indexado pelo Google ou
+  // compartilhado) aponta pro UUID cru, não pro slug — se o parâmetro tem
+  // formato de UUID, tenta achar o anúncio real por id antes de desistir, e
+  // redireciona 301 pra URL de slug definitiva (preserva o locale ativo).
+  // Só depois desse fallback é que um "não existe mesmo" vira notFound().
+  if (!ad) {
+    if (UUID_REGEX.test(slugParam)) {
+      const { data: byId } = await supabase
+        .from('ads')
+        .select('slug')
+        .eq('id', slugParam)
+        .eq('status', 'active')
+        .maybeSingle();
+      if (byId) permanentRedirect(localizedPath(`/anuncio/${byId.slug}`, lang));
+    }
+    notFound();
+  }
 
   // BUG CORRIGIDO (auditoria de i18n, 2026-08-26): ordem estava
   // `ad.title_pt || ad.title_es` — nunca usava o título em espanhol mesmo
@@ -162,10 +175,10 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   // BUG CRÍTICO CORRIGIDO (migração de SEO): canonical/hreflang usavam
   // ?lang= como parâmetro — funcionava tecnicamente, mas dependia da MESMA
   // rota servir dois conteúdos diferentes por querystring, exatamente a
-  // fragilidade que causou o bug do achado acima. Agora /es/anuncio/{id}
+  // fragilidade que causou o bug do achado acima. Agora /es/anuncio/{slug}
   // é uma URL real e distinta (rewrite em proxy.ts) — canonical auto-
   // referente por locale, hreflang apontando pras duas URLs de verdade.
-  const path = `/anuncio/${id}`;
+  const path = `/anuncio/${ad.slug}`;
   const siteUrl = 'https://tauzeclass.com.br';
   const canonicalUrl = `${siteUrl}${localizedPath(path, lang)}`;
 
@@ -189,13 +202,8 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   };
 }
 
-export default async function AdDetailsPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-
-  // ─── Validação de formato UUID ──────────────────────────────
-  if (!UUID_REGEX.test(id)) {
-    notFound();
-  }
+export default async function AdDetailsPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug: slugParam } = await params;
 
   // Mesma fonte de verdade de generateMetadata acima — ver comentário lá.
   const lang = await getLocale();
@@ -222,13 +230,22 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ id: 
     // ao cliente mesmo antes disso (ver desestruturação abaixo) — só o
     // booleano hasWhatsapp precisa da coluna, buscado à parte via
     // service_role logo abaixo, isolado desta query pública.
-    .select('*, profiles(id, name, display_name, avatar_url, verified, country, created_at, email_verified, phone_verified, kyc_status), categories(name_pt, name_es, icon)')
-    .eq('id', id)
+    .select('*, profiles(id, slug, name, display_name, avatar_url, verified, country, created_at, email_verified, phone_verified, kyc_status), categories(name_pt, name_es, icon)')
+    .eq('slug', slugParam)
     .maybeSingle();
 
+  // MIGRAÇÃO UUID→SLUG: mesmo fallback de generateMetadata — ver comentário
+  // lá. Aqui não filtra por status (comportamento pré-existente preservado),
+  // então a busca por id legado segue a mesma regra.
   if (!ad) {
+    if (UUID_REGEX.test(slugParam)) {
+      const { data: byId } = await supabase.from('ads').select('slug').eq('id', slugParam).maybeSingle();
+      if (byId) permanentRedirect(localizedPath(`/anuncio/${byId.slug}`, lang));
+    }
     notFound();
   }
+
+  const id = ad.id;
 
   // ─── Contagem de views com hash real do IP ──────────────────
   try {
@@ -302,7 +319,7 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ id: 
         name: catName || _t('footer_ads', lang),
         item: `https://tauzeclass.com.br/listagem${ad.category_id ? `?categoria=${ad.category_id}` : ''}`,
       },
-      { '@type': 'ListItem', position: 3, name: adTitle, item: `https://tauzeclass.com.br/anuncio/${ad.id}` },
+      { '@type': 'ListItem', position: 3, name: adTitle, item: `https://tauzeclass.com.br/anuncio/${ad.slug}` },
     ],
   };
 

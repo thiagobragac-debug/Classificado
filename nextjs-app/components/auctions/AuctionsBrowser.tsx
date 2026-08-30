@@ -13,6 +13,7 @@ import styles from '@/app/(public)/leiloes/leiloes.module.css';
 
 export interface AuctionEvent {
   id: string;
+  slug: string;
   title: string;
   // Coluna nova (auditoria de i18n, 2026-08-26/27) — fallback pra title
   // quando vazia/nula, igual ao padrão já usado em ads.title_es.
@@ -178,7 +179,7 @@ export default function AuctionsBrowser({ events, loadError }: { events: Auction
                 <h2 className={styles.heroTitle}>{lang === 'es' && heroEvent.title_es ? heroEvent.title_es : heroEvent.title}</h2>
                 <p className={styles.heroDesc}>{T.heroDesc}</p>
                 <div className={styles.heroActions}>
-                  <Link href={`/leiloes/${heroEvent.id}`} className="btn btn--outline" style={{ color: 'white', borderColor: 'rgba(255,255,255,0.3)' }}>{T.accessAuction}</Link>
+                  <Link href={`/leiloes/${heroEvent.slug}`} className="btn btn--outline" style={{ color: 'white', borderColor: 'rgba(255,255,255,0.3)' }}>{T.accessAuction}</Link>
                   {heroEvent.catalog && (
                     <a href={heroEvent.catalog} target="_blank" rel="noopener noreferrer" className="btn btn--accent" style={{ background: '#10b981', color: 'white', border: 'none' }}>
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
@@ -294,7 +295,7 @@ export default function AuctionsBrowser({ events, loadError }: { events: Auction
             const formattedTime = dateObj.toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' });
 
             return (
-              <Link href={`/leiloes/${ev.id}`} key={ev.id} className="ad-card" style={{ display: 'flex', flexDirection: 'column', textDecoration: 'none', color: 'inherit' }}>
+              <Link href={`/leiloes/${ev.slug}`} key={ev.id} className="ad-card" style={{ display: 'flex', flexDirection: 'column', textDecoration: 'none', color: 'inherit' }}>
                 <div style={{ background: stripeColor, height: '4px', width: '100%' }}></div>
                 <div className={styles.adCardImgWrapper}>
                   <div className={styles.adCardBadge} style={{ background: statusBg }}>

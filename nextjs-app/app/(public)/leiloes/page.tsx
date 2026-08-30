@@ -117,7 +117,7 @@ async function fetchAuctions(searchParams: any) {
 
   const sb = createAnonClient();
   // (title_es: auditoria de i18n — coluna nova, com fallback pra title)
-  const fields = 'id, title, title_es, date, cover, status, youtube, catalog';
+  const fields = 'id, slug, title, title_es, date, cover, status, youtube, catalog';
 
   // BUG CORRIGIDO (varredura cruzada de cenários): a busca só comparava
   // contra `title`, nunca `title_es` — um usuário em espanhol buscando por
@@ -183,7 +183,7 @@ export default async function LeiloesPage({ searchParams }: { searchParams: Prom
         name: evTitle,
         startDate,
         endDate,
-        url: `https://tauzeclass.com.br/leiloes/${ev.id}`,
+        url: `https://tauzeclass.com.br/leiloes/${ev.slug}`,
         eventAttendanceMode: isOnline
           ? 'https://schema.org/OnlineEventAttendanceMode'
           : 'https://schema.org/OfflineEventAttendanceMode',
@@ -197,7 +197,7 @@ export default async function LeiloesPage({ searchParams }: { searchParams: Prom
             ? 'https://schema.org/EventCancelled'
             : 'https://schema.org/EventScheduled',
         location: isOnline
-          ? { '@type': 'VirtualLocation', url: `https://tauzeclass.com.br/leiloes/${ev.id}` }
+          ? { '@type': 'VirtualLocation', url: `https://tauzeclass.com.br/leiloes/${ev.slug}` }
           : {
               '@type': 'Place',
               name: ev.location || (lang === 'es' ? 'Ubicación del Remate' : 'Local do Leilão'),

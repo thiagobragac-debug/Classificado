@@ -1,5 +1,5 @@
 import { cache, Suspense } from 'react';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { Metadata } from 'next';
 import AdsBrowser from '@/components/ads/AdsBrowser';
 import SellerProfileHeader from '@/components/seller/SellerProfileHeader';
@@ -8,21 +8,40 @@ import { getAllCategories } from '@/lib/listagem-utils';
 import { createAnonClient } from '@/lib/supabase-server';
 import { getLocale } from '@/lib/locale-server';
 import { localizedPath, buildHreflangAlternates } from '@/lib/locale';
-import { t as _t } from '@/lib/constants';
+import { t as _t, type Lang } from '@/lib/constants';
 
 type Props = {
-  params: Promise<{ id: string }> | { id: string },
+  params: Promise<{ slug: string }> | { slug: string },
   searchParams: Promise<{ [key: string]: string | string[] | undefined }> | { [key: string]: string | string[] | undefined }
 };
 
-// Next.js React cache dedups this call per request
-const getProfile = cache(async (id: string) => {
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const PROFILE_COLS = 'id, slug, name, display_name, created_at, verified, avatar_url, banner_url';
+
+// Next.js React cache dedups this call per request — generateMetadata e
+// VendedorPage chamam com o MESMO slugParam, então só bate no banco uma vez.
+//
+// MIGRAÇÃO UUID→SLUG: /vendedor/[id] virou /vendedor/[slug]. Um link antigo
+// (já indexado pelo Google ou compartilhado) aponta pro UUID cru — se o
+// parâmetro tem formato de UUID e não bate com nenhum slug, tenta achar o
+// vendedor real por id e redireciona 301 pra URL de slug definitiva
+// (preserva o locale ativo). Como generateMetadata sempre roda antes do
+// corpo da página, o redirect disparado ali já resolve a requisição inteira.
+const resolveProfileBySlug = cache(async (slugParam: string, lang: Lang) => {
   const sb = createAnonClient();
   // BUG CORRIGIDO (reteste do site, 2026-08-25): faltava avatar_url/
   // banner_url — o header do vendedor sempre mostrava a inicial genérica
   // e o banner padrão, mesmo quando o vendedor tinha foto real cadastrada.
-  const { data } = await sb.from('profiles').select('name, display_name, created_at, verified, avatar_url, banner_url').eq('id', id).single();
-  return data;
+  const { data: bySlug } = await sb.from('profiles').select(PROFILE_COLS).eq('slug', slugParam).maybeSingle();
+  if (bySlug) return bySlug;
+
+  if (UUID_REGEX.test(slugParam)) {
+    const { data: byId } = await sb.from('profiles').select(PROFILE_COLS).eq('id', slugParam).maybeSingle();
+    if (byId) permanentRedirect(localizedPath(`/vendedor/${byId.slug}`, lang));
+  }
+
+  return null;
 });
 
 const SITE_URL = 'https://tauzeclass.com.br';
@@ -30,13 +49,13 @@ const FALLBACK_OG_IMAGE = `${SITE_URL}/assets/og-home.jpg`;
 
 // BUG CORRIGIDO (auditoria de SEO): og:image usava incondicionalmente a
 // imagem genérica do site, ignorando avatar_url/banner_url reais do
-// vendedor (já buscados por getProfile() desde o fix de 2026-08-25 —
-// ver comentário ali). Prioriza avatar sobre banner (mais parecido com o
-// "profile picture" que redes sociais esperam pra og:type=profile).
-// Garante URL absoluta mesmo que a coluna um dia guarde caminho relativo —
-// hoje avatar_url/banner_url já saem como URL completa (ver uso direto
-// como <img src> em SellerProfileHeader.tsx / AdSidebar.tsx, sem prefixo
-// de storage bucket, diferente de ads.images).
+// vendedor (já buscados por resolveProfileBySlug() desde o fix de
+// 2026-08-25 — ver comentário ali). Prioriza avatar sobre banner (mais
+// parecido com o "profile picture" que redes sociais esperam pra
+// og:type=profile). Garante URL absoluta mesmo que a coluna um dia guarde
+// caminho relativo — hoje avatar_url/banner_url já saem como URL completa
+// (ver uso direto como <img src> em SellerProfileHeader.tsx / AdSidebar.tsx,
+// sem prefixo de storage bucket, diferente de ads.images).
 function toAbsoluteImageUrl(url: string | null | undefined): string | null {
   if (!url) return null;
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
@@ -47,7 +66,7 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
   const params = await props.params;
   // Mesma fonte de verdade do resto do site — ver lib/locale-server.ts.
   const lang = await getLocale();
-  const profile = await getProfile(params.id);
+  const profile = await resolveProfileBySlug(params.slug, lang);
 
   if (!profile) return { title: lang === 'es' ? 'Vendedor no encontrado' : 'Vendedor não encontrado' };
 
@@ -55,9 +74,9 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
   const ogImage = toAbsoluteImageUrl(profile.avatar_url) || toAbsoluteImageUrl(profile.banner_url) || FALLBACK_OG_IMAGE;
 
   // BUG CRÍTICO CORRIGIDO (migração de SEO): ?lang= dependia da MESMA URL
-  // servir dois conteúdos — /es/vendedor/{id} agora é uma URL real e
+  // servir dois conteúdos — /es/vendedor/{slug} agora é uma URL real e
   // distinta (rewrite em proxy.ts), igual ao resto do site.
-  const path = `/vendedor/${params.id}`;
+  const path = `/vendedor/${profile.slug}`;
   const canonicalUrl = `${SITE_URL}${localizedPath(path, lang)}`;
 
   return {
@@ -81,7 +100,7 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
     },
     twitter: {
       // BUG CORRIGIDO (auditoria de SEO): card 'summary' sem imagem
-      // destoava do resto do site (anuncio/[id]/page.tsx, home) que usa
+      // destoava do resto do site (anuncio/[slug]/page.tsx, home) que usa
       // 'summary_large_image' — padronizado, reaproveitando ogImage.
       card: 'summary_large_image',
       title: `${sellerName} — Tauze Class`,
@@ -98,7 +117,20 @@ export default async function VendedorPage(props: Props) {
   const lang = await getLocale();
   const t = (key: string) => _t(key, lang);
 
-  const sp = { ...searchParams, seller_id: params.id };
+  // Profile is deduplicated (React cache) — instantly returns from cache if
+  // generateMetadata já rodou nesta mesma requisição.
+  const profile = await resolveProfileBySlug(params.slug, lang);
+
+  if (!profile) {
+    notFound();
+  }
+
+  // sellerId é o UUID REAL do vendedor (profiles.id / ads.user_id) — nunca o
+  // slug. Filtros de anúncio (seller_id), RPC de estatísticas e o link do
+  // CTA de contato continuam operando sobre esse id, só a URL pública mudou.
+  const sellerId = profile.id;
+
+  const sp = { ...searchParams, seller_id: sellerId };
   const parsedParams = adsSearchParamsSchema.parse(sp);
 
   // BUG CRÍTICO CORRIGIDO (reteste do site, 2026-08-25): getGeoParams() cai
@@ -118,15 +150,6 @@ export default async function VendedorPage(props: Props) {
     hasManualGeo: !!(parsedParams.pais || parsedParams.estado || parsedParams.cidade),
     geoCookie: null,
   };
-
-  const sb = createAnonClient();
-
-  // Profile is now deduplicated, it will instantly return from cache if generateMetadata already ran
-  const profile = await getProfile(params.id);
-
-  if (!profile) {
-    notFound();
-  }
 
   const sellerName = profile.display_name || profile.name || (lang === 'es' ? 'Vendedor Anónimo' : 'Vendedor Anônimo');
 
@@ -152,7 +175,7 @@ export default async function VendedorPage(props: Props) {
           </div>
         </div>
       </div>
-      
+
       <Suspense fallback={
         <div className="container" style={{ marginTop: '-40px', position: 'relative', zIndex: 10 }}>
            <div style={{ height: '120px', background: 'var(--clr-surface)', borderRadius: '1rem', border: '1px solid var(--clr-border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -160,29 +183,28 @@ export default async function VendedorPage(props: Props) {
            </div>
         </div>
       }>
-        <SellerContent 
-          sellerId={params.id} 
-          sellerName={sellerName} 
-          parsedParams={parsedParams} 
-          geoContext={geoContext} 
+        <SellerContent
+          sellerId={sellerId}
+          sellerName={sellerName}
+          parsedParams={parsedParams}
+          geoContext={geoContext}
+          profile={profile}
         />
       </Suspense>
     </main>
   );
 }
 
-async function SellerContent({ sellerId, sellerName, parsedParams, geoContext }: { sellerId: string, sellerName: string, parsedParams: any, geoContext: any }) {
+async function SellerContent({ sellerId, sellerName, parsedParams, geoContext, profile }: { sellerId: string, sellerName: string, parsedParams: any, geoContext: any, profile: { created_at: string; verified: boolean | null; avatar_url: string | null; banner_url: string | null } }) {
   const sb = createAnonClient();
   const [
     { ads, total, nextCursor },
     categories,
     { data: statsData },
-    profile,
   ] = await Promise.all([
     getAdsListagem(parsedParams, geoContext),
     getAllCategories(),
     sb.rpc('get_seller_stats', { p_seller_id: sellerId }),
-    getProfile(sellerId), // cached — sem custo extra de rede
   ]);
 
   const stats = statsData && statsData.length > 0 ? statsData[0] : { total_reviews: 0, avg_rating: 0 };
@@ -220,14 +242,14 @@ async function SellerContent({ sellerId, sellerName, parsedParams, geoContext }:
           bannerUrl={profile?.banner_url ?? null}
         />
       </div>
-      <AdsBrowser 
+      <AdsBrowser
         initialAds={ads}
         initialTotal={total}
         initialGeo={geoContext}
         categories={categories}
         nextCursor={nextCursor}
-        sellerId={sellerId} 
-        hideHero 
+        sellerId={sellerId}
+        hideHero
       />
     </>
   );

@@ -54,7 +54,7 @@ export async function getServerAds({
 
   let q = supabase
     .from('ads')
-    .select('id, title_pt, title_es, price, currency, status, featured, images, category_id, city, state, country, created_at, views_count, expires_at, profiles(name, avatar_url, verified, phone_whatsapp)')
+    .select('id, slug, title_pt, title_es, price, currency, status, featured, images, category_id, city, state, country, created_at, views_count, expires_at, profiles(name, avatar_url, verified, phone_whatsapp)')
     .eq('status', status)
     .order('featured', { ascending: false })
     .order('created_at', { ascending: false })
@@ -120,7 +120,7 @@ export const getServerFeaturedAds = cache(async (city?: string, state?: string, 
       p_country: country || null, 
       p_limit: limit 
     })
-    .select('id, title_pt, title_es, price, currency, status, featured, images, category_id, city, state, country, created_at, views_count, expires_at, profiles(name, avatar_url, verified, phone_whatsapp)');
+    .select('id, slug, title_pt, title_es, price, currency, status, featured, images, category_id, city, state, country, created_at, views_count, expires_at, profiles(name, avatar_url, verified, phone_whatsapp)');
     
   if (error) {
     console.error("Error fetching localized featured ads", error);
@@ -139,7 +139,7 @@ export const getServerRecentAds = cache(async (city?: string, state?: string, co
       p_limit: limit,
       p_offset: 0
     })
-    .select('id, title_pt, title_es, price, currency, status, featured, images, category_id, city, state, country, created_at, views_count, expires_at, profiles(name, avatar_url, verified, phone_whatsapp)')
+    .select('id, slug, title_pt, title_es, price, currency, status, featured, images, category_id, city, state, country, created_at, views_count, expires_at, profiles(name, avatar_url, verified, phone_whatsapp)')
     .limit(limit);
     
   if (error) {

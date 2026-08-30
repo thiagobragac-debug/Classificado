@@ -356,7 +356,7 @@ export default function AdminAnuncios() {
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <img src={imageUrl((ad.images && ad.images.length > 0) ? ad.images[0] : null, 'https://placehold.co/100x100?text=Sem+Foto')} alt="" style={{ width: '48px', height: '48px', borderRadius: '8px', objectFit: 'cover' }} />
-                      <Link href={`/anuncio/${ad.id}`} target="_blank" style={{ fontWeight: 600, color: 'var(--adm-text)', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'none' }} title="Visualizar Anúncio">
+                      <Link href={`/anuncio/${ad.slug}`} target="_blank" style={{ fontWeight: 600, color: 'var(--adm-text)', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'none' }} title="Visualizar Anúncio">
                         {ad.title_pt}
                       </Link>
                     </div>
@@ -399,7 +399,7 @@ export default function AdminAnuncios() {
                           {ad.featured ? '★ Remover' : '☆ Destacar'}
                         </button>
                       )}
-                      <Link href={`/anuncio/${ad.id}`} target="_blank" className="adm-btn adm-btn--sm adm-btn--outline" style={{ display: 'grid', placeItems: 'center', padding: '0 8px' }} title="Visualizar Anúncio na Loja">
+                      <Link href={`/anuncio/${ad.slug}`} target="_blank" className="adm-btn adm-btn--sm adm-btn--outline" style={{ display: 'grid', placeItems: 'center', padding: '0 8px' }} title="Visualizar Anúncio na Loja">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
                       </Link>
                     </div>

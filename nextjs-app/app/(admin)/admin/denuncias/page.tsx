@@ -50,7 +50,7 @@ export default function AdminDenuncias() {
     const from = (currentPage - 1) * pageSize
     const to = from + pageSize - 1
 
-    let q = supabase.from('reports').select('*, ads(title_pt), profiles!reporter_id(name)', { count: 'exact' })
+    let q = supabase.from('reports').select('*, ads(title_pt, slug), profiles!reporter_id(name)', { count: 'exact' })
     if (severityFilter) q = q.eq('severity', severityFilter)
     if (statusFilter) q = q.eq('status', statusFilter)
 
@@ -410,7 +410,7 @@ export default function AdminDenuncias() {
                   </td>
                   <td style={{ fontWeight: 600 }}>
                     {rep.ads?.title_pt ? (
-                      <Link href={`/anuncio/${rep.ad_id}`} target="_blank" style={{ color: 'var(--adm-text)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px' }} title="Abrir Anúncio em Nova Aba">
+                      <Link href={`/anuncio/${rep.ads.slug}`} target="_blank" style={{ color: 'var(--adm-text)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px' }} title="Abrir Anúncio em Nova Aba">
                         {rep.ads.title_pt}
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--adm-text-secondary)' }}><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
                       </Link>

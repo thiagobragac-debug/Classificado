@@ -166,7 +166,7 @@ function buildItemListJsonLd(ads: any[], lang: 'pt' | 'es') {
       return {
         '@type': 'ListItem',
         position: index + 1,
-        url: `${SITE_URL}/anuncio/${ad.id}`,
+        url: `${SITE_URL}/anuncio/${ad.slug}`,
         item: {
           '@type': 'Product',
           name: adTitle,

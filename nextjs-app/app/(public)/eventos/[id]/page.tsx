@@ -58,7 +58,7 @@ type FoundEvento = {
   organizer?: string;
   link?: string;
 };
-type FoundAuction = { kind: 'auction' };
+type FoundAuction = { kind: 'auction'; slug: string };
 type FoundRecord = FoundAuction | FoundEvento;
 
 // BUG CRÍTICO CORRIGIDO (teste completo do site, 2026-08-24): esta página só
@@ -78,21 +78,25 @@ type FoundRecord = FoundAuction | FoundEvento;
 // aponta sempre pra /eventos/{id}, nunca sabe se o registro é um leilão),
 // esta função agora só confirma a EXISTÊNCIA do auction_event (kind:
 // 'auction') — quem decide o que fazer com isso é generateMetadata/a página
-// (redirect de vez pra /leiloes/{id}, sem renderizar resumo nenhum). Só um
+// (redirect de vez pra /leiloes/{slug}, sem renderizar resumo nenhum). Só um
 // registro de `eventos` de verdade retorna os dados completos (kind:
 // 'evento') pra render abaixo.
+//
+// MIGRAÇÃO UUID→SLUG: /leiloes/[id] virou /leiloes/[slug] — o redirect
+// abaixo precisa do slug real do leilão, não do id cru desta rota (que
+// continua sendo o id de auction_events, /eventos/[id] não foi slugificada).
 async function findEvent(id: string, lang: Lang): Promise<FoundRecord | null> {
   const sb = createAnonClient();
 
   const { data: auction } = await sb
     .from('auction_events')
-    .select('id')
+    .select('slug')
     .eq('id', id)
     .neq('status', 'draft')
     .maybeSingle();
 
   if (auction) {
-    return { kind: 'auction' };
+    return { kind: 'auction', slug: auction.slug };
   }
 
   const { data: evento } = await sb
@@ -146,7 +150,7 @@ export async function generateMetadata({
   // 200) — viraria só uma <meta> de redirect client-side. Permanent (308)
   // porque a duplicidade é estrutural: este id SEMPRE vai pertencer a
   // /leiloes, nunca a uma página de evento própria.
-  if (data.kind === 'auction') permanentRedirect(localizedPath(`/leiloes/${id}`, lang));
+  if (data.kind === 'auction') permanentRedirect(localizedPath(`/leiloes/${data.slug}`, lang));
 
   const coverUrl = data.cover
     ? data.cover.startsWith('http')
@@ -226,7 +230,7 @@ export default async function EventDetailPage({
   // normais, mas se algum dia rodar sem esse Suspense herdado, o corpo
   // continua correto por si só.
   if (found.kind === 'auction') {
-    permanentRedirect(localizedPath(`/leiloes/${id}`, lang))
+    permanentRedirect(localizedPath(`/leiloes/${found.slug}`, lang))
   }
 
   const event = found

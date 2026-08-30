@@ -52,7 +52,7 @@ export function AdCardHome({ ad, lang, favs, toggleFav, priority = false }: { ad
       transition={{ type: 'spring', stiffness: 400, damping: 25 }}
       style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
     >
-      <Link href={`/anuncio/${ad.id}`} className={`ad-card${ad.featured ? ' ad-card--featured' : ''}`} style={{ flex: 1, width: '100%' }}>
+      <Link href={`/anuncio/${ad.slug}`} className={`ad-card${ad.featured ? ' ad-card--featured' : ''}`} style={{ flex: 1, width: '100%' }}>
       <div className="ad-card__image" style={{ position: 'relative' }}>
         {img ? (
           <Image src={img} alt={adTitle} fill style={{ objectFit: 'cover' }} sizes="(max-width: 768px) 100vw, 300px" priority={priority} />
