@@ -218,6 +218,21 @@ const API_CSP = `default-src 'none'; frame-ancestors 'none'; base-uri 'none'`;
 // indexada em PT muda. Só ADICIONA uma árvore de URL nova pra ES.
 const LOCALE_PREFIX = '/es';
 
+// Países do Mercosul de língua espanhola — mesmo recorte já usado no resto
+// do site ("Brasil, Argentina, Paraguai e Uruguai"). Brasil e qualquer país
+// fora dessa lista (incluindo "sem sinal de geo", ex.: localhost em dev)
+// caem no default 'pt'.
+const PAISES_ES = new Set(['AR', 'PY', 'UY']);
+
+// Só usado quando NÃO existe cookie tc_lang ainda (visitante genuinamente
+// novo) — ver comentário em cima de `activeLocale` abaixo. x-vercel-ip-country
+// só existe na Vercel (produção); em dev local vem undefined e cai no
+// default 'pt' de qualquer forma, mesma limitação que app/(public)/page.tsx
+// já tem pra geolocalização de cidade/estado.
+function paisParaLocale(countryCode: string | null): 'pt' | 'es' {
+  return countryCode && PAISES_ES.has(countryCode) ? 'es' : 'pt';
+}
+
 function stripLocalePrefix(pathname: string): { effectivePath: string; urlLocale: 'es' | null } {
   if (pathname === LOCALE_PREFIX) return { effectivePath: '/', urlLocale: 'es' };
   if (pathname.startsWith(`${LOCALE_PREFIX}/`)) {
@@ -256,24 +271,50 @@ export async function proxy(request: NextRequest) {
   }
 
   // ─── Idioma efetivo desta requisição ──────────────────────────
-  // Prioridade: prefixo /es explícito na URL > cookie tc_lang (visitante
-  // recorrente) > 'pt' (default, sem adivinhação por Accept-Language — ver
-  // comentário mais abaixo sobre por que isso foi removido daqui).
-  const cookieLang = request.cookies.get('tc_lang')?.value === 'es' ? 'es' : null;
-  const activeLocale: 'pt' | 'es' = urlLocale || cookieLang || 'pt';
+  // Prioridade: prefixo /es explícito na URL > cookie tc_lang (preferência
+  // já registrada, manual ou geo-guess de uma visita anterior) > geo pela
+  // localização de acesso (país do IP, só quando não existe cookie ainda —
+  // visitante genuinamente novo) > 'pt'.
+  //
+  // BUG CORRIGIDO (achado de revisão, 2026-08-30): a versão anterior desta
+  // migração removeu de propósito a adivinhança por Accept-Language (motivo
+  // documentado abaixo, ainda válido), mas isso também matou o
+  // comportamento que a Home já tinha pra geolocalização de cidade/estado —
+  // um visitante genuinamente novo vindo da Argentina/Paraguai/Uruguai
+  // (sem cookie nenhum ainda) sempre caía em PT por padrão, mesmo o site já
+  // usando x-vercel-ip-country pra outras features. IP-based (país) não é a
+  // mesma coisa que Accept-Language: é um sinal estável por REQUISIÇÃO (não
+  // muda entre um clique e outro, ao contrário do header de idioma do
+  // navegador, que pode listar vários idiomas com pesos ambíguos), e vira
+  // real 301/307 pra uma URL própria (nunca serve conteúdo diferente na
+  // MESMA URL) — não reabre o bug original. Uma vez que QUALQUER locale
+  // (geo-guess ou escolha manual no seletor) grava o cookie, ele passa a
+  // mandar em todas as visitas seguintes — a escolha manual do usuário
+  // sempre tem a palavra final.
+  // BUG EVITADO: `cookieLang` só representa "cookie diz ES" (precisa ficar
+  // assim — é usado abaixo só pra decidir o redirect de ES). Não dá pra
+  // usar esse mesmo booleano pra decidir se o geo-guess deve rodar: um
+  // cookie 'pt' explícito (escolha manual) faria `cookieLang` virar null
+  // igualzinho a "nenhum cookie ainda", e o geo-guess sobrescreveria uma
+  // escolha manual de PT pra alguém acessando de IP argentino/paraguaio/
+  // uruguaio — exatamente o oposto do requisito ("se o usuário alterar
+  // manualmente, seguir o idioma selecionado pelo usuário"). `hasStoredLang`
+  // distingue de verdade "existe uma preferência salva" (pt OU es) de
+  // "visitante novo, sem cookie nenhum" — só neste último caso o geo-guess
+  // deve rodar.
+  const rawCookieLang = request.cookies.get('tc_lang')?.value;
+  const cookieLang = rawCookieLang === 'es' ? 'es' : null;
+  const hasStoredLang = rawCookieLang === 'pt' || rawCookieLang === 'es';
+  const geoLocale = hasStoredLang ? null : paisParaLocale(request.headers.get('x-vercel-ip-country'));
+  const activeLocale: 'pt' | 'es' = urlLocale || cookieLang || geoLocale || 'pt';
 
-  // BUG CORRIGIDO (migração de SEO): visitante recorrente com preferência
-  // ES salva (cookie) pedindo uma URL SEM prefixo agora é redirecionado pra
-  // URL com prefixo, em vez de simplesmente servir ES por baixo dos panos
-  // na URL de PT — isso reabriria o mesmíssimo problema que motivou toda
-  // essa migração (a MESMA URL servindo conteúdo diferente por visitante).
-  // Sem isso pro visitante NOVO (sem cookie): serve PT determinístico,
-  // sempre — sem tentar adivinhar por Accept-Language. Antes desta
-  // migração, essa adivinhança era o único jeito de mostrar ES pra alguém
-  // sem cookie; agora existe uma URL de verdade (o seletor de idioma do
-  // Header linka pra ela), então adivinhar e trocar o CONTEÚDO da mesma
-  // URL deixou de ser a solução — só reintroduziria a inconsistência.
-  if (!urlLocale && cookieLang === 'es' && !pathname.startsWith('/painel') && !pathname.startsWith('/admin')) {
+  // BUG CORRIGIDO (migração de SEO): visitante com preferência ES definida
+  // (cookie de uma visita anterior OU geo-guess desta mesma requisição)
+  // pedindo uma URL SEM prefixo é redirecionado pra URL com prefixo, em vez
+  // de simplesmente servir ES por baixo dos panos na URL de PT — isso
+  // reabriria o mesmíssimo problema que motivou toda essa migração (a
+  // MESMA URL servindo conteúdo diferente por visitante).
+  if (!urlLocale && activeLocale === 'es' && !pathname.startsWith('/painel') && !pathname.startsWith('/admin')) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = withLocale(pathname, 'es');
     return NextResponse.redirect(redirectUrl, 307);

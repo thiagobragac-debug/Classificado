@@ -36,9 +36,22 @@ $$;
 -- ─── ads.slug (/anuncio/[slug]) ────────────────────────────────────────────
 ALTER TABLE public.ads ADD COLUMN IF NOT EXISTS slug TEXT;
 
+-- guard_ad_moderation e guard_ad_featured (20260825150000) disparam em
+-- QUALQUER UPDATE de um ad ativo, sem checar se a coluna alterada tem
+-- relação com moderação/destaque — um backfill que só popula `slug` cai na
+-- mesma trava de "editar anúncio ativo requer nova moderação" que existe
+-- pra mudanças de conteúdo de verdade. Desabilita as duas só pela duração
+-- desta UPDATE (DDL transacional — some junto com o resto se a migration
+-- inteira falhar) e reabilita logo em seguida.
+ALTER TABLE public.ads DISABLE TRIGGER guard_ad_moderation;
+ALTER TABLE public.ads DISABLE TRIGGER guard_ad_featured;
+
 UPDATE public.ads
 SET slug = slugify(title_pt) || '-' || substr(id::text, 1, 8)
 WHERE slug IS NULL;
+
+ALTER TABLE public.ads ENABLE TRIGGER guard_ad_moderation;
+ALTER TABLE public.ads ENABLE TRIGGER guard_ad_featured;
 
 ALTER TABLE public.ads ALTER COLUMN slug SET NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS ads_slug_unique_idx ON public.ads (slug);
@@ -67,6 +80,21 @@ WHERE slug IS NULL;
 
 ALTER TABLE public.profiles ALTER COLUMN slug SET NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS profiles_slug_unique_idx ON public.profiles (slug);
+
+-- BUG CRÍTICO CORRIGIDO (achado ao vivo desta migration, reproduzido contra
+-- produção): profiles usa um allowlist explícito de colunas pra SELECT de
+-- anon/authenticated desde 20260824190000_restrict_profiles_privileged_
+-- columns.sql (revoke select on public.profiles + grant select (lista
+-- fechada de colunas)) — uma coluna NOVA não entra nesse allowlist
+-- automaticamente. Sem este GRANT, qualquer query que faça
+-- profiles(...slug...) embutido (ex.: app/(public)/anuncio/[slug]/page.tsx,
+-- que junta ads com profiles) falha inteira com 42501 (a mesma classe de
+-- bug já documentada pro incidente do phone_whatsapp), derrubando a
+-- página de anúncio pra 100% dos visitantes. ads.slug e auction_events.slug
+-- não precisam do mesmo tratamento — essas duas tabelas não têm esse
+-- allowlist restrito (confirmado ao vivo: SELECT já concedido a anon/
+-- authenticated por padrão pra colunas novas).
+GRANT SELECT (slug) ON public.profiles TO anon, authenticated;
 
 -- BUG evitado: display_name normalmente só é preenchido no onboarding, que
 -- roda DEPOIS do INSERT em profiles (trigger de auth.users -> profiles cria

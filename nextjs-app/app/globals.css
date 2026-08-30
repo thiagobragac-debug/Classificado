@@ -502,7 +502,13 @@ html.is-logged-in .auth-wrapper a[href="login.html"]::after {
   box-shadow: 0 2px 8px rgba(0,0,0,0.10);
   border-color: #cbd5e1;
 }
-.lang-toggle button {
+/* BUG CORRIGIDO (migração de i18n via URL): o toggle virou <Link> (navegação
+   de verdade pra /es/..., em vez de setState) — troca de <button> pra <a>
+   fazia esta regra (seletor por tipo de elemento) parar de bater, e o
+   toggle voltava a aparecer como texto puro sem nenhum estilo. Seleciona
+   por [data-lang], presente nos dois elementos, em vez do tipo. */
+.lang-toggle button,
+.lang-toggle a[data-lang] {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -518,12 +524,15 @@ html.is-logged-in .auth-wrapper a[href="login.html"]::after {
   white-space: nowrap;
   letter-spacing: 0.04em;
   pointer-events: auto;
+  text-decoration: none;
 }
-.lang-toggle button:hover:not(.active) {
+.lang-toggle button:hover:not(.active),
+.lang-toggle a[data-lang]:hover:not(.active) {
   color: #475569;
   background: rgba(0,0,0,0.05);
 }
-.lang-toggle button.active {
+.lang-toggle button.active,
+.lang-toggle a[data-lang].active {
   background: #0f172a;
   color: #fff;
   box-shadow: 0 2px 6px rgba(15,23,42,0.18);
@@ -1235,7 +1244,8 @@ html.is-logged-in .auth-wrapper a[href="login.html"]::after {
      desktop mantém o tamanho compacto original. Afeta os dois lugares que
      usam .lang-toggle no mobile: o menu do Header.tsx e o toggle fixo do
      login (components/login/LangToggle.tsx). */
-  .lang-toggle button { min-height: 44px; min-width: 44px; padding: 10px 14px; }
+  .lang-toggle button,
+  .lang-toggle a[data-lang] { min-height: 44px; min-width: 44px; padding: 10px 14px; }
   /* BUG CORRIGIDO (varredura cruzada de cenários): mesmo problema de alvo
      de toque já corrigido acima pro .lang-toggle — .hamburger media
      ~38×32px (22px de ícone + 8px de padding), abaixo dos 44×44px mínimos
