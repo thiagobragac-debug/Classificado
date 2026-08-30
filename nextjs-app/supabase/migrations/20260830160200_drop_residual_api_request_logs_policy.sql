@@ -1,0 +1,22 @@
+-- ============================================================================
+--  Possível policy residual "Allow select for rate limit" em api_request_logs
+-- ============================================================================
+--
+--  PROBLEMA (auditoria de segurança, 2026-08-30, achado crítico — pendente
+--  de confirmação ao vivo no momento em que esta migration foi escrita)
+--
+--  20260723_api_indexes.sql cria, condicionalmente, uma policy chamada
+--  "Allow select for rate limit" com `for select using (true)` em
+--  api_request_logs — sem nenhuma restrição de role. Uma migration posterior
+--  (20260824180000) removeu uma policy de nome PARECIDO mas diferente
+--  ("Rate limit select own logs only"), nunca esta. Como policies
+--  permissivas no Postgres se combinam com OR, se ela ainda existir hoje,
+--  sozinha basta pra expor a tabela inteira (IP e user-agent de todo parceiro
+--  de API) a qualquer requisição com a anon key — independente de qualquer
+--  policy correta criada depois.
+--
+--  SOLUÇÃO: remover pelo nome exato. Idempotente — não é erro se já tiver
+--  sido removida ou nunca ter existido em produção.
+-- ============================================================================
+
+drop policy if exists "Allow select for rate limit" on public.api_request_logs;
