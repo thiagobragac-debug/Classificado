@@ -48,6 +48,15 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  // NOTA: o redirect do antigo ?lang=pt|es em /anuncio e /vendedor foi
+  // tentado aqui via `redirects()` + `has: [{ type: 'query', ... }]`, mas o
+  // Next.js repassa a querystring ORIGINAL pro destino por padrão quando ela
+  // não é capturada nomeadamente — o resultado prático era um redirect que
+  // chegava no lugar certo, mas com "?lang=es" ainda pendurado na URL final
+  // (confirmado ao vivo). Sem uma forma limpa de descartar só esse
+  // parâmetro específico nesta API, a lógica foi movida pra proxy.ts (que já
+  // roda em toda requisição e pode construir a URL de destino removendo o
+  // parâmetro de propósito) — ver bloco "Redirect do antigo ?lang=" ali.
 };
 
 export default nextConfig;

@@ -298,6 +298,32 @@ export async function proxy(request: NextRequest) {
     return applySecurityHeaders(NextResponse.next(), API_CSP);
   }
 
+  // ─── Redirect do antigo ?lang=pt|es em /anuncio e /vendedor ───
+  // BUG CORRIGIDO (revisão pós-merge da migração de i18n/slug): antes da
+  // migração pra URL por idioma existir, /anuncio/[id] e /vendedor/[id]
+  // aceitavam ?lang=pt|es (com hreflang declarado pra essas duas variantes
+  // de querystring — ver histórico do próprio código). Hoje esse parâmetro
+  // não tem NENHUM efeito (o idioma vem 100% do prefixo /es, nunca de
+  // querystring) — um link antigo com ?lang=es, possivelmente já indexado
+  // ou compartilhado, silenciosamente jogava o visitante de volta pra
+  // versão em português, sem redirect, sem aviso. Roda ANTES do redirect
+  // de locale geral abaixo (que só olha cookie/geo) porque um ?lang=
+  // explícito na própria URL é um sinal mais forte e deliberado do que
+  // cookie/geo-guess, e precisa vencer os dois. `pathname` aqui já é o path
+  // normalizado (sem prefixo /es — ver stripLocalePrefix no topo); se o
+  // valor capturado por :slug for na verdade um UUID legado, a própria
+  // rota de destino (/es/anuncio/[slug] ou /anuncio/[slug]) já tem seu
+  // próprio fallback UUID→slug com redirect permanente — pior caso aqui é
+  // 2 redirects em vez de 1, nunca um link quebrado ou o idioma errado.
+  const legacyLang = request.nextUrl.searchParams.get('lang');
+  const isLegacyLangRoute = pathname.startsWith('/anuncio/') || pathname.startsWith('/vendedor/');
+  if (isLegacyLangRoute && (legacyLang === 'es' || legacyLang === 'pt')) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = withLocale(pathname, legacyLang);
+    redirectUrl.searchParams.delete('lang');
+    return NextResponse.redirect(redirectUrl, 308);
+  }
+
   // ─── Idioma efetivo desta requisição ──────────────────────────
   // Prioridade: prefixo /es explícito na URL > cookie tc_lang (preferência
   // já registrada, manual ou geo-guess de uma visita anterior) > geo pela
