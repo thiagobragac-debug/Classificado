@@ -448,6 +448,10 @@ export async function proxy(request: NextRequest) {
     SUPABASE_URL,
     SUPABASE_ANON,
     {
+      // BUG CORRIGIDO (auditoria de segurança, 2026-08-31): ver o mesmo
+      // comentário em lib/supabase-server.ts — sem cookieOptions, o cookie de
+      // sessão sai sem a flag `secure`.
+      cookieOptions: { secure: process.env.NODE_ENV === 'production' },
       cookies: {
         getAll() {
           return request.cookies.getAll();

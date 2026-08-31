@@ -23,6 +23,15 @@ export async function createClient() {
     SUPABASE_URL,
     SUPABASE_ANON,
     {
+      // BUG CORRIGIDO (auditoria de segurança, 2026-08-31): sem cookieOptions,
+      // o cookie de sessão usa o DEFAULT_COOKIE_OPTIONS da própria lib
+      // (@supabase/ssr/dist/main/utils/constants.js), que não seta `secure`.
+      // HSTS com preload (lib/security-headers.ts) já reduz bastante o risco,
+      // mas é uma camada independente — sem `secure`, o cookie sairia em
+      // texto claro numa conexão HTTP não protegida (ex.: primeiro acesso de
+      // um dispositivo cujo navegador ainda não tem o domínio na lista de
+      // preload). Só desliga em dev (localhost roda em http://).
+      cookieOptions: { secure: process.env.NODE_ENV === 'production' },
       cookies: {
         getAll() {
           return cookieStore.getAll();

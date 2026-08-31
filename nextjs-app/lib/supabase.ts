@@ -20,7 +20,12 @@ export function flattenOne<T>(rel: T | T[] | null | undefined): T | null {
 let _sb: ReturnType<typeof createBrowserClient> | null = null;
 export function getSupabase() {
   if (!_sb) {
-    _sb = createBrowserClient(SUPABASE_URL, SUPABASE_ANON);
+    // BUG CORRIGIDO (auditoria de segurança, 2026-08-31): ver o mesmo
+    // comentário em lib/supabase-server.ts — sem cookieOptions, o cookie de
+    // sessão sai sem a flag `secure`.
+    _sb = createBrowserClient(SUPABASE_URL, SUPABASE_ANON, {
+      cookieOptions: { secure: process.env.NODE_ENV === 'production' },
+    });
   }
   return _sb;
 }

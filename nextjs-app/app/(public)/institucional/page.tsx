@@ -2,8 +2,8 @@ import React from 'react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Metadata } from 'next';
-import DOMPurify from 'isomorphic-dompurify';
 import { createClient, createAnonClient } from '@/lib/supabase-server';
+import { sanitizeInstitutionalHtml } from '@/lib/sanitize';
 import { getLocale } from '@/lib/locale-server';
 import { localizedPath, buildHreflangAlternates } from '@/lib/locale';
 import { t as _t } from '@/lib/constants';
@@ -162,21 +162,6 @@ export async function generateMetadata({
   };
 }
 
-// Tags HTML permitidas no conteúdo institucional
-const ALLOWED_TAGS = [
-  'h1', 'h2', 'h3', 'h4', 'p', 'ul', 'ol', 'li',
-  'a', 'strong', 'em', 'b', 'i',
-  'table', 'thead', 'tbody', 'tr', 'th', 'td',
-  'blockquote', 'hr', 'br', 'span', 'div', 'section',
-  'details', 'summary'
-];
-// BUG CORRIGIDO (auditoria de segurança, 2026-08-30): 'style' permitia CSS
-// inline arbitrário (spoofing visual, sobreposição de elementos via
-// position/z-index) — o editor (RichTextEditor, ver app/(admin)/admin/paginas)
-// não expõe controle de estilo inline na toolbar, então nenhum conteúdo
-// legítimo depende deste atributo.
-const ALLOWED_ATTR = ['href', 'class', 'target', 'rel', 'id', 'aria-label', 'data-i18n'];
-
 // Dicionário de SVGs (se cadastrado um nome diferente, pode usar um fallback)
 const ICON_MAP: Record<string, React.ReactNode> = {
   'help': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
@@ -296,13 +281,7 @@ export default async function InstitucionalPage({
 
   // ─── Sanitização do HTML de conteúdo do banco ────────────────
   const activeContent = localize(lang, activePage.content, activePage.content_es);
-  const safeData = activeContent
-    ? DOMPurify.sanitize(activeContent, {
-        ALLOWED_TAGS,
-        ALLOWED_ATTR,
-        ADD_ATTR: ['target'],
-      })
-    : null;
+  const safeData = activeContent ? sanitizeInstitutionalHtml(activeContent) : null;
 
   const NavLink = ({ id, icon_name, label }: { id: string; icon_name: string; label: string }) => {
     const isActive = activePage.id === id;

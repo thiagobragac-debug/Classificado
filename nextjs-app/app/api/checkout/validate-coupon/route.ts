@@ -9,23 +9,28 @@ import { dentroDoLimiteFallback } from '@/lib/rate-limit-fallback'
 // CheckoutModal sempre prefere data.error (quando presente) à sua própria
 // tradução local, então um usuário em espanhol via erro de cupom em
 // português no momento mais crítico do checkout.
+// BUG CORRIGIDO (auditoria de segurança, 2026-08-31): as 3 mensagens
+// distintas (invalidOrInactive/expired/usageLimitReached) formavam um
+// oráculo — qualquer autenticado descobria se um código específico EXISTE e
+// em que estado está, sem precisar resgatá-lo (útil pra enumerar cupons
+// privados/de referência). Colapsadas numa única mensagem genérica, mesmo
+// padrão que app/api/checkout/route.ts (couponInvalid) já usa pra todo
+// cupom que não pode ser aplicado — a validação que de fato cobra permanece
+// 100% correta e inalterada, só a mensagem de preview deixou de diferenciar
+// os 3 casos.
 const ERRORS = {
   pt: {
     codeRequired: 'Código obrigatório.',
     notAuthenticated: 'Não autenticado.',
     tooManyAttempts: 'Muitas tentativas. Aguarde um momento.',
-    invalidOrInactive: 'Cupom inválido ou inativo.',
-    expired: 'Cupom expirado.',
-    usageLimitReached: 'Limite de usos atingido.',
+    couponInvalid: 'Cupom inválido, expirado ou com limite de usos esgotado.',
     internal: 'Erro interno.',
   },
   es: {
     codeRequired: 'Código obligatorio.',
     notAuthenticated: 'No autenticado.',
     tooManyAttempts: 'Demasiados intentos. Espera un momento.',
-    invalidOrInactive: 'Cupón inválido o inactivo.',
-    expired: 'Cupón vencido.',
-    usageLimitReached: 'Límite de usos alcanzado.',
+    couponInvalid: 'Cupón inválido, vencido o con límite de usos agotado.',
     internal: 'Error interno.',
   },
 } as const
@@ -91,13 +96,13 @@ export async function POST(req: Request) {
       .single()
 
     if (!coupon) {
-      return NextResponse.json({ valid: false, error: tx.invalidOrInactive })
+      return NextResponse.json({ valid: false, error: tx.couponInvalid })
     }
     if (coupon.valid_until && new Date(coupon.valid_until) < new Date()) {
-      return NextResponse.json({ valid: false, error: tx.expired })
+      return NextResponse.json({ valid: false, error: tx.couponInvalid })
     }
     if (coupon.max_uses && coupon.usage_count >= coupon.max_uses) {
-      return NextResponse.json({ valid: false, error: tx.usageLimitReached })
+      return NextResponse.json({ valid: false, error: tx.couponInvalid })
     }
 
     return NextResponse.json({

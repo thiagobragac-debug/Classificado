@@ -29,6 +29,10 @@ export async function GET(request: Request) {
       SUPABASE_URL,
       SUPABASE_ANON,
       {
+        // BUG CORRIGIDO (auditoria de segurança, 2026-08-31): ver o mesmo
+        // comentário em lib/supabase-server.ts — sem cookieOptions, o cookie
+        // de sessão sai sem a flag `secure`.
+        cookieOptions: { secure: process.env.NODE_ENV === 'production' },
         cookies: {
           get(name: string) {
             return cookieStore.get(name)?.value
