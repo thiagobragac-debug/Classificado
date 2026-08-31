@@ -30,7 +30,22 @@ export function useRecentViews() {
     try {
       const stored = localStorage.getItem(RECENT_KEY);
       if (stored) {
-        setRecentViews(JSON.parse(stored));
+        const parsed: RecentAd[] = JSON.parse(stored);
+        // BUG CORRIGIDO (achado na revisão pós-merge da migração de slug):
+        // localStorage é do NAVEGADOR, não do banco — uma entrada gravada
+        // antes desta migração (por qualquer visitante real que já tivesse
+        // usado o site) não tem `slug` nenhum, e sem esse filtro virava um
+        // link quebrado ("/anuncio/undefined") na seção "Vistos
+        // Recentemente" até a pessoa visitar aquele mesmo anúncio de novo.
+        // Sem como recuperar o slug aqui (custaria um round-trip ao banco só
+        // pra isso); descartar a entrada obsoleta é mais seguro que arriscar
+        // um link quebrado — ela reaparece corretamente na próxima vez que o
+        // anúncio for visitado (recordView já grava o slug real).
+        const valid = parsed.filter((ad) => !!ad?.slug);
+        setRecentViews(valid);
+        if (valid.length !== parsed.length) {
+          localStorage.setItem(RECENT_KEY, JSON.stringify(valid));
+        }
       }
     } catch { /* ignore */ }
   }, []);
