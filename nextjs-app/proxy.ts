@@ -155,6 +155,15 @@ function buildCsp(nonce: string, pathname: string): string {
       'https://*.stripe.com',
       'https://http2.mlstatic.com',
       ...MP_ANTIFRAUDE,
+      // BUG CORRIGIDO (achado ao vivo testando o GA4 com Measurement ID
+      // real pela 1ª vez — NEXT_PUBLIC_GA_MEASUREMENT_ID nunca tinha sido
+      // configurado até agora, então este bloqueio nunca tinha aparecido).
+      // gtag.js usa um beacon de imagem (googletagmanager.com/td?...) como
+      // parte do rastreamento, além do fetch/sendBeacon já coberto por
+      // connect-src — são diretivas de CSP diferentes; liberar só
+      // connect-src (já feito) não bastava, o <img> do beacon continuava
+      // bloqueado e o evento se perdia, sem erro visível pro usuário.
+      'https://www.googletagmanager.com',
     ]),
     // Fontes
     `font-src 'self' data: https://fonts.gstatic.com`,
