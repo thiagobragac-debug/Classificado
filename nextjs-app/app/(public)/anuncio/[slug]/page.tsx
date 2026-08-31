@@ -1,6 +1,8 @@
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { createHash } from 'crypto';
-import { headers, cookies } from 'next/headers';
+import { headers } from 'next/headers';
+import { getLocale } from '@/lib/locale-server';
+import { localizedPath, buildHreflangAlternates } from '@/lib/locale';
 import Link from 'next/link';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { AdGallery } from '@/components/ads/AdGallery';
@@ -78,26 +80,6 @@ const PAGE_TEXT: Record<Lang, {
   },
 };
 
-async function getCookieLang(): Promise<Lang> {
-  const cookieStore = await cookies();
-  return cookieStore.get('tc_lang')?.value === 'es' ? 'es' : 'pt';
-}
-
-// BUG CRÍTICO CORRIGIDO (auditoria de SEO): generateMetadata e o corpo da
-// página tinham cada um a SUA PRÓPRIA cópia dessa lógica de prioridade
-// (searchParams.lang > cookie) — a cópia do corpo (getCookieLang() sozinho,
-// sem olhar searchParams) nunca foi atualizada quando a de generateMetadata
-// ganhou o searchParams.lang. Resultado: as duas URLs do par hreflang
-// (?lang=pt / ?lang=es) tinham título/description diferentes mas o corpo
-// (breadcrumb, categoria, tags, JSON-LD) idêntico, sempre no idioma do
-// cookie — um hreflang que declara duas versões e serve o mesmo HTML pras
-// duas é pior do que não declarar hreflang nenhum. Extraída pra uma função
-// só, usada nos dois lugares, pra nunca mais divergir.
-function resolveLang(spLang: string | string[] | undefined, cookieLang: Lang): Lang {
-  const v = typeof spLang === 'string' ? spLang : undefined;
-  return v === 'es' || v === 'pt' ? v : cookieLang;
-}
-
 function imageUrl(path: string): string {
   if (!path) return FALLBACK_IMG;
   if (path.startsWith('http')) return path;
@@ -135,30 +117,24 @@ function stripHtmlForMeta(html: string, maxLen: number): string {
   return colapsado.length > maxLen ? colapsado.slice(0, maxLen - 1).trimEnd() + '…' : colapsado;
 }
 
-export async function generateMetadata({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
-  const { id } = await params;
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug: slugParam } = await params;
 
-  // BUG CORRIGIDO (auditoria de i18n, 2026-08-26): generateMetadata nunca
-  // lia cookies() nem searchParams — o <title>/description ficavam sempre
-  // em pt mesmo com ES selecionado, e os links hreflang ?lang=pt/?lang=es
-  // já declarados abaixo eram só decorativos (não influenciavam o próprio
-  // meta gerado quando um crawler os seguia). searchParams.lang tem
-  // prioridade (é o que o link hreflang carrega); sem ele, cai no cookie
-  // tc_lang, igual ao resto do site.
-  const sp = await searchParams;
-  const spLang = typeof sp?.lang === 'string' ? sp.lang : undefined;
-  const lang: Lang = resolveLang(spLang, await getCookieLang());
+  // BUG CRÍTICO CORRIGIDO (migração de SEO para URLs de idioma reais):
+  // generateMetadata e o corpo da página tinham cada um sua PRÓPRIA cópia
+  // da lógica de prioridade (searchParams.lang > cookie), e divergiram —
+  // exatamente o bug que motivou toda essa migração (hreflang declarando
+  // duas URLs que serviam o MESMO HTML). getLocale() lê o locale decidido
+  // por proxy.ts (prefixo /es na URL, a fonte de verdade agora) — chamado
+  // aqui E no corpo da página, nunca mais duas implementações divergentes.
+  const lang = await getLocale();
   const tx = PAGE_TEXT[lang];
-
-  if (!UUID_REGEX.test(id)) {
-    return { title: tx.notFoundTitle };
-  }
 
   const supabase = createAnonClient();
   const { data: ad } = await supabase
     .from('ads')
-    .select('title_pt, title_es, description, images, status')
-    .eq('id', id)
+    .select('slug, title_pt, title_es, description, images, status')
+    .eq('slug', slugParam)
     .eq('status', 'active')
     .maybeSingle();
 
@@ -172,7 +148,24 @@ export async function generateMetadata({ params, searchParams }: { params: Promi
   // streamar, então chamar notFound() aqui (que já sabia que o anúncio não
   // existe, só nunca chamava) resolve sem precisar remover o skeleton de
   // loading do caminho feliz.
-  if (!ad) notFound();
+  //
+  // MIGRAÇÃO UUID→SLUG: um link antigo (já indexado pelo Google ou
+  // compartilhado) aponta pro UUID cru, não pro slug — se o parâmetro tem
+  // formato de UUID, tenta achar o anúncio real por id antes de desistir, e
+  // redireciona 301 pra URL de slug definitiva (preserva o locale ativo).
+  // Só depois desse fallback é que um "não existe mesmo" vira notFound().
+  if (!ad) {
+    if (UUID_REGEX.test(slugParam)) {
+      const { data: byId } = await supabase
+        .from('ads')
+        .select('slug')
+        .eq('id', slugParam)
+        .eq('status', 'active')
+        .maybeSingle();
+      if (byId) permanentRedirect(localizedPath(`/anuncio/${byId.slug}`, lang));
+    }
+    notFound();
+  }
 
   // BUG CORRIGIDO (auditoria de i18n, 2026-08-26): ordem estava
   // `ad.title_pt || ad.title_es` — nunca usava o título em espanhol mesmo
@@ -183,27 +176,22 @@ export async function generateMetadata({ params, searchParams }: { params: Promi
   const imgUrl = ad.images?.[0] ? imageUrl(ad.images[0]) : FALLBACK_IMG_ABSOLUTE;
   const plainDescription = stripHtmlForMeta(ad.description || '', 160);
 
-  // BUG CORRIGIDO (auditoria de SEO): canonical era o MESMO literal pras
-  // duas variantes de idioma (?lang=pt e ?lang=es geravam o mesmo
-  // canonical, sem o parâmetro) — o Google trata canonical como sinal
-  // mais forte que hreflang quando os dois divergem, então consolidava
-  // tudo na URL sem parâmetro e esvaziava o par hreflang. Cada variante
-  // agora aponta pra si mesma; x-default e "es" genérico (não "es-AR" —
-  // o site atende Argentina/Uruguai/Paraguai igualmente, sem segmentação
-  // por país) substituem o hreflang anterior.
-  const baseUrl = `https://tauzeclass.com.br/anuncio/${id}`;
-  const canonicalUrl = spLang === 'es' || spLang === 'pt' ? `${baseUrl}?lang=${spLang}` : baseUrl;
+  // BUG CRÍTICO CORRIGIDO (migração de SEO): canonical/hreflang usavam
+  // ?lang= como parâmetro — funcionava tecnicamente, mas dependia da MESMA
+  // rota servir dois conteúdos diferentes por querystring, exatamente a
+  // fragilidade que causou o bug do achado acima. Agora /es/anuncio/{slug}
+  // é uma URL real e distinta (rewrite em proxy.ts) — canonical auto-
+  // referente por locale, hreflang apontando pras duas URLs de verdade.
+  const path = `/anuncio/${ad.slug}`;
+  const siteUrl = 'https://tauzeclass.com.br';
+  const canonicalUrl = `${siteUrl}${localizedPath(path, lang)}`;
 
   return {
     title: title,
     description: plainDescription || tx.metaDescFallback(title),
     alternates: {
       canonical: canonicalUrl,
-      languages: {
-        'pt-BR': `${baseUrl}?lang=pt`,
-        'es': `${baseUrl}?lang=es`,
-        'x-default': baseUrl,
-      },
+      languages: buildHreflangAlternates(siteUrl, path),
     },
     openGraph: {
       title: `${title} | Tauze Class`,
@@ -218,22 +206,11 @@ export async function generateMetadata({ params, searchParams }: { params: Promi
   };
 }
 
-export default async function AdDetailsPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
-  const { id } = await params;
+export default async function AdDetailsPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug: slugParam } = await params;
 
-  // ─── Validação de formato UUID ──────────────────────────────
-  if (!UUID_REGEX.test(id)) {
-    notFound();
-  }
-
-  // BUG CRÍTICO CORRIGIDO (auditoria de SEO): ver comentário de
-  // resolveLang() acima — o corpo da página precisa da MESMA prioridade
-  // (searchParams.lang > cookie) que generateMetadata já usa, senão o
-  // par hreflang declarado lá em cima mente pro Google (título muda,
-  // corpo não).
-  const sp = await searchParams;
-  const spLang = typeof sp?.lang === 'string' ? sp.lang : undefined;
-  const lang = resolveLang(spLang, await getCookieLang());
+  // Mesma fonte de verdade de generateMetadata acima — ver comentário lá.
+  const lang = await getLocale();
   const tx = PAGE_TEXT[lang];
 
   // ─── Cliente por-request (sem singleton de módulo) ──────────
@@ -257,13 +234,22 @@ export default async function AdDetailsPage({ params, searchParams }: { params: 
     // ao cliente mesmo antes disso (ver desestruturação abaixo) — só o
     // booleano hasWhatsapp precisa da coluna, buscado à parte via
     // service_role logo abaixo, isolado desta query pública.
-    .select('*, profiles(id, name, display_name, avatar_url, verified, country, created_at, email_verified, phone_verified, kyc_status), categories(name_pt, name_es, icon)')
-    .eq('id', id)
+    .select('*, profiles(id, slug, name, display_name, avatar_url, verified, country, created_at, email_verified, phone_verified, kyc_status), categories(name_pt, name_es, icon)')
+    .eq('slug', slugParam)
     .maybeSingle();
 
+  // MIGRAÇÃO UUID→SLUG: mesmo fallback de generateMetadata — ver comentário
+  // lá. Aqui não filtra por status (comportamento pré-existente preservado),
+  // então a busca por id legado segue a mesma regra.
   if (!ad) {
+    if (UUID_REGEX.test(slugParam)) {
+      const { data: byId } = await supabase.from('ads').select('slug').eq('id', slugParam).maybeSingle();
+      if (byId) permanentRedirect(localizedPath(`/anuncio/${byId.slug}`, lang));
+    }
     notFound();
   }
+
+  const id = ad.id;
 
   // ─── Contagem de views com hash real do IP ──────────────────
   try {
@@ -342,7 +328,7 @@ export default async function AdDetailsPage({ params, searchParams }: { params: 
         name: catName || _t('footer_ads', lang),
         item: `https://tauzeclass.com.br/listagem${ad.category_id ? `?categoria=${ad.category_id}` : ''}`,
       },
-      { '@type': 'ListItem', position: 3, name: adTitle, item: `https://tauzeclass.com.br/anuncio/${ad.id}` },
+      { '@type': 'ListItem', position: 3, name: adTitle, item: `https://tauzeclass.com.br/anuncio/${ad.slug}` },
     ],
   };
 

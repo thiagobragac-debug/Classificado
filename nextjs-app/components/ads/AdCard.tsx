@@ -4,7 +4,7 @@ import { imageUrl } from '@/lib/storage';
 import { getCurrencySymbol, formatCurrencyAmount } from '@/lib/currency';
 
 export interface Category { id: string; name_pt: string; name_es: string; icon: string; color: string; active: boolean; sort_order: number; }
-export interface Ad { id: string; title_pt: string; title_es: string; price: number; currency: string; price_unit_pt: string; price_unit_es?: string | null; negotiable: boolean; country: string; state: string; city: string; location_text: string; images: string[]; tags_pt: string[]; tags_es?: string[] | null; status: string; featured: boolean; created_at: string; category_id: string; }
+export interface Ad { id: string; slug: string; title_pt: string; title_es: string; price: number; currency: string; price_unit_pt: string; price_unit_es?: string | null; negotiable: boolean; country: string; state: string; city: string; location_text: string; images: string[]; tags_pt: string[]; tags_es?: string[] | null; status: string; featured: boolean; created_at: string; category_id: string; }
 
 export const COUNTRY_FLAGS: Record<string, string> = {
   'Brasil': '🇧🇷', 'Uruguai': '🇺🇾', 'Argentina': '🇦🇷',
@@ -76,7 +76,7 @@ export default function AdCard({ ad, categories, lang, isFav, onToggleFav, prior
 
   return (
     <article className={`ad-card fade-in-up${ad.featured ? ' ad-card--featured' : ''}`}>
-      <Link href={`/anuncio/${ad.id}`} className="ad-card__link-overlay" aria-label={T.viewAd(title)} />
+      <Link href={`/anuncio/${ad.slug}`} className="ad-card__link-overlay" aria-label={T.viewAd(title)} />
       
       <div className="ad-card__image">
         <Image 
@@ -105,7 +105,7 @@ export default function AdCard({ ad, categories, lang, isFav, onToggleFav, prior
       </div>
       <div className="ad-card__body">
         <h3 className="ad-card__title">
-          <Link href={`/anuncio/${ad.id}`} className="ad-card__title-link">{title}</Link>
+          <Link href={`/anuncio/${ad.slug}`} className="ad-card__title-link">{title}</Link>
         </h3>
         <div className="ad-card__price">
           {ad.price != null ? fmtPrice(ad.price, ad.currency || 'BRL', lang) : T.priceOnRequest}

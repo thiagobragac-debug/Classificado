@@ -1,5 +1,4 @@
 import React from 'react'
-import { cookies } from 'next/headers'
 import type { Metadata } from 'next'
 import { createAnonClient } from '@/lib/supabase-server'
 import { t as _t } from '@/lib/constants'
@@ -8,6 +7,10 @@ import { escapeJsonLd } from '@/lib/json-ld'
 import EventCard, { AuctionEvent } from './EventCard'
 import EventSearch from './EventSearch'
 import Link from 'next/link'
+import { getLocale } from '@/lib/locale-server'
+import { localizedPath, buildHreflangAlternates } from '@/lib/locale'
+
+const SITE_URL = 'https://tauzeclass.com.br'
 
 // Achado do teste completo do site (2026-08-24) sobre "loading.tsx duplicado
 // no DOM" foi investigado e descartado: é o marcador de streaming SSR do
@@ -24,8 +27,7 @@ export const revalidate = 3600; // ISR — página de eventos raramente muda
 // português mesmo com ES selecionado. Mesmo padrão de generateMetadata já
 // usado em app/(public)/eventos/[id]/page.tsx.
 export async function generateMetadata(): Promise<Metadata> {
-  const cookieStore = await cookies();
-  const lang = (cookieStore.get('tc_lang')?.value === 'es' ? 'es' : 'pt') as 'pt' | 'es';
+  const lang = await getLocale();
 
   const META = {
     pt: {
@@ -55,11 +57,14 @@ export async function generateMetadata(): Promise<Metadata> {
     // contrário, apontar toda variação de busca para a URL base /eventos
     // evita fragmentar o SEO entre inúmeras combinações de query (duplicate
     // content / index bloat).
-    alternates: { canonical: 'https://tauzeclass.com.br/eventos' },
+    alternates: {
+      canonical: `${SITE_URL}${localizedPath('/eventos', lang)}`,
+      languages: buildHreflangAlternates(SITE_URL, '/eventos'),
+    },
     openGraph: {
       title: META.ogTitle,
       description: META.ogDescription,
-      url: 'https://tauzeclass.com.br/eventos',
+      url: `${SITE_URL}${localizedPath('/eventos', lang)}`,
       type: 'website',
       locale: lang === 'es' ? 'es_AR' : 'pt_BR',
       images: [{ url: 'https://tauzeclass.com.br/assets/og-home.jpg', width: 1200, height: 630, alt: META.ogAlt }],
@@ -81,8 +86,7 @@ export default async function EventosPage({
   // BUG CORRIGIDO (teste completo do site, 2026-08-24): página inteira
   // ficava fixa em português mesmo com ES selecionado no header — o
   // componente nunca lia o cookie de idioma nem chamava t().
-  const cookieStore = await cookies()
-  const lang = (cookieStore.get('tc_lang')?.value || 'pt') as 'pt' | 'es'
+  const lang = await getLocale()
   const t = (key: string) => _t(key, lang)
 
   const query = await searchParams

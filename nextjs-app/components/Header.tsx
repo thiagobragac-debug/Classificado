@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
 import { useLang } from '@/lib/lang-context';
+import { switchLocalePath } from '@/lib/locale';
 import { getSupabase, getSession } from '@/lib/supabase';
 import { SECRET_SETTING_KEYS } from '@/lib/secret-settings';
 
@@ -81,8 +82,16 @@ export default function Header({
   initialUserInitials?: string;
 } = {}) {
   const pathname = usePathname();
-  const { lang, setLang, t } = useLang();
+  const searchParamsForLang = useSearchParams();
+  const { lang, t } = useLang();
   const tt = TRANSLATIONS[lang];
+  // BUG CORRIGIDO (migração de SEO): usePathname() nunca inclui querystring
+  // — preserva ela via useSearchParams() (hidrata igual no server/client,
+  // diferente de window.location), senão trocar de idioma no meio de uma
+  // busca/filtro (?categoria=X) perderia o filtro ativo.
+  const searchSuffix = searchParamsForLang.toString() ? `?${searchParamsForLang.toString()}` : '';
+  const ptHref = switchLocalePath(pathname, 'pt') + searchSuffix;
+  const esHref = switchLocalePath(pathname, 'es') + searchSuffix;
 
   // ─── All hooks must be declared unconditionally before any early return ──
   const [scrolled, setScrolled]         = useState(false);
@@ -351,8 +360,8 @@ export default function Header({
           </nav>
 
           <div className="lang-toggle" role="group" aria-label={tt.langGroupAria}>
-            <button data-lang="pt" className={lang === 'pt' ? 'active' : ''} aria-label="Português" onClick={() => setLang('pt')}>PT</button>
-            <button data-lang="es" className={lang === 'es' ? 'active' : ''} aria-label="Español"   onClick={() => setLang('es')}>ES</button>
+            <Link data-lang="pt" href={ptHref} className={lang === 'pt' ? 'active' : ''} aria-label="Português">PT</Link>
+            <Link data-lang="es" href={esHref} className={lang === 'es' ? 'active' : ''} aria-label="Español">ES</Link>
           </div>
 
           <Link href="/anunciar" className="btn-anunciar-header" id="btn-post-header">
@@ -392,8 +401,8 @@ export default function Header({
             NENHUMA forma de trocar de idioma nas páginas que usam este
             Header. */}
         <div className="lang-toggle" role="group" aria-label={tt.langGroupAria} style={{ alignSelf: 'flex-start', margin: 'var(--sp-2) 0' }}>
-          <button data-lang="pt" className={lang === 'pt' ? 'active' : ''} aria-label="Português" onClick={() => setLang('pt')}>PT</button>
-          <button data-lang="es" className={lang === 'es' ? 'active' : ''} aria-label="Español"   onClick={() => setLang('es')}>ES</button>
+          <Link data-lang="pt" href={ptHref} className={lang === 'pt' ? 'active' : ''} aria-label="Português">PT</Link>
+          <Link data-lang="es" href={esHref} className={lang === 'es' ? 'active' : ''} aria-label="Español">ES</Link>
         </div>
         <div className="auth-wrapper" style={{ width: '100%' }}>
           <Link href={isLoggedIn ? '/painel' : '/login'} className="btn-login-mobile">

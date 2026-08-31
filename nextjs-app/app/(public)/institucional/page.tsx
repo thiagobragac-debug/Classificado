@@ -2,9 +2,10 @@ import React from 'react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Metadata } from 'next';
-import { cookies } from 'next/headers';
 import DOMPurify from 'isomorphic-dompurify';
 import { createClient, createAnonClient } from '@/lib/supabase-server';
+import { getLocale } from '@/lib/locale-server';
+import { localizedPath, buildHreflangAlternates } from '@/lib/locale';
 import { t as _t } from '@/lib/constants';
 import { ContactForm } from './ContactForm';
 import './institucional.css';
@@ -58,11 +59,6 @@ function localize(lang: Lang, pt: string, es?: string | null): string {
   return lang === 'es' && es ? es : pt;
 }
 
-async function getLang(): Promise<Lang> {
-  const cookieStore = await cookies();
-  return cookieStore.get('tc_lang')?.value === 'es' ? 'es' : 'pt';
-}
-
 // BUG CORRIGIDO (3ª varredura pré-lançamento, 2026-08-26): faltava metadata
 // própria por página institucional — todas as 10 páginas (Termos, Privacidade,
 // Cookies, Sobre, Ajuda, API, Contato, Trabalhe Conosco, Denúncia, Imprensa)
@@ -77,12 +73,8 @@ export async function generateMetadata({
   const params = await searchParams;
   const pageParam = typeof params.page === 'string' ? params.page : 'sobre';
 
-  // BUG CORRIGIDO (auditoria i18n, 2026-08-27): usava createAnonClient(),
-  // cujo adaptador de cookies sempre retorna [] (getAll), então o
-  // title/description nunca trocavam de idioma mesmo com tc_lang=es. O
-  // cookie de idioma da aplicação é lido diretamente aqui; o cliente
-  // anônimo continua sendo usado só pra query em si (pública, cacheável).
-  const lang = await getLang();
+  // Mesma fonte de verdade do resto do site — ver lib/locale-server.ts.
+  const lang = await getLocale();
 
   const supabase = createAnonClient();
   const { data: pageData } = await supabase
@@ -91,17 +83,20 @@ export async function generateMetadata({
     .eq('id', pageParam)
     .maybeSingle();
 
+  const SITE_URL = 'https://tauzeclass.com.br';
+  const path = `/institucional?page=${pageParam}`;
+
   if (!pageData) {
     // Slug inexistente: a página em si faz redirect() pra pages[0] nesse
     // caso, mas mantemos uma metadata genérica e coerente de fallback.
     // Mesmo tratamento de hreflang do caso normal abaixo — ver comentário lá.
-    const fallbackUrl = 'https://tauzeclass.com.br/institucional';
+    const fallbackUrl = `${SITE_URL}${localizedPath(path, lang)}`;
     return {
       title: TRANSLATIONS[lang].fallbackTitle,
       description: TRANSLATIONS[lang].fallbackDescription,
       alternates: {
         canonical: fallbackUrl,
-        languages: { 'x-default': fallbackUrl },
+        languages: buildHreflangAlternates(SITE_URL, path),
       },
       // BUG CORRIGIDO (auditoria de SEO): faltava openGraph/twitter próprios
       // — ver comentário no caso normal abaixo, mesma correção.
@@ -126,24 +121,21 @@ export async function generateMetadata({
   const subtitle = localize(lang, pageData.subtitle, pageData.subtitle_es);
   const description = subtitle || `${title} — ${TRANSLATIONS[lang].siteSuffix}`;
 
-  const canonicalUrl = `https://tauzeclass.com.br/institucional?page=${pageData.id}`;
+  // BUG CRÍTICO CORRIGIDO (migração de SEO): antes só declarava
+  // 'x-default' — não existia URL própria em ES pra declarar (idioma
+  // trocava só via cookie tc_lang, nunca refletido na URL). Agora
+  // /es/institucional?page=X é uma URL real e distinta (rewrite em
+  // proxy.ts, ?page= preservado), então o par hreflang completo passa a
+  // ser válido de verdade.
+  const canonicalPath = `/institucional?page=${pageData.id}`;
+  const canonicalUrl = `${SITE_URL}${localizedPath(canonicalPath, lang)}`;
 
   return {
     title,
     description,
     alternates: {
       canonical: canonicalUrl,
-      // BUG CORRIGIDO (auditoria de SEO — alternates.languages ausente):
-      // faltava hreflang nesta página, mesmo achado já corrigido em outros
-      // grupos desta rodada (ver app/(public)/layout.tsx). Diferente de
-      // app/(public)/anuncio/[id]/page.tsx (que aceita ?lang= na URL e por
-      // isso declara 'pt-BR'/'es' com URLs distintas), esta página troca de
-      // idioma só via cookie tc_lang — não existe um ?lang= aqui, então
-      // 'page' é a única variação real de URL. Declarar 'pt-BR' e 'es'
-      // apontando pra essa MESMA URL seria inválido (duas entidades de
-      // idioma conflitantes pro mesmo endereço); 'x-default' sozinho é o
-      // que reflete a realidade, mesmo padrão usado no layout raiz.
-      languages: { 'x-default': canonicalUrl },
+      languages: buildHreflangAlternates(SITE_URL, canonicalPath),
     },
     // BUG CORRIGIDO (auditoria de SEO): página não declarava openGraph nem
     // twitter próprios — o Next.js herdava esses campos do layout raiz
@@ -208,10 +200,8 @@ export default async function InstitucionalPage({
   const params = await searchParams;
   const pageParam = typeof params.page === 'string' ? params.page : 'sobre';
 
-  // BUG CORRIGIDO (auditoria i18n, 2026-08-27): a página nunca lia o cookie
-  // tc_lang — título, subtítulo, conteúdo, navegação lateral e as mensagens
-  // de fallback abaixo ficavam sempre em português.
-  const lang = await getLang();
+  // Mesma fonte de verdade de generateMetadata acima.
+  const lang = await getLocale();
 
   const supabase = await createClient();
   // BUG CORRIGIDO (3ª varredura pré-lançamento, 2026-08-26): sem desempate,

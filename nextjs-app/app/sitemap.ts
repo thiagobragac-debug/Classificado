@@ -1,5 +1,17 @@
 import { MetadataRoute } from 'next';
 import { createAnonClient } from '@/lib/supabase-server';
+import { buildHreflangAlternates } from '@/lib/locale';
+
+// Cada entrada aponta pra URL canônica em PT e declara a variante ES via
+// alternates.languages (mesmo mecanismo de generateMetadata em cada página —
+// ver lib/locale.ts) — NÃO duplica uma entrada <url> própria por locale.
+// Documentação oficial do Next (sitemap.md) e o próprio schema do
+// sitemaps.org recomendam exatamente esse padrão: uma entrada por URL
+// canônica, com <xhtml:link rel="alternate" hreflang="..."> apontando pras
+// variantes, em vez de linhas duplicadas por idioma.
+function withLang(baseUrl: string, path: string) {
+  return buildHreflangAlternates(baseUrl, path);
+}
 
 // Usamos createAnonClient() (não createClient()) porque todo o conteúdo
 // deste sitemap é público — createClient() lê cookies() (API de request-time
@@ -39,36 +51,42 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: new Date(),
       changeFrequency: 'daily',
       priority: 1.0,
+      alternates: { languages: withLang(baseUrl, '/') },
     },
     {
       url: `${baseUrl}/listagem`,
       lastModified: new Date(),
       changeFrequency: 'always',
       priority: 0.9,
+      alternates: { languages: withLang(baseUrl, '/listagem') },
     },
     {
       url: `${baseUrl}/institucional`,
       lastModified: new Date(),
       changeFrequency: 'monthly',
       priority: 0.5,
+      alternates: { languages: withLang(baseUrl, '/institucional') },
     },
     {
       url: `${baseUrl}/planos`,
       lastModified: new Date(),
       changeFrequency: 'monthly',
       priority: 0.6,
+      alternates: { languages: withLang(baseUrl, '/planos') },
     },
     {
       url: `${baseUrl}/eventos`,
       lastModified: new Date(),
       changeFrequency: 'daily',
       priority: 0.8,
+      alternates: { languages: withLang(baseUrl, '/eventos') },
     },
     {
       url: `${baseUrl}/leiloes`,
       lastModified: new Date(),
       changeFrequency: 'daily',
       priority: 0.8,
+      alternates: { languages: withLang(baseUrl, '/leiloes') },
     },
   ];
 
@@ -80,13 +98,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // resposta sem avisar, e sem .order() o subconjunto retornado não é
     // determinístico entre execuções (relevante aqui porque este handler
     // pode rodar de novo a cada `revalidate` segundos).
-    type AdRow = { id: string; user_id: string | null; updated_at: string | null; created_at: string };
+    // MIGRAÇÃO UUID→SLUG: /anuncio, /vendedor e /leiloes agora usam slug na
+    // URL pública (ver supabase/migrations/20260830100000_..., ads.slug/
+    // profiles.slug/auction_events.slug) — o sitemap precisa listar a URL
+    // canônica de slug, nunca o UUID cru (que só sobrevive como fallback
+    // com 301, não deve ser o que o Google indexa a partir daqui).
+    type AdRow = { id: string; slug: string; user_id: string | null; updated_at: string | null; created_at: string };
     const PAGE_SIZE = 1000;
     const ads: AdRow[] = [];
     for (let from = 0; ; from += PAGE_SIZE) {
       const { data, error } = await supabase
         .from('ads')
-        .select('id, user_id, updated_at, created_at')
+        .select('id, slug, user_id, updated_at, created_at')
         .eq('status', 'active')
         .order('created_at', { ascending: false })
         .range(from, from + PAGE_SIZE - 1);
@@ -97,10 +120,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
 
     const adEntries: MetadataRoute.Sitemap = ads.map((ad) => ({
-      url: `${baseUrl}/anuncio/${ad.id}`,
+      url: `${baseUrl}/anuncio/${ad.slug}`,
       lastModified: ad.updated_at || ad.created_at,
       changeFrequency: 'weekly',
       priority: 0.8,
+      alternates: { languages: withLang(baseUrl, `/anuncio/${ad.slug}`) },
     }));
 
     // Vendedores com pelo menos um ad ativo — reaproveita os user_id já
@@ -110,33 +134,35 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const sellerIds = Array.from(
       new Set(ads.map((ad) => ad.user_id).filter((id): id is string => !!id))
     );
-    type ProfileRow = { id: string; updated_at: string | null; created_at: string };
+    type ProfileRow = { id: string; slug: string; updated_at: string | null; created_at: string };
     const profiles: ProfileRow[] = [];
     const PROFILE_CHUNK = 500;
     for (let i = 0; i < sellerIds.length; i += PROFILE_CHUNK) {
       const chunk = sellerIds.slice(i, i + PROFILE_CHUNK);
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, updated_at, created_at')
+        .select('id, slug, updated_at, created_at')
         .in('id', chunk);
       if (error) throw error;
       if (data) profiles.push(...(data as ProfileRow[]));
     }
 
     const sellerEntries: MetadataRoute.Sitemap = profiles.map((p) => ({
-      url: `${baseUrl}/vendedor/${p.id}`,
+      url: `${baseUrl}/vendedor/${p.slug}`,
       lastModified: p.updated_at || p.created_at,
       changeFrequency: 'weekly',
       priority: 0.6,
+      alternates: { languages: withLang(baseUrl, `/vendedor/${p.slug}`) },
     }));
 
     // Fetch upcoming/live events (auction_events) e feiras (eventos) —
-    // /eventos/[id] resolve ambas as tabelas (ver app/(public)/eventos/[id]/page.tsx),
-    // então o sitemap precisa cobrir as duas. Nenhuma das duas tem coluna
-    // `updated_at`, só `created_at`.
+    // /eventos/[id] resolve ambas as tabelas (ver app/(public)/eventos/[id]/page.tsx)
+    // e continua indexada pelo UUID de cada tabela — só `eventos` não recebeu
+    // slug nesta migração (apenas ads/profiles/auction_events). Nenhuma das
+    // duas tem coluna `updated_at`, só `created_at`.
     const { data: auctionEvents, error: auctionErr } = await supabase
       .from('auction_events')
-      .select('id, created_at')
+      .select('id, slug, created_at')
       .neq('status', 'draft');
     if (auctionErr) throw auctionErr;
 
@@ -153,16 +179,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: ev.created_at,
       changeFrequency: 'weekly',
       priority: 0.7,
+      alternates: { languages: withLang(baseUrl, `/eventos/${ev.id}`) },
     }));
 
-    // /leiloes/[id] resolve só contra auction_events (ver
-    // app/(public)/leiloes/[id]/page.tsx), diferente de /eventos/[id] acima —
+    // /leiloes/[slug] resolve só contra auction_events (ver
+    // app/(public)/leiloes/[slug]/page.tsx), diferente de /eventos/[id] acima —
     // por isso é uma lista de entradas separada, não junta com `eventos`.
     const auctionRouteEntries: MetadataRoute.Sitemap = (auctionEvents || []).map((ev: any) => ({
-      url: `${baseUrl}/leiloes/${ev.id}`,
+      url: `${baseUrl}/leiloes/${ev.slug}`,
       lastModified: ev.created_at,
       changeFrequency: 'weekly',
       priority: 0.7,
+      alternates: { languages: withLang(baseUrl, `/leiloes/${ev.slug}`) },
     }));
 
     return [

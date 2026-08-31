@@ -1,5 +1,4 @@
 import { notFound, permanentRedirect } from 'next/navigation'
-import { cookies } from 'next/headers'
 import { createAnonClient } from '@/lib/supabase-server'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -9,7 +8,10 @@ import { imageUrl } from '@/lib/storage'
 import { t as _t } from '@/lib/constants'
 import { parseEventDate } from '@/lib/event-date'
 import { escapeJsonLd } from '@/lib/json-ld'
+import { getLocale } from '@/lib/locale-server'
+import { localizedPath, buildHreflangAlternates } from '@/lib/locale'
 
+const SITE_URL = 'https://tauzeclass.com.br'
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type Lang = 'pt' | 'es';
@@ -42,11 +44,6 @@ const TRANSLATIONS = {
   },
 } as const;
 
-async function getLang(): Promise<Lang> {
-  const cookieStore = await cookies();
-  return cookieStore.get('tc_lang')?.value === 'es' ? 'es' : 'pt';
-}
-
 export const revalidate = 3600; // ISR — eventos raramente mudam
 
 type FoundEvento = {
@@ -58,7 +55,7 @@ type FoundEvento = {
   organizer?: string;
   link?: string;
 };
-type FoundAuction = { kind: 'auction' };
+type FoundAuction = { kind: 'auction'; slug: string };
 type FoundRecord = FoundAuction | FoundEvento;
 
 // BUG CRÍTICO CORRIGIDO (teste completo do site, 2026-08-24): esta página só
@@ -78,21 +75,25 @@ type FoundRecord = FoundAuction | FoundEvento;
 // aponta sempre pra /eventos/{id}, nunca sabe se o registro é um leilão),
 // esta função agora só confirma a EXISTÊNCIA do auction_event (kind:
 // 'auction') — quem decide o que fazer com isso é generateMetadata/a página
-// (redirect de vez pra /leiloes/{id}, sem renderizar resumo nenhum). Só um
+// (redirect de vez pra /leiloes/{slug}, sem renderizar resumo nenhum). Só um
 // registro de `eventos` de verdade retorna os dados completos (kind:
 // 'evento') pra render abaixo.
+//
+// MIGRAÇÃO UUID→SLUG: /leiloes/[id] virou /leiloes/[slug] — o redirect
+// abaixo precisa do slug real do leilão, não do id cru desta rota (que
+// continua sendo o id de auction_events, /eventos/[id] não foi slugificada).
 async function findEvent(id: string, lang: Lang): Promise<FoundRecord | null> {
   const sb = createAnonClient();
 
   const { data: auction } = await sb
     .from('auction_events')
-    .select('id')
+    .select('slug')
     .eq('id', id)
     .neq('status', 'draft')
     .maybeSingle();
 
   if (auction) {
-    return { kind: 'auction' };
+    return { kind: 'auction', slug: auction.slug };
   }
 
   const { data: evento } = await sb
@@ -124,7 +125,7 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const lang = await getLang();
+  const lang = await getLocale();
   const tt = TRANSLATIONS[lang];
   if (!UUID_REGEX.test(id)) return { title: tt.notFound };
 
@@ -146,7 +147,7 @@ export async function generateMetadata({
   // 200) — viraria só uma <meta> de redirect client-side. Permanent (308)
   // porque a duplicidade é estrutural: este id SEMPRE vai pertencer a
   // /leiloes, nunca a uma página de evento própria.
-  if (data.kind === 'auction') permanentRedirect(`/leiloes/${id}`);
+  if (data.kind === 'auction') permanentRedirect(localizedPath(`/leiloes/${data.slug}`, lang));
 
   const coverUrl = data.cover
     ? data.cover.startsWith('http')
@@ -155,15 +156,20 @@ export async function generateMetadata({
     : undefined;
 
   const description = `${tt.eventOn} ${formatEventDate(data.date, lang)}`;
+  const path = `/eventos/${id}`;
+  const canonicalUrl = `${SITE_URL}${localizedPath(path, lang)}`;
 
   return {
     title: data.title,
     description,
-    alternates: { canonical: `https://tauzeclass.com.br/eventos/${id}` },
+    alternates: {
+      canonical: canonicalUrl,
+      languages: buildHreflangAlternates(SITE_URL, path),
+    },
     openGraph: {
       title: data.title,
       description,
-      url: `https://tauzeclass.com.br/eventos/${id}`,
+      url: canonicalUrl,
       type: 'website',
       locale: lang === 'es' ? 'es_AR' : 'pt_BR',
       images: coverUrl
@@ -201,7 +207,7 @@ export default async function EventDetailPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const lang = await getLang()
+  const lang = await getLocale()
   const tt = TRANSLATIONS[lang]
 
   // Validar formato UUID antes de qualquer query
@@ -221,7 +227,7 @@ export default async function EventDetailPage({
   // normais, mas se algum dia rodar sem esse Suspense herdado, o corpo
   // continua correto por si só.
   if (found.kind === 'auction') {
-    permanentRedirect(`/leiloes/${id}`)
+    permanentRedirect(localizedPath(`/leiloes/${found.slug}`, lang))
   }
 
   const event = found

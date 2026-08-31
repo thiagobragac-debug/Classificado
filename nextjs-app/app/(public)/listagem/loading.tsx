@@ -1,13 +1,12 @@
-import { cookies } from 'next/headers'
 import { t as _t } from '@/lib/constants'
+import { getLocale } from '@/lib/locale-server'
 
 // BUG CORRIGIDO (auditoria de cobertura de i18n em todas as páginas de
 // cliente, retomada da validação "sem exceção"): fallback de loading
 // automatico da rota Next.js nunca lia o idioma - mesmo padrao ja usado em
 // app/(public)/eventos/loading.tsx.
 export default async function Loading() {
-  const cookieStore = await cookies()
-  const lang = cookieStore.get('tc_lang')?.value === 'es' ? 'es' : 'pt'
+  const lang = await getLocale()
   const t = (key: string) => _t(key, lang)
 
   return (

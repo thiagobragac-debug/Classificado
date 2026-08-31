@@ -7,6 +7,7 @@ const MAX_RECENT = 10;
 
 export interface RecentAd {
   id: string;
+  slug: string;
   title_pt: string;
   title_es: string;
   price: number;
@@ -45,6 +46,7 @@ export function useRecentViews() {
       
       const newAd: RecentAd = {
         id: ad.id,
+        slug: ad.slug,
         title_pt: ad.title_pt,
         title_es: ad.title_es,
         price: ad.price,

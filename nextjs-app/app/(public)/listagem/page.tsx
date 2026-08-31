@@ -1,5 +1,4 @@
 import { Metadata } from 'next';
-import { cookies } from 'next/headers';
 import AdsBrowser from '@/components/ads/AdsBrowser';
 import { getGeoParams, getAllCategories } from '@/lib/listagem-utils';
 import { getAdsListagem, adsSearchParamsSchema } from '@/lib/services/ads.service';
@@ -7,6 +6,8 @@ import { logError } from '@/lib/monitoring';
 import { t as _t } from '@/lib/constants';
 import { escapeJsonLd } from '@/lib/json-ld';
 import { imageUrl } from '@/lib/storage';
+import { getLocale } from '@/lib/locale-server';
+import { localizedPath, buildHreflangAlternates } from '@/lib/locale';
 
 const SITE_URL = 'https://tauzeclass.com.br';
 // Imagem genérica do site pra OG/Twitter/JSON-LD quando não há categoria ou
@@ -43,7 +44,7 @@ export async function generateMetadata({
   const rawParams = await Promise.resolve(searchParams);
   const parsedParams = adsSearchParamsSchema.parse(rawParams);
 
-  const lang = (await cookies()).get('tc_lang')?.value === 'es' ? 'es' : 'pt';
+  const lang = await getLocale();
   const T = METADATA_TRANSLATIONS[lang];
 
   let baseTitle = T.defaultTitle;
@@ -92,13 +93,15 @@ export async function generateMetadata({
   if (parsedParams.estado) canonicalParams.set('estado', parsedParams.estado);
   if (parsedParams.cidade) canonicalParams.set('cidade', parsedParams.cidade);
   const canonicalQuery = canonicalParams.toString();
-  const canonicalUrl = `https://tauzeclass.com.br/listagem${canonicalQuery ? `?${canonicalQuery}` : ''}`;
+  const path = `/listagem${canonicalQuery ? `?${canonicalQuery}` : ''}`;
+  const canonicalUrl = `${SITE_URL}${localizedPath(path, lang)}`;
 
   return {
     title,
     description,
     alternates: {
       canonical: canonicalUrl,
+      languages: buildHreflangAlternates(SITE_URL, path),
     },
     // BUG CORRIGIDO (auditoria de SEO): página sem openGraph/twitter nenhum
     // — link compartilhado no WhatsApp/Facebook/Twitter caía no fallback
@@ -163,7 +166,7 @@ function buildItemListJsonLd(ads: any[], lang: 'pt' | 'es') {
       return {
         '@type': 'ListItem',
         position: index + 1,
-        url: `${SITE_URL}/anuncio/${ad.id}`,
+        url: `${SITE_URL}/anuncio/${ad.slug}`,
         item: {
           '@type': 'Product',
           name: adTitle,
@@ -227,7 +230,7 @@ export default async function ListagemPage({
 }) {
   const rawParams = await Promise.resolve(searchParams);
   const parsedParams = adsSearchParamsSchema.parse(rawParams);
-  const lang = (await cookies()).get('tc_lang')?.value === 'es' ? 'es' : 'pt';
+  const lang = await getLocale();
 
   const geoContext = await getGeoParams({
     pais: parsedParams.pais,

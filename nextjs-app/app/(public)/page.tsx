@@ -13,9 +13,10 @@ import { CtaSection } from '@/components/home/CtaSection';
 import { EventsAuctionsSection } from '@/components/home/EventsAuctionsSection';
 import { AdBanner } from '@/components/AdBanner';
 import dynamic from 'next/dynamic';
-import { headers, cookies } from 'next/headers';
+import { headers } from 'next/headers';
 import { t } from '@/lib/constants';
 import { escapeJsonLd } from '@/lib/json-ld';
+import { getLocale } from '@/lib/locale-server';
 
 // Descrição-base por idioma (mesmo texto do fallback em app/(public)/layout.tsx)
 // enriquecida com a região do visitante quando os headers de geolocalização
@@ -40,8 +41,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const state = headersList.get('x-vercel-ip-country-region') || undefined;
   const country = headersList.get('x-vercel-ip-country') || undefined;
 
-  const cookieStore = await cookies();
-  const lang = (cookieStore.get('tc_lang')?.value === 'es' ? 'es' : 'pt') as 'pt' | 'es';
+  const lang = await getLocale();
   const m = HOME_METADATA_I18N[lang];
 
   const location = [city, state, country].filter(Boolean).join(', ');
@@ -138,8 +138,7 @@ export default async function Home() {
   const state   = headersList.get('x-vercel-ip-country-region') || undefined;
   const country = headersList.get('x-vercel-ip-country')        || undefined;
 
-  const cookieStore = await cookies();
-  const lang = (cookieStore.get('tc_lang')?.value === 'es' ? 'es' : 'pt') as 'pt' | 'es';
+  const lang = await getLocale();
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://tauzeclass.com.br";
 

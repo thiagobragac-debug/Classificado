@@ -1,12 +1,12 @@
 import React, { Suspense } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { unstable_cache } from 'next/cache'
-import { cookies } from 'next/headers'
 import type { Metadata } from 'next'
 import { SUPABASE_URL, SUPABASE_ANON } from '@/lib/supabase'
 import { LoginBanner } from './components/LoginBanner'
 import { AuthContainer } from './components/AuthContainer'
 import { LangToggle } from './components/LangToggle'
+import { getLocale } from '@/lib/locale-server'
 
 // BUG CORRIGIDO (auditoria completa de i18n): metadata era um objeto estático
 // sempre em português — visitantes com tc_lang=es viam title/description em
@@ -23,8 +23,7 @@ const METADATA_I18N = {
 } as const
 
 export async function generateMetadata(): Promise<Metadata> {
-  const cookieStore = await cookies()
-  const lang = cookieStore.get('tc_lang')?.value === 'es' ? 'es' : 'pt'
+  const lang = await getLocale()
   // Página transacional/de conta — não precisa ser indexada; sobrescreve o
   // robots:{index:true} herdado do layout raiz só nesta rota.
   return { ...METADATA_I18N[lang], robots: { index: false, follow: false } }

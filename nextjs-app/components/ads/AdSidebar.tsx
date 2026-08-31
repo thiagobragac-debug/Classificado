@@ -69,6 +69,7 @@ type SidebarLang = keyof typeof TRANSLATIONS;
 // Minimal interfaces for the props we need
 interface Profile {
   id: string;
+  slug: string;
   name: string | null;
   display_name: string | null;
   avatar_url: string | null;
@@ -249,8 +250,8 @@ export function AdSidebar({ ad, adTitle, catName, hasWhatsapp }: AdSidebarProps)
                 </div>
               </>
             );
-            return ad.user_id ? (
-              <Link href={`/vendedor/${ad.user_id}`} className="seller-card-mini" style={{ display: 'flex', gap: '1rem', padding: '1rem', background: 'var(--clr-surface-alt)', borderRadius: '1rem', textDecoration: 'none', color: 'inherit' }}>
+            return ad.profiles?.slug ? (
+              <Link href={`/vendedor/${ad.profiles.slug}`} className="seller-card-mini" style={{ display: 'flex', gap: '1rem', padding: '1rem', background: 'var(--clr-surface-alt)', borderRadius: '1rem', textDecoration: 'none', color: 'inherit' }}>
                 {sellerCardContent}
               </Link>
             ) : (

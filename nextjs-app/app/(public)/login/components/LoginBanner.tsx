@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import Image from 'next/image'
-import { cookies } from 'next/headers'
+import { getLocale } from '@/lib/locale-server'
 
 interface LoginBannerProps {
   logoUrl: string | null
@@ -33,8 +33,7 @@ const TRANSLATIONS = {
 } as const
 
 export async function LoginBanner({ logoUrl }: LoginBannerProps) {
-  const cookieStore = await cookies()
-  const lang = cookieStore.get('tc_lang')?.value === 'es' ? 'es' : 'pt'
+  const lang = await getLocale()
   const tr = TRANSLATIONS[lang]
 
   return (

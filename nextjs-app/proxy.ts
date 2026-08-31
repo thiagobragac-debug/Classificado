@@ -205,9 +205,53 @@ function applySecurityHeaders(res: NextResponse, csp: string): NextResponse {
 // tudo (recomendação OWASP para REST) em vez de repetir o CSP de página.
 const API_CSP = `default-src 'none'; frame-ancestors 'none'; base-uri 'none'`;
 
+// ─── i18n por URL real (BUG CRÍTICO CORRIGIDO, migração de SEO) ─
+// Antes, idioma era 100% cookie/Accept-Language — a MESMA URL podia servir
+// PT ou ES dependendo de quem pedia, o que é exatamente o que o Google
+// desaconselha pra hreflang (e o Googlebot nunca reenvia cookie entre
+// crawls, então ES nunca era indexado). Agora /es/... é uma URL real e
+// distinta: reescrita internamente pra rota SEM PREFIXO (o Next.js serve
+// o mesmo arquivo de rota, só que sabendo o locale via x-locale), e PT
+// continua exatamente como sempre foi (sem prefixo) — nenhuma URL já
+// indexada em PT muda. Só ADICIONA uma árvore de URL nova pra ES.
+const LOCALE_PREFIX = '/es';
+
+// Países do Mercosul de língua espanhola — mesmo recorte já usado no resto
+// do site ("Brasil, Argentina, Paraguai e Uruguai"). Brasil e qualquer país
+// fora dessa lista (incluindo "sem sinal de geo", ex.: localhost em dev)
+// caem no default 'pt'.
+const PAISES_ES = new Set(['AR', 'PY', 'UY']);
+
+// Só usado quando NÃO existe cookie tc_lang ainda (visitante genuinamente
+// novo) — ver comentário em cima de `activeLocale` abaixo. x-vercel-ip-country
+// só existe na Vercel (produção); em dev local vem undefined e cai no
+// default 'pt' de qualquer forma, mesma limitação que app/(public)/page.tsx
+// já tem pra geolocalização de cidade/estado.
+function paisParaLocale(countryCode: string | null): 'pt' | 'es' {
+  return countryCode && PAISES_ES.has(countryCode) ? 'es' : 'pt';
+}
+
+function stripLocalePrefix(pathname: string): { effectivePath: string; urlLocale: 'es' | null } {
+  if (pathname === LOCALE_PREFIX) return { effectivePath: '/', urlLocale: 'es' };
+  if (pathname.startsWith(`${LOCALE_PREFIX}/`)) {
+    return { effectivePath: pathname.slice(LOCALE_PREFIX.length), urlLocale: 'es' };
+  }
+  return { effectivePath: pathname, urlLocale: null };
+}
+
+// Prefixa um path interno (ex.: destino de redirect) com /es quando o
+// locale ativo da requisição é 'es' — pra um usuário que já está
+// navegando em ES não ser jogado de volta pra uma URL em PT no meio do
+// fluxo (ex.: /painel protegido redirecionando pro /login).
+function withLocale(path: string, locale: 'pt' | 'es'): string {
+  if (locale !== 'es') return path;
+  return path === '/' ? LOCALE_PREFIX : `${LOCALE_PREFIX}${path}`;
+}
+
 // ─── Proxy (antigo middleware — renomeado no Next.js 16) ───────
 export async function proxy(request: NextRequest) {
-  const pathname = request.nextUrl.pathname;
+  const rawPathname = request.nextUrl.pathname;
+  const { effectivePath: pathname, urlLocale } = stripLocalePrefix(rawPathname);
 
   // Ignorar arquivos estáticos e de build (sem overhead algum)
   //
@@ -230,7 +274,8 @@ export async function proxy(request: NextRequest) {
   }
 
   // Rotas de API recebem headers de segurança mas não passam pela autenticação
-  // SSR — cada handler valida a própria credencial (sessão ou API key).
+  // SSR — cada handler valida a própria credencial (sessão ou API key). Não
+  // existe (nem faz sentido existir) uma API prefixada com /es.
   if (pathname.startsWith('/api')) {
     // BUG CORRIGIDO (auditoria de segurança, 2026-08-30): /api/admin/** não
     // tinha rate limiting algum — relevante só no cenário de uma sessão de
@@ -251,6 +296,56 @@ export async function proxy(request: NextRequest) {
       }
     }
     return applySecurityHeaders(NextResponse.next(), API_CSP);
+  }
+
+  // ─── Idioma efetivo desta requisição ──────────────────────────
+  // Prioridade: prefixo /es explícito na URL > cookie tc_lang (preferência
+  // já registrada, manual ou geo-guess de uma visita anterior) > geo pela
+  // localização de acesso (país do IP, só quando não existe cookie ainda —
+  // visitante genuinamente novo) > 'pt'.
+  //
+  // BUG CORRIGIDO (achado de revisão, 2026-08-30): a versão anterior desta
+  // migração removeu de propósito a adivinhança por Accept-Language (motivo
+  // documentado abaixo, ainda válido), mas isso também matou o
+  // comportamento que a Home já tinha pra geolocalização de cidade/estado —
+  // um visitante genuinamente novo vindo da Argentina/Paraguai/Uruguai
+  // (sem cookie nenhum ainda) sempre caía em PT por padrão, mesmo o site já
+  // usando x-vercel-ip-country pra outras features. IP-based (país) não é a
+  // mesma coisa que Accept-Language: é um sinal estável por REQUISIÇÃO (não
+  // muda entre um clique e outro, ao contrário do header de idioma do
+  // navegador, que pode listar vários idiomas com pesos ambíguos), e vira
+  // real 301/307 pra uma URL própria (nunca serve conteúdo diferente na
+  // MESMA URL) — não reabre o bug original. Uma vez que QUALQUER locale
+  // (geo-guess ou escolha manual no seletor) grava o cookie, ele passa a
+  // mandar em todas as visitas seguintes — a escolha manual do usuário
+  // sempre tem a palavra final.
+  // BUG EVITADO: `cookieLang` só representa "cookie diz ES" (precisa ficar
+  // assim — é usado abaixo só pra decidir o redirect de ES). Não dá pra
+  // usar esse mesmo booleano pra decidir se o geo-guess deve rodar: um
+  // cookie 'pt' explícito (escolha manual) faria `cookieLang` virar null
+  // igualzinho a "nenhum cookie ainda", e o geo-guess sobrescreveria uma
+  // escolha manual de PT pra alguém acessando de IP argentino/paraguaio/
+  // uruguaio — exatamente o oposto do requisito ("se o usuário alterar
+  // manualmente, seguir o idioma selecionado pelo usuário"). `hasStoredLang`
+  // distingue de verdade "existe uma preferência salva" (pt OU es) de
+  // "visitante novo, sem cookie nenhum" — só neste último caso o geo-guess
+  // deve rodar.
+  const rawCookieLang = request.cookies.get('tc_lang')?.value;
+  const cookieLang = rawCookieLang === 'es' ? 'es' : null;
+  const hasStoredLang = rawCookieLang === 'pt' || rawCookieLang === 'es';
+  const geoLocale = hasStoredLang ? null : paisParaLocale(request.headers.get('x-vercel-ip-country'));
+  const activeLocale: 'pt' | 'es' = urlLocale || cookieLang || geoLocale || 'pt';
+
+  // BUG CORRIGIDO (migração de SEO): visitante com preferência ES definida
+  // (cookie de uma visita anterior OU geo-guess desta mesma requisição)
+  // pedindo uma URL SEM prefixo é redirecionado pra URL com prefixo, em vez
+  // de simplesmente servir ES por baixo dos panos na URL de PT — isso
+  // reabriria o mesmíssimo problema que motivou toda essa migração (a
+  // MESMA URL servindo conteúdo diferente por visitante).
+  if (!urlLocale && activeLocale === 'es' && !pathname.startsWith('/painel') && !pathname.startsWith('/admin')) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = withLocale(pathname, 'es');
+    return NextResponse.redirect(redirectUrl, 307);
   }
 
   // ─── Nonce para CSP ──────────────────────────────────────────
@@ -291,11 +386,27 @@ export async function proxy(request: NextRequest) {
   // depois de logar, não na página que ele realmente pediu. Layouts não
   // recebem o pathname atual como prop; repassamos aqui via header pra
   // qualquer Server Component poder ler com headers().get('x-pathname').
+  // Sempre o path SEM prefixo de locale — é o que bate com a estrutura
+  // real de rotas do app/(public)/.
   requestHeaders.set('x-pathname', pathname);
+  // Locale efetivo desta requisição — ver lib/locale.ts (getLocale()), o
+  // único lugar que qualquer Server Component deveria ler o idioma ativo
+  // a partir de agora, em vez de cada página reimplementar sua própria
+  // leitura de cookie/searchParams (foi exatamente essa duplicação que
+  // causou o bug crítico original: duas cópias da mesma lógica divergindo
+  // silenciosamente entre generateMetadata e o corpo da página).
+  requestHeaders.set('x-locale', activeLocale);
 
-  let response = NextResponse.next({
-    request: { headers: requestHeaders },
-  });
+  // Helper local: NextResponse.rewrite quando a URL pedida tem prefixo
+  // /es (o Next.js precisa saber servir a rota SEM prefixo por baixo),
+  // NextResponse.next nos demais casos — usado nos 3 pontos deste arquivo
+  // que (re)constroem a response base.
+  const nextForRoute = () =>
+    urlLocale
+      ? NextResponse.rewrite(new URL(pathname + request.nextUrl.search, request.url), { request: { headers: requestHeaders } })
+      : NextResponse.next({ request: { headers: requestHeaders } });
+
+  let response = nextForRoute();
 
   // ─── Supabase SSR Client ──────────────────────────────────────
   const supabase = createServerClient(
@@ -308,10 +419,10 @@ export async function proxy(request: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          // Recriar response preservando headers de segurança e nonce
-          response = NextResponse.next({
-            request: { headers: requestHeaders },
-          });
+          // Recriar response preservando headers de segurança, nonce e o
+          // rewrite de locale (se houver) — mesmo helper usado na primeira
+          // construção de `response`, pra nunca divergir entre os dois.
+          response = nextForRoute();
           applySecurityHeaders(response, csp);
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options)
@@ -374,7 +485,7 @@ export async function proxy(request: NextRequest) {
 
     if (pendingRecovery) {
       const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = '/login';
+      redirectUrl.pathname = withLocale('/login', activeLocale);
       redirectUrl.searchParams.set('error', 'recovery_session');
       const redirectResponse = applySecurityHeaders(NextResponse.redirect(redirectUrl), csp);
 
@@ -402,7 +513,7 @@ export async function proxy(request: NextRequest) {
 
   if (userId && isBlocked) {
     const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = '/login';
+    redirectUrl.pathname = withLocale('/login', activeLocale);
     redirectUrl.searchParams.set('error', 'blocked');
     const redirectResponse = applySecurityHeaders(NextResponse.redirect(redirectUrl), csp);
 
@@ -419,32 +530,21 @@ export async function proxy(request: NextRequest) {
   const isPainelRoute = pathname.startsWith('/painel');
   if (isPainelRoute && !userId) {
     const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = '/login';
+    redirectUrl.pathname = withLocale('/login', activeLocale);
     redirectUrl.searchParams.set('redirectTo', pathname);
     return applySecurityHeaders(NextResponse.redirect(redirectUrl), csp);
   }
 
   // ─── Cookie de idioma ─────────────────────────────────────────
-  let lang = request.cookies.get('tc_lang')?.value;
-  if (!lang) {
-    const acceptLang = request.headers.get('accept-language') || '';
-    lang = acceptLang.toLowerCase().includes('es') ? 'es' : 'pt';
-
-    // BUG CORRIGIDO (auditoria de SEO): setar o cookie só na RESPOSTA
-    // (response.cookies.set) só afeta requisições FUTURAS do mesmo
-    // navegador — os Server Components desta MESMA requisição
-    // (generateMetadata, layout raiz, todo Page) continuam lendo
-    // cookies() com o cookie ORIGINAL da requisição, sem tc_lang, e caem
-    // sempre em 'pt'. Como o Googlebot não reenvia cookie nenhum entre
-    // crawls (cada fetch é "a primeira vez"), a detecção por
-    // Accept-Language nunca chegava a valer pra ele. requestHeaders é o
-    // mecanismo padrão do Next.js pra um cookie decidido no meio do
-    // middleware ficar visível pros Server Components desta MESMA
-    // requisição — reconstrói o response com ele antes de devolver.
-    const cookieHeaderAtual = requestHeaders.get('cookie') || '';
-    requestHeaders.set('cookie', cookieHeaderAtual ? `${cookieHeaderAtual}; tc_lang=${lang}` : `tc_lang=${lang}`);
-    response = NextResponse.next({ request: { headers: requestHeaders } });
-    response.cookies.set('tc_lang', lang, {
+  // BUG CORRIGIDO (migração de SEO): antes, o COOKIE (ou uma adivinhança por
+  // Accept-Language) decidia o conteúdo — agora é o inverso: a URL
+  // (/es/... ou sem prefixo) decide `activeLocale`, calculado lá em cima, e
+  // o cookie só existe pra persistir a preferência do visitante entre
+  // visitas (pro redirect automático mais acima) e pro estado inicial do
+  // LangProvider client-side bater com o que o servidor já renderizou —
+  // nunca mais como fonte de verdade do conteúdo em si.
+  if (request.cookies.get('tc_lang')?.value !== activeLocale) {
+    response.cookies.set('tc_lang', activeLocale, {
       path: '/',
       maxAge: 60 * 60 * 24 * 365,
       sameSite: 'lax',

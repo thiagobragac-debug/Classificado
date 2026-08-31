@@ -52,9 +52,15 @@ export async function getServerAds({
   const currentPage = cursor ? cursor : (page ? page : 1);
   const from = (currentPage - 1) * limit;
 
+  // BUG CORRIGIDO (verificação ao vivo desta rodada): phone_whatsapp foi
+  // movida de profiles pra user_secrets (migration 20260829130000, feita em
+  // paralelo) — este embed nunca foi atualizado e nenhum componente do lado
+  // home lia esse campo mesmo antes, então a query inteira falhava com
+  // 42703 (coluna inexistente) e as seções Destaques/Recentes da home
+  // ficavam sempre vazias (erro engolido pelo catch que retorna []).
   let q = supabase
     .from('ads')
-    .select('id, title_pt, title_es, price, currency, status, featured, images, category_id, city, state, country, created_at, views_count, expires_at, profiles(name, avatar_url, verified)')
+    .select('id, slug, title_pt, title_es, price, currency, status, featured, images, category_id, city, state, country, created_at, views_count, expires_at, profiles(name, avatar_url, verified)')
     .eq('status', status)
     .order('featured', { ascending: false })
     .order('created_at', { ascending: false })
@@ -120,7 +126,7 @@ export const getServerFeaturedAds = cache(async (city?: string, state?: string, 
       p_country: country || null, 
       p_limit: limit 
     })
-    .select('id, title_pt, title_es, price, currency, status, featured, images, category_id, city, state, country, created_at, views_count, expires_at, profiles(name, avatar_url, verified)');
+    .select('id, slug, title_pt, title_es, price, currency, status, featured, images, category_id, city, state, country, created_at, views_count, expires_at, profiles(name, avatar_url, verified)');
     
   if (error) {
     console.error("Error fetching localized featured ads", error);
@@ -139,7 +145,7 @@ export const getServerRecentAds = cache(async (city?: string, state?: string, co
       p_limit: limit,
       p_offset: 0
     })
-    .select('id, title_pt, title_es, price, currency, status, featured, images, category_id, city, state, country, created_at, views_count, expires_at, profiles(name, avatar_url, verified)')
+    .select('id, slug, title_pt, title_es, price, currency, status, featured, images, category_id, city, state, country, created_at, views_count, expires_at, profiles(name, avatar_url, verified)')
     .limit(limit);
     
   if (error) {

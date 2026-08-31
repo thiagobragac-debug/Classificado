@@ -1,5 +1,4 @@
-import { notFound } from 'next/navigation';
-import { cookies } from 'next/headers';
+import { notFound, permanentRedirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import { createClient, createAnonClient } from '@/lib/supabase-server';
@@ -8,7 +7,10 @@ import LotGrid from '@/components/auctions/LotGrid';
 import { LotData } from '@/components/auctions/LotBiddingModal';
 import { imageUrl } from '@/lib/storage';
 import { escapeJsonLd } from '@/lib/json-ld';
+import { getLocale } from '@/lib/locale-server';
+import { localizedPath, buildHreflangAlternates } from '@/lib/locale';
 
+const SITE_URL = 'https://tauzeclass.com.br';
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 // BUG CORRIGIDO (auditoria de i18n, 2026-08-26/27 — confirmado ao vivo
@@ -71,28 +73,34 @@ const TRANSLATIONS = {
   },
 } as const;
 
-async function getLang(): Promise<'pt' | 'es'> {
-  return (await cookies()).get('tc_lang')?.value === 'es' ? 'es' : 'pt';
-}
-
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
-  const { id } = await params;
-  const lang = await getLang();
+  const { slug: slugParam } = await params;
+  const lang = await getLocale();
   const T = TRANSLATIONS[lang];
-  if (!UUID_REGEX.test(id)) return { title: T.notFound };
 
   const sb = createAnonClient();
   const { data } = await sb
     .from('auction_events')
-    .select('title, title_es, cover, date, status')
-    .eq('id', id)
-    .single();
+    .select('slug, title, title_es, cover, date, status')
+    .eq('slug', slugParam)
+    .maybeSingle();
 
-  if (!data) return { title: T.notFound };
+  // MIGRAÇÃO UUID→SLUG: /leiloes/[id] virou /leiloes/[slug]. Um link antigo
+  // (indexado pelo Google ou compartilhado) aponta pro UUID cru — se o
+  // parâmetro tem formato de UUID e não bate com nenhum slug, tenta achar o
+  // leilão real por id e redireciona 301 pra URL de slug definitiva
+  // (preserva o locale ativo).
+  if (!data) {
+    if (UUID_REGEX.test(slugParam)) {
+      const { data: byId } = await sb.from('auction_events').select('slug').eq('id', slugParam).maybeSingle();
+      if (byId) permanentRedirect(localizedPath(`/leiloes/${byId.slug}`, lang));
+    }
+    return { title: T.notFound };
+  }
 
   const title = lang === 'es' && data.title_es ? data.title_es : data.title;
 
@@ -111,14 +119,22 @@ export async function generateMetadata({
   const isLive = data.status === 'live';
   const ogTitle = isLive ? T.liveOgPrefix(title) : title;
 
+  // BUG CRÍTICO CORRIGIDO (migração de SEO): /es/leiloes/{slug} agora é uma
+  // URL real e distinta (rewrite em proxy.ts), igual ao resto do site.
+  const path = `/leiloes/${data.slug}`;
+  const canonicalUrl = `${SITE_URL}${localizedPath(path, lang)}`;
+
   return {
     title,
     description,
-    alternates: { canonical: `https://tauzeclass.com.br/leiloes/${id}` },
+    alternates: {
+      canonical: canonicalUrl,
+      languages: buildHreflangAlternates(SITE_URL, path),
+    },
     openGraph: {
       title: ogTitle,
       description,
-      url: `https://tauzeclass.com.br/leiloes/${id}`,
+      url: canonicalUrl,
       type: 'website',
       locale: lang === 'es' ? 'es_AR' : 'pt_BR',
       images: coverUrl
@@ -140,80 +156,79 @@ export async function generateStaticParams() {
     const sb = createAnonClient();
     const { data } = await sb
       .from('auction_events')
-      .select('id')
+      .select('slug')
       .in('status', ['live', 'scheduled'])
       .order('date', { ascending: true })
       .limit(20);
 
-    return (data || []).map(ev => ({ id: ev.id }));
+    return (data || []).map(ev => ({ slug: ev.slug }));
   } catch {
     return [];
   }
 }
 
 
-export default async function AuctionPage(props: { params: Promise<{ id: string }> }) {
+export default async function AuctionPage(props: { params: Promise<{ slug: string }> }) {
   const params = await props.params;
-  const auctionId = params.id;
-  const lang = await getLang();
+  const slugParam = params.slug;
+  const lang = await getLocale();
   const T = TRANSLATIONS[lang];
   const dateLocale = lang === 'es' ? 'es-AR' : 'pt-BR';
-
-  // Validar formato UUID antes de qualquer query
-  if (!UUID_REGEX.test(auctionId)) {
-    notFound();
-  }
 
   // Usar createClient para obter sessão do usuário (necessário para bids)
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const userId = user?.id;
 
-  // Buscar leilão e lotes em paralelo para melhor performance
-  const [
-    { data: auction, error },
-    { data: lots, error: lotsError },
-  ] = await Promise.all([
-    supabase
-      .from('auction_events')
-      // BUG CORRIGIDO (3ª varredura): não buscava a coluna `step` — o valor
-      // real de incremento mínimo exigido pelo servidor
-      // (place_lot_bid_atomic: lance >= currentBid + step) nunca chegava à
-      // UI, que calculava os "lances rápidos" só a partir do current_bid.
-      // title_es: coluna nova (auditoria de i18n, 2026-08-26/27), fallback pra title.
-      .select('id, title, title_es, date, cover, status, youtube, catalog, step')
-      .eq('id', auctionId)
-      .single(),
-    supabase
-      .from('auction_lots')
-      // BUG CORRIGIDO: pedia colunas que não existem (images, starting_bid,
-      // status — nomes reais são image, min_bid; status nem existe nesta
-      // tabela). PostgREST rejeita a consulta inteira com 400 quando um
-      // select referencia uma coluna inexistente, então { data: lots } sempre
-      // vinha vazio e a página mostrava "Nenhum lote cadastrado" mesmo
-      // quando existiam lotes reais — o erro nem era logado, só a
-      // desestruturação `{ data: lots }` descartava o error.
-      // BUG CORRIGIDO (3ª varredura): não buscava winner_id — a coluna já
-      // existe e é populada por place_lot_bid_atomic, mas o lado público
-      // nunca mostrava "você está vencendo" (só o admin usava essa coluna).
-      // title_es/description_es/sire_es/dam_es: colunas novas (auditoria de
-      // i18n, 2026-08-26/27) — LotGrid/LotBiddingModal (client) escolhem a
-      // coluna certa sozinhos via useLang(), com fallback pras colunas _pt.
-      .select('id, lot_number, title, title_es, description, description_es, image, video, sire, sire_es, dam, dam_es, min_bid, current_bid, winner_id, auction_id')
-      .eq('auction_id', auctionId)
-      .order('lot_number', { ascending: true }),
-  ]);
+  // Buscar o leilão por slug primeiro (fluxo normal).
+  const { data: auction, error } = await supabase
+    .from('auction_events')
+    // BUG CORRIGIDO (3ª varredura): não buscava a coluna `step` — o valor
+    // real de incremento mínimo exigido pelo servidor
+    // (place_lot_bid_atomic: lance >= currentBid + step) nunca chegava à
+    // UI, que calculava os "lances rápidos" só a partir do current_bid.
+    // title_es: coluna nova (auditoria de i18n, 2026-08-26/27), fallback pra title.
+    .select('id, slug, title, title_es, date, cover, status, youtube, catalog, step')
+    .eq('slug', slugParam)
+    .maybeSingle();
 
+  // MIGRAÇÃO UUID→SLUG: mesmo fallback de generateMetadata acima — um link
+  // antigo por UUID ainda resolve, com 301 pro slug real.
   if (error || !auction) {
+    if (UUID_REGEX.test(slugParam)) {
+      const { data: byId } = await supabase.from('auction_events').select('slug').eq('id', slugParam).maybeSingle();
+      if (byId) permanentRedirect(localizedPath(`/leiloes/${byId.slug}`, lang));
+    }
     notFound();
   }
+
+  const auctionId = auction.id;
+
+  const { data: lots, error: lotsError } = await supabase
+    .from('auction_lots')
+    // BUG CORRIGIDO: pedia colunas que não existem (images, starting_bid,
+    // status — nomes reais são image, min_bid; status nem existe nesta
+    // tabela). PostgREST rejeita a consulta inteira com 400 quando um
+    // select referencia uma coluna inexistente, então { data: lots } sempre
+    // vinha vazio e a página mostrava "Nenhum lote cadastrado" mesmo
+    // quando existiam lotes reais — o erro nem era logado, só a
+    // desestruturação `{ data: lots }` descartava o error.
+    // BUG CORRIGIDO (3ª varredura): não buscava winner_id — a coluna já
+    // existe e é populada por place_lot_bid_atomic, mas o lado público
+    // nunca mostrava "você está vencendo" (só o admin usava essa coluna).
+    // title_es/description_es/sire_es/dam_es: colunas novas (auditoria de
+    // i18n, 2026-08-26/27) — LotGrid/LotBiddingModal (client) escolhem a
+    // coluna certa sozinhos via useLang(), com fallback pras colunas _pt.
+    .select('id, lot_number, title, title_es, description, description_es, image, video, sire, sire_es, dam, dam_es, min_bid, current_bid, winner_id, auction_id')
+    .eq('auction_id', auctionId)
+    .order('lot_number', { ascending: true });
 
   // BUG CORRIGIDO (varredura cruzada de cenários): erro real da query de
   // lotes era descartado (só `{ data: lots }` era desestruturado) — se essa
   // query falhasse por qualquer motivo, LotGrid mostrava "Nenhum lote
   // cadastrado", indistinguível de um leilão genuinamente sem lotes.
   if (lotsError) {
-    console.error('[leiloes/id] Failed to fetch lots:', lotsError.message);
+    console.error('[leiloes/slug] Failed to fetch lots:', lotsError.message);
   }
 
   const auctionTitle = lang === 'es' && auction.title_es ? auction.title_es : auction.title;
@@ -251,7 +266,7 @@ export default async function AuctionPage(props: { params: Promise<{ id: string 
     name: auctionTitle,
     startDate: new Date(auction.date).toISOString(),
     endDate: new Date(new Date(auction.date).getTime() + 4 * 60 * 60 * 1000).toISOString(),
-    url: `https://tauzeclass.com.br/leiloes/${auctionId}`,
+    url: `https://tauzeclass.com.br/leiloes/${auction.slug}`,
     eventAttendanceMode: 'https://schema.org/OnlineEventAttendanceMode',
     // Mesmo mapeamento da listagem: só 'cancelled' vira EventCancelled;
     // schema.org não tem um status "concluído" e 'closed' (encerrado
@@ -259,7 +274,7 @@ export default async function AuctionPage(props: { params: Promise<{ id: string 
     eventStatus: auction.status === 'cancelled'
       ? 'https://schema.org/EventCancelled'
       : 'https://schema.org/EventScheduled',
-    location: { '@type': 'VirtualLocation', url: `https://tauzeclass.com.br/leiloes/${auctionId}` },
+    location: { '@type': 'VirtualLocation', url: `https://tauzeclass.com.br/leiloes/${auction.slug}` },
     description: T.descriptionText(
       new Date(auction.date).toLocaleDateString(jsonLdDateLocale),
       new Date(auction.date).toLocaleTimeString(jsonLdDateLocale, { hour: '2-digit', minute: '2-digit' })

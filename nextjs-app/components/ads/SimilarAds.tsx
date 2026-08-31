@@ -36,7 +36,7 @@ export async function SimilarAds({ currentAdId, categoryId, city, state }: Simil
   // (lib/services/ads.service.ts) — SimilarAdsCarousel.tsx sempre caía no
   // fallback _pt mesmo com tradução real preenchida, porque a coluna nem
   // chegava até o componente.
-  const fields = 'id, title_pt, title_es, price, currency, price_unit_pt, price_unit_es, images, city, state, featured, category_id, created_at, profiles!inner(id, name)';
+  const fields = 'id, slug, title_pt, title_es, price, currency, price_unit_pt, price_unit_es, images, city, state, featured, category_id, created_at, profiles!inner(id, name)';
 
   try {
     // Nível 1: Mesma Categoria + Cidade
