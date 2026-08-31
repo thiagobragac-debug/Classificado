@@ -34,14 +34,43 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // is_admin checado apenas server-side, nunca exposto ao cliente
   const { data: profile } = await supabase
     .from('profiles')
-    .select('name, user_secrets(is_admin)')
+    .select('name, user_secrets(is_admin, is_blocked)')
     .eq('id', user.id)
     .single()
 
-  const isAdmin = flattenOne(profile?.user_secrets)?.is_admin;
-    
-  if (!isAdmin) {
+  const secrets = flattenOne(profile?.user_secrets);
+
+  if (!secrets?.is_admin) {
     redirect('/')
+  }
+
+  // BUG CORRIGIDO (auditoria de segurança, 2026-08-30): estas duas checagens
+  // (conta bloqueada, sessão de recuperação de senha pendente) só existiam em
+  // proxy.ts — e proxy.ts nunca roda para uma URL cuja extensão bate no
+  // regex de "arquivo estático" do matcher, incluindo colisões acidentais
+  // como /admin/leiloes/<qualquer-coisa>.png (Next.js roteia isso para esta
+  // mesma dynamic route [id]). Um admin bloqueado ou em sessão de
+  // recuperação pendente, cujo JWT ainda não expirou, continuava acessando
+  // páginas de detalhe por essa via. Reimplementadas aqui como defesa em
+  // profundidade — este layout roda sempre, independente do proxy.
+  if (secrets?.is_blocked) {
+    await supabase.auth.signOut()
+    redirect('/login?error=blocked')
+  }
+
+  const { data: claimsData } = await supabase.auth.getClaims()
+  const sessionId = (claimsData?.claims as any)?.session_id
+  if (sessionId) {
+    const { data: pendingRecovery } = await supabase
+      .from('pending_password_recovery')
+      .select('session_id')
+      .eq('session_id', sessionId)
+      .maybeSingle()
+
+    if (pendingRecovery) {
+      await supabase.auth.signOut()
+      redirect('/login?error=recovery_session')
+    }
   }
 
   return (

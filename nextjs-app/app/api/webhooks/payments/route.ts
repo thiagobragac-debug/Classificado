@@ -8,6 +8,8 @@ import {
   GatewayName,
   GatewayAdapter,
 } from '@/lib/gateways'
+import { resolverIpConfiavel, ipParaRateLimit } from '@/lib/ip-utils'
+import { dentroDoLimiteFallback } from '@/lib/rate-limit-fallback'
 
 /**
  * Webhook handler for all payment gateways.
@@ -40,6 +42,27 @@ export async function POST(req: Request) {
 
     if (!gateway) {
       return NextResponse.json({ error: 'Missing gateway identifier (x-gateway header or ?gateway= param)' }, { status: 400 })
+    }
+
+    // BUG CORRIGIDO (auditoria de segurança, 2026-08-30): esta rota é pública
+    // por natureza (o gateway externo precisa alcançá-la sem sessão) e não
+    // tinha nenhum teto de volume próprio — diferente de /api/checkout e
+    // /api/checkout/tokenize-card, que já usam este mesmo fallback. Antes de
+    // qualquer leitura ao banco (getSettings), barra volume anômalo por IP.
+    // Limite generoso (gateways reais enviam rajadas legítimas em picos de
+    // cobrança) — o objetivo é conter abuso de volume, não a validação de
+    // assinatura em si, que continua sendo a autenticação real do evento.
+    const ipWebhook = resolverIpConfiavel(req.headers)
+    if (ipWebhook) {
+      const permitido = await dentroDoLimiteFallback({
+        bucket: `webhook_payments_${ipParaRateLimit(ipWebhook)}`,
+        limit: 120,
+        windowSeconds: 60,
+        logPrefix: 'webhook-payments',
+      })
+      if (!permitido) {
+        return NextResponse.json({ error: 'Too Many Requests' }, { status: 429 })
+      }
     }
 
     const supabase = createAdminClient()

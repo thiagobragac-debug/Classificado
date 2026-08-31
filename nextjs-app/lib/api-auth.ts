@@ -96,7 +96,7 @@ export async function authenticateApiKey(request: NextRequest): Promise<AuthResu
     // de rate limit contra varredura de chaves inválidas.
     const ip = resolverIpConfiavel(request.headers)
     if (ip) {
-      const podeTentar = await dentroDoLimiteFallback(supabase, {
+      const podeTentar = await dentroDoLimiteFallback({
         bucket: `apikey_invalida_${ipParaRateLimit(ip)}`,
         limit: 30,
         windowSeconds: 60,
@@ -184,7 +184,7 @@ export async function checkRateLimit(
   // overshoot sob rajada. Suficiente aqui; não é o limite de última linha
   // pra dados de cartão (esse é tokenize-card, que já loga no Sentry via
   // `sensivel: true` quando o fail-open dispara).
-  const allowed = await dentroDoLimiteFallback(supabase, {
+  const allowed = await dentroDoLimiteFallback({
     bucket: `apikey_${apiKey.id}`,
     limit,
     windowSeconds: 60,
@@ -260,6 +260,25 @@ export function rateLimitHeaders(apiKey: ApiKey, remaining: number, resetAt: str
     'X-RateLimit-Remaining': String(remaining),
     'X-RateLimit-Reset': resetAt,
   }
+}
+
+// BUG CORRIGIDO (auditoria de segurança, 2026-08-30): `parseInt` devolve NaN
+// pra entrada não numérica (ex.: ?page=abc), e Math.max/Math.min propagam
+// NaN se QUALQUER argumento for NaN — o teto de 50 itens/página (e o mínimo
+// de 1) deixava de valer, e o header Range enviado ao PostgREST virava
+// literalmente "NaN-NaN". Usado por app/api/v1/ads e app/api/v1/users.
+export function parsePagination(searchParams: URLSearchParams, opts: { defaultLimit: number; maxLimit: number }) {
+  const rawPage = parseInt(searchParams.get('page') || '1', 10)
+  const rawLimit = parseInt(searchParams.get('limit') || String(opts.defaultLimit), 10)
+
+  const page = Number.isFinite(rawPage) ? Math.max(1, rawPage) : 1
+  const limit = Number.isFinite(rawLimit) ? Math.min(opts.maxLimit, Math.max(1, rawLimit)) : opts.defaultLimit
+
+  const invalid =
+    (searchParams.has('page') && !Number.isFinite(rawPage)) ||
+    (searchParams.has('limit') && !Number.isFinite(rawLimit))
+
+  return { page, limit, from: (page - 1) * limit, invalid }
 }
 
 export function corsHeaders(methods = 'GET, POST, OPTIONS') {

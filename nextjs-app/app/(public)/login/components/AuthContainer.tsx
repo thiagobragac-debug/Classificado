@@ -92,11 +92,8 @@ export function AuthContainer() {
   // confiável — a query string por si só não garante que o link era
   // válido/não expirou.
   useEffect(() => {
-    const { data: { subscription } } = getSupabase().auth.onAuthStateChange((event: string, session: any) => {
+    const { data: { subscription } } = getSupabase().auth.onAuthStateChange(async (event: string, session: any) => {
       if (event === 'PASSWORD_RECOVERY') {
-        setMode('reset_password')
-        setAlertInfo(null)
-
         // BUG CORRIGIDO (validação adversarial final, achado crítico): o
         // Supabase não marca uma sessão de recuperação de forma distinguível
         // no JWT (testado ao vivo: amr vem como [{"method":"otp"}], igual
@@ -106,14 +103,33 @@ export function AuthContainer() {
         // em pending_password_recovery; proxy.ts bloqueia /painel e /admin
         // enquanto essa marcação existir. ResetPasswordForm.tsx apaga a
         // linha ao trocar a senha com sucesso.
+        //
+        // BUG CORRIGIDO (auditoria de segurança, 2026-08-30): o insert era
+        // fire-and-forget (`.then(() => {})`, sem checar `error`) — a ÚNICA
+        // barreira deste controle inteiro. Qualquer falha (rede, corrida
+        // entre o evento disparar e o client atualizar a sessão, RLS) fazia
+        // a marcação nunca existir e liberava a sessão de recuperação como
+        // se fosse um login normal, em silêncio. Agora é aguardado e
+        // verificado antes de avançar para a tela de troca de senha — se
+        // falhar, a sessão é encerrada por segurança em vez de prosseguir.
         try {
           const payload = JSON.parse(atob(session?.access_token?.split('.')[1] || ''))
           const sessionId = payload?.session_id
-          if (sessionId && session?.user?.id) {
-            getSupabase().from('pending_password_recovery').insert({ session_id: sessionId, user_id: session.user.id }).then(() => {})
+          if (!sessionId || !session?.user?.id) {
+            throw new Error('JWT de recuperação sem session_id ou user.id')
           }
+          const { error } = await getSupabase()
+            .from('pending_password_recovery')
+            .insert({ session_id: sessionId, user_id: session.user.id })
+          if (error) throw error
+
+          setMode('reset_password')
+          setAlertInfo(null)
         } catch (e) {
-          console.error('[AuthContainer] Falha ao marcar sessão de recuperação:', e)
+          console.error('[AuthContainer] Falha ao marcar sessão de recuperação, encerrando por segurança:', e)
+          await getSupabase().auth.signOut()
+          setAlertInfo({ msg: tr.recoveryLinkFailed, type: 'error' })
+          setMode('login')
         }
       }
     })
@@ -200,14 +216,32 @@ export function AuthContainer() {
             <ResetPasswordForm
               onSetAlert={handleSetAlert}
               onSuccess={() => setMode('login')}
-              onBack={() => {
+              onBack={async () => {
                 // BUG CORRIGIDO (validação adversarial final): sair desta
                 // tela sem completar a troca de senha deveria encerrar a
                 // sessão de recuperação (mesma postura de segurança do
                 // bloqueio em proxy.ts) — não deixar uma sessão de
                 // recuperação sem uso pendurada só porque a pessoa desistiu
                 // do formulário em vez de fechar a aba.
-                getSupabase().auth.signOut()
+                //
+                // BUG CORRIGIDO (auditoria de segurança, 2026-08-30): isto só
+                // chamava signOut() — a sessão parava de valer, mas a linha
+                // em pending_password_recovery nunca era apagada (só o
+                // caminho de sucesso, em ResetPasswordForm.tsx, apagava).
+                // Sem job de limpeza para essa tabela, a linha ficava órfã
+                // indefinidamente. Apaga explicitamente antes de encerrar a
+                // sessão, já que aqui ainda temos o session_id em mãos.
+                try {
+                  const { data: { session } } = await getSupabase().auth.getSession()
+                  const payload = JSON.parse(atob(session?.access_token?.split('.')[1] || ''))
+                  const sessionId = payload?.session_id
+                  if (sessionId) {
+                    await getSupabase().from('pending_password_recovery').delete().eq('session_id', sessionId)
+                  }
+                } catch (e) {
+                  console.error('[AuthContainer] Falha ao limpar sessão de recuperação pendente:', e)
+                }
+                await getSupabase().auth.signOut()
                 setMode('login')
                 setAlertInfo(null)
               }}

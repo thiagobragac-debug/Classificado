@@ -108,5 +108,25 @@ export async function POST(request: Request) {
   const { error } = await admin.from('platform_settings').upsert(updates, { onConflict: 'key' })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
+  // BUG CORRIGIDO (auditoria de segurança, 2026-08-30): lib/gateways/pagarme.ts
+  // implementa validateWebhook seguindo um esquema (x-hub-signature) que uma
+  // varredura extensiva não confirmou em nenhuma documentação oficial do
+  // Pagar.me — hoje é inofensivo porque o secret vem vazio (fail-closed
+  // rejeita tudo), mas se um admin preencher este campo pensando estar só
+  // "completando a configuração", o app passa a mostrar "configurado" na UI
+  // enquanto rejeita silenciosamente 100% dos webhooks reais do Pagar.me.
+  // Aviso no servidor no momento exato em que alguém preenche o campo —
+  // ainda não é uma alteração na UI, mas fica registrado no log de deploy.
+  const preencheuSecretPagarmeNaoConfirmado = updates.some(
+    u => u.key === 'pagarme_webhook_secret' && u.value !== ''
+  )
+  if (preencheuSecretPagarmeNaoConfirmado) {
+    console.warn(
+      '[admin/settings] pagarme_webhook_secret foi preenchido, mas o esquema de assinatura de webhook do Pagar.me ' +
+      '(lib/gateways/pagarme.ts) não foi confirmado contra a documentação oficial nem testado com um webhook real. ' +
+      'Confirme com o dashboard/suporte do Pagar.me antes de considerar este gateway ativo em produção — ver comentário em lib/gateways/pagarme.ts.'
+    )
+  }
+
   return NextResponse.json({ success: true, updated: updates.length })
 }

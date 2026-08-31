@@ -62,16 +62,26 @@ export async function POST(request: Request) {
     if (pending) requestId = pending.id
   }
 
-  const { error } = await admin
+  // BUG CORRIGIDO (auditoria de segurança, 2026-08-30): sem `.select()`, um
+  // update que não afeta nenhuma linha (userId inexistente/já excluído,
+  // corrida com outra ação) ainda respondia `{ success: true }` — o admin
+  // via a UI como se o selo tivesse sido concedido/revogado quando nada
+  // mudou no banco. Mesmo padrão já usado em subscriptions/cancel e na
+  // página de api-keys para esta classe de operação.
+  const { data: updatedProfiles, error } = await admin
     .from('profiles')
     .update({
       verified,
       kyc_status: verified ? 'approved' : 'rejected',
     })
     .eq('id', userId)
+    .select('id')
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+  if (!updatedProfiles || updatedProfiles.length === 0) {
+    return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
   }
 
   if (typeof requestId === 'string' && requestId) {

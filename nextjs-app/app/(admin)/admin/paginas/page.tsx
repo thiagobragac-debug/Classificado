@@ -124,7 +124,10 @@ export default function AdminInstitutionalPages() {
       'blockquote', 'hr', 'br', 'span', 'div', 'section',
       'details', 'summary'
     ]
-    const ALLOWED_ATTR = ['href', 'class', 'target', 'rel', 'id', 'aria-label', 'style', 'data-i18n']
+    // BUG CORRIGIDO (auditoria de segurança, 2026-08-30): 'style' removido —
+    // deve ficar em sincronia com a mesma allowlist do lado de leitura em
+    // app/(public)/institucional/page.tsx.
+    const ALLOWED_ATTR = ['href', 'class', 'target', 'rel', 'id', 'aria-label', 'data-i18n']
 
     const supabase = getSupabase()
     const payload = {

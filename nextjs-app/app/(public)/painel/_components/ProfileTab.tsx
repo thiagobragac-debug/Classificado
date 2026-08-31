@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { updateProfile, getSupabase } from '@/lib/supabase';
+import { updateProfile, getSupabase, safeFileExt } from '@/lib/supabase';
 import { resendVerificationEmail } from '@/lib/supabase-panel';
 import { showToast } from '@/lib/toast';
 import { useLang } from '@/lib/lang-context';
@@ -157,7 +157,7 @@ export function ProfileTab({ user }: { user: any }) {
     setUploadingBanner(true);
     try {
       const previousUrl = bannerUrl;
-      const ext = file.name.split('.').pop();
+      const ext = safeFileExt(file.name);
       const path = `${user.id}/${Date.now()}.${ext}`;
       const sb = getSupabase();
       const { error: upErr } = await sb.storage.from('profile-banners').upload(path, file, { cacheControl: '31536000', upsert: false });

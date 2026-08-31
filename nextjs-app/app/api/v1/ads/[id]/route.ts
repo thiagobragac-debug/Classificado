@@ -67,7 +67,12 @@ export async function GET(
   // listagem (GET /api/v1/ads) e /api/v1/users já tratam telefone como
   // campo restrito a full_access; este era o único que vazava sem essa
   // checagem.
-  const isFullAccess = hasPermission(apiKey, 'full_access')
+  // BUG CORRIGIDO (auditoria de segurança, 2026-08-30): uma chave marcada
+  // "sandbox" no painel admin lia os MESMOS dados reais de produção que uma
+  // chave de produção — o rótulo "sandbox" só bloqueava escrita (POST),
+  // nunca leitura de campo sensível. Telefone real de vendedor não deveria
+  // sair por uma chave que o parceiro trata como ambiente de teste.
+  const isFullAccess = hasPermission(apiKey, 'full_access') && apiKey.environment !== 'sandbox'
   // BUG CORRIGIDO (fechamento pré-produção): phone_whatsapp mudou de
   // profiles pra user_secrets (migration 20260829130000, RLS self-only) —
   // service_role ignora RLS, então só o embed precisa acompanhar a coluna.

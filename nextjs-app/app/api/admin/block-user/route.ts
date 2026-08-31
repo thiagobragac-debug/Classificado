@@ -57,6 +57,29 @@ export async function POST(request: Request) {
   // ─── Escrita + revogação ────────────────────────────────────────
   const admin = createAdminClient()
 
+  // BUG CORRIGIDO (auditoria de segurança, 2026-08-30): is_admin em
+  // user_secrets é um booleano plano — não existe hierarquia entre admins
+  // (nenhum "super_admin"). Sem esta checagem, uma única conta admin
+  // comprometida (sessão roubada, XSS) conseguia banir instantaneamente
+  // (ban_duration de ~100 anos) todos os outros admins da plataforma,
+  // incluindo o dono da conta, sem segunda aprovação. Bloquear outro admin
+  // continua possível diretamente no banco, se o negócio precisar disso —
+  // só deixa de ser um botão de um clique na API.
+  if (blocked) {
+    const { data: targetsAdmin } = await admin
+      .from('user_secrets')
+      .select('id')
+      .in('id', userIds)
+      .eq('is_admin', true)
+
+    if (targetsAdmin && targetsAdmin.length > 0) {
+      return NextResponse.json(
+        { error: 'Não é possível bloquear outro administrador por aqui.' },
+        { status: 403 }
+      )
+    }
+  }
+
   const { error } = await admin
     .from('user_secrets')
     .update({ is_blocked: blocked })

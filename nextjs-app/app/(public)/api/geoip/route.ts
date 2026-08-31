@@ -4,9 +4,13 @@
  * Sem CORS, sem permissão de browser. Funciona em prod e dev.
  *
  * Provedores:
- * 1. ip-api.com  — ~100ms, gratuito, sem autenticação (HTTP no free tier)
- * 2. ipwho.is    — ~200ms, gratuito, HTTPS, retorna regionCode
- * 3. ipapi.co    — fallback final (~500-1000ms quando disponível)
+ * 1. ipwho.is    — ~200ms, gratuito, HTTPS, retorna regionCode
+ * 2. ipapi.co    — fallback (~500-1000ms quando disponível), HTTPS
+ * 3. ip-api.com  — último recurso: mais rápido, mas HTTP puro no free tier
+ *    (o IP do visitante trafegaria em texto claro até ele) — só usado se os
+ *    dois provedores HTTPS acima falharem. BUG CORRIGIDO (auditoria de
+ *    segurança, 2026-08-30): era o PRIMEIRO da cascata, ou seja, o caminho
+ *    mais comum.
  */
 import { NextResponse, type NextRequest } from 'next/server';
 import { resolverIpConfiavel, isValidIp, isLocalIp } from '@/lib/ip-utils';
@@ -62,33 +66,7 @@ export async function GET(request: NextRequest) {
   const HEADERS = { 'Cache-Control': 'private, max-age=3600' };
 
   // ─────────────────────────────────────────────────────────────────────────
-  // PROVEDOR 1 — ip-api.com (~100ms, HTTP ok no servidor)
-  // ─────────────────────────────────────────────────────────────────────────
-  try {
-    const ipParam = local ? '' : `/${ip}`;
-    const url = `http://ip-api.com/json${ipParam}?fields=status,city,regionName,regionCode,countryCode&lang=${lang}`;
-
-    const res = await fetch(url, { signal: AbortSignal.timeout(2000) });
-
-    if (res.ok) {
-      const d = await res.json();
-      if (d?.status === 'success' && d.countryCode) {
-        const result: GeoResult = {
-          city:      d.city       ?? null,
-          state:     d.regionName ?? null,
-          stateCode: d.regionCode ?? null,
-          country:   normalizeCountry(d.countryCode, lang),
-        };
-        console.log('[geoip] ip-api.com:', result);
-        return NextResponse.json(result, { headers: HEADERS });
-      }
-    }
-  } catch (e) {
-    console.warn('[geoip] ip-api.com falhou:', e);
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // PROVEDOR 2 — ipwho.is (~200ms, HTTPS, retorna regionCode)
+  // PROVEDOR 1 — ipwho.is (~200ms, HTTPS, retorna regionCode)
   // ─────────────────────────────────────────────────────────────────────────
   try {
     const url = local ? 'https://ipwho.is/' : `https://ipwho.is/${ip}`;
@@ -113,7 +91,7 @@ export async function GET(request: NextRequest) {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // PROVEDOR 3 — ipapi.co (fallback final)
+  // PROVEDOR 2 — ipapi.co (fallback, HTTPS)
   // ─────────────────────────────────────────────────────────────────────────
   try {
     const url = local
@@ -140,6 +118,32 @@ export async function GET(request: NextRequest) {
     }
   } catch (e) {
     console.warn('[geoip] ipapi.co falhou:', e);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // PROVEDOR 3 — ip-api.com (último recurso — HTTP puro no free tier)
+  // ─────────────────────────────────────────────────────────────────────────
+  try {
+    const ipParam = local ? '' : `/${ip}`;
+    const url = `http://ip-api.com/json${ipParam}?fields=status,city,regionName,regionCode,countryCode&lang=${lang}`;
+
+    const res = await fetch(url, { signal: AbortSignal.timeout(2000) });
+
+    if (res.ok) {
+      const d = await res.json();
+      if (d?.status === 'success' && d.countryCode) {
+        const result: GeoResult = {
+          city:      d.city       ?? null,
+          state:     d.regionName ?? null,
+          stateCode: d.regionCode ?? null,
+          country:   normalizeCountry(d.countryCode, lang),
+        };
+        console.log('[geoip] ip-api.com:', result);
+        return NextResponse.json(result, { headers: HEADERS });
+      }
+    }
+  } catch (e) {
+    console.warn('[geoip] ip-api.com falhou:', e);
   }
 
   console.warn('[geoip] todos os provedores falharam para IP:', ip);

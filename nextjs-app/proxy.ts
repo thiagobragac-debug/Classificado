@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { SUPABASE_URL, SUPABASE_ANON } from '@/lib/supabase';
 import { SECURITY_HEADERS } from '@/lib/security-headers';
 import { resolverIpConfiavel, ipParaRateLimit } from '@/lib/ip-utils';
@@ -46,8 +45,7 @@ async function dentroDoLimite(chave: string): Promise<boolean> {
     return success;
   }
 
-  const db = createSupabaseClient(SUPABASE_URL, SUPABASE_ANON, { auth: { persistSession: false } });
-  return dentroDoLimiteFallback(db, {
+  return dentroDoLimiteFallback({
     bucket: chave,
     limit: LIMITE_TENTATIVAS,
     windowSeconds: JANELA_SEGUNDOS,
@@ -212,10 +210,22 @@ export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   // Ignorar arquivos estáticos e de build (sem overhead algum)
-  if (
-    pathname.startsWith('/_next') ||
-    /\.(png|jpg|jpeg|webp|svg|ico|css|js|json|webmanifest|txt|woff2?|ttf|map)$/.test(pathname)
-  ) {
+  //
+  // BUG CORRIGIDO (auditoria de segurança, 2026-08-30): a regex original
+  // (`.*\.(?:ext)$`, sem restrição de profundidade) casava com QUALQUER
+  // caminho terminado numa extensão conhecida, inclusive dentro de uma rota
+  // dinâmica de página real — /admin/leiloes/123.png é roteado pelo Next.js
+  // para app/(admin)/admin/leiloes/[id]/page.tsx (não existe arquivo físico
+  // correspondente), mas batia neste early-return e pulava 100% do proxy:
+  // sem CSP, sem checagem de is_blocked, sem checagem de sessão de
+  // recuperação de senha pendente. Todo arquivo estático real deste projeto
+  // (ver public/) vive na raiz (ex.: /manifest.json, /sw.js) ou sob
+  // /assets/ — nenhuma rota de página dinâmica usa esses prefixos. Restringir
+  // o match a exatamente esses dois casos fecha a colisão sem afetar nenhum
+  // asset real.
+  const isTopLevelStaticFile = /^\/[^/]+\.(?:png|jpg|jpeg|webp|svg|ico|css|js|json|webmanifest|txt|woff2?|ttf|map)$/.test(pathname);
+  const isAssetsStaticFile = pathname.startsWith('/assets/');
+  if (pathname.startsWith('/_next') || isTopLevelStaticFile || isAssetsStaticFile) {
     return NextResponse.next();
   }
 
@@ -461,8 +471,19 @@ export const config = {
      * - _next/static  (arquivos de build do Next.js)
      * - _next/image   (otimização de imagens)
      * - favicon.ico, sitemap.xml, robots.txt
-     * - Extensões de arquivo estático comuns
+     * - assets/*  (tudo sob /assets/, único prefixo de mídia estática deste projeto)
+     * - arquivo estático de nível raiz com extensão comum (ex.: /manifest.json)
+     *
+     * BUG CORRIGIDO (auditoria de segurança, 2026-08-30): a exclusão de
+     * extensão original (`.*\.(?:ext)`, sem limite de profundidade) casava
+     * com QUALQUER path terminado numa extensão conhecida — inclusive dentro
+     * de uma rota dinâmica real, como /admin/leiloes/123.png — e nesses
+     * casos o proxy() nunca chega a ser INVOCADO (decisão é do matcher, não
+     * de lógica interna), pulando CSP, rate limiting e as checagens de conta
+     * bloqueada/sessão de recuperação pendente por completo. Restrito a
+     * exatamente onde os arquivos reais deste projeto vivem (raiz ou
+     * /assets/), que nenhuma rota de página dinâmica usa como prefixo.
      */
-    '/((?!_next/static|_next/image|favicon\\.ico|sitemap\\.xml|robots\\.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|woff2?|ttf|otf|map)).*)',
+    '/((?!_next/static|_next/image|favicon\\.ico|sitemap\\.xml|robots\\.txt|assets/.*|[^/]+\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|woff2?|ttf|otf|map)$).*)',
   ],
 };

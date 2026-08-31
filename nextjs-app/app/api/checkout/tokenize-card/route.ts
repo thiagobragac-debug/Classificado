@@ -73,7 +73,7 @@ export async function POST(req: Request) {
     // ÚNICA rota que recebe PAN/CVV em claro — sem rate limit, vira um
     // oráculo de card-testing usando nossas próprias credenciais Asaas.
     // Limite mais apertado que /api/checkout por causa disso.
-    const permitido = await dentroDoLimiteFallback(supabase, {
+    const permitido = await dentroDoLimiteFallback({
       bucket: `tokenize_card_${user.id}`,
       limit: 5,
       logPrefix: 'tokenize-card',

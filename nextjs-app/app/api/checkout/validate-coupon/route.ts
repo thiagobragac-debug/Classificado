@@ -73,7 +73,7 @@ export async function POST(req: Request) {
     // Limite mais folgado que /api/checkout (10/60s): errar o código do
     // cupom algumas vezes é uso legítimo — o objetivo aqui é barrar
     // força-bruta automatizada, não atrapalhar quem digita errado.
-    const permitido = await dentroDoLimiteFallback(authClient, {
+    const permitido = await dentroDoLimiteFallback({
       bucket: `validate_coupon_${user.id}`,
       limit: 20,
       logPrefix: 'validate-coupon',

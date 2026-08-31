@@ -95,12 +95,29 @@ export async function generateMetadata({
     // Slug inexistente: a página em si faz redirect() pra pages[0] nesse
     // caso, mas mantemos uma metadata genérica e coerente de fallback.
     // Mesmo tratamento de hreflang do caso normal abaixo — ver comentário lá.
+    const fallbackUrl = 'https://tauzeclass.com.br/institucional';
     return {
       title: TRANSLATIONS[lang].fallbackTitle,
       description: TRANSLATIONS[lang].fallbackDescription,
       alternates: {
-        canonical: 'https://tauzeclass.com.br/institucional',
-        languages: { 'x-default': 'https://tauzeclass.com.br/institucional' },
+        canonical: fallbackUrl,
+        languages: { 'x-default': fallbackUrl },
+      },
+      // BUG CORRIGIDO (auditoria de SEO): faltava openGraph/twitter próprios
+      // — ver comentário no caso normal abaixo, mesma correção.
+      openGraph: {
+        title: TRANSLATIONS[lang].fallbackTitle,
+        description: TRANSLATIONS[lang].fallbackDescription,
+        url: fallbackUrl,
+        type: 'website',
+        locale: lang === 'es' ? 'es_AR' : 'pt_BR',
+        images: [{ url: 'https://tauzeclass.com.br/assets/hero_farm.webp', width: 1200, height: 630 }],
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title: TRANSLATIONS[lang].fallbackTitle,
+        description: TRANSLATIONS[lang].fallbackDescription,
+        images: ['https://tauzeclass.com.br/assets/hero_farm.webp'],
       },
     };
   }
@@ -128,6 +145,28 @@ export async function generateMetadata({
       // que reflete a realidade, mesmo padrão usado no layout raiz.
       languages: { 'x-default': canonicalUrl },
     },
+    // BUG CORRIGIDO (auditoria de SEO): página não declarava openGraph nem
+    // twitter próprios — o Next.js herdava esses campos do layout raiz
+    // (app/(public)/layout.tsx), que descrevem a HOME. Compartilhar um link
+    // direto de uma página institucional (ex.: "Termos de Uso") mostrava o
+    // título e a imagem da home, não da página real. Reaproveita
+    // title/description já calculados acima; imagem usa o mesmo fallback
+    // genérico do site (hero_farm.webp) já usado em listagem/anuncio/etc,
+    // já que não há foto própria de página institucional.
+    openGraph: {
+      title,
+      description,
+      url: canonicalUrl,
+      type: 'website',
+      locale: lang === 'es' ? 'es_AR' : 'pt_BR',
+      images: [{ url: 'https://tauzeclass.com.br/assets/hero_farm.webp', width: 1200, height: 630 }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: ['https://tauzeclass.com.br/assets/hero_farm.webp'],
+    },
   };
 }
 
@@ -139,7 +178,12 @@ const ALLOWED_TAGS = [
   'blockquote', 'hr', 'br', 'span', 'div', 'section',
   'details', 'summary'
 ];
-const ALLOWED_ATTR = ['href', 'class', 'target', 'rel', 'id', 'aria-label', 'style', 'data-i18n'];
+// BUG CORRIGIDO (auditoria de segurança, 2026-08-30): 'style' permitia CSS
+// inline arbitrário (spoofing visual, sobreposição de elementos via
+// position/z-index) — o editor (RichTextEditor, ver app/(admin)/admin/paginas)
+// não expõe controle de estilo inline na toolbar, então nenhum conteúdo
+// legítimo depende deste atributo.
+const ALLOWED_ATTR = ['href', 'class', 'target', 'rel', 'id', 'aria-label', 'data-i18n'];
 
 // Dicionário de SVGs (se cadastrado um nome diferente, pode usar um fallback)
 const ICON_MAP: Record<string, React.ReactNode> = {

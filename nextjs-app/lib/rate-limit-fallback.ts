@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import { createAdminClient } from './supabase-admin'
 
 // Fallback de rate limit via a RPC check_rate_limit (janela deslizante no
 // Postgres) — reimplementado identicamente em proxy.ts e em toda rota que
@@ -6,13 +6,30 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 // Upstash, e usam só este fallback). Fail-open deliberado: uma
 // indisponibilidade do banco não pode travar login/checkout/contato pra todo
 // mundo — mas nunca em silêncio, por isso sempre loga o motivo.
+//
+// BUG CORRIGIDO (auditoria de segurança, 2026-08-30): esta função sempre
+// recebeu o client de quem a chamava (anon ou da sessão do usuário) — e
+// check_rate_limit() precisa de EXECUTE liberado pra `anon` pra funcionar
+// antes do login. Como o bucket/limite são parâmetros de texto livre
+// escolhidos pelo CHAMADOR, qualquer um com a anon key pública (que é
+// pública por design) podia chamar a RPC direto via PostgREST com o mesmo
+// bucket de uma vítima real (ex.: `login_<ip-da-vítima>`) e um p_limit alto,
+// pré-enchendo a janela dela — negação de serviço direcionada sem precisar
+// de autenticação. Não há como distinguir, a nível de GRANT do Postgres,
+// "app server chamando com a anon key" de "atacante chamando com a mesma
+// anon key pública" — os dois são o mesmo papel. A correção real é não
+// depender de GRANT a anon/authenticated: todo chamador desta função no
+// código do app já roda em contexto de servidor confiável (middleware, route
+// handlers), então ela sempre usa seu próprio client de service_role aqui
+// dentro, e a migration correspondente revoga o EXECUTE de anon/authenticated
+// (mesmo padrão já usado para as RPCs de cupom).
 export async function dentroDoLimiteFallback(
-  supabase: SupabaseClient,
   params: { bucket: string; limit: number; windowSeconds?: number; logPrefix: string; sensivel?: boolean }
 ): Promise<boolean> {
   const { bucket, limit, windowSeconds = 60, logPrefix, sensivel = false } = params
   try {
-    const { data, error } = await supabase.rpc('check_rate_limit', {
+    const admin = createAdminClient()
+    const { data, error } = await admin.rpc('check_rate_limit', {
       p_bucket: bucket,
       p_limit: limit,
       p_window_seconds: windowSeconds,

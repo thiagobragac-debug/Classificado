@@ -267,11 +267,25 @@ export async function updateAd(id: string, payload: AdPayload) {
   return data;
 }
 
+// BUG CORRIGIDO (auditoria de segurança, 2026-08-30): a extensão vinha direto
+// de `file.name` (controlado pelo cliente — dá pra construir um File com
+// qualquer `name` via JS) sem sanitização, ao contrário do fluxo de KYC
+// (VerificacaoClient.tsx), que já normaliza. Sem isso, um nome de arquivo sem
+// nenhum '.' faz `.split('.').pop()` devolver o nome inteiro como "extensão"
+// — incluindo `/` ou `..` — compondo o path final do objeto de storage com
+// segmentos não previstos. Mesma sanitização do fluxo de KYC, agora
+// centralizada para os demais pontos de upload (ad-images, ad-videos,
+// profile-banners, banners do admin).
+export function safeFileExt(fileName: string, fallback = 'jpg'): string {
+  const raw = fileName.split('.').pop() || fallback;
+  return raw.toLowerCase().replace(/[^a-z0-9]/g, '') || fallback;
+}
+
 export async function uploadAdImage(file: File, folder = 'draft'): Promise<string | null> {
   const session = await getSession();
   if (!session) throw new Error('Not authenticated');
 
-  const ext = file.name.split('.').pop();
+  const ext = safeFileExt(file.name);
   // uid como primeiro segmento do path: a policy de INSERT do bucket ad-images
   // (supabase/migrations/20260826110000_validacao_zero_3a_rodada.sql) exige
   // (auth.uid())::text = (storage.foldername(name))[1] — com pasta antes do
@@ -301,7 +315,7 @@ export async function uploadAdVideo(file: File, folder = 'draft'): Promise<strin
   const session = await getSession();
   if (!session) throw new Error('Not authenticated');
 
-  const ext = file.name.split('.').pop();
+  const ext = safeFileExt(file.name);
   const fileName = `${folder}/${session.user.id}/${Date.now()}_${Math.random().toString(36).substring(2)}.${ext}`;
 
   const { error } = await getSupabase().storage.from('ad-videos').upload(fileName, file, {

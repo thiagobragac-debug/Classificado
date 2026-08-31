@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
     // extensions do navegador, ou de propósito por um script), permitindo
     // gerar baldes praticamente infinitos a partir da mesma conexão.
     // ipParaRateLimit trunca no prefixo /64 (ver lib/ip-utils.ts).
-    const permitido = await dentroDoLimiteFallback(admin, {
+    const permitido = await dentroDoLimiteFallback({
       bucket: `contact_form_${ipParaRateLimit(ip)}`,
       limit: 3,
       windowSeconds: 600,

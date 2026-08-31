@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { getSupabase, getSession } from '@/lib/supabase'
+import { getSupabase, getSession, safeFileExt } from '@/lib/supabase'
 import { showToast } from '@/lib/toast'
 import { useConfirm } from '@/components/ui/ConfirmProvider'
 
@@ -147,7 +147,7 @@ export default function AdminBanners() {
       setUploadingImage(false)
       return
     }
-    const ext = file.name.split('.').pop()
+    const ext = safeFileExt(file.name)
     // uid como primeiro segmento do path: a policy de INSERT do bucket
     // ad-images exige (storage.foldername(name))[1] = auth.uid() (ver
     // correção em lib/supabase.ts uploadAdImage) — sem isso o upload

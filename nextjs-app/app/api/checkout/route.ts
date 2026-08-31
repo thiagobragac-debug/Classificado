@@ -110,7 +110,7 @@ export async function POST(req: Request) {
     // rota nunca teve nenhum freio de taxa, diferente de /api/contact-seller
     // (Upstash). Reaproveita check_rate_limit, o mesmo RPC com janela no
     // Postgres que /login já usa como rede de segurança sem Upstash.
-    const permitido = await dentroDoLimiteFallback(supabase, {
+    const permitido = await dentroDoLimiteFallback({
       bucket: `checkout_${user.id}`,
       limit: 10,
       logPrefix: 'checkout',

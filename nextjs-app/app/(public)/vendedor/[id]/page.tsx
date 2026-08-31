@@ -8,6 +8,7 @@ import { getAdsListagem, adsSearchParamsSchema } from '@/lib/services/ads.servic
 import { getAllCategories } from '@/lib/listagem-utils';
 import { createAnonClient } from '@/lib/supabase-server';
 import { t as _t } from '@/lib/constants';
+import { escapeJsonLd } from '@/lib/json-ld';
 
 type Props = { 
   params: Promise<{ id: string }> | { id: string }, 
@@ -25,7 +26,11 @@ const getProfile = cache(async (id: string) => {
 });
 
 const SITE_URL = 'https://tauzeclass.com.br';
-const FALLBACK_OG_IMAGE = `${SITE_URL}/assets/og-home.jpg`;
+// BUG CORRIGIDO (auditoria de SEO): og-home.jpg nunca existiu em
+// public/assets/ — og:image quebrado (404) para todo vendedor sem
+// avatar/banner cadastrado. Mesmo fallback comprovadamente existente já
+// usado em listagem/page.tsx e anuncio/[id]/page.tsx.
+const FALLBACK_OG_IMAGE = `${SITE_URL}/assets/hero_farm.webp`;
 
 // BUG CORRIGIDO (auditoria de SEO): og:image usava incondicionalmente a
 // imagem genérica do site, ignorando avatar_url/banner_url reais do
@@ -226,10 +231,12 @@ async function SellerContent({ sellerId, sellerName, parsedParams, geoContext }:
     }
   };
 
-  const safeJsonLd = JSON.stringify(jsonLd)
-    .replace(/</g, '\\u003c')
-    .replace(/>/g, '\\u003e')
-    .replace(/&/g, '\\u0026');
+  // BUG CORRIGIDO (auditoria de segurança, 2026-08-30): reimplementava o
+  // mesmo escape localmente em vez de reusar lib/json-ld.ts, como as outras
+  // 9 páginas que injetam JSON-LD já fazem — mesma classe de risco que
+  // lib/sanitize.ts documenta (lógica duplicada diverge silenciosamente
+  // quando um dos dois pontos é atualizado e o outro é esquecido).
+  const safeJsonLd = escapeJsonLd(jsonLd);
 
   return (
     <>

@@ -8,6 +8,7 @@ import {
   corsHeaders,
   rateLimitHeaders,
   getServiceClient,
+  parsePagination,
 } from '@/lib/api-auth'
 import { flattenOne } from '@/lib/supabase'
 
@@ -47,12 +48,16 @@ export async function GET(request: NextRequest) {
   const country        = searchParams.get('country')
   const verifiedParam  = searchParams.get('verified')  // 'true' | null
   const plan           = searchParams.get('plan')
-  const page           = Math.max(1, parseInt(searchParams.get('page') || '1'))
-  const limit          = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') || '20')))
-  const from           = (page - 1) * limit
+  const { page, limit, from, invalid } = parsePagination(searchParams, { defaultLimit: 20, maxLimit: 50 })
+  if (invalid) {
+    logRequest({ apiKey, request, statusCode: 400, durationMs: Date.now() - startTime })
+    return apiError('Invalid page/limit parameter: must be a positive integer', 400)
+  }
 
-  // Public-safe fields — no email, no phone for non-full_access keys
-  const isFullAccess = hasPermission(apiKey, 'full_access')
+  // Public-safe fields — no email, no phone for non-full_access keys, and
+  // never for a key marcada "sandbox" (auditoria de segurança, 2026-08-30:
+  // "sandbox" só bloqueava escrita, não leitura de campo sensível).
+  const isFullAccess = hasPermission(apiKey, 'full_access') && apiKey.environment !== 'sandbox'
   // BUG CORRIGIDO: `plan` não é coluna de `profiles` (vive em
   // `user_secrets`, ver várias correções equivalentes no admin) — todo
   // GET aqui falhava com 42703 (coluna inexistente), endpoint 100% quebrado

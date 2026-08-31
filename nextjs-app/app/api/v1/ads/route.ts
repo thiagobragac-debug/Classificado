@@ -11,6 +11,7 @@ import {
   corsHeaders,
   rateLimitHeaders,
   getServiceClient,
+  parsePagination,
 } from '@/lib/api-auth'
 
 export async function OPTIONS() {
@@ -44,9 +45,11 @@ export async function GET(request: NextRequest) {
   const city      = searchParams.get('city')
   const search    = searchParams.get('search')
   const featured  = searchParams.get('featured') === 'true'
-  const page      = Math.max(1, parseInt(searchParams.get('page') || '1'))
-  const limit     = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') || '20')))
-  const from      = (page - 1) * limit
+  const { page, limit, from, invalid } = parsePagination(searchParams, { defaultLimit: 20, maxLimit: 50 })
+  if (invalid) {
+    logRequest({ apiKey, request, statusCode: 400, durationMs: Date.now() - startTime })
+    return apiError('Invalid page/limit parameter: must be a positive integer', 400)
+  }
 
   let q = supabase
     .from('ads')

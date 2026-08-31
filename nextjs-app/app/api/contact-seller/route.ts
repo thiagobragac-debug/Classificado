@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
     // e do próprio proxy.ts, que sempre têm um fallback via Postgres) —
     // um único usuário autenticado podia colher telefone de vendedor sem
     // teto algum. Mesma RPC check_rate_limit já usada em proxy.ts.
-    const permitido = await dentroDoLimiteFallback(supabase, {
+    const permitido = await dentroDoLimiteFallback({
       bucket: `contact_user_${user.id}`,
       limit: 10,
       logPrefix: 'contact-seller',
