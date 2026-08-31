@@ -1,5 +1,30 @@
 -- Migration: Performance indexes for API authentication and rate limiting
 -- Date: 2026-07-23
+--
+-- ============================================================================
+--  AVISO (auditoria de segurança, 2026-08-31) — NÃO REEXECUTAR ESTE ARQUIVO
+-- ============================================================================
+--
+--  Este arquivo cria duas policies abertas em public.api_request_logs
+--  ("Allow insert for api logging" WITH CHECK (true), "Allow select for rate
+--  limit" USING (true)) que auditorias posteriores identificaram como buraco
+--  de segurança e DROPARAM (ver 20260830160200_drop_residual_api_request_logs_policy.sql
+--  e 20260830170100_close_open_api_request_logs_insert.sql). A tabela hoje é
+--  protegida por RLS com policy admin-only (20260824170000) e GRANT revogado
+--  de anon/authenticated (20260830200100).
+--
+--  supabase/migrations não estava sincronizado com o ledger remoto quando
+--  esta nota foi escrita: rodar `supabase db push --linked --dry-run` erra
+--  com "Remote migration versions not found" para 20260722/20260723/20260724
+--  (nomes de arquivo só com data, sem hora) e o PRÓPRIO CLI sugere, por
+--  engano, `supabase migration repair --status reverted 20260722 20260723
+--  20260724` como correção. NÃO SIGA ESSA SUGESTÃO: reverter esta versão
+--  específica faz um `db push` seguinte tentar recriar as duas policies
+--  abertas acima. As 3 versões já estão marcadas como aplicadas no ledger de
+--  produção (confirmado consultando supabase_migrations.schema_migrations
+--  diretamente) — o erro do dry-run é cosmético, não uma pendência real de
+--  execução.
+-- ============================================================================
 
 -- Index on api_keys(secret_hash) for fast O(log n) token lookup on every request
 CREATE INDEX IF NOT EXISTS idx_api_keys_secret_hash
