@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { SUPABASE_URL, SUPABASE_ANON } from '@/lib/supabase'
 import PricingClientUI, { Plan } from './PricingClientUI'
 import { getLocale } from '@/lib/locale-server'
+import { localizedPath, buildHreflangAlternates } from '@/lib/locale'
 
 type Lang = 'pt' | 'es'
 
@@ -24,10 +25,14 @@ const METADATA_I18N = {
   pt: {
     title: 'Planos e Preços',
     description: 'Escolha o melhor plano para anunciar e vender mais rápido no maior classificado agro do Mercosul.',
+    ogTitle: 'Planos e Preços | Tauze Class',
+    ogAlt: 'Planos Tauze Class',
   },
   es: {
     title: 'Planes y Precios',
     description: 'Elige el mejor plan para publicar y vender más rápido en el mayor clasificado agro del Mercosur.',
+    ogTitle: 'Planes y Precios | Tauze Class',
+    ogAlt: 'Planes Tauze Class',
   },
 } as const
 
@@ -36,9 +41,44 @@ const LOADING_I18N = {
   es: 'Cargando planes...',
 } as const
 
+const SITE_URL = 'https://tauzeclass.com.br'
+
+// BUG CORRIGIDO (auditoria de SEO): esta página não declarava `alternates`
+// nem `openGraph`/`twitter` — o Next.js mescla esses campos ausentes com os
+// do layout pai (app/(public)/layout.tsx), que descrevem a HOME. Resultado
+// confirmado ao vivo (HTML bruto via fetch direto, sem hidratação): o
+// canonical de /planos apontava para a home, e og:title/og:image eram os da
+// home — a página comercial de assinatura corria risco de nunca ser
+// indexada como entidade própria, e um link de plano compartilhado mostrava
+// o card errado. Mesmo padrão de canonical + openGraph real (com URL
+// própria por idioma via /es) já usado em institucional/page.tsx.
 export async function generateMetadata(): Promise<Metadata> {
   const lang = await getLocale()
-  return METADATA_I18N[lang]
+  const m = METADATA_I18N[lang]
+  const canonicalUrl = `${SITE_URL}${localizedPath('/planos', lang)}`
+
+  return {
+    title: m.title,
+    description: m.description,
+    alternates: {
+      canonical: canonicalUrl,
+      languages: buildHreflangAlternates(SITE_URL, '/planos'),
+    },
+    openGraph: {
+      title: m.ogTitle,
+      description: m.description,
+      url: canonicalUrl,
+      type: 'website',
+      locale: lang === 'es' ? 'es_AR' : 'pt_BR',
+      images: [{ url: `${SITE_URL}/assets/hero_farm.webp`, width: 1200, height: 630, alt: m.ogAlt }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: m.ogTitle,
+      description: m.description,
+      images: [`${SITE_URL}/assets/hero_farm.webp`],
+    },
+  }
 }
 
 // Revalidate this page every hour (ISR)

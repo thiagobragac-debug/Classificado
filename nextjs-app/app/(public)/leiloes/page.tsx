@@ -51,13 +51,17 @@ export async function generateMetadata(): Promise<Metadata> {
       url: canonicalUrl,
       type: 'website',
       locale: lang === 'es' ? 'es_AR' : 'pt_BR',
-      images: [{ url: 'https://tauzeclass.com.br/assets/og-home.jpg', width: 1200, height: 630, alt: ogAlt }],
+      // BUG CORRIGIDO (auditoria de SEO): og-home.jpg nunca existiu em
+      // public/assets/ — og:image quebrado (404) em toda a página de
+      // leilões. Mesmo fallback comprovadamente existente já usado em
+      // listagem/page.tsx e anuncio/[slug]/page.tsx.
+      images: [{ url: 'https://tauzeclass.com.br/assets/hero_farm.webp', width: 1200, height: 630, alt: ogAlt }],
     },
     twitter: {
       card: 'summary_large_image',
       title: ogTitle,
       description: ogDescription,
-      images: ['https://tauzeclass.com.br/assets/og-home.jpg'],
+      images: ['https://tauzeclass.com.br/assets/hero_farm.webp'],
     },
   };
 }
