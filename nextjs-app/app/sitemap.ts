@@ -93,6 +93,30 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     const supabase = createAnonClient();
 
+    // BUG CORRIGIDO (auditoria de SEO): /categoria/[slug] é uma landing
+    // pública indexável (tem generateMetadata, canonical e JSON-LD próprios
+    // — ver app/(public)/categoria/[slug]/page.tsx) e é linkada de propósito
+    // na home (JSON-LD Organization/ItemList) e no rodapé, mas nunca entrava
+    // no sitemap — confirmado gerando o sitemap.xml ao vivo (zero URLs
+    // "/categoria/"). Query direta via createAnonClient() (não
+    // getAllCategories(), que usa createClient() e leria cookies(), forçando
+    // esta rota a virar dinâmica — mesmo motivo pelo qual ads/profiles
+    // também usam createAnonClient() aqui).
+    type CategoryRow = { id: string };
+    const { data: categoriesData, error: categoriesErr } = await supabase
+      .from('categories')
+      .select('id')
+      .eq('active', true);
+    if (categoriesErr) throw categoriesErr;
+
+    const categoryEntries: MetadataRoute.Sitemap = (categoriesData || []).map((c: CategoryRow) => ({
+      url: `${baseUrl}/categoria/${c.id}`,
+      lastModified: new Date(),
+      changeFrequency: 'daily',
+      priority: 0.8,
+      alternates: { languages: withLang(baseUrl, `/categoria/${c.id}`) },
+    }));
+
     // Fetch all active ads — paginado de verdade via .range(), em lotes de
     // 1000. Sem isso, o PostgREST aplica um limite default (~1000 linhas) por
     // resposta sem avisar, e sem .order() o subconjunto retornado não é
@@ -195,6 +219,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     return [
       ...staticRoutes,
+      ...categoryEntries,
       ...adEntries,
       ...sellerEntries,
       ...eventEntries,

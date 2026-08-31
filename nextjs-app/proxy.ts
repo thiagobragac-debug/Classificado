@@ -531,7 +531,12 @@ export async function proxy(request: NextRequest) {
   if (isPainelRoute && !userId) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = withLocale('/login', activeLocale);
-    redirectUrl.searchParams.set('redirectTo', pathname);
+    // BUG CORRIGIDO (achado na verificação pós-merge): `pathname` aqui já é
+    // o path normalizado (sem prefixo /es — ver stripLocalePrefix no topo),
+    // então redirectTo sempre carregava o destino em PT mesmo pra quem
+    // estava navegando em /es/painel. Login funcionava normalmente, só o
+    // pós-login devolvia pro /painel em português em vez de /es/painel.
+    redirectUrl.searchParams.set('redirectTo', withLocale(pathname, activeLocale));
     return applySecurityHeaders(NextResponse.redirect(redirectUrl), csp);
   }
 
