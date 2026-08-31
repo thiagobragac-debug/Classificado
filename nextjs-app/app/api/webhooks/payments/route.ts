@@ -282,6 +282,15 @@ export async function POST(req: Request) {
       }
       if (effectiveType === 'subscription.activated') {
         profileUpdate.verified = true
+        // BUG CORRIGIDO (teste de estresse full-system, 2026-08-31): grava
+        // verified=true mas nunca kyc_status — a tela de verificação usa
+        // 'verified' pra mensagem de sucesso, mas ProfileTab.tsx e o selo
+        // dourado de AdSidebar.tsx usam 'kyc_status' pra decidir o que
+        // mostrar. Sem isso, o assinante via "identidade verificada" na
+        // própria tela de verificação, mas o selo no anúncio e o card do
+        // painel continuavam mostrando "não enviado". Mesmo padrão que o
+        // fluxo manual do admin (verify-user) já grava os dois juntos.
+        profileUpdate.kyc_status = 'approved'
       }
       const { error: profErr } = await supabase
         .from('profiles')

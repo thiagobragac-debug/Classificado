@@ -218,7 +218,20 @@ export function StepData({ onNext }: StepDataProps) {
     // Validate only this step's fields
     const fields = ['titulo', 'categoria', 'subcategoria', 'descricao', 'moeda', 'preco', 'aNegociar', 'unidadePreco', 'condicao'] as const
     const isStepValid = await trigger(fields)
-    if (isStepValid) {
+
+    // GAP CORRIGIDO (teste de estresse full-system, 2026-08-31): subcategoria
+    // é obrigatória incondicionalmente no schema — uma categoria (futura) sem
+    // NENHUMA subcategoria cadastrada deixaria o <select> sempre vazio e o
+    // formulário nunca validaria, tornando impossível publicar nela. Quando a
+    // lista carregada é genuinamente vazia (não erro de rede) e subcategoria
+    // é o ÚNICO campo inválido (checado via getFieldState, não `errors` —
+    // que fica com o snapshot de ANTES deste trigger()), trata como não
+    // aplicável a esta categoria.
+    const semSubcategoriaDisponivel = !!categoria && !subcategoriesError && subcategories.length === 0
+    const bloqueiaSoPorSubcategoria = !isStepValid && semSubcategoriaDisponivel &&
+      fields.filter((f) => methods.getFieldState(f).invalid).every((f) => f === 'subcategoria')
+
+    if (isStepValid || bloqueiaSoPorSubcategoria) {
       onNext()
     } else {
       // GAP CORRIGIDO (achado de usabilidade #2): rolar só até o topo do

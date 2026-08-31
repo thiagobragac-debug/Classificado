@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient, getSettings } from '@/lib/supabase-admin'
 import { selectGateway, isNativePlanSwitchEligible } from '@/lib/gateways'
 import { getRequestLang } from '@/lib/api-lang'
+import { dentroDoLimiteFallback } from '@/lib/rate-limit-fallback'
 
 // BUG CORRIGIDO (validação do zero, rodada 6): toda mensagem de erro desta
 // rota voltava em português (ou em inglês, no caso da auth) regardless do
@@ -12,6 +13,7 @@ const ERRORS = {
   pt: {
     missingAuth: 'Cabeçalho de autorização ausente.',
     unauthorized: 'Não autorizado.',
+    tooManyAttempts: 'Muitas tentativas. Aguarde um momento.',
     stripeNotConfigured: 'Stripe não configurado.',
     mpNotConfigured: 'Mercado Pago não configurado.',
     stripeInitFailed: 'Não foi possível iniciar o checkout no momento. Tente novamente ou contate o suporte.',
@@ -20,6 +22,7 @@ const ERRORS = {
   es: {
     missingAuth: 'Falta el encabezado de autorización.',
     unauthorized: 'No autorizado.',
+    tooManyAttempts: 'Demasiados intentos. Espera un momento.',
     stripeNotConfigured: 'Stripe no está configurado.',
     mpNotConfigured: 'Mercado Pago no está configurado.',
     stripeInitFailed: 'No se pudo iniciar el checkout en este momento. Inténtalo de nuevo o contacta al soporte.',
@@ -57,6 +60,21 @@ export async function POST(req: Request) {
     const { data: { user }, error: authError } = await supabase.auth.getUser(token)
     if (authError || !user) {
       return NextResponse.json({ error: tx.unauthorized }, { status: 401 })
+    }
+
+    // BUG CORRIGIDO (teste de estresse full-system, 2026-08-31): esta rota
+    // não tinha rate limit, diferente de TODOS os irmãos da família checkout
+    // — explorável de forma concreta: `country` é auto-editável pelo usuário
+    // (allowlist de self-update de profiles), e setar `country='US'` faz o
+    // branch Stripe criar um SetupIntent real na API deles a cada chamada,
+    // sem teto.
+    const permitido = await dentroDoLimiteFallback({
+      bucket: `checkout_init_${user.id}`,
+      limit: 10,
+      logPrefix: 'checkout-init',
+    })
+    if (!permitido) {
+      return NextResponse.json({ error: tx.tooManyAttempts }, { status: 429 })
     }
 
     const { data: profile } = await supabase.from('profiles').select('country').eq('id', user.id).single()

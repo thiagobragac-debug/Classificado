@@ -5,6 +5,7 @@ import { getSupabase } from '@/lib/supabase'
 import { showToast } from '@/lib/toast'
 import { useConfirm } from '@/components/ui/ConfirmProvider'
 import RichTextEditor from '@/components/RichTextEditor'
+import { sanitizeInstitutionalHtml } from '@/lib/sanitize'
 
 export default function AdminInstitutionalPages() {
   const { confirm } = useConfirm()
@@ -115,24 +116,18 @@ export default function AdminInstitutionalPages() {
     // nunca na escrita. Funciona hoje porque esse é o único consumidor e
     // ele sempre sanitiza antes de renderizar — mas um novo consumidor
     // futuro que renderizasse este campo sem os mesmos ALLOWED_TAGS
-    // reabriria XSS armazenado. Sanitiza aqui também, com a mesma lista.
-    const DOMPurify = (await import('isomorphic-dompurify')).default
-    const ALLOWED_TAGS = [
-      'h1', 'h2', 'h3', 'h4', 'p', 'ul', 'ol', 'li',
-      'a', 'strong', 'em', 'b', 'i',
-      'table', 'thead', 'tbody', 'tr', 'th', 'td',
-      'blockquote', 'hr', 'br', 'span', 'div', 'section',
-      'details', 'summary'
-    ]
-    // BUG CORRIGIDO (auditoria de segurança, 2026-08-30): 'style' removido —
-    // deve ficar em sincronia com a mesma allowlist do lado de leitura em
-    // app/(public)/institucional/page.tsx.
-    const ALLOWED_ATTR = ['href', 'class', 'target', 'rel', 'id', 'aria-label', 'data-i18n']
-
+    // reabriria XSS armazenado. Sanitiza aqui também.
+    //
+    // BUG CORRIGIDO (teste de estresse full-system, 2026-08-31): esta tela
+    // mantinha uma TERCEIRA allowlist DOMPurify hardcoded própria, divergente
+    // da de lib/sanitize.ts (a mesma inconsistência que o comentário acima
+    // já descreve como risco) — e por não importar lib/sanitize.ts, o hook
+    // global anti-tabnabbing não era garantido registrado neste bundle antes
+    // de sanitizar. Unificado para usar a função compartilhada.
     const supabase = getSupabase()
     const payload = {
       ...form,
-      content: DOMPurify.sanitize(form.content, { ALLOWED_TAGS, ALLOWED_ATTR, ADD_ATTR: ['target'] }),
+      content: sanitizeInstitutionalHtml(form.content),
       updated_at: new Date().toISOString()
     }
 

@@ -46,3 +46,16 @@ next-env.d.ts
 
 # cache local da Supabase CLI (regenerado a cada `supabase link`/comando)
 supabase/.temp/
+
+# saídas de auditoria/depuração descartáveis na raiz (achado de higiene,
+# auditoria de segurança 2026-08-31: nunca foram commitadas, mas também não
+# estavam ignoradas — risco de irem parar num commit por engano)
+#
+# BUG CORRIGIDO (teste de estresse full-system, 2026-08-31): os padrões
+# scratch_* não cobriam dumps de introspecção com outros nomes (achado real:
+# ads_policies.json/ads_triggers.json/funcs.json na raiz, não ignorados) —
+# generalizado pra qualquer .json/.js solto na raiz, e scripts/tmp-* pra
+# qualquer extensão (não só .mjs).
+/*.json
+/*.js
+scripts/tmp-*

@@ -34,6 +34,7 @@ const ERRORS = {
     pagarmeNotConfigured: 'Pagar.me não configurado. Contate o suporte.',
     asaasNotConfigured: 'Asaas não configurado. Contate o suporte.',
     invalidGateway: 'Gateway inválido.',
+    gatewayNotReady: 'Este método de pagamento está temporariamente indisponível para novas assinaturas. Tente novamente mais tarde ou contate o suporte.',
     couponInvalid: 'Cupom inválido, expirado ou com limite de usos esgotado.',
     processingInProgress: 'Processamento em andamento. Aguarde alguns segundos.',
     couponLimitReachedRace: 'O limite de uso deste cupom acabou de ser atingido por outro usuário.',
@@ -57,6 +58,7 @@ const ERRORS = {
     pagarmeNotConfigured: 'Pagar.me no está configurado. Contacta al soporte.',
     asaasNotConfigured: 'Asaas no está configurado. Contacta al soporte.',
     invalidGateway: 'Gateway inválido.',
+    gatewayNotReady: 'Este método de pago está temporalmente no disponible para nuevas suscripciones. Inténtalo de nuevo más tarde o contacta al soporte.',
     couponInvalid: 'Cupón inválido, vencido o con límite de usos agotado.',
     processingInProgress: 'Procesamiento en curso. Espera unos segundos.',
     couponLimitReachedRace: 'El límite de uso de este cupón acaba de ser alcanzado por otro usuario.',
@@ -278,6 +280,30 @@ export async function POST(req: Request) {
     // vez só, pros 4 gateways ficarem consistentes e subscriptions.price
     // não gravar resíduo.
     finalPrice = Math.round(finalPrice * 100) / 100
+
+    // BUG CORRIGIDO (teste de estresse full-system, 2026-08-31, crítico): os
+    // 4 adapters já falham-fechado corretamente quando o webhook secret está
+    // vazio (rejeitam o evento) — mas isso só protege DEPOIS da cobrança. Com
+    // o secret vazio, NENHUM webhook de confirmação jamais é aceito: o
+    // gateway cria e cobra a assinatura de verdade, a linha local fica presa
+    // em 'pending', e 15-60 min depois os crons de reconciliação CANCELAM a
+    // assinatura no gateway de verdade. Resultado real (confirmado no teste
+    // de estresse): cliente pago, nunca recebe o plano, sistema cancela
+    // sozinho. Um cupom 100% (finalPrice=0) nunca depende do webhook (bypass
+    // local), então só bloqueia cobrança real.
+    if (finalPrice > 0) {
+      const webhookSecretKey: Record<string, string> = {
+        stripe: 'stripe_webhook_secret',
+        mercadopago: 'mp_webhook_secret',
+        pagarme: 'pagarme_webhook_secret',
+        asaas: 'asaas_webhook_token',
+      }
+      const secretKey = webhookSecretKey[gatewayName]
+      if (secretKey && !settings[secretKey]) {
+        console.error(`[Checkout] Gateway '${gatewayName}' sem webhook secret configurado (${secretKey}) — bloqueando cobrança real para evitar cliente pago sem receber o plano.`)
+        return NextResponse.json({ error: tx.gatewayNotReady }, { status: 503 })
+      }
+    }
 
     const gatewayPlan: GatewayPlan = {
       id: String(plan.id),

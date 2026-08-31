@@ -9,6 +9,288 @@ diretamente. Reconfira antes do go-live.
 
 ---
 
+## ✅ Correção dos 24 achados do teste de estresse full-system — 2026-08-31
+
+Fecha a entrada "🔍 Teste de estresse full-system" logo abaixo — usuário
+escolheu "Corrigir tudo (24 achados)". Uma migration nova
+(`20260831130000_correcoes_teste_estresse_31ago.sql`, aplicada em produção via
+Management API e reverificada por introspecção read-only) cobre os 16
+achados de banco; 8 achados de app corrigidos em código. `tsc --noEmit` e
+`vitest run` (136/136) limpos depois de todas as mudanças.
+
+**Banco (migration única, cada bloco comentado com o achado que fecha):**
+DROP das 2 policies perigosas não rastreadas (`ads` DELETE, `user_secrets`
+INSERT) · DROP das 5 funções IDOR/mortas (`get_user_ads_stats`,
+`toggle_favorite`, `place_bid`, `check_ad_limit`, `get_user_plan`) · REVOKE de
+EXECUTE das 2 funções de purge + DROP das 2 sem migration nenhuma
+(`expire_old_ads`, `refresh_admin_stats_cache`) · trigger novo
+`enforce_report_rate_limit` em `reports` (mesmo padrão do trigger não
+rastreado que já existia em `messages`, agora também versionado) · fix do
+empate de lance em `place_lot_bid_atomic` (piso de 0.01 mesmo com step=0) ·
+RLS de `institutional_pages` reaplicada (a migration `20260830180000` constava
+como aplicada mas nunca teve efeito real — reaplicada de forma robusta, por
+loop dinâmico) · RLS de `plans` sem as 2 policies redundantes que vazavam
+plano desativado · REVOKE de INSERT/UPDATE/DELETE de `anon`/`authenticated`
+em `auction_events`/`auction_lots` e REVOKE ALL em `webhook_events` · `ALTER
+DEFAULT PRIVILEGES` preventivo (tabela/função nova não nasce mais com GRANT
+amplo) · as 34 subcategorias sem migration, inseridas de forma idempotente.
+
+**App:**
+`lib/sanitize.ts` — restaurado `style` na allowlist institucional (a remoção
+de hoje cedo quebrava as 10 páginas reais; `FORBID_ATTR` continua proibindo
+`style` só na descrição de anúncio, que não precisa) · `/admin/paginas`
+unificado pra usar `sanitizeInstitutionalHtml()` em vez de allowlist local ·
+`RegisterForm.tsx` trata `23505` (CPF/CNPJ duplicado) com mensagem que indica
+que a conta já foi criada · `checkout/init` e `subscriptions/cancel` ganharam
+rate limit (mesmo padrão dos irmãos) · `/api/checkout` bloqueia com 503
+qualquer cobrança real quando o webhook secret do gateway selecionado está
+vazio (evita cliente pago sem receber o plano — ver bloqueador de
+configuração dos secrets em si, ainda pendente, seção "🟠 Segurança" abaixo) ·
+webhook de pagamento agora sincroniza `kyc_status='approved'` junto com
+`verified=true` na primeira ativação · `GET /api/v1/ads/:id` passa a checar
+`is_blocked` do vendedor (não usa mais só `service_role` sem essa checagem) ·
+wizard de anúncio não trava mais se uma categoria não tiver nenhuma
+subcategoria cadastrada.
+
+**Limpeza:** 4 arquivos de introspecção soltos na raiz (da própria auditoria)
+apagados; `.gitignore` generalizado (`/*.json`, `/*.js`, `scripts/tmp-*` sem
+restringir extensão) para não depender de padrão por nome.
+
+**Validado ao vivo contra produção** (contas descartáveis, limpas e
+resíduo-zero conferido ao final): `DELETE /rest/v1/ads` num anúncio próprio
+agora afeta 0 linhas (RLS sem policy = nega) — anúncio confirmado intacto
+depois; as 3 RPCs removidas (`get_user_ads_stats`/`toggle_favorite`/
+`place_bid`) retornam `404 PGRST202` (função não existe); `institutional_pages`
+tem exatamente as 2 policies pretendidas; `plans` só tem a policy que filtra
+`is_active`; grants de `auction_events`/`auction_lots`/`webhook_events`
+confirmados revogados; `/institucional` (fetch SSR cru) confirma 11
+atributos `style=` sobreviventes, incluindo os boxes vermelho/âmbar de
+"Termos". Não testado ao vivo clique-a-clique (mesma limitação de compositing
+do Browser pane já registrada acima): bloqueio real do webhook-secret-vazio
+no checkout, mensagem de 23505 na tela de cadastro, wizard sem subcategoria.
+
+**Não corrigido nesta rodada (fora do alcance de código):** os 4 segredos de
+webhook em si continuam vazios — só o efeito (cliente cobrado sem receber o
+plano) foi neutralizado, bloqueando a cobrança real até que o secret seja
+configurado. Ver item 2 da seção "🟠 Segurança" abaixo.
+
+---
+
+## 🔍 Teste de estresse full-system + revalidação de regras de negócio — 2026-08-31
+
+Pedido: "REALIZE UM TESTE DE STRESS DE USUARIO EM TODO SISTEMA, VALIDE TUDO,
+TODAS AS PAGINAS, REVALIDE TODAS AS REGRAS DE NEGOCIO". Metodologia: workflow
+de 39 agentes (13 domínios de auditoria em paralelo, só leitura, contra
+produção via Management API — não só leitura de `.sql` — + verificação
+adversarial de cada achado) rodando em paralelo com teste ao vivo sequencial
+feito por mim (contas descartáveis reais, limpeza confirmada no final). 26
+achados brutos → **24 confirmados** (0 plausíveis, 2 refutados após
+reverificação independente encontrar proteção real que o primeiro auditor não
+tinha visto).
+
+**Nota operacional**: o Browser pane desta sessão nasceu com
+`document.hidden=true` a sessão inteira (quirk já documentado em rodadas
+anteriores) — animações Framer Motion `AnimatePresence` (troca de aba
+login/cadastro, wizard) ficam travadas no meio (confirmado via inspeção do
+Fiber: o estado React muda certo, o DOM antigo nunca desmonta). Login direto
+funcionou 100% ao vivo pela UI real (sem precisar da animação). Para o resto
+(cota de anúncios, moderação, DELETE de anúncio, rate limit), testei via
+chamada HTTP direta ao mesmo endpoint que o app usa (PostgREST/RPC/API routes,
+com sessão real autenticada) em vez de clicar na transição travada — mesmo
+princípio de "prova rodando contra produção", só que no nível de rede em vez
+de clique. Cadastro (aba "Criar Conta") e o modal de checkout não foram
+exercitados clique-a-clique por causa disso; a mudança em `RegisterForm.tsx`
+foi validada por leitura de código (simples e determinística).
+
+### 🔴 Críticos — exploráveis hoje em produção
+
+1. **DELETE direto em `ads` via PostgREST apaga de verdade o anúncio,
+   destruindo em cascata denúncias, leilão/lances e mensagens** — bypassa
+   por completo o soft-delete (`status='deleted'`) que todo o app usa. Policy
+   RLS "Dono pode deletar seu próprio anúncio" existe em produção mas não
+   está em NENHUMA migration do repositório (drift não rastreado, mesmo
+   padrão do achado histórico da policy de INSERT perigosa). **Reproduzido
+   ao vivo nesta sessão**: usuário de teste comum apagou seu próprio anúncio
+   com uma única chamada `DELETE /rest/v1/ads?id=eq.<id>` — linha some de
+   verdade (não vira `status='deleted'`). `reports`/`auctions`/`messages`/
+   `favorites`/`ad_views_daily` têm FK `ON DELETE CASCADE` para `ads`; hoje
+   existem 3 linhas reais em `reports` e 3 em `auctions` vulneráveis a esse
+   caminho se o dono do anúncio correspondente decidir apagar.
+2. **Os 4 segredos de webhook de gateway (Stripe/MP/Pagar.me/Asaas) estão
+   vazios em produção** — nenhuma assinatura paga por cartão (fora do
+   bypass de cupom 100%) consegue completar o fluxo de entitlement. Os 4
+   adapters falham-fechado corretamente (rejeitam o webhook sem segredo),
+   mas o efeito de negócio é grave: cliente com cartão real completa
+   checkout, o gateway cria e cobra a assinatura de verdade, o webhook de
+   confirmação nunca é aceito, a linha fica `pending`, e entre 15-60 min os
+   crons de reconciliação **cancelam a assinatura no gateway de verdade** e
+   marcam `expired`. Cliente paga, nunca recebe o plano, sistema cancela
+   sozinho. Configuração pendente (ver item 2 da seção "🟠 Segurança" mais
+   abaixo, que já cobria os secrets — mas nunca tinha sido conectado a este
+   efeito de negócio concreto).
+
+### 🟠 Altos
+
+3. **`get_user_ads_stats` (plural) é um gêmeo não corrigido do IDOR que
+   acabou de ser fechado em `get_user_ad_stats`** (singular, migration de
+   hoje) — mesma classe de bug, `EXECUTE` liberado a `PUBLIC`/`anon`, devolve
+   contagem de anúncios (incluindo draft/pending/rejected) e views totais de
+   QUALQUER usuário sem checar `auth.uid()`. Sem call site no app hoje, mas
+   live e chamável direto via `POST /rest/v1/rpc/get_user_ads_stats` com só
+   a anon key.
+4. **`toggle_favorite` (sem `_atomic`) permite manipular favoritos de
+   qualquer usuário sem autenticação** — gêmeo não corrigido do bug já
+   fechado em `toggle_favorite_atomic` (migration 20260823140000). `EXECUTE`
+   ainda liberado a `PUBLIC`/`anon`. App não usa, mas PostgREST expõe
+   independente disso.
+5. **`place_bid` (sem `_atomic`) é a mesma bomba-relógio já desarmada em
+   `place_bid_atomic`, nunca removida** — hoje morta por acidente (bug de
+   enum `'active'` vs `scheduled/live/ended/canceled` aborta antes do
+   INSERT), mas sem NENHUMA validação de dono/incremento/vendedor-não-pode-
+   dar-lance-no-próprio-leilão. Se algum dia alguém corrigir só o enum sem
+   saber desta gêmea, reabre lance-em-nome-de-outro instantaneamente.
+6. **Policy de INSERT em `user_secrets` existe em produção, não rastreada
+   em nenhuma migration, e não é coberta pelo guard de colunas privilegiadas**
+   (que só dispara em UPDATE). Não explorável hoje (as 24 contas reais já
+   têm linha em `user_secrets`, então um INSERT puro bate em PK), mas se uma
+   linha for apagada por qualquer motivo (ex.: limpeza manual de conta de
+   teste, já feita antes neste projeto), o próprio dono pode se
+   autoconceder `is_admin=true` via POST direto com a própria anon key.
+7. **Regressão confirmada**: rate limit de denúncias (5/min) desligado
+   silenciosamente — mesma causa raiz do achado (refutado) de mensagens:
+   `check_rate_limit` perdeu `EXECUTE` de `anon`/`authenticated`
+   (20260830200000, para fechar OUTRA brecha), e `AdReportModal.tsx` não
+   trata o `error` do RPC, então o guard nunca bloqueia. Ao contrário de
+   mensagens (que têm um trigger de banco não rastreado como rede de
+   segurança, 20/hora), denúncias NÃO têm proteção alternativa nenhuma —
+   INSERT em `reports` segue livre para autenticado ou anônimo.
+8. **`GET /api/v1/ads/:id` ignora `is_blocked`** — ao contrário da listagem
+   (`/api/v1/ads`, que usa a chave anon e herda a RLS), a rota de detalhe
+   usa `service_role` (bypassa RLS) e só filtra `status='active'`. Anúncio
+   de vendedor bloqueado continua acessível por essa rota, e com API key
+   `full_access` ainda devolve o WhatsApp real do vendedor bloqueado.
+9. **Remoção do atributo `style` da allowlist institucional (correção de
+   hoje, `lib/sanitize.ts`) quebra visualmente as 10 páginas reais** — o
+   comentário do código ("nenhum conteúdo legítimo depende disso") está
+   errado: confirmado lendo `institutional_pages.content`/`content_es` em
+   produção, todas as 10 páginas usam `style=` para estrutura visual real
+   (ex.: boxes de alerta vermelho/âmbar em "Termos", sem `class=`
+   equivalente). Regressão de hoje (perpetua remoção já feita no commit
+   `cd4bfc6`, nunca revalidada contra o conteúdo real).
+10. **Migration `20260830180000` (secure_institutional_pages_rls) consta
+    como aplicada, mas as policies reais em produção são as ANTIGAS**
+    (`Admin write access`/`Public read access`), não as que a migration
+    deveria ter criado. Sem vulnerabilidade viva hoje (a policy antiga já
+    era admin-gated por caminho equivalente), mas reconstruir o banco do
+    zero a partir de `supabase/migrations/` reproduz um resultado diferente
+    do de produção.
+
+### 🟡 Médios
+
+11. `RegisterForm.tsx` não trata erro `23505` (CPF/CNPJ duplicado) — mostra
+    "não foi possível criar a conta" mesmo quando a conta (auth+profile) JÁ
+    foi criada, sem indicar que falta só logar. `ProfileTab.tsx` já trata
+    esse código corretamente; nunca replicado no cadastro.
+12. `checkout/init` e `subscriptions/cancel` sem rate limit, diferente de
+    todos os irmãos da família checkout. Em `checkout/init` é explorável de
+    forma concreta: usuário seta `country='US'` no próprio perfil (campo
+    self-service) e martelar a rota cria `SetupIntent` reais na Stripe sem
+    teto.
+13. Selo automático "Identidade Confirmada" ao assinar plano pago grava só
+    `profiles.verified`, nunca `kyc_status='approved'` — quebra a mensagem
+    de sucesso da tela de verificação vs. o selo dourado no anúncio (usam
+    campos diferentes). Ainda não afetou ninguém real (0 assinaturas
+    `active` legítimas hoje, plano pago existente parece atribuição manual).
+14. `/admin/paginas` mantém uma TERCEIRA allowlist DOMPurify local, não
+    unificada com `lib/sanitize.ts` (idêntica hoje, risco de divergência
+    futura).
+15. Campo "subcategoria" obrigatório incondicionalmente no wizard — nenhuma
+    categoria nova criada sem subcategoria correspondente conseguiria
+    publicar anúncio (hoje as 14 categorias ativas têm >=1 subcategoria,
+    sem rede de segurança para o futuro).
+16. `ALTER DEFAULT PRIVILEGES` nunca foi corrigido — o REVOKE de
+    TRUNCATE/TRIGGER/EXECUTE já feito é reativo (tabela por tabela), não
+    preventivo. Qualquer tabela/função nova nasce com GRANT amplo padrão
+    para `anon`/`authenticated` de novo.
+
+### 🟢 Baixos
+
+17. `auction_events`/`auction_lots` mantêm GRANT de tabela amplo para
+    `anon`/`authenticated`, inconsistente com o REVOKE já feito nas
+    tabelas irmãs `auction_bids`/`auction_lot_bids`. Neutralizado hoje pela
+    RLS (`is_admin()`), mas sem defesa em profundidade.
+18. `auction_events.step`/`auction_lots.min_bid` nullable com default 0 —
+    com step=0, lance igual ao atual "vence" sem incremento real (nenhum
+    leilão real tem step=0 hoje).
+19. `webhook_events` com GRANT total a `anon`/`authenticated` sem nenhuma
+    policy de RLS — inofensivo hoje (RLS habilitada + zero policies =
+    nega tudo), mas frágil a uma policy futura mal escrita.
+20. RLS de `plans` tem 3 policies de SELECT redundantes, 2 delas sem checar
+    `is_active` — planos desativados continuam publicamente legíveis via
+    PostgREST direto (sem risco de cobrança, as rotas de checkout já
+    filtram `is_active` no servidor).
+21. `check_ad_limit`/`get_user_plan` — funções mortas (sem call site),
+    mesmo padrão de UUID de cliente sem checar dono, vazamento de baixo
+    impacto (plano/cota, sem PII).
+22. 4 funções de manutenção (`purge_old_api_request_logs`,
+    `purge_old_pending_password_recovery`, e 2 sem NENHUMA migration —
+    `expire_old_ads`, `refresh_admin_stats_cache`) sem o REVOKE de
+    EXECUTE que toda irmã de cron já tem. `refresh_admin_stats_cache`
+    tenta atualizar uma materialized view que **não existe** hoje.
+23. 34 subcategorias (8 categorias inteiras) existem em produção sem
+    nenhuma migration correspondente — reconstruir o banco do zero deixaria
+    essas 8 categorias sem nenhuma subcategoria (agrava o achado 15).
+24. 3 arquivos de introspecção desta própria sessão (`ads_policies.json`,
+    `ads_triggers.json`, `funcs.json`, na raiz) não são cobertos pelos
+    padrões que o `.gitignore` de hoje adiciona (`scratch_*`,
+    `scripts/tmp-*.mjs`) — um `git add -A` ainda os levaria ao commit.
+
+### Refutados (achado real tecnicamente, conclusão de severidade errada)
+
+- "Overload legado de `get_localized_recent_ads` expõe anúncio de vendedor
+  bloqueado a anônimo" — a função perigosa existe e tem GRANT a anon, mas a
+  chamada alegada (`POST .../rpc/get_localized_recent_ads` com os 4
+  parâmetros) é ambígua para o Postgres (2 overloads compatíveis) e retorna
+  erro 42725, não dado. Testado ao vivo contra produção. Limpeza (dropar o
+  overload morto) continua recomendável como higiene, não é urgência.
+- "Rate limit de mensagens desligado = spam ilimitado" — o RPC
+  `check_rate_limit` de fato está inacessível ao cliente (mesma causa do
+  achado 7), mas existe um trigger de banco não rastreado
+  (`enforce_message_rate_limit`, 20 mensagens/hora por remetente) que o
+  primeiro auditor não tinha visto — o limite ficou mais frouxo (20/h em
+  vez de 10/min), não ausente.
+
+### Outros achados desta rodada (fora do workflow, por mim diretamente)
+
+- **5 perfis de teste residuais de rodadas anteriores** nunca limpos:
+  `teste-e2e-nome-exibicao-*`/`teste-e2e-recover-*` (27/08, rodada i18n),
+  `test-user-*` x2 e `teste-teste-teste-*` (12/07 e 07/07). Não apagados
+  nesta rodada (não é resíduo meu) — decidir se limpa ou mantém.
+- Confirmado ao vivo (contas descartáveis próprias, limpas ao final): cota
+  de 3 anúncios ativos do plano Grátis segue funcionando ponta a ponta
+  (bloqueio no 4º com a mensagem certa, liberação ao pausar 1); moderação
+  bloqueia INSERT direto com `status='active'`; rate limit de
+  `/api/test-error` (novo, hoje) bloqueia exatamente na 21ª chamada em 60s;
+  login real pela UI seta o cookie de sessão corretamente; `/admin` carrega
+  (200, sem redirect) para conta com `is_admin=true`.
+- As 2 migrations de hoje (`fix_get_user_ad_stats_idor`,
+  `baseline_is_admin_and_coupon_functions`) foram confirmadas aplicadas em
+  produção byte-a-byte (função + GRANTs) via Management API, não só
+  presentes como arquivo — sem drift.
+
+**Ainda sem teste ao vivo clique-a-clique** (só código/DB, por causa da
+animação travada do Browser pane nesta sessão): wizard de `/anunciar` passo
+2-3, modal de checkout (Asaas/coupon nas 3 mensagens agora colapsadas), ações
+reais de admin (aprovar/rejeitar KYC, bloquear usuário) — a chamada de teste
+para `/api/admin/verify-user` foi bloqueada pelo classificador de permissão
+do Bash/browser mesmo após autorização para conceder admin; ficou verificado
+só que `/admin` carrega e a RLS/lógica de `is_admin()` está correta no banco.
+
+Nenhuma correção foi aplicada nesta rodada — achados reportados para decisão
+do usuário sobre o que corrigir.
+
+---
+
 ## ✅ i18n PT/ES — auditoria completa + implementação em todas as páginas de cliente — 2026-08-27
 
 Pedido do usuário: "revisar todas as paginas sem excessao detalhadamente" a troca

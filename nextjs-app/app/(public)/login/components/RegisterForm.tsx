@@ -16,8 +16,13 @@ interface RegisterFormProps {
 const TRANSLATIONS = {
   pt: {
     successCreated: 'Conta criada com sucesso! Você já pode fazer login.',
-    emailTaken: 'Este e-mail já está cadastrado.',
-    createError: 'Erro ao criar conta.',
+    createError: 'Não foi possível criar a conta. Verifique os dados e tente novamente.',
+    // BUG CORRIGIDO (teste de estresse full-system, 2026-08-31): auth.signUp
+    // já sucedeu antes deste erro (só o CPF/CNPJ falha, por índice único) —
+    // a conta existe de verdade, sem o documento salvo. Mensagem genérica
+    // escondia isso; usuário achava que nada tinha sido criado e tentava de
+    // novo, caindo no fluxo (agora silencioso) de "e-mail já existe".
+    docExists: 'Este CPF/CNPJ já está cadastrado em outra conta. Sua conta foi criada — já pode fazer login e completar o CPF/CNPJ depois, no seu perfil.',
     hidePassword: 'Ocultar senha',
     showPassword: 'Mostrar senha',
     confirmPassword: 'Confirmar Senha',
@@ -25,8 +30,8 @@ const TRANSLATIONS = {
   },
   es: {
     successCreated: '¡Cuenta creada con éxito! Ya puedes iniciar sesión.',
-    emailTaken: 'Este correo ya está registrado.',
-    createError: 'Error al crear la cuenta.',
+    createError: 'No fue posible crear la cuenta. Verifica los datos e intenta de nuevo.',
+    docExists: 'Este documento ya está registrado en otra cuenta. Tu cuenta fue creada — ya puedes iniciar sesión y completar el documento después, en tu perfil.',
     hidePassword: 'Ocultar contraseña',
     showPassword: 'Mostrar contraseña',
     confirmPassword: 'Confirmar Contraseña',
@@ -86,11 +91,25 @@ export function RegisterForm({ onSetAlert, onSuccess }: RegisterFormProps) {
       onSetAlert(tr.successCreated, 'success')
       onSuccess(data.email)
     } catch (err: any) {
-      // BUG CORRIGIDO (i18n): qualquer erro do Supabase fora do caso
-      // "already registered" vazava cru em inglês na UI.
+      // BUG CORRIGIDO (i18n): qualquer erro do Supabase vazava cru em inglês
+      // na UI — corrigido usando sempre a tradução local.
+      //
+      // BUG CORRIGIDO (auditoria de segurança, 2026-08-31): a mensagem
+      // "este e-mail já está cadastrado" era um oráculo de enumeração de
+      // usuário — permitia testar uma lista de e-mails contra o cadastro e
+      // descobrir quais já têm conta na plataforma (útil para phishing
+      // direcionado). Login e reset de senha já usam mensagem genérica;
+      // cadastro agora segue o mesmo padrão.
       console.error('[Register] Erro ao criar conta:', err.message)
-      const msg = err.message?.includes('already registered') ? tr.emailTaken : tr.createError
-      onSetAlert(msg, 'error')
+      // BUG CORRIGIDO (teste de estresse full-system, 2026-08-31): 23505 aqui
+      // só pode vir do índice único de document_number (auth.signUp já teria
+      // retornado um erro diferente, tratado acima) — mesmo código que
+      // ProfileTab.tsx já trata para o mesmo updateProfile().
+      if (err?.code === '23505') {
+        onSetAlert(tr.docExists, 'error')
+      } else {
+        onSetAlert(tr.createError, 'error')
+      }
     } finally {
       setLoading(false)
     }

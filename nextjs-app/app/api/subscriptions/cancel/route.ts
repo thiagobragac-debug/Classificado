@@ -9,6 +9,7 @@ import {
   GatewayName,
 } from '@/lib/gateways'
 import { getRequestLang } from '@/lib/api-lang'
+import { dentroDoLimiteFallback } from '@/lib/rate-limit-fallback'
 
 // BUG CORRIGIDO (auditoria de i18n, achados de cliente): toda resposta desta
 // rota (erro/sucesso) era hardcoded, a maioria em português e algumas em
@@ -19,6 +20,7 @@ const ERRORS = {
   pt: {
     missingAuth: 'Cabeçalho de autorização ausente.',
     unauthorized: 'Não autorizado.',
+    tooManyAttempts: 'Muitas tentativas. Aguarde um momento.',
     fetchSubError: 'Erro ao buscar assinatura.',
     noActiveSub: 'Nenhuma assinatura ativa encontrada.',
     stripeNotConfigured: 'Stripe não configurado.',
@@ -33,6 +35,7 @@ const ERRORS = {
   es: {
     missingAuth: 'Falta el encabezado de autorización.',
     unauthorized: 'No autorizado.',
+    tooManyAttempts: 'Demasiados intentos. Espera un momento.',
     fetchSubError: 'Error al buscar la suscripción.',
     noActiveSub: 'No se encontró ninguna suscripción activa.',
     stripeNotConfigured: 'Stripe no está configurado.',
@@ -66,6 +69,17 @@ export async function POST(req: Request) {
     const { data: { user }, error: authError } = await supabase.auth.getUser(token)
     if (authError || !user) {
       return NextResponse.json({ error: tx.unauthorized }, { status: 401 })
+    }
+
+    // BUG CORRIGIDO (teste de estresse full-system, 2026-08-31): esta rota
+    // não tinha rate limit, diferente dos demais irmãos de checkout/subscriptions.
+    const permitido = await dentroDoLimiteFallback({
+      bucket: `subscriptions_cancel_${user.id}`,
+      limit: 10,
+      logPrefix: 'subscriptions-cancel',
+    })
+    if (!permitido) {
+      return NextResponse.json({ error: tx.tooManyAttempts }, { status: 429 })
     }
 
     // BUG CORRIGIDO (validação do zero, rodada 6, revisão adversarial):

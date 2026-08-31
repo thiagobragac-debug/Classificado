@@ -76,9 +76,15 @@ export async function GET(
   // BUG CORRIGIDO (fechamento pré-produção): phone_whatsapp mudou de
   // profiles pra user_secrets (migration 20260829130000, RLS self-only) —
   // service_role ignora RLS, então só o embed precisa acompanhar a coluna.
+  // BUG CORRIGIDO (teste de estresse full-system, 2026-08-31): esta rota usa
+  // service_role (bypassa RLS) e só filtrava status='active' — a RLS pública
+  // que esconde anúncio de vendedor bloqueado ("Active ads are viewable by
+  // everyone", NOT EXISTS user_secrets.is_blocked) nunca se aplicava aqui.
+  // is_blocked sempre embutido (independe de full_access) só pra checar e
+  // descartar abaixo — nunca sai na resposta.
   const profileFields = isFullAccess
-    ? 'id, name, avatar_url, verified, user_secrets(phone_whatsapp)'
-    : 'id, name, avatar_url, verified'
+    ? 'id, name, avatar_url, verified, user_secrets(phone_whatsapp, is_blocked)'
+    : 'id, name, avatar_url, verified, user_secrets(is_blocked)'
   const { data: rawData, error } = await supabase
     .from('ads')
     .select(
@@ -96,13 +102,17 @@ export async function GET(
   }
 
   const rawProfile = Array.isArray(rawData.profiles) ? rawData.profiles[0] : rawData.profiles
+  if (flattenOne((rawProfile as any)?.user_secrets)?.is_blocked) {
+    logRequest({ apiKey, request, statusCode: 404, durationMs })
+    return apiError('Ad not found or not active', 404)
+  }
   const data = {
     ...rawData,
     profiles: rawProfile && isFullAccess ? {
       ...rawProfile,
       phone_whatsapp: flattenOne((rawProfile as any).user_secrets)?.phone_whatsapp,
       user_secrets: undefined,
-    } : rawProfile,
+    } : (rawProfile ? { ...rawProfile, user_secrets: undefined } : rawProfile),
   }
 
   // 6. Log (fire-and-forget)
