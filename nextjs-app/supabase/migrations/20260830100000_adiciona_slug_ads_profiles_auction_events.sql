@@ -25,8 +25,32 @@ CREATE EXTENSION IF NOT EXISTS unaccent;
 -- corta hífens nas pontas. IMMUTABLE porque depende só do input (unaccent()
 -- com o dicionário default também é IMMUTABLE), o que permite usá-la em
 -- índices/DEFAULT no futuro se necessário.
+--
+-- BUG CRÍTICO CORRIGIDO (achado antes do merge desta migration pro main —
+-- ver 20260830150000_fix_slugify_search_path_signup_bug.sql e
+-- 20260830191000_move_unaccent_pg_trgm_para_extensions.sql, ambas em main):
+-- sem SET search_path, esta função (e as 3 trigger functions abaixo que a
+-- chamam) resolve unaccent()/slugify() pelo search_path da ROLE que dispara
+-- a chamada, não da sessão que criou a função. supabase_auth_admin (usada
+-- pelo GoTrue no INSERT em auth.users, que dispara o trigger de
+-- profiles_set_slug) tem search_path fixo em só 'auth' — sem 'public' nem
+-- 'extensions' — e por isso um INSERT normal de cadastro derrubava
+-- signup/login inteiro em produção com 42883 (function does not exist).
+-- SET search_path TO 'public', 'extensions' torna a função imune ao
+-- search_path de quem a chama. Deixado sem qualificar unaccent() (em vez de
+-- extensions.unaccent() como o fix em main faz) de propósito: esta migration
+-- também é a que cria a extensão (CREATE EXTENSION IF NOT EXISTS unaccent
+-- abaixo, sem SCHEMA explícito — fica em public por padrão), então
+-- qualificar como extensions.unaccent() quebraria um replay desta migration
+-- contra um banco novo do zero, antes de 20260830191000 mover a extensão pra
+-- extensions. Não qualificar e confiar no search_path (que cobre os dois
+-- schemas, onde quer que unaccent esteja em cada ponto da história) resolve
+-- corretamente tanto contra produção (unaccent já em extensions, aplicada
+-- por 20260830191000) quanto num banco novo replayed do zero.
 CREATE OR REPLACE FUNCTION public.slugify(input TEXT) RETURNS TEXT
-LANGUAGE sql IMMUTABLE AS $$
+LANGUAGE sql IMMUTABLE
+SET search_path TO 'public', 'extensions'
+AS $$
   SELECT trim(both '-' from regexp_replace(
     lower(unaccent(coalesce(input, ''))),
     '[^a-z0-9]+', '-', 'g'
@@ -56,11 +80,19 @@ ALTER TABLE public.ads ENABLE TRIGGER guard_ad_featured;
 ALTER TABLE public.ads ALTER COLUMN slug SET NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS ads_slug_unique_idx ON public.ads (slug);
 
+-- BUG CRÍTICO CORRIGIDO (mesma classe do fix em set_profiles_slug abaixo,
+-- aplicado aqui por consistência mesmo esta trigger nunca ter disparado o
+-- incidente de produção — INSERT em ads roda sob a role authenticated
+-- normal, cujo search_path inclui public, não sob supabase_auth_admin. Ainda
+-- assim, sem SET search_path esta função ficaria vulnerável ao search_path
+-- de qualquer role futura que insira em ads sem esse default).
 CREATE OR REPLACE FUNCTION public.set_ads_slug() RETURNS TRIGGER
-LANGUAGE plpgsql AS $$
+LANGUAGE plpgsql
+SET search_path TO 'public'
+AS $$
 BEGIN
   IF NEW.slug IS NULL THEN
-    NEW.slug := slugify(NEW.title_pt) || '-' || substr(NEW.id::text, 1, 8);
+    NEW.slug := public.slugify(NEW.title_pt) || '-' || substr(NEW.id::text, 1, 8);
   END IF;
   RETURN NEW;
 END;
@@ -101,11 +133,21 @@ GRANT SELECT (slug) ON public.profiles TO anon, authenticated;
 -- a linha só com id/email). coalesce(display_name, name, 'vendedor') cobre
 -- os três estágios (recém-criado sem nome, com name mas sem display_name, ou
 -- já completo) sem nunca gerar slug NULL.
+-- BUG CRÍTICO CORRIGIDO (achado ao vivo em produção antes do merge desta
+-- migration pro main, já documentado e corrigido lá em
+-- 20260830150000_fix_slugify_search_path_signup_bug.sql): sem SET
+-- search_path, esta trigger function roda sob o search_path de
+-- supabase_auth_admin (role que o GoTrue usa pro INSERT em auth.users, que
+-- dispara este trigger em profiles) — search_path fixo em só 'auth', sem
+-- 'public'. Cadastro/login inteiro do site respondia 500 (42883: function
+-- slugify(text) does not exist) até esta correção existir.
 CREATE OR REPLACE FUNCTION public.set_profiles_slug() RETURNS TRIGGER
-LANGUAGE plpgsql AS $$
+LANGUAGE plpgsql
+SET search_path TO 'public'
+AS $$
 BEGIN
   IF NEW.slug IS NULL THEN
-    NEW.slug := slugify(coalesce(NEW.display_name, NEW.name, 'vendedor')) || '-' || substr(NEW.id::text, 1, 8);
+    NEW.slug := public.slugify(coalesce(NEW.display_name, NEW.name, 'vendedor')) || '-' || substr(NEW.id::text, 1, 8);
   END IF;
   RETURN NEW;
 END;
@@ -126,11 +168,16 @@ WHERE slug IS NULL;
 ALTER TABLE public.auction_events ALTER COLUMN slug SET NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS auction_events_slug_unique_idx ON public.auction_events (slug);
 
+-- BUG CRÍTICO CORRIGIDO: mesma classe do fix em set_ads_slug/set_profiles_slug
+-- acima — hardenizada por consistência mesmo sem incidente confirmado nesta
+-- trigger específica.
 CREATE OR REPLACE FUNCTION public.set_auction_events_slug() RETURNS TRIGGER
-LANGUAGE plpgsql AS $$
+LANGUAGE plpgsql
+SET search_path TO 'public'
+AS $$
 BEGIN
   IF NEW.slug IS NULL THEN
-    NEW.slug := slugify(NEW.title) || '-' || substr(NEW.id::text, 1, 8);
+    NEW.slug := public.slugify(NEW.title) || '-' || substr(NEW.id::text, 1, 8);
   END IF;
   RETURN NEW;
 END;
