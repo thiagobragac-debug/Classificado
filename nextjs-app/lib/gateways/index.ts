@@ -39,12 +39,22 @@ export function isNativePlanSwitchEligible(params: {
   existingSubGateway: string | null | undefined
   existingSubGatewayId: string | null | undefined
   existingSubPrice: number | null | undefined
+  // BUG CORRIGIDO (achado ao vivo, teste completo de pagamento, 2026-09-01):
+  // esta função decide se o CheckoutModal pula a coleta de cartão/endereço
+  // (troca nativa) — mas não olhava pra moeda. Uma assinatura Stripe fica
+  // travada na moeda da 1ª cobrança (a API rejeita items[0][price_data] com
+  // moeda diferente da já estabelecida, confirmado ao vivo); ver o mesmo
+  // achado espelhado em app/api/checkout/route.ts, que precisa concordar
+  // exatamente com esta previsão.
+  existingSubCurrency: string | null | undefined
   targetGatewayName: GatewayName
+  targetCurrency: string
   finalPrice: number
 }): boolean {
-  const { existingSubGateway, existingSubGatewayId, existingSubPrice, targetGatewayName, finalPrice } = params
+  const { existingSubGateway, existingSubGatewayId, existingSubPrice, existingSubCurrency, targetGatewayName, targetCurrency, finalPrice } = params
   if (!existingSubGatewayId || !existingSubGateway) return false
   if (existingSubGateway !== targetGatewayName) return false
+  if (existingSubCurrency !== targetCurrency) return false
   if (finalPrice <= 0) return false
   const prorate = finalPrice > Number(existingSubPrice ?? 0)
   const gatewaySuportaTrocaNativa = targetGatewayName === 'stripe' || (!prorate && GATEWAYS_COM_TROCA_NATIVA.includes(targetGatewayName))

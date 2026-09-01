@@ -75,7 +75,15 @@ export function stripeAdapter(secretKey: string): GatewayAdapter {
       // 4. Create Subscription
       const subParams = new URLSearchParams()
       subParams.append('customer', customer.id)
-      subParams.append('items[0][price_data][currency]', 'brl')
+      // BUG CORRIGIDO (achado ao vivo, 2026-09-01): moeda vinha hardcoded em
+      // 'brl' — todo cliente internacional era cobrado em Real, convertido
+      // pela bandeira do cartão dele na taxa/spread dela, sem preço
+      // "nativo" nenhum. plan.currency vem de app/api/checkout/route.ts,
+      // que escolhe price_usd (cadastrado no admin, ver
+      // app/(admin)/admin/planos/page.tsx) quando o gateway é Stripe e o
+      // usuário é internacional; cai pra 'brl' quando price_usd não está
+      // configurado (comportamento antigo preservado).
+      subParams.append('items[0][price_data][currency]', (plan.currency || 'brl').toLowerCase())
       subParams.append('items[0][price_data][product]', product.id)
       subParams.append('items[0][price_data][recurring][interval]', plan.billingCycle === 'annual' ? 'year' : 'month')
       const priceInCents = Math.round(plan.price * 100)
@@ -86,8 +94,24 @@ export function stripeAdapter(secretKey: string): GatewayAdapter {
       subParams.append('metadata[billing_cycle]', plan.billingCycle)
       subParams.append('metadata[subscription_id]', subscriptionId)
 
-      // Idempotency Key: Uses the gateway token (or fallback to user+plan) to make it deterministic for double-clicks
-      const idempotencyKey = `stripe_sub_${user.id}_${plan.id}_${paymentData.gatewayToken || 'fallback'}`
+      // BUG CORRIGIDO (achado ao vivo, teste completo de pagamento, 2026-09-01):
+      // a chave era `user+plano+token`, sem nenhum identificador por
+      // TENTATIVA — diferente de Customer/Product logo acima, que já usam
+      // `subscriptionId` (o checkoutId, único por abertura do modal/retry
+      // genuíno da mesma tentativa). Reassinar o MESMO plano com o mesmo
+      // PaymentMethod depois de cancelar (ou o fallback de troca de
+      // gateway/moeda escolhendo de novo um plano já tentado antes) reusava
+      // essa mesma chave: se os parâmetros da nova tentativa divergiam
+      // (moeda, por ex.), a Stripe recusava com idempotency_error;
+      // reproduzido ao vivo. Se fossem idênticos, a Stripe devolveria a
+      // resposta em CACHE da tentativa anterior — risco pior, de mascarar
+      // uma cobrança nova como sucesso sem cobrar de verdade. Mesma classe
+      // de bug já corrigida em updateSubscriptionPlan (nonce por tentativa
+      // via checkoutId) — nunca replicada aqui. `subscriptionId` sozinho já
+      // é suficiente: um retry genuíno da MESMA tentativa (conexão caiu,
+      // client reenvia) reusa o mesmo checkoutId e continua idempotente; uma
+      // tentativa nova sempre tem um checkoutId novo.
+      const idempotencyKey = `stripe_sub_${subscriptionId}`
 
       const response = await fetch('https://api.stripe.com/v1/subscriptions', {
         method: 'POST',
@@ -147,7 +171,7 @@ export function stripeAdapter(secretKey: string): GatewayAdapter {
       // downgrade (só na próxima fatura) — documentado na interface.
       const updateParams = new URLSearchParams()
       updateParams.append('items[0][id]', itemId)
-      updateParams.append('items[0][price_data][currency]', 'brl')
+      updateParams.append('items[0][price_data][currency]', (plan.currency || 'brl').toLowerCase())
       updateParams.append('items[0][price_data][product]', product.id)
       updateParams.append('items[0][price_data][recurring][interval]', plan.billingCycle === 'annual' ? 'year' : 'month')
       updateParams.append('items[0][price_data][unit_amount]', Math.round(plan.price * 100).toString())
@@ -322,7 +346,18 @@ export function stripeAdapter(secretKey: string): GatewayAdapter {
           'Authorization': `Bearer ${secretKey}`,
         },
       })
-      if (!response.ok) {
+      // BUG CORRIGIDO (achado ao vivo, teste completo de pagamento,
+      // 2026-09-01): reativar uma assinatura (admin) só flipa o status LOCAL,
+      // sem recriar nada no gateway (ver app/api/admin/subscriptions/
+      // reactivate/route.ts) — o gateway_subscription_id continua apontando
+      // pra uma assinatura já deletada de vez por este mesmo DELETE. Uma
+      // segunda tentativa de cancelar reproduzia 404 resource_missing (Stripe
+      // confirma: um segundo DELETE na mesma subscription responde 404, não
+      // 200 idempotente) e as rotas de cancelamento abortavam com 502,
+      // travando a assinatura em 'active' pra sempre, sem nenhum caminho de
+      // saída via API. Se o gateway já não tem essa assinatura, o objetivo
+      // (parar de cobrar) já está cumprido — trata como sucesso.
+      if (!response.ok && response.status !== 404) {
         throw new Error(`Stripe cancel error: ${await response.text()}`)
       }
     }

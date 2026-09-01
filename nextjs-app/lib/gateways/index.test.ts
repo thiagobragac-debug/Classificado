@@ -49,7 +49,9 @@ describe('isNativePlanSwitchEligible', () => {
     existingSubGateway: 'stripe',
     existingSubGatewayId: 'sub_123',
     existingSubPrice: 49.9,
+    existingSubCurrency: 'BRL',
     targetGatewayName: 'stripe' as const,
+    targetCurrency: 'BRL',
     finalPrice: 149.9,
   };
 
@@ -79,5 +81,16 @@ describe('isNativePlanSwitchEligible', () => {
 
   it('sem assinatura anterior (existingSubGateway ausente) nunca é elegível', () => {
     expect(isNativePlanSwitchEligible({ ...base, existingSubGateway: null, existingSubGatewayId: null })).toBe(false);
+  });
+
+  // BUG CORRIGIDO (achado ao vivo, teste completo de pagamento, 2026-09-01):
+  // uma assinatura Stripe fica travada na moeda da 1ª cobrança — trocar pra
+  // um plano de moeda diferente via update in-place é rejeitado pela API de
+  // verdade (confirmado ao vivo), então nunca é "troca nativa elegível",
+  // mesmo com mesmo gateway/preço — precisa cair no fallback de
+  // cancelar-e-criar (que gera Customer/Product novos, na moeda certa).
+  it('moeda diferente da assinatura atual nunca é elegível, mesmo com mesmo gateway', () => {
+    expect(isNativePlanSwitchEligible({ ...base, existingSubCurrency: 'USD', targetCurrency: 'BRL' })).toBe(false);
+    expect(isNativePlanSwitchEligible({ ...base, existingSubCurrency: 'BRL', targetCurrency: 'USD' })).toBe(false);
   });
 });

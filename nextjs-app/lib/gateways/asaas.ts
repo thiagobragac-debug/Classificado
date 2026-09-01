@@ -36,18 +36,54 @@ export function asaasAdapter(apiKey: string, environment: 'sandbox' | 'productio
   // usado em transações de outros clientes"), então os dois fluxos precisam
   // resolver para o MESMO customerId de um mesmo usuário.
   async function findOrCreateCustomer(user: GatewayUser, docClean: string): Promise<string> {
-    const findByRefRes = await fetch(`${baseUrl}/customers?externalReference=${encodeURIComponent(user.id)}&limit=1`, { headers })
+    // BUG CORRIGIDO (achado ao vivo, revalidação pós-correções, 2026-09-01):
+    // esta busca não tinha ordenação explícita — em uso normal
+    // findOrCreateCustomer é idempotente e só existe 1 customer por
+    // externalReference, então não importava. Mas se um POST /customers
+    // anterior tiver tido sucesso do lado da Asaas e a resposta se perdido
+    // por timeout/erro de rede antes do app processar (retry subsequente
+    // cria um SEGUNDO customer com o MESMO externalReference), qual dos
+    // dois volta primeiro passa a depender da ordenação padrão não
+    // documentada da API — reproduzido ao vivo: o mais novo voltou primeiro
+    // e não tinha o token de cartão que tokenizeCard já tinha amarrado ao
+    // mais antigo, fazendo o checkout falhar com "CreditCardToken não
+    // encontrado" de forma não-determinística. `&sort=dateCreated&order=asc`
+    // fixa a escolha no MAIS ANTIGO sempre — não elimina a duplicidade em si
+    // (isso exigiria um índice de unicidade do lado da Asaas, fora do nosso
+    // controle), mas garante que tokenizeCard e createSubscription/
+    // updateSubscriptionPlan, cada um com sua própria chamada a esta
+    // função, sempre concordem em QUAL dos dois usar.
+    const findByRefRes = await fetch(`${baseUrl}/customers?externalReference=${encodeURIComponent(user.id)}&limit=1&sort=dateCreated&order=asc`, { headers })
     if (findByRefRes.ok) {
       const findByRefData = await findByRefRes.json()
       const found = findByRefData.data?.[0]?.id
       if (found) return found
     }
 
+    // BUG CORRIGIDO (achado ao vivo, teste de estresse completo, 2026-09-01):
+    // reaproveitar o customer achado por CPF sem checar o dono deixava dois
+    // usuários de APP diferentes (CPF digitado errado, CPF de terceiro, ou
+    // simples coincidência) serem mesclados silenciosamente no MESMO
+    // customer da Asaas — histórico de cobrança e token de cartão
+    // tokenizado passavam a ser compartilhados entre contas sem relação
+    // nenhuma. Reproduzido ao vivo: 4+ usuários de app com UUIDs/e-mails
+    // totalmente distintos caindo no mesmo customer só por reusarem o
+    // mesmo CPF de teste. Só reaproveita o customer achado por CPF se ele
+    // não tiver dono (externalReference vazio — cliente legado, criado
+    // antes desta correção existir) OU se o dono já for o PRÓPRIO usuário
+    // atual (mesmo user.id — não achou na 1ª busca por algum motivo
+    // transitório, ex. índice não propagado ainda). Fora isso, cria um
+    // customer NOVO pra este usuário — aceita ter 2 registros de customer
+    // pra um mesmo CPF real na Asaas (inofensivo, a Asaas permite CPF
+    // duplicado por design), o que é bem menos grave que misturar a
+    // identidade de cobrança de duas contas de app diferentes.
     const findByDocRes = await fetch(`${baseUrl}/customers?cpfCnpj=${docClean}&limit=1`, { headers })
     if (findByDocRes.ok) {
       const findByDocData = await findByDocRes.json()
-      const found = findByDocData.data?.[0]?.id
-      if (found) return found
+      const foundCustomer = findByDocData.data?.[0]
+      if (foundCustomer && (!foundCustomer.externalReference || foundCustomer.externalReference === user.id)) {
+        return foundCustomer.id
+      }
     }
 
     const customerRes = await fetch(`${baseUrl}/customers`, {
@@ -258,10 +294,92 @@ export function asaasAdapter(apiKey: string, environment: 'sandbox' | 'productio
       // Cancellation events
       if (event.event === 'SUBSCRIPTION_DELETED' || event.event === 'PAYMENT_DELETED') type = 'subscription.cancelled'
 
+      const gatewaySubscriptionId = event.payment?.subscription || event.subscription?.id
+
+      // MITIGAÇÃO (achado ao vivo, teste de estresse completo, 2026-09-01):
+      // a Asaas só oferece um token estático pra autenticar webhook —
+      // confirmado na documentação pública deles, sem HMAC sobre o corpo e
+      // sem proteção de timestamp/replay (bem diferente de Stripe/Mercado
+      // Pago, que assinam o payload). Isso significa que qualquer requisição
+      // que conheça o token consegue enviar QUALQUER payload de evento pra
+      // QUALQUER subscription_id, mesmo de outro usuário — demonstrado ao
+      // vivo nesta mesma sessão (um evento SUBSCRIPTION_DELETED forjado
+      // cancelou de verdade a assinatura de um usuário sem relação nenhuma
+      // com quem enviou a requisição).
+      //
+      // TENTATIVA 1 (revertida): rejeitar o evento (throw) se uma conferência
+      // de volta na API real da Asaas não corroborasse o que o evento
+      // afirma. Quebrou ativações/cancelamentos LEGÍTIMOS, confirmado ao
+      // vivo, reproduzido várias vezes: a API de LEITURA da Asaas fica
+      // sistematicamente atrasada em relação ao webhook — meça-se ao vivo
+      // um atraso real de propagação que variou de ~3s a mais de 90s pro
+      // MESMO tipo de evento, sem padrão previsível. Bloquear a resposta do
+      // webhook por tempo suficiente pra cobrir essa cauda (dezenas de
+      // segundos, possivelmente mais) não é viável — a maioria dos gateways
+      // de pagamento tem timeout de entrega bem mais curto que isso, e ficar
+      // rejeitando eventos genuínos é estritamente PIOR que a lacuna
+      // original (transforma um risco teórico raro numa falha real e
+      // recorrente pra clientes pagantes de verdade).
+      //
+      // DESENHO ATUAL: detecta sem bloquear. Faz uma conferência com
+      // orçamento CURTO (poucos segundos, não trava a resposta por muito
+      // tempo) — se corroborar, ótimo, segue normal. Se não corroborar
+      // dentro desse orçamento curto, NÃO REJEITA (fail-open, de propósito):
+      // processa o evento normalmente do mesmo jeito que sempre processou
+      // (sem esta mitigação), mas grava um log de alerta bem visível pra
+      // investigação manual/alerta externo. Isso preserva 100% da
+      // confiabilidade pro cliente legítimo (o caso comum, que é a maioria
+      // esmagadora) enquanto ainda dá um sinal de auditoria pro caso raro de
+      // um evento genuinamente forjado ser processado — que hoje, sem
+      // NENHUMA mitigação, passaria batido em silêncio total.
+      const confirmarSemBloquear = async (
+        url: string,
+        corrobora: (dados: any) => boolean,
+        tentativas = 3,
+        atrasoMs = 1200
+      ): Promise<{ corroborado: boolean; dados: any }> => {
+        let ultimoDados: any = null
+        for (let i = 0; i < tentativas; i++) {
+          if (i > 0) await new Promise(resolve => setTimeout(resolve, atrasoMs))
+          const res = await fetch(url, { headers })
+          if (res.ok) {
+            ultimoDados = await res.json()
+            if (corrobora(ultimoDados)) return { corroborado: true, dados: ultimoDados }
+          }
+        }
+        return { corroborado: false, dados: ultimoDados }
+      }
+
+      if (type === 'subscription.activated' && event.payment?.id) {
+        const { corroborado, dados: payData } = await confirmarSemBloquear(
+          `${baseUrl}/payments/${event.payment.id}`,
+          (d) => d.status === 'CONFIRMED' || d.status === 'RECEIVED'
+        )
+        if (!corroborado) {
+          console.error(
+            `[Asaas Webhook] ALERTA DE AUDITORIA: evento de ativação/renovação (payment.id=${event.payment.id}, subscription=${gatewaySubscriptionId}) não foi corroborado pela API real da Asaas dentro do orçamento curto de conferência — pode ser só atraso normal de propagação (comum, já medido ao vivo) ou, mais raramente, um evento forjado. Processando normalmente mesmo assim (fail-open, ver comentário acima) — revisar manualmente se houver suspeita concreta.`,
+            payData ? { statusEncontrado: payData.status } : { motivo: 'pagamento não encontrado na API' }
+          )
+        }
+      }
+
+      if (type === 'subscription.cancelled' && gatewaySubscriptionId) {
+        const { corroborado, dados: subData } = await confirmarSemBloquear(
+          `${baseUrl}/subscriptions/${gatewaySubscriptionId}`,
+          (d) => d.deleted === true || d.status !== 'ACTIVE'
+        )
+        if (!corroborado) {
+          console.error(
+            `[Asaas Webhook] ALERTA DE AUDITORIA: evento de cancelamento (subscription=${gatewaySubscriptionId}) não foi corroborado pela API real da Asaas dentro do orçamento curto de conferência — pode ser só atraso normal de propagação ou, mais raramente, um evento forjado. Processando normalmente mesmo assim (fail-open, ver comentário acima) — revisar manualmente se houver suspeita concreta.`,
+            subData ? { statusEncontrado: subData.status, deleted: subData.deleted } : { motivo: 'assinatura não encontrada na API' }
+          )
+        }
+      }
+
       return {
         type,
         eventId: event.id,
-        gatewaySubscriptionId: event.payment?.subscription || event.subscription?.id,
+        gatewaySubscriptionId,
         gatewayCustomerId: event.payment?.customer || event.subscription?.customer,
         // Asaas: externalReference is set on subscription, not always on payment object
         // Try payment.externalReference first, then subscription.externalReference as fallback
@@ -275,7 +393,11 @@ export function asaasAdapter(apiKey: string, environment: 'sandbox' | 'productio
         method: 'DELETE',
         headers,
       })
-      if (!response.ok) {
+      // Mesma correção idempotente aplicada nos 4 adapters (achado ao vivo,
+      // 2026-09-01, ver comentário equivalente em stripe.ts): se o gateway já
+      // não tem essa assinatura, o objetivo (parar de cobrar) já está
+      // cumprido — trata 404 como sucesso em vez de travar o cancelamento.
+      if (!response.ok && response.status !== 404) {
         throw new Error(`Asaas cancel error: ${await response.text()}`)
       }
     },
@@ -324,14 +446,24 @@ export function asaasAdapter(apiKey: string, environment: 'sandbox' | 'productio
       // fatura PENDING de verdade desta assinatura e usa o `dueDate` dela;
       // só cai pro `nextDueDate` da assinatura (comportamento antigo) se por
       // algum motivo não houver nenhuma fatura pendente encontrada.
-      let currentPeriodEnd = updated.nextDueDate ? new Date(`${updated.nextDueDate}T00:00:00`).toISOString() : undefined
+      // BUG CORRIGIDO (achado ao vivo, teste de estresse completo, 2026-09-01):
+      // `new Date("YYYY-MM-DDT00:00:00")` sem offset é interpretado no
+      // timezone LOCAL DO PROCESSO Node, não em Brasília — só dava o
+      // resultado certo porque a máquina de dev roda em America/Sao_Paulo.
+      // Num deploy com TZ=UTC (comum em host cloud, inclusive Vercel), a
+      // mesma linha gravaria current_period_end/plan_expires_at 3h mais
+      // cedo (meia-noite em Brasília = 03:00 UTC). Todas as datas que a
+      // Asaas devolve (nextDueDate, dueDate) são calendário brasileiro —
+      // fixa o offset explícito, mesmo padrão já usado em
+      // app/(admin)/admin/cupons/page.tsx pra valid_until.
+      let currentPeriodEnd = updated.nextDueDate ? new Date(`${updated.nextDueDate}T00:00:00-03:00`).toISOString() : undefined
       try {
         const paymentsRes = await fetch(`${baseUrl}/payments?subscription=${gatewaySubscriptionId}&status=PENDING&limit=1`, { headers })
         if (paymentsRes.ok) {
           const paymentsData = await paymentsRes.json()
           const pendingDueDate = paymentsData?.data?.[0]?.dueDate
           if (pendingDueDate) {
-            currentPeriodEnd = new Date(`${pendingDueDate}T00:00:00`).toISOString()
+            currentPeriodEnd = new Date(`${pendingDueDate}T00:00:00-03:00`).toISOString()
           }
         }
       } catch {

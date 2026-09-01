@@ -4,8 +4,12 @@ export type BillingCycle = 'monthly' | 'annual'
 export interface GatewayPlan {
   id: string
   name: string
-  price: number // monthly price in BRL
+  price: number // monthly price, in `currency`
   billingCycle: BillingCycle
+  // ISO 4217, ex. 'BRL'/'USD'. Só a Stripe usa isto de verdade hoje (ver
+  // lib/gateways/stripe.ts) — os demais adapters continuam fixos em BRL.
+  // Ausente/undefined = 'BRL' (comportamento anterior a esta option).
+  currency?: string
 }
 
 export interface GatewayUser {

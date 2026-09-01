@@ -237,7 +237,11 @@ export function pagarmeAdapter(apiKey: string): GatewayAdapter {
         body: JSON.stringify({ cancel_pending_invoices: true }),
       })
 
-      if (!response.ok) {
+      // Mesma correção idempotente aplicada nos 4 adapters (achado ao vivo,
+      // 2026-09-01, ver comentário equivalente em stripe.ts): se o gateway já
+      // não tem essa assinatura, o objetivo (parar de cobrar) já está
+      // cumprido — trata 404 como sucesso em vez de travar o cancelamento.
+      if (!response.ok && response.status !== 404) {
         throw new Error(`Pagar.me cancel error: ${await response.text()}`)
       }
     },
