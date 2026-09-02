@@ -250,7 +250,14 @@ describe('pagarmeAdapter.createSubscription — caminho com card_token', () => {
 
     expect(result.gatewaySubscriptionId).toBe('sub_pm_tok');
     const parsed = JSON.parse(bodySubscription);
-    expect(parsed.card.card_token).toBe('token_zVw7rqvHEPH8XlbE');
+    // BUG CORRIGIDO (achado ao vivo contra o sandbox real, 2026-09-02): o
+    // teste antigo esperava card_token ANINHADO dentro de `card` — exatamente
+    // o formato que a API da Pagar.me ignora em silêncio (tenta validar
+    // `card` como se fossem dados crus e rejeita com 422 "número do cartão
+    // obrigatório"). card_token precisa ir solto na raiz do corpo da
+    // assinatura; `card` continua existindo só pra carregar billing_address.
+    expect(parsed.card_token).toBe('token_zVw7rqvHEPH8XlbE');
+    expect(parsed.card.card_token).toBeUndefined();
     expect(parsed.card.number).toBeUndefined();
     expect(parsed.card.cvv).toBeUndefined();
     expect(parsed.card.billing_address.city).toBe('São Paulo');

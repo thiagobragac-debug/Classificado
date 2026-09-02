@@ -362,8 +362,21 @@ export default function Header({
           </nav>
 
           <div className="lang-toggle" role="group" aria-label={tt.langGroupAria}>
-            <Link data-lang="pt" href={ptHref} className={lang === 'pt' ? 'active' : ''} aria-label="Português">PT</Link>
-            <Link data-lang="es" href={esHref} className={lang === 'es' ? 'active' : ''} aria-label="Español">ES</Link>
+            {/* BUG CORRIGIDO (achado ao vivo pelo usuário em produção,
+                2026-09-02): estes dois eram <Link> do Next (navegação
+                client-side). O destino final de setLocale=pt/es é sempre o
+                MESMO pathname que o usuário já está vendo (proxy.ts só troca
+                o cookie tc_lang e redireciona de volta pra cá) — confirmado
+                ao vivo que o Next busca o RSC novo (request _rsc de fato sai
+                e volta 200 com o HTML no idioma certo), mas o client router
+                não repinta a página porque o pathname não mudou. Resultado:
+                o clique "não fazia nada" — cookie e URL certos, conteúdo
+                visível preso no idioma antigo. `<a>` puro força navegação de
+                página inteira (o browser segue o redirect 307 do proxy.ts
+                como uma requisição nova de verdade), que é exatamente o que
+                trocar de idioma precisa. */}
+            <a data-lang="pt" href={ptHref} className={lang === 'pt' ? 'active' : ''} aria-label="Português">PT</a>
+            <a data-lang="es" href={esHref} className={lang === 'es' ? 'active' : ''} aria-label="Español">ES</a>
           </div>
 
           <Link href="/anunciar" className="btn-anunciar-header" id="btn-post-header">
@@ -403,8 +416,11 @@ export default function Header({
             NENHUMA forma de trocar de idioma nas páginas que usam este
             Header. */}
         <div className="lang-toggle" role="group" aria-label={tt.langGroupAria} style={{ alignSelf: 'flex-start', margin: 'var(--sp-2) 0' }}>
-          <Link data-lang="pt" href={ptHref} className={lang === 'pt' ? 'active' : ''} aria-label="Português">PT</Link>
-          <Link data-lang="es" href={esHref} className={lang === 'es' ? 'active' : ''} aria-label="Español">ES</Link>
+          {/* <a> puro de propósito, não <Link> — ver comentário no toggle
+              do header acima (mesma navegação client-side "não fazia
+              nada" quando o pathname final é igual ao atual). */}
+          <a data-lang="pt" href={ptHref} className={lang === 'pt' ? 'active' : ''} aria-label="Português">PT</a>
+          <a data-lang="es" href={esHref} className={lang === 'es' ? 'active' : ''} aria-label="Español">ES</a>
         </div>
         <div className="auth-wrapper" style={{ width: '100%' }}>
           <Link href={isLoggedIn ? '/painel' : '/login'} className="btn-login-mobile">
