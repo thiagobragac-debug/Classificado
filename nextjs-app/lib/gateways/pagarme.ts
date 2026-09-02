@@ -181,6 +181,22 @@ export function pagarmeAdapter(apiKey: string): GatewayAdapter {
       }
 
       const authHeader = headers['authorization']
+
+      // LOG TEMPORÁRIO DE DIAGNÓSTICO (2026-09-02): 6 webhooks reais
+      // chegaram num teste ao vivo contra produção, todos com HTTP 400 —
+      // a checagem de auth abaixo está rejeitando. Precisa ver os headers
+      // reais que a Pagar.me manda (e um comparativo mascarado do valor
+      // esperado x recebido) antes de mexer na lógica. Nada de segredo
+      // completo em claro no log. Remover depois de confirmar.
+      console.info('[Webhook:pagarme] diagnostico auth:', JSON.stringify({
+        headerKeys: Object.keys(headers),
+        temAuthorization: !!authHeader,
+        authHeaderPrefix: authHeader ? authHeader.slice(0, 12) : null,
+        authHeaderLen: authHeader ? authHeader.length : 0,
+        esperadoPrefix: `Basic ${Buffer.from(secret, 'utf8').toString('base64')}`.slice(0, 12),
+        esperadoLen: `Basic ${Buffer.from(secret, 'utf8').toString('base64')}`.length,
+      }))
+
       if (!authHeader) throw new Error('Missing Pagar.me Authorization header')
 
       const expectedAuth = `Basic ${Buffer.from(secret, 'utf8').toString('base64')}`
@@ -191,14 +207,6 @@ export function pagarmeAdapter(apiKey: string): GatewayAdapter {
       const event = JSON.parse(body)
       let type: WebhookEvent['type'] = 'unknown'
       const dataObj = event.data || {}
-
-      // LOG TEMPORÁRIO DE DIAGNÓSTICO (2026-09-02): 6 webhooks reais
-      // chegaram num teste ao vivo contra produção e todos caíram em
-      // 'unknown' — precisa ver o event.type CRU que a Pagar.me manda de
-      // verdade antes de ajustar o mapeamento abaixo (que hoje assume só
-      // charge.paid/invoice.paid/subscription.canceled/*.payment_failed,
-      // baseado só na doc pública). Remover depois de confirmar.
-      console.info('[Webhook:pagarme] evento cru recebido:', event.type, '| tem subscriptionRef?', !!(dataObj.subscription || dataObj.invoice?.subscription))
 
       // BUG CRÍTICO CORRIGIDO: para eventos charge.* (event.data = objeto
       // Cobrança), a doc oficial confirma que Charge NÃO tem campo
