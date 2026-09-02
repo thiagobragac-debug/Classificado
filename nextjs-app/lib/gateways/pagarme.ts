@@ -181,20 +181,6 @@ export function pagarmeAdapter(apiKey: string): GatewayAdapter {
       }
 
       const authHeader = headers['authorization']
-
-      // LOG TEMPORÁRIO DE DIAGNÓSTICO (2026-09-02, 2ª rodada): ver
-      // README no route.ts — se este log aparecer, a identificação de
-      // gateway já funcionou e o problema real é aqui, na comparação de
-      // auth. Remover depois de confirmar.
-      console.info('[Webhook:pagarme] diagnostico auth:', JSON.stringify({
-        headerKeys: Object.keys(headers),
-        temAuthorization: !!authHeader,
-        authHeaderPrefix: authHeader ? authHeader.slice(0, 12) : null,
-        authHeaderLen: authHeader ? authHeader.length : 0,
-        esperadoPrefix: `Basic ${Buffer.from(secret, 'utf8').toString('base64')}`.slice(0, 12),
-        esperadoLen: `Basic ${Buffer.from(secret, 'utf8').toString('base64')}`.length,
-      }))
-
       if (!authHeader) throw new Error('Missing Pagar.me Authorization header')
 
       const expectedAuth = `Basic ${Buffer.from(secret, 'utf8').toString('base64')}`
