@@ -52,6 +52,13 @@ export async function POST(req: Request) {
       url.searchParams.get('gateway') || ''
     ).toLowerCase() as GatewayName
 
+    // LOG TEMPORÁRIO DE DIAGNÓSTICO (2026-09-02, 2ª rodada): a URL já foi
+    // recadastrada com ?gateway=pagarme mas o webhook real continua
+    // voltando 400 — precisa confirmar se req.url chega com a query string
+    // intacta (proxy.ts/Vercel poderiam reescrever) antes de investigar
+    // mais. Remover depois de confirmar.
+    console.info('[Webhook] diagnostico gateway:', JSON.stringify({ rawUrl: req.url, parsedSearch: url.search, gatewayResolvido: gateway }))
+
     if (!gateway) {
       return NextResponse.json({ error: 'Missing gateway identifier (x-gateway header or ?gateway= param)' }, { status: 400 })
     }
