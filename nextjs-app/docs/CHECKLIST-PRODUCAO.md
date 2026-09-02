@@ -9,7 +9,7 @@ diretamente. Reconfira antes do go-live.
 
 ---
 
-## 🔍 Migração Asaas → Pagar.me (checkout transparente, sem redirect) — 2026-09-02 (4ª parte)
+## ✅ Migração Asaas → Pagar.me (checkout transparente, sem redirect) — 2026-09-02 (4ª parte)
 
 Pedido explícito do usuário: o checkout precisa acontecer **dentro do site**,
 sem redirecionar o cliente pro gateway. Auditada a Asaas pra esse modelo e
@@ -110,15 +110,50 @@ plano". Confirma que o fix chegou até esse ponto sem nenhum erro de
 validação — a ÚNICA coisa parando uma assinatura paga de verdade agora é o
 webhook secret vazio.
 
-### ⏳ Pendente (bloqueado em ação do usuário — não é código)
+### 🔴 3º bug crítico: a Pagar.me não manda header próprio nem preserva query string na URL do webhook
 
-`pagarme_webhook_secret` continua vazio em `platform_settings`. Precisa que
-o usuário cole `usuario:senha` do webhook (mesmo texto da tela de
-configuração de webhook da Pagar.me, autenticação habilitada) em Admin →
-Configurações → Pagar.me. Só depois disso uma assinatura paga de verdade
-consegue passar do guard acima — e só aí dá pra confirmar visualmente pelo
-navegador (não só headless) que o `charge.paid`/`invoice.paid` chega e ativa
-o plano do cliente.
+Com `pagarme_webhook_secret` configurado (`usuario:senha`), o guard do item
+anterior liberou — mas a assinatura ficava presa em `pending` pra sempre,
+mesmo com a cobrança confirmada `"paid"` do lado da Pagar.me. Diagnosticado
+com 2 rodadas de log temporário (removidos depois, ver histórico do git):
+
+1. **1ª hipótese, refutada**: achei que os 6 webhooks reais que chegavam
+   caíam em `event.type === 'unknown'` (mapeamento incompleto). Log de
+   `responseStatusCode` via `vercel logs --json` mostrou **400**, não 200 —
+   hipótese errada, o problema era antes de sequer ler o corpo do evento.
+2. **Causa real**: `app/api/webhooks/payments/route.ts` identifica o
+   gateway por header (`x-gateway`) OU por `?gateway=` na URL — a Pagar.me
+   não manda nenhum header próprio. Recadastrada a URL do webhook com
+   `?gateway=pagarme` no painel deles (confirmado salvo certinho, print do
+   usuário) — o log seguinte provou que **a Pagar.me remove a query string
+   da URL antes de chamar o webhook** (`rawUrl` chegando sem `?` nenhum). O
+   painel deles também não tem campo pra header customizado, então não
+   havia NENHUMA forma de identificação disponível do lado deles pra essa
+   integração.
+
+Corrigido com uma rota HTTP dedicada só pra Pagar.me — não depende de
+header nem de query string:
+[`app/api/webhooks/payments/pagarme/route.ts`](../app/api/webhooks/payments/pagarme/route.ts)
+(lógica compartilhada extraída pra
+[`lib/gateways/webhook-handler.ts`](../lib/gateways/webhook-handler.ts);
+Stripe/Mercado Pago/Asaas continuam na rota genérica, sem nenhuma mudança
+de comportamento pra eles). URL final cadastrada no painel da Pagar.me:
+`https://www.tauzeclass.com.br/api/webhooks/payments/pagarme` (sem query
+string).
+
+### ✅ Fluxo 100% validado ao vivo, ponta a ponta, contra produção real
+
+Com a rota dedicada no ar, teste completo repetido (usuário descartável
+criado/logado/apagado): tokenizar no navegador → `POST /api/checkout`
+(produção) → cobrança criada na Pagar.me → **webhook chega e ativa
+sozinho em ~6s** (`subscriptions.status = "active"`,
+`current_period_end` correto) → `profiles.subscription_status = "active"`,
+`verified = true`, `kyc_status = "approved"` → `user_secrets.plan = "pro"`
+com o `plan_id` certo. Todos os dados de teste limpos (assinatura
+cancelada na Pagar.me, linha apagada, usuário apagado) em cada rodada.
+
+`gateway_nacional_padrao` continua `pagarme` em produção — decisão final,
+não precisa de nenhuma ação adicional.
 
 ---
 
