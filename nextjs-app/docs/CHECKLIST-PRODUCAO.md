@@ -9,6 +9,72 @@ diretamente. Reconfira antes do go-live.
 
 ---
 
+## ✅ v1 no ar em produção (Vercel) + 3 bugs achados só depois do deploy real — 2026-09-02 (3ª parte)
+
+Pedido: "enviar todo projeto para github bem como salvar com primeira
+versão v1 enviada para produção". Primeiro push real pro GitHub
+(`thiagobragac-debug/Classificado`, tag `v1`) e primeiro deploy real no
+Vercel deste projeto — nunca tinha sido publicado antes. Site no ar:
+**https://www.tauzeclass.com.br** (e `tauzeclass.com.br`, redirecionando
+308 pro `www`).
+
+### Problemas de configuração do Vercel (não são bug de código)
+
+1. Variáveis de ambiente coladas via "Add Multiple" na 1ª tentativa nunca
+   salvaram de fato (tela voltava vazia) — recolado, confirmado salvo.
+2. `vercel.json` tinha 2 crons mais frequentes que 1x/dia (`*/10 * * * *`
+   e hora em hora) — o plano Hobby rejeita com ERRO de build (não só
+   aviso), bloqueando **todo deploy novo em silêncio** desde que os crons
+   foram adicionados (nenhuma entrada aparecia na lista de Deployments,
+   nem erro visível — só descoberto rodando `vercel --prod` via CLI, que
+   mostra o erro que o dashboard escondia). Reduzido pra 1x/dia cada
+   (5h/5h30 UTC).
+3. Depois de resolver o cron, o push automático do GitHub→Vercel parou de
+   funcionar por completo (nenhum deploy novo, nem erro) — resolvido
+   desconectando e reconectando o repositório em Settings → Git.
+
+### 🔴 Bug real achado só depois do site estar acessível de verdade
+
+4. **Service Worker travava qualquer navegação que envolvesse redirect**
+   (ex.: `/login` → `/es/login`, decidido por `proxy.ts` com base no
+   cookie `tc_lang`) — a URL avançava (History API) mas o conteúdo ficava
+   preso na página anterior, com `Cannot read properties of null (reading
+   'removeChild')` no console e um 504 "Offline" sintético do próprio SW.
+   Achado por um usuário real testando o site pela primeira vez — nunca
+   apareceu em nenhum teste anterior (curl/API não exercita Service
+   Worker). Causa: o handler de navegação do SW fazia `fetch(request)`
+   reusando o `Request` original (`mode: 'navigate'`) — o Chrome rejeita
+   esse fetch quando a navegação envolve redirect no meio do caminho.
+   Corrigido construindo uma `Request` nova em vez de reusar a original
+   (`public/sw.js`).
+5. **Todas as páginas institucionais (Termos, Privacidade, Ajuda, etc.),
+   em PT e ES, davam 500 na função serverless real do Vercel** — nunca
+   reproduzido local (nem `next dev`, nem `next build && next start`),
+   só na Vercel de verdade. Causa raiz (via log real do Vercel): `Error
+   [ERR_REQUIRE_ESM]: require() of ES Module .../@exodus/bytes` —
+   dependência transitiva de `jsdom` (usado por `isomorphic-dompurify`
+   em `lib/sanitize.ts`) que só existe como ESM puro. Tentativa 1 (fixar
+   `engines.node: "22.x"` no `package.json`, já que `@exodus/bytes` exige
+   Node 20.19+/22.12+/24+) **não resolveu** — erro idêntico depois do
+   redeploy, sugerindo que o problema é mais profundo que só a versão do
+   runtime (possivelmente Turbopack + `serverExternalPackages` com
+   dependência transitiva ESM). Corrigido de vez trocando
+   `isomorphic-dompurify` inteiro por `sanitize-html` (biblioteca pura JS,
+   sem jsdom) em `lib/sanitize.ts` — mesma allowlist, mesmo hook
+   anti-tabnabbing, `tsc`/`vitest` limpos.
+
+**Lição**: nenhuma das rodadas anteriores de teste de estresse (curl,
+API direto, `next dev`/`next build` local) teria pego os achados 4 e 5 —
+os dois só se manifestam na combinação exata de Service Worker real +
+navegador real + função serverless real do Vercel. Vale considerar um
+smoke test pós-deploy (clique real, não só HTTP) como parte do processo
+antes de qualquer lançamento futuro.
+
+`engines.node: "22.x"` foi mantido no `package.json` mesmo não tendo
+resolvido o achado 5 sozinho — não é errado, só insuficiente sozinho.
+
+---
+
 ## ✅ Revalidação do zero + correção de regressão própria — 2026-09-02 (2ª parte)
 
 Pedido: "refazer todo teste completo do zero ao vivo novamente para
