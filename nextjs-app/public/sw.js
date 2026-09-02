@@ -106,9 +106,27 @@ self.addEventListener('fetch', (event) => {
 
   // Navegação: sempre rede. Se cair, mostra a tela offline. Não guardamos o
   // HTML — no App Router ele já vem renderizado com o estado do usuário.
+  //
+  // BUG CORRIGIDO (achado ao vivo em produção, 2026-09-02): fetch(request)
+  // reusando o Request de navegação original (mode: 'navigate') direto
+  // falhava sempre que a navegação envolvia um redirect no meio do caminho
+  // (ex.: proxy.ts redirecionando /login -> /es/login com base no cookie
+  // tc_lang) — o Chrome rejeita esse fetch com TypeError em vez de seguir o
+  // redirect, cai no .catch() e devolve o 504 sintético "Offline" mesmo com
+  // a rede funcionando normalmente. Reproduzido ao vivo: a URL avançava
+  // (History API), mas o conteúdo ficava preso na página anterior — o
+  // router do Next tentava reconciliar uma resposta de erro, produzindo
+  // "Cannot read properties of null (reading 'removeChild')" no console.
+  // Construir uma Request NOVA (mode 'same-origin' por padrão, não
+  // 'navigate') evita a restrição — mesmo padrão recomendado para Service
+  // Workers que precisam refazer o fetch de uma navegação interceptada.
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request).catch(() =>
+      fetch(new Request(request.url, {
+        headers: request.headers,
+        credentials: request.credentials,
+        redirect: 'follow',
+      })).catch(() =>
         caches.match(OFFLINE_URL).then((offline) => offline || respostaOffline())
       )
     );
