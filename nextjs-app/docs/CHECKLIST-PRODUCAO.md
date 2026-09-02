@@ -60,24 +60,65 @@ cadastrados no painel deles, não HMAC) também foi confirmado ao vivo contra
 a tela real de configuração de webhook da Pagar.me e reescrito em
 `validateWebhook` — 42 testes unitários cobrindo o novo formato.
 
+### 🔴 Incidente: `gateway_nacional_padrao` trocado pra `pagarme` em produção antes do deploy do fix
+
+O usuário colou as credenciais reais da Pagar.me em Admin → Configurações e,
+no mesmo salvamento, `gateway_nacional_padrao` foi de `asaas` pra `pagarme`
+— direto no banco de produção (mesmo Supabase do site ao vivo). Como o
+código com o formulário/fix acima só existia local até esse ponto, todo
+visitante tentando assinar Produtor PRO/Premium via cartão via `/planos`
+passou a cair na mensagem genérica "Cartão indisponível no momento"
+(`CheckoutModal.tsx` ainda não reconhecia `gateway === 'pagarme'` na versão
+publicada). Avisado ao usuário, que optou por **deploy imediato** do fix em
+vez de reverter pra `asaas`.
+
+### 🔴 2º bug crítico achado ao vivo, testando o formulário novo num navegador real
+
+Antes do deploy, o formulário novo foi validado no dev local (com
+`/api/checkout/init` e `/api/checkout` mockados via `window.fetch`, pra não
+depender do `gateway_nacional_padrao` de produção) — e a tokenização client-
+side (`handlePagarmeCardSubmit`, chamada real a `api.pagar.me`) foi
+**bloqueada pelo próprio CSP do site**: `connect-src` em
+[`proxy.ts`](../proxy.ts) não incluía `https://api.pagar.me`. Console:
+`"Refused to connect ... violates the document's Content Security Policy"`
+— exatamente a mesma classe de bug já documentada aqui pro Card Payment
+Brick do Mercado Pago (`MP_CONNECT`), agora reproduzida pra Pagar.me.
+Corrigido com um `PAGARME_CONNECT = ['https://api.pagar.me']` análogo.
+Sem essa correção, TODO client-side checkout da Pagar.me teria ido pra
+produção quebrado — só visível testando num navegador de verdade, uma
+chamada direta à API nunca acionaria o CSP.
+
+### ✅ Deploy + confirmação ao vivo contra produção real
+
+Commit `c7b5fea` (typecheck limpo, 42 testes passando) deployado via
+`git push origin main` → Vercel auto-deploy, confirmado "Ready" em ~40s.
+CSP com `api.pagar.me` confirmado servido em `www.tauzeclass.com.br` logo
+em seguida.
+
+Teste end-to-end de verdade contra o domínio real (não só sandbox
+isolado), com um usuário descartável criado/logado/apagado via Admin API
+— o navegador da sessão de teste não tinha permissão pra abrir o domínio
+externo, então rodado headless (mesmo padrão de `auth-helper.mjs` usado nas
+rodadas anteriores): login real → `POST /api/checkout/init` (produção)
+devolveu `gateway: "pagarme"` com a `pk_test_...` real → tokenizar direto
+contra `api.pagar.me` (sucesso) → `POST /api/checkout` (produção) barrou em
+**503 "Este método de pagamento está temporariamente indisponível"** — de
+propósito: o guard existente em `checkout/route.ts` (linha ~349, não é
+código novo desta rodada) recusa cobrança real sempre que o gateway ativo
+não tem webhook secret configurado, evitando "cliente pago, nunca recebe o
+plano". Confirma que o fix chegou até esse ponto sem nenhum erro de
+validação — a ÚNICA coisa parando uma assinatura paga de verdade agora é o
+webhook secret vazio.
+
 ### ⏳ Pendente (bloqueado em ação do usuário — não é código)
 
-`platform_settings` ainda tem `pagarme_api_key`/`pagarme_pub_key` com
-**valores placeholder** (`sk_test_12345678901234567890` /
-`pk_test_12345678901234567890`), diferentes das credenciais sandbox reais
-já usadas nos testes acima (guardadas só em `.env.local`), e
-`pagarme_webhook_secret` está vazio. Sem acesso de admin no site neste
-momento (conta de teste descartável foi apagada numa rodada anterior) —
-precisa que o usuário:
-
-1. Cole a chave pública e secreta reais em Admin → Configurações → Pagar.me.
-2. Cole `usuario:senha` do webhook (mesmo texto da tela de webhook da
-   Pagar.me) no mesmo painel.
-3. Só depois disso: um teste end-to-end de verdade pelo navegador (não só
-   API direta) — abrir `/planos`, ir até o formulário de cartão da Pagar.me,
-   confirmar assinatura "active" e o webhook chegando.
-4. Só então trocar `gateway_nacional_padrao` de `asaas` pra `pagarme` —
-   intencionalmente ainda não mexido, por ser a troca que afeta cliente real.
+`pagarme_webhook_secret` continua vazio em `platform_settings`. Precisa que
+o usuário cole `usuario:senha` do webhook (mesmo texto da tela de
+configuração de webhook da Pagar.me, autenticação habilitada) em Admin →
+Configurações → Pagar.me. Só depois disso uma assinatura paga de verdade
+consegue passar do guard acima — e só aí dá pra confirmar visualmente pelo
+navegador (não só headless) que o `charge.paid`/`invoice.paid` chega e ativa
+o plano do cliente.
 
 ---
 
