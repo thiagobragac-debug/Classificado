@@ -19,6 +19,20 @@
  *
  * O bucket `site-assets` já nasceu com esta configuração e serve de referência.
  *
+ * BUG CORRIGIDO (achado em auditoria de imagens): os valores abaixo tinham
+ * ficado PARA TRÁS — este script rodou uma vez em 2026-08-22 (ver
+ * docs/CHECKLIST-PRODUCAO.md), e desde então três migrations corrigiram os
+ * limites de verdade (`ad-images` foi de 5 para 10 MB e ganhou GIF;
+ * `kyc-docs` perdeu PDF e ganhou HEIC/HEIF — ver
+ * supabase/migrations/20260830170200_enforce_upload_type_size_limits.sql,
+ * 20260830180100_defensive_enable_rls_batch2.sql e
+ * 20260830200300_hardening_kyc_docs.sql). Rodar este script com os valores
+ * antigos REVERTERIA essas correções silenciosamente. Atualizado para
+ * espelhar exatamente o que as migrations aplicam hoje — as migrations
+ * continuam sendo a fonte de verdade; isto é só uma ferramenta de auditoria
+ * pra conferir se o bucket real ainda bate com o que foi migrado (drift),
+ * não o lugar pra mudar um limite (mude na migration primeiro).
+ *
  * USO
  *
  *   node scripts/aplicar-limites-buckets.mjs            # dry-run: só mostra
@@ -30,17 +44,18 @@ import { readFileSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
 
 const MB = 1024 * 1024;
-const IMAGENS = ['image/png', 'image/jpeg', 'image/webp'];
+const IMAGENS = ['image/jpeg', 'image/png', 'image/webp'];
 
 // SVG fica fora de todas as listas de propósito: carrega script e passaria a
 // ser servido sob o domínio de storage do projeto.
 const CONFIG = {
-  'ad-images':       { fileSizeLimit: 5 * MB,  allowedMimeTypes: IMAGENS },
+  'ad-images':       { fileSizeLimit: 10 * MB, allowedMimeTypes: [...IMAGENS, 'image/gif'] },
   'ad-videos':       { fileSizeLimit: 50 * MB, allowedMimeTypes: ['video/mp4', 'video/webm'] },
   'profile-banners': { fileSizeLimit: 5 * MB,  allowedMimeTypes: IMAGENS },
-  // KYC aceita PDF além de imagem — documento escaneado costuma vir assim.
-  // O limite de 10 MB espelha o que lib/supabase-panel.ts já validava.
-  'kyc-docs':        { fileSizeLimit: 10 * MB, allowedMimeTypes: [...IMAGENS, 'application/pdf'] },
+  // KYC NÃO aceita PDF — o fluxo real (VerificacaoClient.tsx) só permite
+  // enviar imagem; aceita HEIC/HEIF pra não rejeitar fotos tiradas direto de
+  // iPhone. O limite de 10 MB espelha MAX_FILE_BYTES em VerificacaoClient.tsx.
+  'kyc-docs':        { fileSizeLimit: 10 * MB, allowedMimeTypes: [...IMAGENS, 'image/heic', 'image/heif'] },
 };
 
 function lerEnv() {

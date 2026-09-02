@@ -148,6 +148,25 @@ export function StepData({ onNext }: StepDataProps) {
   const [subcategories, setSubcategories] = useState<any[]>([])
   const [subcategoriesError, setSubcategoriesError] = useState(false)
   const prevCategoriaRef = React.useRef<string | undefined>(undefined)
+  // BUG CORRIGIDO (teste de estresse final, 2026-09-02): o guard abaixo
+  // ("só zera subcategoria/finalidade depois do mount") não bastava — o
+  // pai (AnunciarWizard.tsx) restaura rascunho salvo via reset() num
+  // useEffect PRÓPRIO, que roda DEPOIS do efeito deste componente na mesma
+  // leva de commit (React roda efeitos de filho antes do de pai). Sequência
+  // real observada: 1) este efeito monta com categoria='' e já grava
+  // prevCategoriaRef.current=''; 2) o reset() do pai então seta categoria
+  // pro valor do rascunho; 3) este efeito dispara de novo por causa da
+  // dependência mudar, vê prevCategoriaRef.current('') !== categoria(valor
+  // restaurado) e concluí (errado) que foi uma troca manual do usuário —
+  // apaga subcategoria/finalidade que acabaram de ser restauradas. Um
+  // `readyRef` armado só no próximo macrotask (setTimeout 0) deixa toda a
+  // cascata síncrona de efeitos do mount (incluindo o reset do pai)
+  // assentar antes de tratar qualquer mudança como intencional do usuário.
+  const readyRef = React.useRef(false)
+  useEffect(() => {
+    const t = setTimeout(() => { readyRef.current = true }, 0)
+    return () => clearTimeout(t)
+  }, [])
 
   async function loadSubcategories(categoryId?: string) {
     setSubcategoriesError(false)
@@ -175,7 +194,7 @@ export function StepData({ onNext }: StepDataProps) {
     // Só zera a subcategoria quando a categoria REALMENTE muda depois do
     // mount — no mount, `categoria` pode já vir de um rascunho restaurado
     // (junto com a subcategoria correspondente), que não pode ser apagada.
-    if (prevCategoriaRef.current !== undefined && prevCategoriaRef.current !== categoria) {
+    if (readyRef.current && prevCategoriaRef.current !== undefined && prevCategoriaRef.current !== categoria) {
       setValue('subcategoria', '', { shouldValidate: false })
       setValue('finalidade', '', { shouldValidate: false })
     }

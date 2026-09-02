@@ -8,9 +8,8 @@ import EventCard, { AuctionEvent } from './EventCard'
 import EventSearch from './EventSearch'
 import Link from 'next/link'
 import { getLocale } from '@/lib/locale-server'
-import { localizedPath, buildHreflangAlternates } from '@/lib/locale'
+import { localizedPath, buildHreflangAlternates, SITE_URL } from '@/lib/locale'
 
-const SITE_URL = 'https://tauzeclass.com.br'
 
 // Achado do teste completo do site (2026-08-24) sobre "loading.tsx duplicado
 // no DOM" foi investigado e descartado: é o marcador de streaming SSR do
@@ -67,17 +66,18 @@ export async function generateMetadata(): Promise<Metadata> {
       url: `${SITE_URL}${localizedPath('/eventos', lang)}`,
       type: 'website',
       locale: lang === 'es' ? 'es_AR' : 'pt_BR',
+      alternateLocale: lang === 'es' ? 'pt_BR' : 'es_AR',
       // BUG CORRIGIDO (auditoria de SEO): og-home.jpg nunca existiu em
       // public/assets/ — og:image quebrado (404) em toda a página de
       // eventos. Mesmo fallback comprovadamente existente já usado em
       // listagem/page.tsx e anuncio/[slug]/page.tsx.
-      images: [{ url: 'https://tauzeclass.com.br/assets/hero_farm.webp', width: 1200, height: 630, alt: META.ogAlt }],
+      images: [{ url: `${SITE_URL}/assets/hero_farm.webp`, width: 1200, height: 630, alt: META.ogAlt }],
     },
     twitter: {
       card: 'summary_large_image',
       title: META.ogTitle,
       description: META.ogDescription,
-      images: ['https://tauzeclass.com.br/assets/hero_farm.webp'],
+      images: [`${SITE_URL}/assets/hero_farm.webp`],
     },
   };
 }
@@ -272,7 +272,7 @@ export default async function EventosPage({
   const ORGANIZER = {
     '@type': 'Organization',
     name: 'Tauze Class',
-    url: 'https://tauzeclass.com.br',
+    url: SITE_URL,
   } as const;
 
   const jsonLdGraph = {
@@ -299,18 +299,19 @@ export default async function EventosPage({
       }
 
       const isOnline = !ev.location || ev.location.toLowerCase().includes('online');
+      const evUrl = `${SITE_URL}${localizedPath(`/eventos/${ev.id}`, lang)}`;
       return {
         '@type': 'Event',
         name: ev.title,
         startDate: startDateStr,
         endDate: endDateStr,
-        url: `https://tauzeclass.com.br/eventos/${ev.id}`,
+        url: evUrl,
         eventAttendanceMode: isOnline
           ? 'https://schema.org/OnlineEventAttendanceMode'
           : 'https://schema.org/OfflineEventAttendanceMode',
         eventStatus: 'https://schema.org/EventScheduled',
         location: isOnline
-          ? { '@type': 'VirtualLocation', url: `https://tauzeclass.com.br/eventos/${ev.id}` }
+          ? { '@type': 'VirtualLocation', url: evUrl }
           : {
               '@type': 'Place',
               name: ev.location || (lang === 'es' ? 'Ubicación del Evento' : 'Local do Evento'),
@@ -325,7 +326,7 @@ export default async function EventosPage({
           ? ev.cover.startsWith('http')
             ? ev.cover
             : `https://rfzuzuobwuanmbrcthqe.supabase.co/storage/v1/object/public/ad-images/${ev.cover}`
-          : 'https://tauzeclass.com.br/assets/hero_farm.webp',
+          : `${SITE_URL}/assets/hero_farm.webp`,
         organizer: ORGANIZER,
       };
     }),

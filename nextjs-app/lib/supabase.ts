@@ -311,6 +311,21 @@ export async function uploadAdImage(file: File, folder = 'draft'): Promise<strin
   return publicUrl;
 }
 
+// BUG CORRIGIDO (achado em auditoria de imagens): remover uma foto no
+// wizard (ou trocar a galeria inteira ao editar um anúncio) só tirava a URL
+// do array `images` — o objeto já enviado ao bucket nunca era apagado,
+// ficando órfão pra sempre. Best-effort de propósito (chamador não deve
+// travar o fluxo principal por causa disso): filtra só URLs que são de fato
+// deste bucket (nunca tenta apagar uma URL externa) antes de chamar remove().
+export async function deleteAdImages(urls: string[]): Promise<void> {
+  const paths = urls
+    .map(url => url.split('/ad-images/')[1])
+    .filter((p): p is string => !!p);
+  if (paths.length === 0) return;
+  const { error } = await getSupabase().storage.from('ad-images').remove(paths);
+  if (error) console.error('[deleteAdImages] Falha ao limpar fotos removidas:', error.message);
+}
+
 // Bucket `ad-videos` já existia provisionado (50MB, mp4/webm) antes desta
 // função — a promessa de "vídeo no anúncio" (planos PRO/Premium) nunca
 // tinha upload de verdade, só o campo de exibição em AdGallery. A checagem
@@ -332,6 +347,16 @@ export async function uploadAdVideo(file: File, folder = 'draft'): Promise<strin
 
   const { data: { publicUrl } } = getSupabase().storage.from('ad-videos').getPublicUrl(fileName);
   return publicUrl;
+}
+
+// BUG CORRIGIDO: mesmo problema de deleteAdImages, só que pro vídeo do
+// anúncio (bucket ad-videos) — trocar ou remover o vídeo nunca limpava o
+// arquivo anterior.
+export async function deleteAdVideo(url: string | null | undefined): Promise<void> {
+  const path = url?.split('/ad-videos/')[1];
+  if (!path) return;
+  const { error } = await getSupabase().storage.from('ad-videos').remove([path]);
+  if (error) console.error('[deleteAdVideo] Falha ao limpar vídeo removido:', error.message);
 }
 
 // ─── FAVORITOS ─────────────────────────────────────────────────
@@ -484,6 +509,52 @@ export async function placeLotBid(lotId: string, amount: number | string) {
 
 // ─── BANNERS ────────────────────────────────────────────────────
 
+// Mapa bidirecional UF <-> nome completo do estado — mesmo conteúdo de
+// BR_STATES em lib/services/ads.service.ts (server-only, não pode ser
+// importado por este arquivo client-safe) e da cópia local em
+// app/(public)/anunciar/_components/StepLocation.tsx. Duplicado aqui de
+// propósito, seguindo o mesmo padrão já usado nesses dois arquivos.
+const BR_STATES: Record<string, string> = {
+  'Acre': 'AC', 'AC': 'Acre',
+  'Alagoas': 'AL', 'AL': 'Alagoas',
+  'Amapá': 'AP', 'AP': 'Amapá',
+  'Amazonas': 'AM', 'AM': 'Amazonas',
+  'Bahia': 'BA', 'BA': 'Bahia',
+  'Ceará': 'CE', 'CE': 'Ceará',
+  'Distrito Federal': 'DF', 'DF': 'Distrito Federal',
+  'Espírito Santo': 'ES', 'ES': 'Espírito Santo',
+  'Goiás': 'GO', 'GO': 'Goiás',
+  'Maranhão': 'MA', 'MA': 'Maranhão',
+  'Mato Grosso': 'MT', 'MT': 'Mato Grosso',
+  'Mato Grosso do Sul': 'MS', 'MS': 'Mato Grosso do Sul',
+  'Minas Gerais': 'MG', 'MG': 'Minas Gerais',
+  'Pará': 'PA', 'PA': 'Pará',
+  'Paraíba': 'PB', 'PB': 'Paraíba',
+  'Paraná': 'PR', 'PR': 'Paraná',
+  'Pernambuco': 'PE', 'PE': 'Pernambuco',
+  'Piauí': 'PI', 'PI': 'Piauí',
+  'Rio de Janeiro': 'RJ', 'RJ': 'Rio de Janeiro',
+  'Rio Grande do Norte': 'RN', 'RN': 'Rio Grande do Norte',
+  'Rio Grande do Sul': 'RS', 'RS': 'Rio Grande do Sul',
+  'Rondônia': 'RO', 'RO': 'Rondônia',
+  'Roraima': 'RR', 'RR': 'Roraima',
+  'Santa Catarina': 'SC', 'SC': 'Santa Catarina',
+  'São Paulo': 'SP', 'SP': 'São Paulo',
+  'Sergipe': 'SE', 'SE': 'Sergipe',
+  'Tocantins': 'TO', 'TO': 'Tocantins',
+};
+
+// Fisher-Yates — usado pra alternar impressão entre banners concorrentes
+// (mesma posição + mesmo alvo geográfico) em vez de sempre exibir o mesmo.
+function shuffleBanners<T>(arr: T[]): T[] {
+  const out = arr.slice();
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
 export async function getBanners(position: string, userLoc: any = null) {
   const { data } = await getSupabase()
     .from('banners')
@@ -492,7 +563,7 @@ export async function getBanners(position: string, userLoc: any = null) {
     .eq('status', 'active')
     .limit(20);
   const allBanners = data || [];
-  if (!userLoc) return allBanners;
+  if (!userLoc) return shuffleBanners(allBanners);
   const norm = (s: string) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
   const locCity = norm(userLoc.city);
   const locState = norm(userLoc.state);
@@ -509,17 +580,34 @@ export async function getBanners(position: string, userLoc: any = null) {
       // Separador '|' (não '-'): nomes reais de município têm hífen (ex.:
       // Embu-Guaçu/SP), o que quebrava tanto a UI de cadastro quanto este
       // parsing quando ambos usavam '-'.
-      const parts = loc.split('|');
-      const targetCity = parts[0]?.trim() || '';
-      const targetState = parts[1]?.trim() || '';
-      if (targetCity === locCity && targetState === locState) cityB.push(b);
+      const rawParts = (b.target_location || '').split('|');
+      const targetCity = norm(rawParts[0] || '');
+      // BUG CRITICO CORRIGIDO (teste completo de monetizacao de banners,
+      // 2026-09-01): a UI de cadastro so permite digitar a UF (2 letras, ex.
+      // "SP") neste campo, mas userLoc.state (useGeoLocation/lib/geoip.ts)
+      // vem como o NOME COMPLETO do estado (ex. "Sao Paulo") - a UF nunca
+      // batia com o nome completo e nenhum banner de cidade jamais era
+      // exibido a ninguem. Corrigido com o MESMO criterio ja usado pela
+      // pagina de listagem (getAdsListagem em lib/services/ads.service.ts):
+      // expande o valor salvo nos dois sentidos via BR_STATES (UF -> nome
+      // completo e vice-versa) e aceita casar com qualquer uma das duas
+      // formas. O lookup precisa ser feito ANTES de normalizar (chaves de
+      // BR_STATES sao exatas, ex. "SP"/"Sao Paulo"), so normalizando o
+      // resultado da busca.
+      const rawTargetState = (rawParts[1] || '').trim();
+      const targetStateAlt = BR_STATES[rawTargetState] || BR_STATES[rawTargetState.toUpperCase()] || '';
+      const targetState = norm(rawTargetState);
+      const targetStateAltNorm = norm(targetStateAlt);
+      const stateMatches = targetState === locState || (!!targetStateAltNorm && targetStateAltNorm === locState);
+      if (targetCity === locCity && stateMatches) cityB.push(b);
     }
     else if (type === 'state' && loc === locState) stateB.push(b);
     else if (type === 'country' && loc === locCountry) countryB.push(b);
     else if (type === 'mercosul' && MERCOSUL_COUNTRIES.has(locCountry)) mercosulB.push(b);
     else if (type === 'global') globalB.push(b);
   }
-  return cityB.length ? cityB : stateB.length ? stateB : countryB.length ? countryB : mercosulB.length ? mercosulB : globalB;
+  const winner = cityB.length ? cityB : stateB.length ? stateB : countryB.length ? countryB : mercosulB.length ? mercosulB : globalB;
+  return shuffleBanners(winner);
 }
 
 // ─── GEO ────────────────────────────────────────────────────────
@@ -646,6 +734,28 @@ export async function deleteAd(adId: string) {
     .update({ status: 'deleted', updated_at: new Date().toISOString() })
     .eq('id', adId)
     .eq('user_id', session.user.id);
+  if (error) throw error;
+}
+
+// ── COTA DE ANÚNCIOS (janela de graça de downgrade) ─────────────────────────
+// Ver supabase/migrations/20260901110000_grace_period_pausa_anuncios_excedentes.sql.
+// Mesmo padrão de toggleAdStatus/rpcToggleFav logo acima: chamada direta do
+// client (anon key + sessão do usuário), não passa por rota de API — as duas
+// funções SQL abaixo derivam o usuário de auth.uid() internamente.
+export async function getAdQuotaPending() {
+  const session = await getSession();
+  if (!session) return null;
+  const { data, error } = await getSupabase()
+    .from('ad_quota_pending')
+    .select('max_ads, deadline')
+    .eq('user_id', session.user.id)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function applyAdQuotaGraceSelection(keepAdIds: string[]) {
+  const { error } = await getSupabase().rpc('apply_ad_quota_grace_selection', { p_keep_ad_ids: keepAdIds });
   if (error) throw error;
 }
 

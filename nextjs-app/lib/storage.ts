@@ -5,7 +5,11 @@ export const STORAGE_BASE = `${SUPABASE_URL}/storage/v1/object/public/ad-images/
 // Mesma allowlist de hosts de nextjs-app/next.config.ts > images.remotePatterns
 // (exceto o domínio do Supabase, tratado à parte pelo endsWith abaixo — se um
 // host novo for liberado lá, precisa ser liberado aqui também.
-const ALLOWED_IMAGE_HOSTS = ['lh3.googleusercontent.com', 'images.unsplash.com', 'via.placeholder.com'];
+// BUG CORRIGIDO: tinha via.placeholder.com (nunca usado em lugar nenhum do
+// código) em vez de placehold.co (o placeholder real, usado como fallback de
+// <img> cru em telas de admin — ver app/(admin)/admin/anuncios/page.tsx e
+// admin/leiloes/*) — as duas listas (aqui e next.config.ts) divergiam.
+const ALLOWED_IMAGE_HOSTS = ['lh3.googleusercontent.com', 'images.unsplash.com', 'placehold.co'];
 
 function isAllowedImageHost(hostname: string): boolean {
   if (hostname === 'supabase.co' || hostname.endsWith('.supabase.co')) return true;

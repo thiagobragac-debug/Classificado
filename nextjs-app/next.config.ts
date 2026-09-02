@@ -5,6 +5,17 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
+  experimental: {
+    // Necessário porque este projeto NÃO tem um app/layout.tsx compartilhado
+    // -- app/(public)/layout.tsx e app/(admin)/layout.tsx cada um define seu
+    // próprio <html>/<body> (múltiplos root layouts). Nesse cenário, um
+    // app/not-found.tsx comum na raiz não cobre URLs totalmente fora de
+    // qualquer rota (só cobre notFound() chamado dentro de uma rota já
+    // resolvida) -- ver node_modules/next/dist/docs/01-app/03-api-reference/
+    // 03-file-conventions/not-found.md, seção "global-not-found.js". Esta
+    // flag habilita app/global-not-found.tsx para esse caso.
+    globalNotFound: true,
+  },
   images: {
     // BUG CORRIGIDO (auditoria de SEO, 2ª rodada): sem `formats`, o Next só
     // gera WebP — AVIF costuma ficar 20-30% menor que WebP no mesmo
@@ -26,7 +37,11 @@ const nextConfig: NextConfig = {
       },
       { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
       { protocol: 'https', hostname: 'images.unsplash.com' },
-      { protocol: 'https', hostname: 'via.placeholder.com' },
+      // BUG CORRIGIDO: via.placeholder.com nunca foi usado em lugar nenhum do
+      // código — o placeholder real (fallback de imagem em telas de admin,
+      // ver lib/storage.ts) é placehold.co, já liberado na CSP (proxy.ts
+      // img-src) mas ausente aqui. As duas listas precisam concordar.
+      { protocol: 'https', hostname: 'placehold.co' },
     ],
   },
   async headers() {

@@ -17,6 +17,7 @@ import { headers } from 'next/headers';
 import { t } from '@/lib/constants';
 import { escapeJsonLd } from '@/lib/json-ld';
 import { getLocale } from '@/lib/locale-server';
+import { localizedPath, SITE_URL } from '@/lib/locale';
 
 // Descrição-base por idioma (mesmo texto do fallback em app/(public)/layout.tsx)
 // enriquecida com a região do visitante quando os headers de geolocalização
@@ -140,7 +141,7 @@ export default async function Home() {
 
   const lang = await getLocale();
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://tauzeclass.com.br";
+  const siteUrl = SITE_URL;
 
   // Mesmo padrão i18n do restante do arquivo (lang já lido acima) — nomes de
   // categoria alinhados com lib/constants.ts (CATEGORIES / FOOTER_LINKS).
@@ -172,7 +173,7 @@ export default async function Home() {
         "description": jl.websiteDescription,
         "potentialAction": {
           "@type": "SearchAction",
-          "target": `${siteUrl}/listagem?busca={search_term_string}`,
+          "target": `${siteUrl}${localizedPath('/listagem', lang)}?busca={search_term_string}`,
           "query-input": "required name=search_term_string"
         }
       },
@@ -195,9 +196,9 @@ export default async function Home() {
         "@type": "ItemList",
         "name": jl.featuredCategories,
         "itemListElement": [
-          { "@type": "ListItem", "position": 1, "name": jl.bovinos, "url": `${siteUrl}/categoria/cat-bovinos` },
-          { "@type": "ListItem", "position": 2, "name": jl.maquinas, "url": `${siteUrl}/categoria/cat-maquinas` },
-          { "@type": "ListItem", "position": 3, "name": jl.imoveis, "url": `${siteUrl}/categoria/cat-imoveis` }
+          { "@type": "ListItem", "position": 1, "name": jl.bovinos, "url": `${siteUrl}${localizedPath('/categoria/cat-bovinos', lang)}` },
+          { "@type": "ListItem", "position": 2, "name": jl.maquinas, "url": `${siteUrl}${localizedPath('/categoria/cat-maquinas', lang)}` },
+          { "@type": "ListItem", "position": 3, "name": jl.imoveis, "url": `${siteUrl}${localizedPath('/categoria/cat-imoveis', lang)}` }
         ]
       }
     ]

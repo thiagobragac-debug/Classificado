@@ -283,10 +283,12 @@ export function BillingTab({ user, planMeta }: { user: any, planMeta: any }) {
               // BUG CORRIGIDO (revalidação do zero da auditoria de i18n):
               // símbolo/formatação de moeda reimplementados manualmente em
               // vez de delegar pra lib/currency.ts, único lugar do app com
-              // essa lógica. Nem `transactions` nem `subscriptions` têm
-              // coluna de moeda — usa o mesmo default 'BRL' que o resto do
-              // app assume quando a moeda não é informada.
-              const amount = sub.price ? formatPrice(parseFloat(sub.price), 'BRL', lang) : '—';
+              // essa lógica.
+              // BUG CORRIGIDO (achado ao vivo, 2026-09-01): sub.currency
+              // agora existe (ver supabase/migrations/20260901120100) —
+              // assinatura internacional em USD mostrava "R$" porque isto
+              // ignorava a moeda real e sempre assumia BRL.
+              const amount = sub.price ? formatPrice(parseFloat(sub.price), sub.currency || 'BRL', lang) : '—';
               const dateLabel = isApproved && sub.next_billing_at
                 ? `${t.nextBilling}: ${new Date(sub.next_billing_at).toLocaleDateString(lang === 'es' ? 'es-AR' : 'pt-BR')}`
                 : sub.current_period_end

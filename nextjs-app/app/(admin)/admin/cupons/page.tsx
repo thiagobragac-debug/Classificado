@@ -26,6 +26,7 @@ export default function AdminCupons() {
     code: '',
     discount_type: 'percentage',
     discount_value: 0,
+    discount_value_usd: '' as string | number,
     valid_until: '',
     max_uses: '' as string | number,
     is_active: true
@@ -112,7 +113,7 @@ export default function AdminCupons() {
   const openNew = () => {
     setEditingId(null)
     setForm({
-      code: '', discount_type: 'percentage', discount_value: 0, valid_until: '', max_uses: '', is_active: true
+      code: '', discount_type: 'percentage', discount_value: 0, discount_value_usd: '', valid_until: '', max_uses: '', is_active: true
     })
     setIsModalOpen(true)
   }
@@ -128,6 +129,7 @@ export default function AdminCupons() {
       code: c.code,
       discount_type: c.discount_type,
       discount_value: c.discount_value,
+      discount_value_usd: c.discount_value_usd ?? '',
       // Formata na TZ de Brasil (não UTC): valid_until agora é gravado como
       // 23:59:59 -03:00 (ver handleSave) — com .toISOString().slice(0,10)
       // simples, um cupom válido até 31/08 reabria o form mostrando 01/09.
@@ -146,10 +148,28 @@ export default function AdminCupons() {
     // (app/api/checkout/route.ts), indo pro gateway de cobrança.
     if (form.discount_type === 'percentage' && form.discount_value > 100) return showToast('O desconto percentual não pode ser maior que 100%', 'error')
 
+    // GAP CORRIGIDO (RESOLVER PROBLEMA CUPOM): cupom de valor fixo era
+    // cadastrado só em R$ — numa cobrança internacional (Stripe + price_usd,
+    // ver plans.price_usd) o valor fixo simplesmente não se aplicava, sem
+    // aviso nenhum (ver comentário na migration 20260901130000). Campo
+    // opcional: sem ele, cupom fixo continua sem efeito em USD (mesmo
+    // comportamento de antes), mas agora o checkout avisa em vez de fingir
+    // que aplicou.
+    const usdValue = form.discount_value_usd === '' ? null : Number(form.discount_value_usd)
+    if (form.discount_type === 'fixed' && usdValue !== null && (!isFinite(usdValue) || usdValue <= 0)) {
+      return showToast('O desconto em dólar deve ser maior que zero', 'error')
+    }
+
     const supabase = getSupabase()
     const payload = {
-      ...form,
       code: form.code.toUpperCase(),
+      discount_type: form.discount_type,
+      discount_value: form.discount_value,
+      // Percentual não tem equivalente em moeda — não faz sentido gravar
+      // discount_value_usd pra esse tipo (funciona em qualquer moeda pelo
+      // próprio percentual).
+      discount_value_usd: form.discount_type === 'fixed' ? usdValue : null,
+      is_active: form.is_active,
       // BUG CORRIGIDO: new Date('2026-08-31').toISOString() é meia-noite UTC
       // — 21h do dia 30 em Brasília (UTC-3). Um cupom "válido até 31/08"
       // expirava ~3h antes da meia-noite real desse dia para qualquer
@@ -252,6 +272,11 @@ export default function AdminCupons() {
                     <td><strong style={{ letterSpacing: '1px' }}>{c.code}</strong></td>
                     <td style={{ fontWeight: 600, color: 'var(--adm-green)' }}>
                       {c.discount_type === 'percentage' ? `${c.discount_value}%` : `R$ ${c.discount_value}`}
+                      {c.discount_type === 'fixed' && (
+                        <div style={{ fontSize: '0.75rem', fontWeight: 500, color: c.discount_value_usd != null ? 'var(--adm-text-secondary)' : 'var(--adm-amber)' }}>
+                          {c.discount_value_usd != null ? `US$ ${c.discount_value_usd} intl.` : 'sem valor em US$'}
+                        </div>
+                      )}
                     </td>
                     <td>{c.usage_count} {c.max_uses ? `/ ${c.max_uses}` : '(Ilimitado)'}</td>
                     <td>
@@ -356,6 +381,26 @@ export default function AdminCupons() {
                 <input type="number" className="adm-input" max={form.discount_type === 'percentage' ? 100 : undefined} value={form.discount_value} onChange={e => setForm({ ...form, discount_value: parseFloat(e.target.value) })} />
               </div>
             </div>
+
+            {/* GAP CORRIGIDO (RESOLVER PROBLEMA CUPOM): cupom fixo em R$ não
+                tinha equivalente em USD — checkout internacional (Stripe +
+                plans.price_usd) simplesmente ignorava o desconto, sem
+                avisar. Campo opcional só pra tipo "fixed"; percentual já
+                funciona em qualquer moeda pelo próprio percentual. */}
+            {form.discount_type === 'fixed' && (
+              <div className="adm-field">
+                <label>Valor Fixo em Dólar — US$ (Opcional)</label>
+                <input
+                  type="number" className="adm-input" min={0} step="0.01"
+                  value={form.discount_value_usd}
+                  onChange={e => setForm({ ...form, discount_value_usd: e.target.value })}
+                  placeholder="Deixe em branco para não aplicar a cobranças em dólar"
+                />
+                <p style={{ fontSize: '0.78rem', color: 'var(--adm-text-secondary)', marginTop: '4px' }}>
+                  Sem este valor, o cupom não desconta nada em cobranças internacionais (Stripe/USD) — só nas em R$.
+                </p>
+              </div>
+            )}
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <div className="adm-field">

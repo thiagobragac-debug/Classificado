@@ -10,7 +10,7 @@ import { t as _t, type Lang } from '@/lib/constants';
 import { escapeJsonLd } from '@/lib/json-ld';
 import { imageUrl } from '@/lib/storage';
 import { getLocale } from '@/lib/locale-server';
-import { localizedPath, buildHreflangAlternates } from '@/lib/locale';
+import { localizedPath, buildHreflangAlternates, SITE_URL } from '@/lib/locale';
 
 // Página de categoria (/categoria/[slug]) — landing pública, indexável, de
 // uma categoria específica. Reaproveita a MESMA lógica de busca/paginação de
@@ -21,7 +21,6 @@ import { localizedPath, buildHreflangAlternates } from '@/lib/locale';
 // a geração de id em app/(admin)/admin/categorias/page.tsx (handleSave):
 // nome slugificado, sem migração nova necessária.
 
-const SITE_URL = 'https://tauzeclass.com.br';
 // Mesmo fallback (mesmo asset, comprovadamente existente em public/assets)
 // usado em listagem/page.tsx e anuncio/[id]/page.tsx pro OG/Twitter/JSON-LD
 // quando não há foto específica.
@@ -94,21 +93,32 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const ctx = await resolveCategoryContext(slug, rawParams);
   if (!ctx) notFound();
 
+  // BUG CORRIGIDO (auditoria de SEO): title/description e canonical usavam
+  // ctx.pageCategory (a categoria da ROTA) e o `slug` cru, ignorando a
+  // sobrescrita por ?categoria= — só que o CORPO da página (CategoriaContent,
+  // mais abaixo neste arquivo) sempre renderizou o conteúdo da categoria
+  // EFETIVA (ctx.effectiveCategory: a sobrescrita quando válida, senão a
+  // própria categoria da rota). Resultado: acessar /categoria/gado?categoria=
+  // suinos listava anúncios de suínos, com H1/breadcrumb de "Suínos", mas
+  // title/description/canonical continuavam descrevendo "Gado" — uma
+  // divergência real entre o que o canonical declara e o que a página
+  // efetivamente mostra. Usar ctx.effectiveCategory nos três resolve isso: se
+  // não há sobrescrita, effectiveCategory === pageCategory (comportamento
+  // idêntico ao de antes); se há, a página passa a se autodeclarar
+  // corretamente como a página de "Suínos" — que, por sinal, já é uma URL
+  // real e indexável (/categoria/suinos já existe e está no sitemap), então
+  // apontar o canonical pra lá não introduz uma URL nova nem inventa conteúdo.
   const categoryName = categoryDisplayName(ctx.effectiveCategory, lang);
   const title = categoryName;
   const description = T.description(categoryName);
 
-  // Canonical auto-referente (só o slug da rota — não inclui a sobrescrita
-  // por ?categoria=, que é um caso de uso do filtro interativo, não uma
-  // variante de conteúdo que mereça URL indexável própria).
-  //
   // BUG CRÍTICO CORRIGIDO (migração de SEO): antes esta página declarava
   // pt-BR/es apontando pra essa MESMA URL, porque o idioma dependia só do
   // cookie tc_lang — sem variante de URL própria. Isso mudou: /es/categoria/
   // {slug} agora é uma URL real e distinta (rewrite em proxy.ts), então o
   // par hreflang completo (mesmo mecanismo do resto do site) passa a ser
   // válido de verdade, igual a /listagem.
-  const path = `/categoria/${slug}`;
+  const path = `/categoria/${ctx.effectiveCategoriaId}`;
   const canonicalUrl = `${SITE_URL}${localizedPath(path, lang)}`;
 
   return {
@@ -124,6 +134,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
       url: canonicalUrl,
       type: 'website',
       locale: lang === 'es' ? 'es_AR' : 'pt_BR',
+      alternateLocale: lang === 'es' ? 'pt_BR' : 'es_AR',
       images: [{ url: FALLBACK_IMG_ABSOLUTE, width: 1200, height: 630 }],
     },
     twitter: {
@@ -162,13 +173,15 @@ function buildItemListJsonLd(ads: any[], lang: Lang) {
     '@type': 'ItemList',
     itemListElement: ads.map((ad: any, index: number) => {
       const adTitle = lang === 'es' ? (ad.title_es || ad.title_pt) : ad.title_pt;
+      const adUrl = `${SITE_URL}${localizedPath(`/anuncio/${ad.slug}`, lang)}`;
       return {
         '@type': 'ListItem',
         position: index + 1,
-        url: `${SITE_URL}/anuncio/${ad.slug}`,
+        url: adUrl,
         item: {
           '@type': 'Product',
           name: adTitle,
+          url: adUrl,
           image: [
             Array.isArray(ad.images) && ad.images.length > 0
               ? absoluteImageUrl(ad.images[0])
@@ -177,6 +190,7 @@ function buildItemListJsonLd(ads: any[], lang: Lang) {
           ...(ad.price ? {
             offers: {
               '@type': 'Offer',
+              url: adUrl,
               priceCurrency: ad.currency || 'BRL',
               price: ad.price,
               availability: 'https://schema.org/InStock',
@@ -206,8 +220,8 @@ async function CategoriaContent({ parsedParams, geoContext, lang, categoryName, 
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
     itemListElement: [
-      { '@type': 'ListItem', position: 1, name: _t('nav_home', lang), item: `${SITE_URL}/` },
-      { '@type': 'ListItem', position: 2, name: categoryName, item: `${SITE_URL}/categoria/${slug}` },
+      { '@type': 'ListItem', position: 1, name: _t('nav_home', lang), item: `${SITE_URL}${localizedPath('/', lang)}` },
+      { '@type': 'ListItem', position: 2, name: categoryName, item: `${SITE_URL}${localizedPath(`/categoria/${slug}`, lang)}` },
     ],
   };
 

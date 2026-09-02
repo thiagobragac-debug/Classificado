@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { createClient as createSupabaseAnonClient } from '@supabase/supabase-js';
 import { SUPABASE_URL, SUPABASE_ANON } from '@/lib/supabase';
 import { SECURITY_HEADERS } from '@/lib/security-headers';
 import { resolverIpConfiavel, ipParaRateLimit } from '@/lib/ip-utils';
@@ -225,6 +226,11 @@ const API_CSP = `default-src 'none'; frame-ancestors 'none'; base-uri 'none'`;
 // indexada em PT muda. Só ADICIONA uma árvore de URL nova pra ES.
 const LOCALE_PREFIX = '/es';
 
+// UUID v4, mesma regex já usada em app/(public)/eventos/[id]/page.tsx e em
+// outras páginas de detalhe do site, pré-combinada aqui com o prefixo
+// /eventos/ — ver bloco de redirect eventos→leilões dentro de proxy().
+const EVENTO_AUCTION_REGEX = /^\/eventos\/([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i;
+
 // Países do Mercosul de língua espanhola — mesmo recorte já usado no resto
 // do site ("Brasil, Argentina, Paraguai e Uruguai"). Brasil e qualquer país
 // fora dessa lista (incluindo "sem sinal de geo", ex.: localhost em dev)
@@ -333,6 +339,33 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(redirectUrl, 308);
   }
 
+  // ─── Troca explícita de idioma via seletor PT/ES (BUG CORRIGIDO) ─
+  // pt não tem prefixo de URL próprio como /es tem pra es — uma URL sem
+  // prefixo é ambígua entre "nova visita, siga o cookie/geo salvo" e "acabei
+  // de clicar em PT no seletor, quero pt AGORA mesmo que o cookie ainda diga
+  // es". Sem este sinal explícito, o redirect de cookie/geo mais abaixo
+  // devolvia IMEDIATAMENTE pro /es antes do cookie ter qualquer chance de
+  // virar 'pt' — o seletor parecia simplesmente não fazer nada. `setLocale`
+  // só é gerado pelo próprio seletor (switchLocaleQuery, lib/locale.ts),
+  // nunca por um link externo; resolvido e removido da URL aqui, antes de
+  // qualquer outra decisão de locale, com o cookie atualizado no mesmo
+  // redirect (senão a PRÓXIMA navegação, sem o parâmetro, ainda leria o
+  // cookie antigo e voltaria a rebater pro /es).
+  const explicitLocale = request.nextUrl.searchParams.get('setLocale');
+  if (explicitLocale === 'pt' || explicitLocale === 'es') {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = withLocale(pathname, explicitLocale);
+    redirectUrl.searchParams.delete('setLocale');
+    const redirectResponse = NextResponse.redirect(redirectUrl, 307);
+    redirectResponse.cookies.set('tc_lang', explicitLocale, {
+      path: '/',
+      maxAge: 60 * 60 * 24 * 365,
+      sameSite: 'lax',
+      httpOnly: false,
+    });
+    return redirectResponse;
+  }
+
   // ─── Idioma efetivo desta requisição ──────────────────────────
   // Prioridade: prefixo /es explícito na URL > cookie tc_lang (preferência
   // já registrada, manual ou geo-guess de uma visita anterior) > geo pela
@@ -381,6 +414,36 @@ export async function proxy(request: NextRequest) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = withLocale(pathname, 'es');
     return NextResponse.redirect(redirectUrl, 307);
+  }
+
+  // BUG CRITICO CORRIGIDO (auditoria de SEO, verificacao ao vivo): eventos/[id]/page.tsx
+  // tenta permanentRedirect() pra /leiloes/[slug] quando o id pertence a um leilao
+  // (evitar conteudo quase-duplicado entre as duas rotas), mas essa rota herda o
+  // Suspense de eventos/loading.tsx -- qualquer redirect() disparado dentro dela
+  // vira so uma <meta>/template client-side (ver node_modules/next/dist/docs/01-app/
+  // 03-api-reference/04-functions/redirect.md, secao 'streaming context'), nunca um
+  // HTTP 308 de verdade. Confirmado ao vivo: a URL respondia 200 sem title/canonical/
+  // JSON-LD, cacheada estaticamente. Resolver aqui, ANTES do Next.js entrar em modo
+  // streaming, garante um redirect HTTP real. So dispara pra paths no formato exato
+  // /eventos/{uuid-v4} (custo de 1 query soh nesse caso raro, zero overhead nas
+  // demais requisicoes).
+  const eventoAuctionMatch = pathname.match(EVENTO_AUCTION_REGEX);
+  if (eventoAuctionMatch) {
+    const anon = createSupabaseAnonClient(SUPABASE_URL, SUPABASE_ANON);
+    const { data: auctionForRedirect } = await anon
+      .from('auction_events')
+      .select('slug')
+      .eq('id', eventoAuctionMatch[1])
+      .neq('status', 'draft')
+      .maybeSingle();
+    if (auctionForRedirect?.slug) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = withLocale(`/leiloes/${auctionForRedirect.slug}`, activeLocale);
+      return NextResponse.redirect(redirectUrl, 308);
+    }
+    // Sem match (id nao existe ou e draft): cai no fluxo normal -- a propria
+    // eventos/[id]/page.tsx ainda tenta achar em auction_events/eventos e chama
+    // notFound() corretamente se nao existir em nenhuma das duas.
   }
 
   // ─── Nonce para CSP ──────────────────────────────────────────

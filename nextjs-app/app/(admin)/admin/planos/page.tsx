@@ -27,6 +27,16 @@ export default function AdminPlanos() {
     description: '',
     price: 0,
     promotional_price: '' as number | string,
+    // GAP CORRIGIDO (achado ao vivo, 2026-09-01): Stripe cobrava todo
+    // usuário internacional em BRL (convertido pela bandeira do cartão dele,
+    // sem preço "nativo"). Preço em USD opcional por plano — quando
+    // preenchido, /api/checkout passa a cobrar esse valor de tabela em vez
+    // de BRL pra quem não é do Brasil. Vazio preserva o comportamento
+    // antigo (cobra BRL). Nunca é conversão automática pela cotação do dia
+    // — decisão explícita do usuário: assinatura recorrente não pode mudar
+    // de valor a cada renovação.
+    price_usd: '' as number | string,
+    promotional_price_usd: '' as number | string,
     is_active: true,
     max_ads: 15,
     max_photos: 15,
@@ -96,7 +106,7 @@ export default function AdminPlanos() {
   const openNew = () => {
     setEditingId(null)
     setForm({
-      name: '', icon: '🚀', description: '', price: 0, promotional_price: '', is_active: true, max_ads: 15, max_photos: 15, highlight_count: 2, has_video: false, has_banner: false, features: ['']
+      name: '', icon: '🚀', description: '', price: 0, promotional_price: '', price_usd: '', promotional_price_usd: '', is_active: true, max_ads: 15, max_photos: 15, highlight_count: 2, has_video: false, has_banner: false, features: ['']
     })
     setIsModalOpen(true)
   }
@@ -109,6 +119,8 @@ export default function AdminPlanos() {
       description: p.description || '',
       price: p.price || 0,
       promotional_price: p.promotional_price || '',
+      price_usd: p.price_usd ?? '',
+      promotional_price_usd: p.promotional_price_usd ?? '',
       is_active: p.is_active,
       max_ads: p.max_ads || 0,
       max_photos: p.max_photos || 0,
@@ -146,10 +158,21 @@ export default function AdminPlanos() {
     if (promoValue !== null && (!isFinite(promoValue) || promoValue < 0)) return showToast('Preço promocional inválido', 'error')
     if (promoValue !== null && promoValue >= form.price) return showToast('O preço promocional deve ser menor que o preço padrão', 'error')
 
+    // Preço internacional (USD) é opcional — mesma validação do BRL, mas só
+    // roda quando o admin preencheu algo.
+    const priceUsdValue = form.price_usd === '' ? null : Number(form.price_usd)
+    if (priceUsdValue !== null && (!isFinite(priceUsdValue) || priceUsdValue < 0)) return showToast('Preço em USD inválido', 'error')
+    const promoUsdValue = form.promotional_price_usd === '' ? null : Number(form.promotional_price_usd)
+    if (promoUsdValue !== null && (!isFinite(promoUsdValue) || promoUsdValue < 0)) return showToast('Preço promocional em USD inválido', 'error')
+    if (promoUsdValue !== null && priceUsdValue === null) return showToast('Preencha o preço padrão em USD antes do promocional', 'error')
+    if (promoUsdValue !== null && priceUsdValue !== null && promoUsdValue >= priceUsdValue) return showToast('O preço promocional em USD deve ser menor que o preço padrão em USD', 'error')
+
     const supabase = getSupabase()
     const payload = {
       ...form,
       promotional_price: promoValue,
+      price_usd: priceUsdValue,
+      promotional_price_usd: promoUsdValue,
       currency: 'BRL',
       interval: 'month',
       features: form.features.filter(f => f.trim() !== ''),
@@ -254,6 +277,11 @@ export default function AdminPlanos() {
                       </div>
                     ) : (
                       <>R$ {Number(p.price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}<span style={{ fontSize: '0.75rem', fontWeight: 400, color: 'var(--adm-text-muted)' }}>/mês</span></>
+                    )}
+                    {p.price_usd != null && (
+                      <div style={{ fontSize: '0.78rem', fontWeight: 400, color: 'var(--adm-text-muted)', marginTop: '2px' }}>
+                        US$ {Number((p.promotional_price_usd ?? p.price_usd) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/mês intl.
+                      </div>
                     )}
                   </td>
                   <td style={{ fontSize: '0.85rem' }}>
@@ -371,6 +399,28 @@ export default function AdminPlanos() {
                     <option value="true">Ativo</option>
                     <option value="false">Inativo</option>
                   </select>
+                </div>
+              </div>
+
+              {/* GAP CORRIGIDO (achado ao vivo, 2026-09-01): preço internacional
+                  fixo em USD, cobrado pela Stripe pra usuário não-nacional em vez
+                  de converter o BRL pela cotação do dia (ruim pra assinatura
+                  recorrente). Vazio = mantém cobrança em BRL pra todo mundo,
+                  igual antes desta opção existir. */}
+              <div className="adm-field" style={{ marginTop: '4px' }}>
+                <label>Preço Internacional (USD)</label>
+                <div style={{ fontSize: '0.78rem', color: 'var(--adm-text-muted)', marginBottom: '6px' }}>
+                  Cobrado pela Stripe de clientes fora do Brasil, em vez de converter o preço em Real. Deixe em branco para continuar cobrando em BRL também do internacional.
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="adm-field">
+                  <label>Preço Padrão (US$)</label>
+                  <input type="number" step="0.01" className="adm-input" value={form.price_usd} onChange={e => setForm({ ...form, price_usd: e.target.value })} placeholder="Ex: 15.00" />
+                </div>
+                <div className="adm-field">
+                  <label>Preço Promo (US$, Opcional)</label>
+                  <input type="number" step="0.01" className="adm-input" value={form.promotional_price_usd} onChange={e => setForm({ ...form, promotional_price_usd: e.target.value })} placeholder="Ex: 12.00" />
                 </div>
               </div>
 

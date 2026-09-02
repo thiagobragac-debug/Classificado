@@ -40,6 +40,8 @@ const TRANSLATIONS = {
     notAuthenticated: 'Não autenticado',
     fileTypeError: 'Envie um arquivo de imagem (JPEG, PNG ou WebP).',
     fileSizeError: 'Cada arquivo deve ter no máximo 10 MB.',
+    loadError: 'Não foi possível carregar seus dados de verificação. Verifique sua conexão e tente novamente.',
+    retry: 'Tentar novamente',
   },
   es: {
     title: 'Verificación de Identidad',
@@ -73,6 +75,8 @@ const TRANSLATIONS = {
     notAuthenticated: 'No autenticado',
     fileTypeError: 'Envía un archivo de imagen (JPEG, PNG o WebP).',
     fileSizeError: 'Cada archivo debe tener un máximo de 10 MB.',
+    loadError: 'No pudimos cargar tus datos de verificación. Verifica tu conexión e intenta de nuevo.',
+    retry: 'Intentar de nuevo',
   },
 };
 
@@ -83,7 +87,8 @@ export default function VerificacaoClient() {
   const t = TRANSLATIONS[lang as keyof typeof TRANSLATIONS] || TRANSLATIONS.pt
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<any>(null)
-  
+  const [loadError, setLoadError] = useState(false)
+
   // States para o fluxo manual
   const [showManual, setShowManual] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -103,35 +108,49 @@ export default function VerificacaoClient() {
     checkUser()
   }, [])
 
+  // BUG CORRIGIDO (achado de teste E2E ao vivo, 2026-09-01): nenhuma chamada
+  // aqui tinha tratamento de erro — se getSession()/select() falhasse (rede
+  // instável, Supabase fora do ar), a promise rejeitava sem catch e o
+  // componente ficava preso em "Carregando dados de identidade..." pra
+  // sempre, sem nenhum aviso pro usuário. Mesmo padrão de try/catch com
+  // estado de erro dedicado já usado em admin/verificacoes/page.tsx
+  // (loadRequests) pro mesmo tipo de falha.
   async function checkUser() {
     setLoading(true)
-    const supabase = getSupabase()
-    const { data: { session } } = await supabase.auth.getSession()
-    
-    if (!session) {
-      router.push('/login?next=/painel/verificacao')
-      return
-    }
+    setLoadError(false)
+    try {
+      const supabase = getSupabase()
+      const { data: { session } } = await supabase.auth.getSession()
 
-    // Busca profile e verifica o status
-    // select('*') quebrava aqui: is_admin/is_blocked deixaram de ter grant
-    // público (achado de segurança 2026-08-24) e um select com * exige
-    // acesso a toda coluna, mesmo que o valor nunca seja usado no render.
-    const { data: profile } = await supabase.from('profiles').select('id, name, verified, kyc_status').eq('id', session.user.id).single()
-    setUser(profile)
-    
-    // Verifica se já tem request pendente
-    const { data: req } = await supabase.from('verification_requests')
-      .select('status')
-      .eq('user_id', session.user.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      
-    if (req && req.length > 0) {
-      setRequestStatus(req[0].status)
-    }
+      if (!session) {
+        router.push('/login?next=/painel/verificacao')
+        return
+      }
 
-    setLoading(false)
+      // Busca profile e verifica o status
+      // select('*') quebrava aqui: is_admin/is_blocked deixaram de ter grant
+      // público (achado de segurança 2026-08-24) e um select com * exige
+      // acesso a toda coluna, mesmo que o valor nunca seja usado no render.
+      const { data: profile } = await supabase.from('profiles').select('id, name, verified, kyc_status').eq('id', session.user.id).single()
+      setUser(profile)
+
+      // Verifica se já tem request pendente
+      const { data: req } = await supabase.from('verification_requests')
+        .select('status')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+
+      if (req && req.length > 0) {
+        setRequestStatus(req[0].status)
+      }
+
+      setLoading(false)
+    } catch (err) {
+      console.error('Erro ao carregar dados de verificação:', err)
+      setLoadError(true)
+      setLoading(false)
+    }
   }
 
   // A integração com o Gov.br não existe. O que havia aqui era um setTimeout
@@ -199,7 +218,13 @@ export default function VerificacaoClient() {
       const uploadFile = async (file: File, suffix: string) => {
         const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '')
         const path = `${session.user.id}/${Date.now()}_${suffix}.${ext}`
-        const { error } = await supabase.storage.from('kyc-docs').upload(path, file)
+        // BUG CORRIGIDO: faltava cacheControl — caía no default de ~1h do
+        // Supabase Storage, diferente dos demais uploads do projeto (1 ano).
+        // Sem risco de privacidade: o objeto só é lido via signed URL de
+        // curta duração gerada por um admin autorizado (/api/admin/kyc-url),
+        // nunca por URL pública — cachear os bytes imutáveis por mais tempo
+        // não muda quem consegue acessá-los.
+        const { error } = await supabase.storage.from('kyc-docs').upload(path, file, { cacheControl: '31536000', upsert: false })
         if (error) throw error
         return path
       }
@@ -233,6 +258,20 @@ export default function VerificacaoClient() {
 
   if (loading) {
     return <div style={{ padding: '40px', textAlign: 'center' }}>{t.loadingData}</div>
+  }
+
+  if (loadError) {
+    return (
+      <div style={{ padding: '40px', textAlign: 'center' }}>
+        <p style={{ color: '#b91c1c', marginBottom: '16px' }}>{t.loadError}</p>
+        <button
+          onClick={() => checkUser()}
+          style={{ background: '#0f172a', color: 'white', border: 'none', padding: '10px 24px', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
+        >
+          {t.retry}
+        </button>
+      </div>
+    )
   }
 
   return (

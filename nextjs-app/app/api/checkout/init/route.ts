@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, getSettings } from '@/lib/supabase-admin'
 import { selectGateway, isNativePlanSwitchEligible } from '@/lib/gateways'
+import { resolveCountryCode } from '@/lib/geoip'
 import { getRequestLang } from '@/lib/api-lang'
 import { dentroDoLimiteFallback } from '@/lib/rate-limit-fallback'
 
@@ -78,7 +79,14 @@ export async function POST(req: Request) {
     }
 
     const { data: profile } = await supabase.from('profiles').select('country').eq('id', user.id).single()
-    const userCountry = profile?.country || undefined
+    // BUG CORRIGIDO (achado ao vivo, "burlar localização", 2026-09-01): mesma
+    // correção de app/api/checkout/route.ts — precisa ser EXATAMENTE a mesma
+    // fonte de país que a cobrança real usa, senão esta pré-visualização
+    // mostra um valor que /api/checkout não vai honrar. profiles.country
+    // (auto-editável) só entra como fallback se os 3 provedores de geoip
+    // falharem juntos.
+    const ipCountryCode = await resolveCountryCode(req.headers)
+    const userCountry = ipCountryCode || profile?.country || undefined
 
     const settings = await getSettings(supabase)
     const nationalDefault = settings['gateway_nacional_padrao'] || 'mercadopago'
@@ -86,33 +94,53 @@ export async function POST(req: Request) {
 
     const gatewayName = selectGateway(userCountry, nationalDefault, internationalDefault)
 
+    // --- Preço/moeda de exibição — precisa ser EXATAMENTE o que
+    // /api/checkout vai cobrar de verdade, senão o modal mostra um valor e
+    // cobra outro. Mesma regra de app/api/checkout/route.ts: Stripe +
+    // usuário internacional + price_usd cadastrado (admin → Planos) usa
+    // USD; qualquer outro caso usa BRL (comportamento anterior).
+    const isNational = !userCountry || userCountry.toUpperCase() === 'BR' || userCountry.toUpperCase() === 'BRASIL'
+    let displayCurrency = 'BRL'
+    let unitPrice: number | null = null
+
     // --- Previsão de troca nativa de plano (sem coupon — ver comentário em
     // isNativePlanSwitchEligible: ignorar coupon aqui é seguro nas duas
     // direções, só pode fazer a previsão ser conservadora demais, nunca
     // prometer um "pula o formulário" que /api/checkout não vai honrar). ---
     let isNativePlanSwitch = false
     if (planId) {
-      const { data: plan } = await supabase.from('plans').select('id, name, price, promotional_price').eq('id', planId).eq('is_active', true).single()
-      const { data: existingActiveSub } = await supabase
-        .from('subscriptions')
-        .select('gateway, gateway_subscription_id, plan, price, billing_cycle')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
+      const { data: plan } = await supabase.from('plans').select('id, name, price, promotional_price, price_usd, promotional_price_usd').eq('id', planId).eq('is_active', true).single()
 
-      if (plan && existingActiveSub && (existingActiveSub.plan !== plan.name || existingActiveSub.billing_cycle !== billingCycle)) {
-        let finalPrice = plan.promotional_price !== null && plan.promotional_price !== undefined ? Number(plan.promotional_price) : Number(plan.price)
-        if (billingCycle === 'annual') finalPrice = (finalPrice * 0.8) * 12
+      if (plan) {
+        const useUsd = gatewayName === 'stripe' && !isNational && plan.price_usd !== null && plan.price_usd !== undefined
+        displayCurrency = useUsd ? 'USD' : 'BRL'
+        unitPrice = useUsd
+          ? (plan.promotional_price_usd !== null && plan.promotional_price_usd !== undefined ? Number(plan.promotional_price_usd) : Number(plan.price_usd))
+          : (plan.promotional_price !== null && plan.promotional_price !== undefined ? Number(plan.promotional_price) : Number(plan.price))
 
-        isNativePlanSwitch = isNativePlanSwitchEligible({
-          existingSubGateway: existingActiveSub.gateway,
-          existingSubGatewayId: existingActiveSub.gateway_subscription_id,
-          existingSubPrice: existingActiveSub.price,
-          targetGatewayName: gatewayName,
-          finalPrice,
-        })
+        const { data: existingActiveSub } = await supabase
+          .from('subscriptions')
+          .select('gateway, gateway_subscription_id, plan, price, currency, billing_cycle')
+          .eq('user_id', user.id)
+          .eq('status', 'active')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (existingActiveSub && (existingActiveSub.plan !== plan.name || existingActiveSub.billing_cycle !== billingCycle)) {
+          let finalPrice = unitPrice
+          if (billingCycle === 'annual') finalPrice = (finalPrice * 0.8) * 12
+
+          isNativePlanSwitch = isNativePlanSwitchEligible({
+            existingSubGateway: existingActiveSub.gateway,
+            existingSubGatewayId: existingActiveSub.gateway_subscription_id,
+            existingSubPrice: existingActiveSub.price,
+            existingSubCurrency: existingActiveSub.currency,
+            targetGatewayName: gatewayName,
+            targetCurrency: displayCurrency,
+            finalPrice,
+          })
+        }
       }
     }
 
@@ -175,6 +203,11 @@ export async function POST(req: Request) {
       publicKey,
       clientSecret,
       isNativePlanSwitch,
+      // currency/unitPrice: preço mensal (sem ciclo anual nem cupom) na
+      // moeda que /api/checkout vai cobrar de verdade — CheckoutModal usa
+      // isto pra exibir o valor certo em vez de sempre assumir BRL.
+      currency: displayCurrency,
+      unitPrice,
     })
   } catch (err: any) {
     // BUG CORRIGIDO (validação do zero, rodada 6): err.message cru (pode

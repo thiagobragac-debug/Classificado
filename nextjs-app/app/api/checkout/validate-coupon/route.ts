@@ -90,7 +90,7 @@ export async function POST(req: Request) {
     const supabase = createAdminClient()
     const { data: coupon } = await supabase
       .from('coupons')
-      .select('discount_type, discount_value, is_active, valid_until, usage_count, max_uses')
+      .select('discount_type, discount_value, discount_value_usd, is_active, valid_until, usage_count, max_uses')
       .eq('code', code.toUpperCase())
       .eq('is_active', true)
       .single()
@@ -109,6 +109,7 @@ export async function POST(req: Request) {
       valid: true,
       discount_type: coupon.discount_type,
       discount_value: coupon.discount_value,
+      discount_value_usd: coupon.discount_value_usd,
     })
   } catch (err: any) {
     console.error('[validate-coupon] Error:', err)

@@ -68,6 +68,9 @@ export async function LoginBanner({ logoUrl }: LoginBannerProps) {
         </div>
       </Link>
 
+      <h1 style={{ position: 'absolute', width: '1px', height: '1px', padding: 0, margin: '-1px', overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0 }}>
+        {tr.titleLine1} {tr.titleHighlight} {tr.titleLine2}
+      </h1>
       <h2>{tr.titleLine1} <br/><span style={{ color: '#F59E0B' }}>{tr.titleHighlight}</span><br/> {tr.titleLine2}</h2>
       <p>{tr.subtitle}</p>
 

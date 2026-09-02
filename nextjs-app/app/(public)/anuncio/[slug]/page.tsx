@@ -2,7 +2,7 @@ import { notFound, permanentRedirect } from 'next/navigation';
 import { createHash } from 'crypto';
 import { headers } from 'next/headers';
 import { getLocale } from '@/lib/locale-server';
-import { localizedPath, buildHreflangAlternates } from '@/lib/locale';
+import { localizedPath, buildHreflangAlternates, SITE_URL } from '@/lib/locale';
 import Link from 'next/link';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { AdGallery } from '@/components/ads/AdGallery';
@@ -24,7 +24,7 @@ const FALLBACK_IMG = '/assets/hero_farm.webp';
 // BUG CORRIGIDO (auditoria de SEO): og:image/twitter:image exigem URL
 // absoluta — usar FALLBACK_IMG (path relativo) direto fazia o card de
 // WhatsApp/Facebook não mostrar imagem nenhuma pra anúncio sem foto.
-const FALLBACK_IMG_ABSOLUTE = `https://tauzeclass.com.br${FALLBACK_IMG}`;
+const FALLBACK_IMG_ABSOLUTE = `${SITE_URL}${FALLBACK_IMG}`;
 const SB_STORAGE = 'https://rfzuzuobwuanmbrcthqe.supabase.co/storage/v1/object/public/ad-images/';
 
 // Regex de validação de UUID v4
@@ -183,19 +183,22 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   // é uma URL real e distinta (rewrite em proxy.ts) — canonical auto-
   // referente por locale, hreflang apontando pras duas URLs de verdade.
   const path = `/anuncio/${ad.slug}`;
-  const siteUrl = 'https://tauzeclass.com.br';
-  const canonicalUrl = `${siteUrl}${localizedPath(path, lang)}`;
+  const canonicalUrl = `${SITE_URL}${localizedPath(path, lang)}`;
 
   return {
     title: title,
     description: plainDescription || tx.metaDescFallback(title),
     alternates: {
       canonical: canonicalUrl,
-      languages: buildHreflangAlternates(siteUrl, path),
+      languages: buildHreflangAlternates(SITE_URL, path),
     },
     openGraph: {
       title: `${title} | Tauze Class`,
       description: plainDescription,
+      url: canonicalUrl,
+      type: 'website',
+      locale: lang === 'es' ? 'es_AR' : 'pt_BR',
+      alternateLocale: lang === 'es' ? 'pt_BR' : 'es_AR',
       images: [{ url: imgUrl, width: 1200, height: 630 }],
     },
     twitter: {
@@ -317,18 +320,19 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ slug
   // abaixo) mas nunca tinha o schema.org BreadcrumbList correspondente —
   // rich result de breadcrumb no Google (economiza espaço vertical no
   // resultado de busca, mostra a hierarquia em vez da URL crua).
+  const productUrl = `${SITE_URL}${localizedPath(`/anuncio/${ad.slug}`, lang)}`;
   const breadcrumbJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
     itemListElement: [
-      { '@type': 'ListItem', position: 1, name: _t('nav_home', lang), item: 'https://tauzeclass.com.br/' },
+      { '@type': 'ListItem', position: 1, name: _t('nav_home', lang), item: `${SITE_URL}${localizedPath('/', lang)}` },
       {
         '@type': 'ListItem',
         position: 2,
         name: catName || _t('footer_ads', lang),
-        item: `https://tauzeclass.com.br/listagem${ad.category_id ? `?categoria=${ad.category_id}` : ''}`,
+        item: `${SITE_URL}${localizedPath(`/listagem${ad.category_id ? `?categoria=${ad.category_id}` : ''}`, lang)}`,
       },
-      { '@type': 'ListItem', position: 3, name: adTitle, item: `https://tauzeclass.com.br/anuncio/${ad.slug}` },
+      { '@type': 'ListItem', position: 3, name: adTitle, item: productUrl },
     ],
   };
 
@@ -338,11 +342,13 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ slug
       {
         '@type': 'Product',
         name: adTitle,
+        url: productUrl,
         image: temFotos ? ad.images.map((img: string) => imageUrl(img)) : [FALLBACK_IMG_ABSOLUTE],
         description: stripHtmlForMeta(ad.description || adTitle, 500),
         ...(ad.price ? {
           offers: {
             '@type': 'Offer',
+            url: productUrl,
             priceCurrency: ad.currency || 'BRL',
             price: ad.price,
             itemCondition,

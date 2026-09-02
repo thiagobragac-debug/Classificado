@@ -8,7 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { motion, AnimatePresence } from 'framer-motion'
 import dynamic from 'next/dynamic'
 
-import { createAd, updateAd } from '@/lib/supabase'
+import { createAd, updateAd, deleteAdImages, deleteAdVideo } from '@/lib/supabase'
 import { showToast } from '@/lib/toast'
 import { useLang } from '@/lib/lang-context'
 import { sanitizeHtml } from '@/lib/sanitize'
@@ -99,6 +99,32 @@ export function AnunciarWizard({ initialData, userProfile, isEditMode }: Anuncia
   const [saveStatus, setSaveStatus] = useState<string>('idle')
   const [draftId, setDraftId] = useState<string | null>(initialData?.id || null)
   const draftTimer = useRef<NodeJS.Timeout | null>(null)
+
+  // BUG CORRIGIDO (achado em auditoria de imagens): guarda o que está DE FATO
+  // persistido no banco agora — atualizado depois de cada save bem-sucedido
+  // (autosave de rascunho OU submit final), não só uma vez no mount. Sem
+  // isso, uma foto removida durante o autosave (ex.: usuário edita um
+  // rascunho ao longo de vários dias, tira uma foto no meio do caminho)
+  // nunca tinha seu objeto limpo do Storage — só o diff no submit final
+  // cobria o caso mais raro de editar um anúncio já publicado de uma vez só.
+  const persistedImagesRef = useRef<string[]>(initialData?.images || [])
+  const persistedVideoRef = useRef<string | null>(initialData?.video_url || null)
+
+  // Roda DEPOIS de qualquer createAd/updateAd ter sucesso — nunca apaga um
+  // arquivo que ainda está referenciado se o save tiver falhado antes de
+  // chegar aqui. Best-effort: uma falha ao limpar não deveria quebrar o
+  // fluxo de salvar o anúncio em si.
+  const cleanupRemovedMedia = async (newImages: string[], newVideo: string | null) => {
+    const removedImages = persistedImagesRef.current.filter(url => !newImages.includes(url))
+    if (removedImages.length > 0) {
+      try { await deleteAdImages(removedImages) } catch { /* best-effort */ }
+    }
+    if (persistedVideoRef.current && persistedVideoRef.current !== newVideo) {
+      try { await deleteAdVideo(persistedVideoRef.current) } catch { /* best-effort */ }
+    }
+    persistedImagesRef.current = newImages
+    persistedVideoRef.current = newVideo
+  }
 
   const anuncioSchema = useMemo(() => createAnuncioSchema(lang), [lang])
 
@@ -217,6 +243,7 @@ export function AnunciarWizard({ initialData, userProfile, isEditMode }: Anuncia
               const newDraft = await createAd(payload)
               setDraftId(newDraft.id)
             }
+            await cleanupRemovedMedia(payload.images, payload.video_url ?? null)
             setSaveStatus('saved')
           } else {
             setSaveStatus('idle')
@@ -306,10 +333,27 @@ export function AnunciarWizard({ initialData, userProfile, isEditMode }: Anuncia
         await createAd(payload)
       }
 
+      // BUG CORRIGIDO (achado em auditoria de imagens): fotos/vídeo
+      // removidos ou substituídos nunca eram limpos do Storage — só
+      // desapareciam do array `images`/campo `video_url`, ficando órfãos pra
+      // sempre. Mesmo helper que o autosave de rascunho já usa (ver
+      // cleanupRemovedMedia acima) — compara contra o que estava DE FATO
+      // persistido, cobrindo tanto editar um anúncio publicado de uma vez
+      // quanto remover algo entre dois autosaves de um mesmo rascunho.
+      await cleanupRemovedMedia(payload.images, payload.video_url ?? null)
+
       showToast(tr.submitSuccess, 'success')
       router.push('/painel?success=1')
     } catch (err: any) {
-      showToast(err.message || tr.submitError, 'error')
+      // BUG CORRIGIDO (teste de estresse final, 2026-09-02): err.message cru
+      // (pode ser um erro do Postgrest/Supabase, ex. violação de RLS ou de
+      // constraint) ia direto pra tela — mesma classe de vazamento já
+      // fechada em várias rotas de API deste projeto (ver ERRORS em
+      // app/api/checkout/route.ts), nunca replicada aqui no submit final do
+      // wizard. Loga o detalhe só no console; mostra sempre a mensagem
+      // genérica traduzida pro usuário.
+      console.error('[AnunciarWizard] Erro ao publicar anúncio:', err.message)
+      showToast(tr.submitError, 'error')
       setIsSubmitting(false)
     }
   }

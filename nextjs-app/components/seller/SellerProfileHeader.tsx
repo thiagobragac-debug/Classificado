@@ -92,7 +92,7 @@ export default function SellerProfileHeader({
 
   return (
     <>
-      <div className="container" style={{ marginTop: '0.75rem' }}>
+      <div className="container">
         <div className={styles.sellerHeaderCard}>
           {/* BUG CORRIGIDO (reteste do site, 2026-08-25): avatar_url/banner_url
               do vendedor eram lidos em outras partes do site (cards de anúncio,

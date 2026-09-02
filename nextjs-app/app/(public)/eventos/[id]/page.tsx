@@ -9,9 +9,8 @@ import { t as _t } from '@/lib/constants'
 import { parseEventDate } from '@/lib/event-date'
 import { escapeJsonLd } from '@/lib/json-ld'
 import { getLocale } from '@/lib/locale-server'
-import { localizedPath, buildHreflangAlternates } from '@/lib/locale'
+import { localizedPath, buildHreflangAlternates, SITE_URL } from '@/lib/locale'
 
-const SITE_URL = 'https://tauzeclass.com.br'
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type Lang = 'pt' | 'es';
@@ -44,7 +43,35 @@ const TRANSLATIONS = {
   },
 } as const;
 
-export const revalidate = 3600; // ISR — eventos raramente mudam
+// BUG DE I18N SOB ISR (mesmo padrão já corrigido em
+// app/(public)/leiloes/[slug]/page.tsx, ver comentário lá): esta rota
+// combinava generateStaticParams() com `revalidate`, o que faz o Next.js
+// cachear o HTML (ISR) e servir o MESMO HTML pra todo mundo dentro da
+// janela de revalidação, independente do idioma pedido — a leitura de
+// getLocale() (generateMetadata e corpo de EventDetailPage) ficava presa no
+// idioma de quem disparou a última regeneração. Os únicos registros que
+// esta rota efetivamente renderiza são os de `eventos` (feiras) — registros
+// de auction_events são redirecionados antes disso — mas têm exatamente a
+// mesma exposição ao bug. Troca pra force-dynamic garante getLocale() lido
+// a cada request, aceitando perder o ganho de prerender em troca de
+// corretude de i18n. generateStaticParams() continua declarado abaixo, mas
+// deixa de disparar prerender/ISR nesta config.
+//
+// BUG CORRIGIDO (teste de estresse final, 2026-09-02): soft-404 real
+// (evento inexistente respondia HTTP 200) — não era o notFound() em si
+// (chamado corretamente aqui e em generateMetadata), era um
+// app/(public)/eventos/loading.tsx ancestral, que cria um Suspense boundary
+// envolvendo TODA a árvore do segmento `eventos` (inclusive este `[id]`).
+// A resposta começa a streamar com 200 assim que o fallback do loading.tsx
+// é montado; quando notFound() roda depois disso, dentro do Suspense, é
+// tarde demais pra trocar o status HTTP já commitado — só o corpo muda.
+// Reproduzido ao vivo (curl em rota irmã sem loading.tsx próprio, ex.
+// /anuncio/[slug], devolve 404 normalmente; /eventos/[id] devolvia 200 com
+// o esqueleto do loading.tsx congelado no lugar). O loading.tsx do
+// segmento `eventos` foi removido por causa disso — perde o skeleton
+// bonito na navegação pra /eventos, ganha status HTTP correto (mais
+// importante pra SEO/indexação que a transição de loading).
+export const dynamic = 'force-dynamic';
 
 type FoundEvento = {
   kind: 'evento';
@@ -172,6 +199,7 @@ export async function generateMetadata({
       url: canonicalUrl,
       type: 'website',
       locale: lang === 'es' ? 'es_AR' : 'pt_BR',
+      alternateLocale: lang === 'es' ? 'pt_BR' : 'es_AR',
       images: coverUrl
         ? [{ url: coverUrl, width: 1200, height: 630, alt: data.title }]
         : [],
@@ -243,35 +271,54 @@ export default async function EventDetailPage({
   const endDateStr = !isNaN(parsedTime)
     ? new Date(parsedTime + 4 * 60 * 60 * 1000).toISOString()
     : new Date(Date.now() + 86400000).toISOString();
+  // BUG CORRIGIDO (auditoria de SEO): breadcrumb visual real já existe
+  // (Início > Eventos > Detalhes, ver <nav className="breadcrumb"> abaixo)
+  // mas nunca tinha o schema.org BreadcrumbList correspondente — mesmo
+  // padrão já usado em anuncio/[slug]/page.tsx e categoria/[slug]/page.tsx.
+  const eventoUrl = `${SITE_URL}${localizedPath(`/eventos/${id}`, lang)}`;
+  const breadcrumbJsonLd = {
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: _t('nav_home', lang), item: `${SITE_URL}${localizedPath('/', lang)}` },
+      { '@type': 'ListItem', position: 2, name: _t('events_title', lang), item: `${SITE_URL}${localizedPath('/eventos', lang)}` },
+      { '@type': 'ListItem', position: 3, name: event.title, item: eventoUrl },
+    ],
+  };
+
   const jsonLd = {
     '@context': 'https://schema.org',
-    '@type': 'Event',
-    name: event.title,
-    startDate: startDateStr,
-    endDate: endDateStr,
-    url: `https://tauzeclass.com.br/eventos/${id}`,
-    eventAttendanceMode: isOnline
-      ? 'https://schema.org/OnlineEventAttendanceMode'
-      : 'https://schema.org/OfflineEventAttendanceMode',
-    eventStatus: 'https://schema.org/EventScheduled',
-    location: isOnline
-      ? { '@type': 'VirtualLocation', url: `https://tauzeclass.com.br/eventos/${id}` }
-      : {
-          '@type': 'Place',
-          name: event.location || (lang === 'es' ? 'Ubicación del Evento' : 'Local do Evento'),
-          address: {
-            '@type': 'PostalAddress',
-            addressLocality: event.location || 'Brasil',
-            addressCountry: 'BR',
-          },
-        },
-    description: event.title,
-    image: event.cover
-      ? event.cover.startsWith('http')
-        ? event.cover
-        : `https://rfzuzuobwuanmbrcthqe.supabase.co/storage/v1/object/public/ad-images/${event.cover}`
-      : 'https://tauzeclass.com.br/assets/hero_farm.webp',
-    organizer: { '@type': 'Organization', name: 'Tauze Class', url: 'https://tauzeclass.com.br' },
+    '@graph': [
+      {
+        '@type': 'Event',
+        name: event.title,
+        startDate: startDateStr,
+        endDate: endDateStr,
+        url: eventoUrl,
+        eventAttendanceMode: isOnline
+          ? 'https://schema.org/OnlineEventAttendanceMode'
+          : 'https://schema.org/OfflineEventAttendanceMode',
+        eventStatus: 'https://schema.org/EventScheduled',
+        location: isOnline
+          ? { '@type': 'VirtualLocation', url: eventoUrl }
+          : {
+              '@type': 'Place',
+              name: event.location || (lang === 'es' ? 'Ubicación del Evento' : 'Local do Evento'),
+              address: {
+                '@type': 'PostalAddress',
+                addressLocality: event.location || 'Brasil',
+                addressCountry: 'BR',
+              },
+            },
+        description: event.title,
+        image: event.cover
+          ? event.cover.startsWith('http')
+            ? event.cover
+            : `https://rfzuzuobwuanmbrcthqe.supabase.co/storage/v1/object/public/ad-images/${event.cover}`
+          : `${SITE_URL}/assets/hero_farm.webp`,
+        organizer: { '@type': 'Organization', name: 'Tauze Class', url: SITE_URL },
+      },
+      breadcrumbJsonLd,
+    ],
   };
 
   return (

@@ -41,6 +41,7 @@ const TRANSLATIONS = {
     couponRemove: 'Remover',
     couponInvalid: 'Cupom inválido ou inativo.',
     couponError: 'Erro ao validar cupom.',
+    couponNotApplicableCurrency: 'Este cupom não se aplica a cobranças em dólar — o preço final não terá desconto.',
     billingIntro: 'Precisamos de alguns dados extras para emitir sua fatura.',
     fullName: 'Nome Completo',
     doc: 'CPF/CNPJ',
@@ -57,6 +58,13 @@ const TRANSLATIONS = {
     cardOption: '💳 Cartão de Crédito',
     cardUnavailableTitle: 'Cartão indisponível no momento',
     cardUnavailableBody: 'O meio de pagamento configurado não aceita cartão por aqui. Fale com o suporte para concluir a assinatura.',
+    cardHolderName: 'Nome no Cartão',
+    cardNumber: 'Número do Cartão',
+    cardExpiry: 'Validade (MM/AA)',
+    cardCvv: 'CVV',
+    payWithCard: 'Pagar com Cartão →',
+    tokenizingCard: 'Processando cartão...',
+    errCardIncomplete: 'Preencha todos os dados do cartão.',
     goToCheckout: 'Ir para o Checkout Seguro →',
     processing: 'Processando...',
     back: '← Voltar',
@@ -96,6 +104,7 @@ const TRANSLATIONS = {
     couponRemove: 'Quitar',
     couponInvalid: 'Cupón inválido o inactivo.',
     couponError: 'Error al validar el cupón.',
+    couponNotApplicableCurrency: 'Este cupón no se aplica a cobros en dólares — el precio final no tendrá descuento.',
     billingIntro: 'Necesitamos algunos datos adicionales para emitir tu factura.',
     fullName: 'Nombre Completo',
     doc: 'CPF/CNPJ',
@@ -112,6 +121,13 @@ const TRANSLATIONS = {
     cardOption: '💳 Tarjeta de Crédito',
     cardUnavailableTitle: 'Tarjeta no disponible en este momento',
     cardUnavailableBody: 'El medio de pago configurado no acepta tarjeta aquí. Habla con soporte para completar la suscripción.',
+    cardHolderName: 'Nombre en la Tarjeta',
+    cardNumber: 'Número de la Tarjeta',
+    cardExpiry: 'Validez (MM/AA)',
+    cardCvv: 'CVV',
+    payWithCard: 'Pagar con Tarjeta →',
+    tokenizingCard: 'Procesando tarjeta...',
+    errCardIncomplete: 'Completa todos los datos de la tarjeta.',
     goToCheckout: 'Ir al Checkout Seguro →',
     processing: 'Procesando...',
     back: '← Volver',
@@ -154,15 +170,20 @@ const TRANSLATIONS = {
 const getCurrencySymbol = (currency: string) => sharedGetCurrencySymbol(currency)
 const formatAmount = (amount: number, lang: Lang) => formatCurrencyAmount(amount, lang)
 
-// Gateways que tokenizam o cartão no browser. Só eles podem receber pagamento
-// por cartão: os dados vão do navegador direto para o gateway, dentro de um
-// iframe do próprio provedor, e o nosso servidor nunca vê número nem CVV.
+// Gateways que tokenizam o cartão no browser, com o próprio SDK do provedor
+// (iframe do Stripe Elements / Brick do MP) — nosso servidor nunca vê número
+// nem CVV pra estes dois.
 //
-// Pagar.me e Asaas ficaram de fora de propósito. Havia aqui um formulário
-// próprio que coletava número, validade e CVV em <input> comum e mandava tudo
-// para /api/checkout — o que colocaria a aplicação inteira no escopo PCI-DSS
-// SAQ-D. Para reativá-los é preciso tokenizar antes de sair do browser
-// (Pagar.me tem endpoint público de tokens com a pk_; Asaas, hoje, não).
+// Pagar.me continua de fora de propósito: reativá-lo ainda exige o SDK
+// client-side dele (endpoint público de tokens com a pk_), não implementado
+// aqui — teria o mesmo formulário genérico de "cartão indisponível" abaixo.
+//
+// Asaas NÃO tem tokenização client-side (a chamada exige a access_token
+// secreta, que não pode ir pro browser) — por isso não entra nesta lista,
+// mas também não cai no aviso de indisponível: usa seu próprio formulário
+// (ver bloco `gatewayConfig?.gateway === 'asaas'` mais abaixo), que tokeniza
+// via /api/checkout/tokenize-card — a ÚNICA rota que recebe PAN/CVV em
+// claro, e só o repassa à Asaas, nunca grava nem loga (ver esse arquivo).
 const TOKENIZED_GATEWAYS = ['stripe', 'mercadopago']
 
 export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose }: { plan: any, billingCycle?: 'monthly' | 'annual', onClose: () => void }) {
@@ -174,7 +195,7 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
   const [paymentMethod] = useState<PaymentMethod>('card')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [gatewayConfig, setGatewayConfig] = useState<{ gateway: string, publicKey: string, clientSecret?: string } | null>(null)
+  const [gatewayConfig, setGatewayConfig] = useState<{ gateway: string, publicKey: string, clientSecret?: string, currency?: string, unitPrice?: number | null } | null>(null)
   const [stripePromise, setStripePromise] = useState<any>(null)
   // BUG CORRIGIDO (feature aprovada pelo usuário): trocar entre dois planos
   // PAGOS (ex. Pro→Premium) mandava o usuário preencher endereço/dados de
@@ -201,6 +222,17 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
   const [city, setCity] = useState('')
   const [state, setState] = useState('')
 
+  // Cartão da Asaas (step 2, só quando gatewayConfig.gateway === 'asaas') —
+  // fica isolado do resto do state de billing acima de propósito: vai
+  // direto pro fetch de /api/checkout/tokenize-card em handleAsaasCardSubmit,
+  // nunca entra no payload de /api/checkout (ver TOKENIZED_GATEWAYS).
+  const [cardHolderName, setCardHolderName] = useState('')
+  const [cardNumber, setCardNumber] = useState('')
+  const [cardExpMonth, setCardExpMonth] = useState('')
+  const [cardExpYear, setCardExpYear] = useState('')
+  const [cardCvv, setCardCvv] = useState('')
+  const [tokenizing, setTokenizing] = useState(false)
+
   // Coupons
   const [couponCode, setCouponCode] = useState('')
   const [coupon, setCoupon] = useState<any>(null)
@@ -212,18 +244,41 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
   const planName = (lang === 'es' && plan.name_es) ? plan.name_es : (plan.name_pt || plan.name)
 
   // --- Price calculation ---
-  let basePrice = (plan.promotional_price !== null && plan.promotional_price !== undefined)
-    ? Number(plan.promotional_price)
-    : Number(plan.price)
+  // BUG CORRIGIDO (achado ao vivo, 2026-09-01): sempre calculava a partir de
+  // `plan.price`/`plan.currency` (a prop vinda de PricingClientUI, sempre
+  // BRL) — pra um usuário internacional que a Stripe vai cobrar em USD
+  // (plans.price_usd, ver /api/checkout/route.ts), a tela mostrava "R$79,00"
+  // mas cobrava US$X. gatewayConfig.unitPrice/currency (devolvidos por
+  // /api/checkout/init, mesma fonte que decide a cobrança real) têm
+  // prioridade assim que carregam; a prop do plano continua sendo o
+  // fallback só enquanto `initializing` (evita a tela em branco/zero).
+  const hasResolvedPrice = gatewayConfig?.unitPrice !== null && gatewayConfig?.unitPrice !== undefined
+  let basePrice = hasResolvedPrice
+    ? Number(gatewayConfig!.unitPrice)
+    : ((plan.promotional_price !== null && plan.promotional_price !== undefined)
+        ? Number(plan.promotional_price)
+        : Number(plan.price))
   if (billingCycle === 'annual') {
     basePrice = (basePrice * 0.8) * 12
   }
+  const displayCurrency = hasResolvedPrice ? (gatewayConfig!.currency || 'BRL') : (plan.currency || 'BRL')
+  // BUG CORRIGIDO (RESOLVER PROBLEMA CUPOM): cupom de valor fixo é
+  // cadastrado em BRL por padrão, com um equivalente em USD opcional
+  // (coupons.discount_value_usd, ver migration 20260901130000 e mesmo guard
+  // em app/api/checkout/route.ts) — sem esse equivalente, o cupom fixo não
+  // se aplica a uma cobrança em USD. `couponInapplicable` diferencia esse
+  // caso de "sem cupom" pra avisar o usuário em vez de mostrar "cupom
+  // aplicado" cobrando o preço cheio, como acontecia antes.
+  const couponFixedUsdAmount = coupon?.discount_value_usd !== null && coupon?.discount_value_usd !== undefined ? Number(coupon.discount_value_usd) : null
+  const couponInapplicable = !!coupon && coupon.discount_type === 'fixed' && displayCurrency !== 'BRL' && couponFixedUsdAmount === null
   const finalPrice = coupon
     ? (coupon.discount_type === 'percentage'
         ? Math.max(0, basePrice * (1 - coupon.discount_value / 100))
-        : Math.max(0, basePrice - coupon.discount_value))
+        : (displayCurrency === 'BRL'
+            ? Math.max(0, basePrice - coupon.discount_value)
+            : (couponFixedUsdAmount !== null ? Math.max(0, basePrice - couponFixedUsdAmount) : basePrice)))
     : basePrice
-  const currencySymbol = getCurrencySymbol(plan.currency)
+  const currencySymbol = getCurrencySymbol(displayCurrency)
 
   // --- Idempotency nonce ---
   // BUG CORRIGIDO (validação do zero, 3ª rodada): antes era gerado dentro
@@ -302,7 +357,7 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
         setCouponError(data.error || t.couponInvalid)
         setCoupon(null)
       } else {
-        setCoupon({ code: couponCode.toUpperCase(), discount_type: data.discount_type, discount_value: data.discount_value })
+        setCoupon({ code: couponCode.toUpperCase(), discount_type: data.discount_type, discount_value: data.discount_value, discount_value_usd: data.discount_value_usd })
       }
     } catch {
       setCouponError(t.couponError)
@@ -406,6 +461,62 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
     }
   }
 
+  // Asaas: única gateway sem tokenização client-side (ver comentário em
+  // TOKENIZED_GATEWAYS) — o cartão passa em claro só até
+  // /api/checkout/tokenize-card, que devolve um token opaco e nunca
+  // grava/loga PAN/CVV. Daqui em diante segue o mesmo caminho de
+  // Stripe/MP: só o token chega em handleServerCheckout, nunca o cartão.
+  const handleAsaasCardSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!session?.access_token) {
+      setError(t.errNotLoggedIn)
+      return
+    }
+    if (!cardHolderName || !cardNumber || !cardExpMonth || !cardExpYear || !cardCvv) {
+      setError(t.errCardIncomplete)
+      return
+    }
+    setTokenizing(true)
+    setError('')
+    try {
+      const res = await fetch('/api/checkout/tokenize-card', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          creditCard: {
+            holderName: cardHolderName,
+            number: cardNumber.replace(/\s/g, ''),
+            expMonth: cardExpMonth,
+            expYear: cardExpYear,
+            cvv: cardCvv,
+          },
+          billingAddress: {
+            cep: cep.replace(/\D/g, ''),
+            street,
+            number: addressNumber,
+            neighborhood,
+            city,
+            state,
+          },
+          doc: doc.replace(/\D/g, ''),
+          phone: phone.replace(/\D/g, ''),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || t.errCheckoutInit)
+      }
+      await handleServerCheckout({ gatewayToken: data.token })
+    } catch (err: any) {
+      setError(err.message || t.errUnexpected)
+    } finally {
+      setTokenizing(false)
+    }
+  }
+
   // BUG CORRIGIDO (validação do zero, 3ª rodada): o Brick de cartão do
   // Mercado Pago (CardPayment) recebia `initialization`/`onSubmit` como
   // literais inline — recriados em TODA re-renderização do modal. O SDK
@@ -485,7 +596,7 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
               {t.planPrefix} {planName} {billingCycle === 'annual' && <span style={{ fontSize: '0.8em', color: '#10b981' }}>{t.annualSuffix}</span>}
             </div>
             <div style={{ textAlign: 'right' }}>
-              {coupon ? (
+              {coupon && !couponInapplicable ? (
                 <>
                   <div style={{ textDecoration: 'line-through', color: '#94a3b8', fontSize: '0.9rem' }}>
                     {currencySymbol} {formatAmount(basePrice, lang)} {billingCycle === 'annual' ? t.perYear : t.perMonth}
@@ -534,9 +645,18 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
                     <div style={{ fontSize: '0.85rem', color: '#10b981', fontWeight: 700 }}>{t.couponAppliedPrefix} {coupon.code} {t.couponAppliedSuffix}</div>
-                    <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                      {t.couponDiscount} {coupon.discount_type === 'percentage' ? `${coupon.discount_value}%` : `${currencySymbol} ${formatAmount(coupon.discount_value, lang)}`}
-                    </div>
+                    {/* BUG CORRIGIDO (RESOLVER PROBLEMA CUPOM): antes sempre
+                        mostrava o valor cadastrado em R$ mesmo quando a
+                        cobrança é USD e o cupom fixo não tem equivalente em
+                        dólar — "cupom aplicado" com um desconto que não era
+                        de fato descontado do preço final. */}
+                    {couponInapplicable ? (
+                      <div style={{ fontSize: '0.8rem', color: '#f59e0b' }}>{t.couponNotApplicableCurrency}</div>
+                    ) : (
+                      <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                        {t.couponDiscount} {coupon.discount_type === 'percentage' ? `${coupon.discount_value}%` : `${currencySymbol} ${formatAmount(displayCurrency === 'BRL' ? coupon.discount_value : (couponFixedUsdAmount ?? coupon.discount_value), lang)}`}
+                      </div>
+                    )}
                   </div>
                   <button type="button" onClick={() => { setCoupon(null); setCouponCode('') }}
                     style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600, textDecoration: 'underline' }}>
@@ -698,7 +818,63 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
                 </div>
               )}
 
-              {paymentMethod === 'card' && gatewayConfig && !TOKENIZED_GATEWAYS.includes(gatewayConfig.gateway) && (
+              {paymentMethod === 'card' && gatewayConfig?.gateway === 'asaas' && (
+                <form onSubmit={handleAsaasCardSubmit} style={{ marginBottom: '1.5rem' }}>
+                  <div style={{ marginBottom: '1rem' }}>
+                    <label htmlFor="card-holder" style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>{t.cardHolderName}</label>
+                    <input
+                      id="card-holder" type="text" required autoComplete="cc-name"
+                      value={cardHolderName} onChange={e => setCardHolderName(e.target.value)}
+                      style={{ width: '100%', padding: '14px 16px', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '10px', background: '#f8fafc', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div style={{ marginBottom: '1rem' }}>
+                    <label htmlFor="card-number" style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>{t.cardNumber}</label>
+                    <input
+                      id="card-number" type="text" required inputMode="numeric" autoComplete="cc-number" placeholder="0000 0000 0000 0000"
+                      value={cardNumber} onChange={e => setCardNumber(e.target.value)}
+                      style={{ width: '100%', padding: '14px 16px', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '10px', background: '#f8fafc', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                    <div>
+                      <label htmlFor="card-exp-month" style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>{t.cardExpiry}</label>
+                      <input
+                        id="card-exp-month" type="text" required inputMode="numeric" maxLength={2} placeholder="MM" autoComplete="cc-exp-month"
+                        value={cardExpMonth} onChange={e => setCardExpMonth(e.target.value)}
+                        style={{ width: '100%', padding: '10px', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '10px', background: '#f8fafc', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="card-exp-year" style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>&nbsp;</label>
+                      <input
+                        id="card-exp-year" type="text" required inputMode="numeric" maxLength={4} placeholder="AAAA" autoComplete="cc-exp-year"
+                        value={cardExpYear} onChange={e => setCardExpYear(e.target.value)}
+                        style={{ width: '100%', padding: '10px', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '10px', background: '#f8fafc', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="card-cvv" style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>{t.cardCvv}</label>
+                      <input
+                        id="card-cvv" type="text" required inputMode="numeric" maxLength={4} placeholder="000" autoComplete="cc-csc"
+                        value={cardCvv} onChange={e => setCardCvv(e.target.value)}
+                        style={{ width: '100%', padding: '10px', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '10px', background: '#f8fafc', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                  </div>
+
+                  <button type="submit" disabled={tokenizing || loading} style={{
+                    width: '100%', padding: '1rem',
+                    background: (tokenizing || loading) ? '#cbd5e1' : '#10b981', color: '#ffffff',
+                    border: 'none', borderRadius: '10px', fontSize: '1.1rem', fontWeight: 600,
+                    cursor: (tokenizing || loading) ? 'not-allowed' : 'pointer', transition: 'background 200ms'
+                  }}>
+                    {tokenizing ? t.tokenizingCard : loading ? t.processing : t.payWithCard}
+                  </button>
+                </form>
+              )}
+
+              {paymentMethod === 'card' && gatewayConfig && !TOKENIZED_GATEWAYS.includes(gatewayConfig.gateway) && gatewayConfig.gateway !== 'asaas' && (
                 <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '10px', padding: '1.25rem', marginBottom: '1.5rem' }}>
                   <p style={{ fontWeight: 700, color: '#92400e', marginBottom: '0.5rem' }}>{t.cardUnavailableTitle}</p>
                   <p style={{ fontSize: '0.875rem', color: '#78350f', margin: 0 }}>
@@ -716,8 +892,8 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
                 </div>
               )}
 
-              {/* Botão padrão, escondido se for Stripe (que tem o próprio botão) ou MP (que também tem seu botão no CardPayment) */}
-              {!(paymentMethod === 'card' && (gatewayConfig?.gateway === 'stripe' || gatewayConfig?.gateway === 'mercadopago')) && (
+              {/* Botão padrão, escondido se for Stripe/MP (têm o próprio botão) ou Asaas (botão dentro do form de cartão acima) */}
+              {!(paymentMethod === 'card' && (gatewayConfig?.gateway === 'stripe' || gatewayConfig?.gateway === 'mercadopago' || gatewayConfig?.gateway === 'asaas')) && (
                 <button
                   type="button"
                   onClick={handleNativeCheckout}

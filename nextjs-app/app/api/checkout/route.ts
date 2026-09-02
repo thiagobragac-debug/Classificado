@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, getSettings } from '@/lib/supabase-admin'
 import { resolverIpConfiavel } from '@/lib/ip-utils'
+import { resolveCountryCode } from '@/lib/geoip'
 import { dentroDoLimiteFallback } from '@/lib/rate-limit-fallback'
 import {
   selectGateway,
@@ -129,7 +130,7 @@ export async function POST(req: Request) {
     // --- Fetch plan (real table name: 'plans') ---
     const { data: plan, error: planError } = await supabase
       .from('plans')
-      .select('id, name, price, promotional_price')
+      .select('id, name, price, promotional_price, price_usd, promotional_price_usd, max_ads')
       .eq('id', planId)
       .eq('is_active', true)
       .single()
@@ -143,7 +144,23 @@ export async function POST(req: Request) {
       .select('country, name, display_name')
       .eq('id', user.id)
       .single()
-    const userCountry: string | undefined = profile?.country || undefined
+
+    // BUG CORRIGIDO (achado ao vivo, "burlar localização", 2026-09-01):
+    // profiles.country é auto-editável pelo próprio usuário (grant de UPDATE
+    // em profiles pra 'authenticated' inclui 'country' — legítimo pra
+    // exibição/preferência, nunca deveria ter sido a fonte de qual
+    // MOEDA/GATEWAY cobra a assinatura). Sem checagem nenhuma, um usuário no
+    // Brasil setando country="US" no próprio perfil bastava pra ser cobrado
+    // em USD (ou o oposto) — confirmado explorável, sem nenhuma corroboração
+    // contra o IP real da requisição em lugar nenhum do fluxo de checkout.
+    // resolveCountryCode() (lib/geoip.ts, mesma cascata de 3 provedores já
+    // usada pela pré-visualização pública de preços em /planos) agora é a
+    // fonte AUTORITATIVA — profiles.country só entra como fallback se os 3
+    // provedores de geoip falharem ao mesmo tempo (degradação, não normal),
+    // preservando o checkout funcionando numa instabilidade transitória em
+    // vez de bloquear todo mundo.
+    const ipCountryCode = await resolveCountryCode(req.headers)
+    const userCountry: string | undefined = ipCountryCode || profile?.country || undefined
 
     // --- Fetch ALL platform settings (key-value table) ---
     const settings = await getSettings(supabase)
@@ -160,7 +177,7 @@ export async function POST(req: Request) {
     // acontece depois do lock de idempotência, mais abaixo) ---
     const { data: existingActiveSub } = await supabase
       .from('subscriptions')
-      .select('id, gateway, gateway_subscription_id, plan, price, billing_cycle, current_period_end')
+      .select('id, gateway, gateway_subscription_id, plan, price, currency, billing_cycle, current_period_end')
       .eq('user_id', user.id)
       .eq('status', 'active')
       .order('created_at', { ascending: false })
@@ -223,10 +240,24 @@ export async function POST(req: Request) {
     }
 
     // --- Build plan & user objects for adapter ---
-    let basePrice =
-      plan.promotional_price !== null && plan.promotional_price !== undefined
-        ? Number(plan.promotional_price)
-        : Number(plan.price)
+    // BUG CORRIGIDO (achado ao vivo, 2026-09-01): Stripe cobrava sempre em
+    // BRL, mesmo pra usuário internacional (currency hardcoded no adapter).
+    // Quando o plano tem price_usd cadastrado (admin → Planos) E o gateway
+    // resolvido é Stripe E o usuário não é nacional, cobra o preço "de
+    // tabela" em USD em vez de BRL — nunca conversão pela cotação do dia
+    // (ruim pra assinatura recorrente, o valor mudaria a cada renovação).
+    // price_usd nulo preserva o comportamento antigo (cobra em BRL).
+    const isNational = !userCountry || userCountry.toUpperCase() === 'BR' || userCountry.toUpperCase() === 'BRASIL'
+    const useUsd = gatewayName === 'stripe' && !isNational && plan.price_usd !== null && plan.price_usd !== undefined
+    const currency = useUsd ? 'USD' : 'BRL'
+
+    let basePrice = useUsd
+      ? (plan.promotional_price_usd !== null && plan.promotional_price_usd !== undefined
+          ? Number(plan.promotional_price_usd)
+          : Number(plan.price_usd))
+      : (plan.promotional_price !== null && plan.promotional_price !== undefined
+          ? Number(plan.promotional_price)
+          : Number(plan.price))
 
     const cycle: 'monthly' | 'annual' = billingCycle === 'annual' ? 'annual' : 'monthly'
 
@@ -267,10 +298,34 @@ export async function POST(req: Request) {
         // permitia isso antes da validação em admin/cupons/page.tsx) produz
         // finalPrice negativo indo pro gateway de cobrança.
         finalPrice = Math.max(0, finalPrice * (1 - couponData.discount_value / 100))
+        appliedCoupon = couponData
+      } else if (useUsd) {
+        // BUG CORRIGIDO (RESOLVER PROBLEMA CUPOM): cupom de valor FIXO era
+        // cadastrado só em BRL — aplicar o número cru numa cobrança em USD
+        // descontaria o valor errado (ex.: "R$20 off" virando "US$20 off").
+        // O admin agora pode cadastrar um equivalente em USD
+        // (coupons.discount_value_usd, ver migration 20260901130000); sem
+        // ele, o cupom fixo continua sem efeito em USD — mesmo
+        // comportamento de antes, só que agora com um valor USD dedicado em
+        // vez de nenhum.
+        //
+        // BUG CORRIGIDO (teste de estresse final, 2026-09-02): sem
+        // equivalente USD, nenhum desconto era aplicado (finalPrice
+        // intocado) mas appliedCoupon era setado do mesmo jeito mais abaixo
+        // — os 3 pontos que consomem `usage_count` via try_apply_coupon()
+        // rodavam mesmo dando desconto zero, gastando um uso de verdade do
+        // cupom sem nenhum benefício real pro cliente. CheckoutModal.tsx já
+        // avisa o cliente que esse cupom não se aplica (achado refutado na
+        // rodada anterior), mas o consumo indevido do contador em si nunca
+        // tinha sido fechado.
+        if (couponData.discount_value_usd !== null && couponData.discount_value_usd !== undefined) {
+          finalPrice = Math.max(0, finalPrice - Number(couponData.discount_value_usd))
+          appliedCoupon = couponData
+        }
       } else {
         finalPrice = Math.max(0, finalPrice - couponData.discount_value)
+        appliedCoupon = couponData
       }
-      appliedCoupon = couponData
     }
 
     // BUG CORRIGIDO: um cupom percentual (ex.: 33,33%) produz resíduo de
@@ -310,6 +365,7 @@ export async function POST(req: Request) {
       name: plan.name,           // real column: 'name' (no name_pt)
       price: finalPrice,         // EXACT amount to be charged for the period
       billingCycle: cycle,
+      currency,                  // 'USD' só quando useUsd (Stripe + internacional + price_usd cadastrado), senão 'BRL'
     }
 
     const gatewayUser: GatewayUser = {
@@ -322,6 +378,17 @@ export async function POST(req: Request) {
 
     // --- Idempotency: prevent double checkout (e.g., double-click or page refresh) ---
     // Strict 15 seconds block for the EXACT SAME PLAN AND CYCLE to prevent double charges on gateway
+    //
+    // BUG CORRIGIDO (achado ao vivo, teste completo de pagamento, 2026-09-01):
+    // esta checagem não filtrava por status — uma linha 'cancelled' (deixada
+    // por um upgrade/downgrade anterior) ou 'switch_applied' (marcador
+    // terminal de uma troca nativa já aplicada, ver comentário mais abaixo)
+    // ainda contava, bloqueando com 429 um downgrade legítimo de volta pro
+    // MESMO plano que o usuário tinha há poucos segundos — reproduzido ao
+    // vivo (upgrade PRO->Premium seguido de downgrade Premium->PRO 9s
+    // depois). As duas são estados terminais, nunca vão virar uma cobrança
+    // em andamento — só 'pending'/'active'/'past_due' representam de fato
+    // "já existe uma tentativa recente pra este plano+ciclo".
     const fifteenSecsAgo = new Date(Date.now() - 15 * 1000).toISOString()
     const { data: existingRecent } = await supabase
       .from('subscriptions')
@@ -329,6 +396,7 @@ export async function POST(req: Request) {
       .eq('user_id', user.id)
       .eq('plan', plan.name)
       .eq('billing_cycle', cycle)
+      .not('status', 'in', '(cancelled,switch_applied)')
       .gte('created_at', fifteenSecsAgo)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -358,6 +426,7 @@ export async function POST(req: Request) {
       status: 'pending',
       current_period_start: new Date().toISOString(),
       price: finalPrice,
+      currency,
     }).select('id').single()
 
     if (insertError) {
@@ -396,7 +465,24 @@ export async function POST(req: Request) {
     // cancelar+recriar abaixo, que já cobra o preço cheio na hora (mesmo
     // comportamento de sempre, não piorou nem melhorou nesta rodada).
     const gatewaySuportaTrocaNativa = gatewayName === 'stripe' || (!prorate && (gatewayName === 'mercadopago' || gatewayName === 'pagarme' || gatewayName === 'asaas'))
-    if (isPlanSwitch && finalPrice > 0 && existingActiveSub!.gateway_subscription_id && existingActiveSub!.gateway === gatewayName && gatewaySuportaTrocaNativa && adapter.updateSubscriptionPlan) {
+    // BUG CORRIGIDO (achado ao vivo, teste completo de pagamento, 2026-09-01):
+    // uma assinatura Stripe (e o item de preço dela) fica travada na moeda da
+    // 1ª cobrança — a API rejeita de verdade um items[0][price_data][currency]
+    // diferente do já estabelecido ("The price specified only supports `brl`.
+    // This doesn't match the expected currency: `usd`."), confirmado ao vivo
+    // trocando PRO/USD -> Premium/BRL numa assinatura Stripe já existente.
+    // gatewaySuportaTrocaNativa não olhava pra moeda — todo cliente
+    // internacional trocando entre um plano com price_usd cadastrado e um
+    // sem (ou entre dois com price_usd em moedas diferentes) caía num 502
+    // determinístico ("Não foi possível trocar de plano"), preso pra sempre
+    // nessa combinação até um admin igualar a moeda dos dois planos: mesmo
+    // erro em toda nova tentativa, sem fallback. Quando a moeda muda, isto
+    // não é mais "atualizar a mesma assinatura" — é uma assinatura NOVA (que
+    // o fallback de cancelar-e-criar abaixo já sabe fazer, criando Customer/
+    // Product novos na moeda certa), então basta excluir esse caso da
+    // elegibilidade nativa em vez de tentar e falhar.
+    const mesmaMoeda = existingActiveSub?.currency === currency
+    if (isPlanSwitch && finalPrice > 0 && existingActiveSub!.gateway_subscription_id && existingActiveSub!.gateway === gatewayName && gatewaySuportaTrocaNativa && mesmaMoeda && adapter.updateSubscriptionPlan) {
       try {
         if (appliedCoupon) {
           const { data: success, error: rpcErr } = await supabase.rpc('try_apply_coupon', { p_coupon_id: appliedCoupon.id })
@@ -422,6 +508,7 @@ export async function POST(req: Request) {
         const { data: switchUpdateResult } = await supabase.from('subscriptions').update({
           plan: plan.name,
           price: finalPrice,
+          currency,
           billing_cycle: cycle,
           // BUG CORRIGIDO (validação do zero, 3ª rodada): current_period_end
           // nunca era atualizado aqui — ficava com o valor da assinatura
@@ -471,6 +558,23 @@ export async function POST(req: Request) {
             plan_id: plan.id,
           }).eq('id', user.id)
           if (downgradeSecErr) console.warn('[Checkout] Falha ao sincronizar user_secrets no downgrade imediato (não crítico):', downgradeSecErr.message)
+
+          // GAP CORRIGIDO (achado ao vivo, 2026-09-01): downgrade nativo
+          // entre dois planos pagos (ex.: Premium -> PRO) atualizava o
+          // entitlement na hora mas nunca conferia a cota de anúncios ativos
+          // do plano novo — um Premium com mais anúncios ativos que o limite
+          // do PRO nunca tinha o excedente pausado, nem na hora nem depois
+          // (enforce_plan_expiration só cobre reversão pro Grátis). Agenda a
+          // mesma janela de graça de 7 dias usada em qualquer redução de
+          // cota — não pausa nada agora, só se o usuário não agir a tempo
+          // (ver supabase/migrations/20260901110000).
+          if (typeof plan.max_ads === 'number') {
+            const { error: quotaScheduleErr } = await supabase.rpc('schedule_ad_quota_enforcement', {
+              p_user_id: user.id,
+              p_max_ads: plan.max_ads,
+            })
+            if (quotaScheduleErr) console.warn('[Checkout] Falha ao agendar checagem de cota de anúncios no downgrade (não crítico):', quotaScheduleErr.message)
+          }
         }
 
         // BUG CORRIGIDO (validação do zero, 3ª rodada): user_secrets.plan/
@@ -605,9 +709,14 @@ export async function POST(req: Request) {
       phone: billingData?.phone,
       // A Asaas marca `remoteIp` como obrigatório na criação de assinatura por
       // cartão (achado de auditoria contra a doc oficial). Os demais gateways
-      // ignoram este campo. resolverIpConfiavel devolve null sem header
-      // confiável (dev local) — campo opcional, undefined é aceitável aqui.
-      ip: resolverIpConfiavel(req.headers) ?? undefined,
+      // ignoram este campo. Em produção (atrás da Vercel) sempre há um header
+      // confiável. Em dev local sem nenhum header de IP, resolverIpConfiavel
+      // devolve null — sem fallback, a Asaas rejeitava com "remoteIp
+      // obrigatório" mascarado por um 502 genérico (achado ao vivo na
+      // revalidação, 2026-09-01). Mesmo fallback fixo já usado em
+      // tokenize-card/route.ts; não é chave de rate limit, então não tem o
+      // problema de "balde compartilhado" que um IP fixo teria ali.
+      ip: resolverIpConfiavel(req.headers) ?? '127.0.0.1',
     }
 
     // --- 100% OFF Bypass (Local Checkout) ---

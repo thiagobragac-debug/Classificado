@@ -15,6 +15,15 @@ import { useConfirm } from '@/components/ui/ConfirmProvider'
 // usado em app/(public)/anunciar/_components/StepLocation.tsx (não
 // importado daqui de propósito: esse componente é local ao wizard público,
 // fora da área desta tela de admin).
+// BUG CORRIGIDO (achado em auditoria de imagens): diferente do wizard de
+// anúncio (StepPhotos.tsx), este upload não tinha NENHUMA validação de tipo
+// ou tamanho no cliente — só o accept="image/*" do input, que é uma dica de
+// UI e não bloqueia nada de verdade. Quem barrava era só o bucket do
+// Storage. Mesma allowlist e mesmo limite de StepPhotos.tsx, já que os dois
+// usam o bucket ad-images.
+const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+const MAX_BANNER_IMAGE_SIZE = 10 * 1024 * 1024 // 10 MB — mesmo limite do bucket ad-images
+
 const MERCOSUL_COUNTRIES = ['Brasil', 'Argentina', 'Uruguai', 'Paraguai']
 
 const BR_STATE_NAMES = [
@@ -70,6 +79,14 @@ export default function AdminBanners() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [uploadingImage, setUploadingImage] = useState(false)
+  // BUG CORRIGIDO (teste de estresse final, 2026-09-02): trocar a arte
+  // apagava o arquivo antigo do Storage no próprio callback de upload —
+  // antes de handleSave persistir a troca. Cancelar a edição, ou uma falha
+  // de rede no save, deixava o banner PUBLICADO apontando pra um arquivo já
+  // apagado. Agora só guarda o path antigo aqui; a remoção de verdade só
+  // acontece dentro de handleSave, depois que o novo image_url já foi
+  // confirmado gravado no banco.
+  const [pendingDeleteImagePath, setPendingDeleteImagePath] = useState<string | null>(null)
 
   const [form, setForm] = useState({
     name: '',
@@ -139,6 +156,16 @@ export default function AdminBanners() {
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+      showToast('Envie uma imagem JPEG, PNG, WebP ou GIF.', 'error')
+      e.target.value = ''
+      return
+    }
+    if (file.size > MAX_BANNER_IMAGE_SIZE) {
+      showToast('A imagem deve ter no máximo 10 MB.', 'error')
+      e.target.value = ''
+      return
+    }
     setUploadingImage(true)
     const supabase = getSupabase()
     const session = await getSession()
@@ -147,6 +174,9 @@ export default function AdminBanners() {
       setUploadingImage(false)
       return
     }
+    // Guarda a arte anterior (se houver) pra limpar do bucket depois que a
+    // nova já estiver salva — ver comentário mais abaixo.
+    const previousUrl = form.image_url
     const ext = safeFileExt(file.name)
     // uid como primeiro segmento do path: a policy de INSERT do bucket
     // ad-images exige (storage.foldername(name))[1] = auth.uid() (ver
@@ -154,13 +184,30 @@ export default function AdminBanners() {
     // sempre falhava com RLS antes de chegar a mostrar erro específico.
     const fileName = `${session.user.id}/banners/${Date.now()}_${Math.random().toString(36).substring(2,7)}.${ext}`
 
-    const { error } = await supabase.storage.from('ad-images').upload(fileName, file)
+    // BUG CORRIGIDO: faltava cacheControl — caía no default de ~1h do
+    // Supabase Storage, diferente de todo outro ponto de upload do projeto
+    // (ad-images/ad-videos/profile-banners sobem com 1 ano), sem motivo
+    // pra ser diferente aqui (a arte de um banner é tão imutável quanto).
+    const { error } = await supabase.storage.from('ad-images').upload(fileName, file, { cacheControl: '31536000', upsert: false })
     if (error) {
       showToast('Erro no upload: ' + error.message, 'error')
     } else {
       const { data: { publicUrl } } = supabase.storage.from('ad-images').getPublicUrl(fileName)
       setForm(prev => ({ ...prev, image_url: publicUrl }))
       showToast('Imagem carregada com sucesso!', 'success')
+
+      // BUG CORRIGIDO (achado em auditoria de imagens): trocar a arte de um
+      // banner nunca removia o arquivo anterior do bucket — só desreferenciava.
+      // Só remove se a URL anterior for de fato um objeto nosso (o campo
+      // também aceita colar uma URL externa manualmente — nunca tentar
+      // apagar isso). A remoção em si fica pendente até handleSave confirmar
+      // que a troca foi persistida (ver comentário de pendingDeleteImagePath).
+      if (previousUrl) {
+        const previousPath = previousUrl.split('/ad-images/')[1]
+        if (previousPath) {
+          setPendingDeleteImagePath(previousPath)
+        }
+      }
     }
     setUploadingImage(false)
   }
@@ -168,8 +215,16 @@ export default function AdminBanners() {
   const handleDelete = async (id: string) => {
     if (!(await confirm('Deseja realmente excluir este banner?'))) return
     const supabase = getSupabase()
+    const bannerToDelete = banners.find(b => b.id === id)
     const { data, error } = await supabase.from('banners').delete().eq('id', id).select()
     if (!error && data && data.length > 0) {
+      // BUG CORRIGIDO (achado em auditoria de imagens): excluir um banner
+      // nunca removia o arquivo do bucket, só a linha da tabela. Mesma
+      // guarda de URL externa do upload acima.
+      const imagePath = bannerToDelete?.image_url?.split('/ad-images/')[1]
+      if (imagePath) {
+        supabase.storage.from('ad-images').remove([imagePath]).catch(() => {})
+      }
       // Excluir pode deixar a página atual com menos itens que o esperado
       // — recarrega de verdade em vez de só remover localmente. Se o
       // banner excluído era o único item da página atual e não é a
@@ -190,6 +245,7 @@ export default function AdminBanners() {
 
   const openNew = () => {
     setEditingId(null)
+    setPendingDeleteImagePath(null)
     setForm({
       name: '', position: 'home_top', status: 'active', image_url: '', link_url: '', target_type: 'global', target_location: ''
     })
@@ -198,6 +254,7 @@ export default function AdminBanners() {
 
   const openEdit = (b: any) => {
     setEditingId(b.id)
+    setPendingDeleteImagePath(null)
     setForm({
       name: b.name || '',
       position: b.position || 'home_top',
@@ -218,6 +275,16 @@ export default function AdminBanners() {
       ...form
     }
 
+    // Best-effort: só roda depois que a troca foi confirmada persistida
+    // (ver pendingDeleteImagePath) — se falhar, sobra só um arquivo extra
+    // no bucket, não é crítico.
+    const cleanupPendingDelete = () => {
+      if (pendingDeleteImagePath) {
+        supabase.storage.from('ad-images').remove([pendingDeleteImagePath]).catch(() => {})
+        setPendingDeleteImagePath(null)
+      }
+    }
+
     if (editingId) {
       const { data, error } = await supabase.from('banners').update(payload).eq('id', editingId).select()
       if (!error && data && data.length > 0) {
@@ -225,6 +292,7 @@ export default function AdminBanners() {
         setIsModalOpen(false)
         showToast('Banner atualizado!', 'success')
         loadCounts()
+        cleanupPendingDelete()
       } else if (!error) {
         showToast('Nenhum banner foi alterado — verifique suas permissões.', 'error')
       } else {
@@ -241,6 +309,7 @@ export default function AdminBanners() {
         if (currentPage !== 1) setCurrentPage(1)
         else loadBanners()
         loadCounts()
+        cleanupPendingDelete()
       } else {
         showToast('Erro: ' + error?.message, 'error')
       }

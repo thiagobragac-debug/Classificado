@@ -43,12 +43,34 @@ export async function POST(request: Request) {
     const admin = createAdminClient()
     const { data: sub, error: subError } = await admin
       .from('subscriptions')
-      .select('id, user_id')
+      .select('id, user_id, status, current_period_end')
       .eq('id', subscriptionId)
       .maybeSingle()
 
     if (subError) return NextResponse.json({ error: subError.message }, { status: 500 })
     if (!sub) return NextResponse.json({ error: 'Assinatura não encontrada' }, { status: 404 })
+
+    // BUG CORRIGIDO (achado ao vivo, teste de estresse completo, 2026-09-01):
+    // esta rota só existe pra desfazer um cancelamento AINDA dentro do
+    // período já pago (cancel_at_period_end=true, mas profiles.plan_id/
+    // plan_expires_at e user_secrets.plan continuam intocados até o período
+    // acabar de verdade — só então enforce_plan_expiration os limpa). Ela
+    // nunca restaurou plan_id/plan_expires_at/user_secrets.plan porque não
+    // precisava — mas se o período já tiver terminado (seja porque o status
+    // já virou 'expired', seja porque ainda está 'cancelled' mas o usuário
+    // dono ainda não visitou /painel pra a checagem lazy rodar), reativar só
+    // os campos de status produz um estado inconsistente: usuário "ativo"
+    // sem plano nenhum atribuído, e o gateway já está cancelado/deletado pra
+    // sempre do lado de lá (não tem cobrança nenhuma acontecendo por trás).
+    // Bloqueia esse caso explicitamente em vez de produzir silenciosamente
+    // um "ativo" fantasma — reativar uma assinatura de verdade expirada
+    // exige um checkout novo, não um flip de status.
+    const periodoJaTerminou = sub.current_period_end ? new Date(sub.current_period_end) < new Date() : false
+    if (sub.status === 'expired' || periodoJaTerminou) {
+      return NextResponse.json({
+        error: 'O período pago desta assinatura já terminou — não é possível reativar apenas trocando o status (o gateway já cancelou a cobrança recorrente de verdade). Peça pro cliente assinar de novo pelo checkout.',
+      }, { status: 409 })
+    }
 
     const now = new Date().toISOString()
     const { error: updateSubErr } = await admin

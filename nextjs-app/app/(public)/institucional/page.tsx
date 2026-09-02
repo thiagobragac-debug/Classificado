@@ -5,7 +5,8 @@ import { Metadata } from 'next';
 import { createClient, createAnonClient } from '@/lib/supabase-server';
 import { sanitizeInstitutionalHtml } from '@/lib/sanitize';
 import { getLocale } from '@/lib/locale-server';
-import { localizedPath, buildHreflangAlternates } from '@/lib/locale';
+import { localizedPath, buildHreflangAlternates, SITE_URL } from '@/lib/locale';
+import { escapeJsonLd } from '@/lib/json-ld';
 import { t as _t } from '@/lib/constants';
 import { ContactForm } from './ContactForm';
 import './institucional.css';
@@ -83,7 +84,6 @@ export async function generateMetadata({
     .eq('id', pageParam)
     .maybeSingle();
 
-  const SITE_URL = 'https://tauzeclass.com.br';
   const path = `/institucional?page=${pageParam}`;
 
   if (!pageData) {
@@ -106,13 +106,14 @@ export async function generateMetadata({
         url: fallbackUrl,
         type: 'website',
         locale: lang === 'es' ? 'es_AR' : 'pt_BR',
-        images: [{ url: 'https://tauzeclass.com.br/assets/hero_farm.webp', width: 1200, height: 630 }],
+        alternateLocale: lang === 'es' ? 'pt_BR' : 'es_AR',
+        images: [{ url: `${SITE_URL}/assets/hero_farm.webp`, width: 1200, height: 630 }],
       },
       twitter: {
         card: 'summary_large_image',
         title: TRANSLATIONS[lang].fallbackTitle,
         description: TRANSLATIONS[lang].fallbackDescription,
-        images: ['https://tauzeclass.com.br/assets/hero_farm.webp'],
+        images: [`${SITE_URL}/assets/hero_farm.webp`],
       },
     };
   }
@@ -151,13 +152,14 @@ export async function generateMetadata({
       url: canonicalUrl,
       type: 'website',
       locale: lang === 'es' ? 'es_AR' : 'pt_BR',
-      images: [{ url: 'https://tauzeclass.com.br/assets/hero_farm.webp', width: 1200, height: 630 }],
+      alternateLocale: lang === 'es' ? 'pt_BR' : 'es_AR',
+      images: [{ url: `${SITE_URL}/assets/hero_farm.webp`, width: 1200, height: 630 }],
     },
     twitter: {
       card: 'summary_large_image',
       title,
       description,
-      images: ['https://tauzeclass.com.br/assets/hero_farm.webp'],
+      images: [`${SITE_URL}/assets/hero_farm.webp`],
     },
   };
 }
@@ -263,8 +265,16 @@ export default async function InstitucionalPage({
 
   const currentPageData = pages.find(p => p.id === pageParam);
 
+  // BUG CORRIGIDO (achado durante a auditoria de SEO, fora da lista original
+  // de achados): este redirect não passava por localizedPath() — um
+  // visitante em /es/institucional?page={slug-inexistente} caía de volta em
+  // /institucional?page={pages[0].id} SEM o prefixo /es, perdendo o locale
+  // no meio da navegação. Mesma classe de bug já corrigida em outros pontos
+  // do site (ver comentários "BUG CORRIGIDO (achado na verificação
+  // pós-merge)" em proxy.ts) — todo redirect interno deve preservar o locale
+  // ativo via localizedPath().
   if (!currentPageData && pageParam !== pages[0].id) {
-    redirect(`/institucional?page=${pages[0].id}`);
+    redirect(localizedPath(`/institucional?page=${pages[0].id}`, lang));
   }
 
   const activePage = currentPageData || pages[0];
@@ -283,6 +293,25 @@ export default async function InstitucionalPage({
   const activeContent = localize(lang, activePage.content, activePage.content_es);
   const safeData = activeContent ? sanitizeInstitutionalHtml(activeContent) : null;
 
+  // BUG CORRIGIDO (auditoria de SEO): breadcrumb visual real já existe
+  // (Início > Institucional, ver <nav className="breadcrumb"> abaixo) mas
+  // nunca tinha o schema.org BreadcrumbList correspondente — mesmo padrão já
+  // usado em anuncio/[slug]/page.tsx e categoria/[slug]/page.tsx. Só 2 níveis
+  // (sem um item "Institucional" no meio): a seção institucional não tem uma
+  // URL de índice própria (o que a UI mostra como "Institucional" é só um
+  // rótulo, não uma página navegável) — um item de BreadcrumbList sem `item`
+  // (URL) associado não agrega nada ao rich result.
+  const activePageUrl = `${SITE_URL}${localizedPath(`/institucional?page=${activePage.id}`, lang)}`;
+  const breadcrumbJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: _t('nav_home', lang), item: `${SITE_URL}${localizedPath('/', lang)}` },
+      { '@type': 'ListItem', position: 2, name: localize(lang, activePage.title, activePage.title_es), item: activePageUrl },
+    ],
+  };
+  const safeBreadcrumbJsonLd = escapeJsonLd(breadcrumbJsonLd);
+
   const NavLink = ({ id, icon_name, label }: { id: string; icon_name: string; label: string }) => {
     const isActive = activePage.id === id;
     const icon = ICON_MAP[icon_name] || ICON_MAP['file'];
@@ -296,6 +325,7 @@ export default async function InstitucionalPage({
 
   return (
     <main style={{ minHeight: '80vh', paddingBottom: '4rem' }}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeBreadcrumbJsonLd }} />
       <div className="list-hero" style={{ marginTop: 'var(--header-h)' }}>
         <div className="container">
           <div className="list-hero-inner">

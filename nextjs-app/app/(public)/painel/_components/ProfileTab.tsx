@@ -14,6 +14,10 @@ import { Lock } from 'lucide-react';
 const TRANSLATIONS = {
   pt: {
     title: 'Meu Perfil', subtitle: 'Informações da sua conta',
+    profileAvatar: 'Foto de Perfil',
+    changeAvatar: 'Trocar foto', sendAvatar: 'Enviar foto',
+    avatarUpdated: 'Foto de perfil atualizada!',
+    avatarError: 'Erro ao enviar foto. Tente novamente.',
     profileBanner: 'Banner de Perfil',
     bannerLocked: 'Banner de perfil é um recurso do plano Premium.',
     upgrade: 'Fazer upgrade',
@@ -55,6 +59,10 @@ const TRANSLATIONS = {
   },
   es: {
     title: 'Mi Perfil', subtitle: 'Información de tu cuenta',
+    profileAvatar: 'Foto de Perfil',
+    changeAvatar: 'Cambiar foto', sendAvatar: 'Enviar foto',
+    avatarUpdated: '¡Foto de perfil actualizada!',
+    avatarError: 'Error al enviar la foto. Inténtalo de nuevo.',
     profileBanner: 'Banner de Perfil',
     bannerLocked: 'El banner de perfil es una función del plan Premium.',
     upgrade: 'Hacer upgrade',
@@ -128,6 +136,14 @@ export function ProfileTab({ user }: { user: any }) {
   const [bannerUrl, setBannerUrl] = useState<string | null>(user.profile?.banner_url || null);
   const [uploadingBanner, setUploadingBanner] = useState(false);
 
+  // GAP CORRIGIDO (achado em auditoria de imagens): avatar_url é lida em
+  // mais de 10 arquivos do app (Header, perfil público do vendedor, cards de
+  // anúncio, admin), sempre com fallback correto pra iniciais — mas nenhuma
+  // tela jamais gravou nela. Diferente do banner (Premium), avatar não tem
+  // gate de plano. Ver supabase/migrations/20260901170000_avatar_upload.sql.
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(user.profile?.avatar_url || null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
     async function loadBannerPlan() {
@@ -147,6 +163,40 @@ export function ProfileTab({ user }: { user: any }) {
     if (user?.id) loadBannerPlan();
     return () => { cancelled = true };
   }, [user?.id]);
+
+  const handleAvatarUpload = async (file: File | null) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      showToast(t.imageError, 'error');
+      return;
+    }
+    setUploadingAvatar(true);
+    try {
+      const previousUrl = avatarUrl;
+      const ext = safeFileExt(file.name);
+      const path = `${user.id}/${Date.now()}.${ext}`;
+      const sb = getSupabase();
+      const { error: upErr } = await sb.storage.from('avatars').upload(path, file, { cacheControl: '31536000', upsert: false });
+      if (upErr) throw upErr;
+      const { data: { publicUrl } } = sb.storage.from('avatars').getPublicUrl(path);
+      await updateProfile(user.id, { avatar_url: publicUrl });
+      setAvatarUrl(publicUrl);
+      showToast(t.avatarUpdated, 'success');
+
+      // Mesma limpeza do banner de perfil logo abaixo — evita órfão no bucket.
+      if (previousUrl) {
+        const previousPath = previousUrl.split('/avatars/')[1];
+        if (previousPath) {
+          sb.storage.from('avatars').remove([previousPath]).catch(() => {});
+        }
+      }
+    } catch (err: any) {
+      console.error('[ProfileTab] Falha ao enviar avatar:', err.message);
+      showToast(t.avatarError, 'error');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   const handleBannerUpload = async (file: File | null) => {
     if (!file) return;
@@ -278,6 +328,21 @@ export function ProfileTab({ user }: { user: any }) {
       <div className="profile-two-col">
         {/* Formulário de Dados */}
         <div className={styles.card} style={{ padding: '1.5rem' }}>
+          <p style={{ fontSize: '.75rem', fontWeight: 700, letterSpacing: '.06em', color: 'var(--clr-text-light)', textTransform: 'uppercase', marginBottom: '1rem' }}>{t.profileAvatar}</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
+            {avatarUrl ? (
+              <img src={avatarUrl} alt={t.profileAvatar} style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+            ) : (
+              <div style={{ width: 64, height: 64, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, var(--clr-primary), #0ea5e9)', color: '#fff', fontWeight: 700, fontSize: '1.5rem' }}>
+                {(user.profile?.display_name || user.profile?.name || 'U').charAt(0).toUpperCase()}
+              </div>
+            )}
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '.5rem', padding: '.6rem 1.1rem', border: '1.5px dashed var(--clr-border-light)', borderRadius: '.75rem', cursor: uploadingAvatar ? 'not-allowed' : 'pointer', background: 'var(--clr-bg-alt)', fontSize: '.85rem', fontWeight: 700 }}>
+              {uploadingAvatar ? t.sending : avatarUrl ? t.changeAvatar : t.sendAvatar}
+              <input type="file" accept="image/png,image/jpeg,image/webp" style={{ display: 'none' }} disabled={uploadingAvatar} onChange={e => handleAvatarUpload(e.target.files?.[0] || null)} />
+            </label>
+          </div>
+
           <p style={{ fontSize: '.75rem', fontWeight: 700, letterSpacing: '.06em', color: 'var(--clr-text-light)', textTransform: 'uppercase', marginBottom: '1rem' }}>{t.profileBanner}</p>
           {!hasBannerPlan ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '.6rem', padding: '.9rem 1rem', background: 'var(--clr-bg-alt)', borderRadius: '.75rem', color: 'var(--clr-text-muted)', fontSize: '.88rem', marginBottom: '1.5rem' }}>

@@ -8,6 +8,7 @@ import { getMyAds, toggleAdStatus } from '@/lib/supabase';
 import { deleteAd } from '@/lib/supabase-panel';
 import { showToast } from '@/lib/toast';
 import { usePushNotifications } from './usePush';
+import { AdQuotaGraceBanner } from './AdQuotaGraceBanner';
 import { useConfirm } from '@/components/ui/ConfirmProvider';
 import { imageUrl } from '@/lib/storage';
 import { useLang } from '@/lib/lang-context';
@@ -148,6 +149,7 @@ export function MyAdsTab({ userId, adStats, planMeta }: { userId: string, adStat
 
   return (
     <div className={styles.fadeIn}>
+      <AdQuotaGraceBanner userId={userId} />
       <div className={styles.flexBetween}>
         <div>
           <h1 className={styles.headerTitle}>{t.title}</h1>

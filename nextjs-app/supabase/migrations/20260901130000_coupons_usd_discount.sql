@@ -1,0 +1,24 @@
+-- ============================================================================
+--  coupons.discount_value_usd — cupom de valor fixo em cobrança internacional
+-- ============================================================================
+--
+--  Efeito colateral direto de plans.price_usd (20260901120000): um cupom
+--  discount_type='fixed' é cadastrado num número cru sem moeda associada
+--  (sempre tratado como BRL em app/api/checkout/route.ts). Aplicar esse
+--  número cru numa cobrança em USD descontaria o valor errado (ex.: "R$20
+--  off" virando "US$20 off" — ~5x mais generoso ao câmbio atual). O código
+--  hoje simplesmente PULA o desconto fixo quando a cobrança é USD, mas o
+--  CheckoutModal continua mostrando "cupom aplicado" com o valor em R$,
+--  cobrando o preço cheio sem avisar — cupom fixo era, na prática, morto
+--  para todo cliente internacional.
+--
+--  discount_value_usd é o equivalente em dólar que o admin cadastra à parte
+--  (mesmo padrão de plans.price_usd/promotional_price_usd — dois campos
+--  fixos, não conversão automática pela cotação do dia, pelo mesmo motivo:
+--  previsibilidade pro cliente recorrente). Nulo preserva o comportamento
+--  atual (cupom fixo sem efeito em USD) — mas agora o front consegue avisar
+--  em vez de fingir que aplicou. Cupom percentage não usa esta coluna,
+--  já funciona em qualquer moeda.
+-- ============================================================================
+
+alter table public.coupons add column if not exists discount_value_usd numeric;

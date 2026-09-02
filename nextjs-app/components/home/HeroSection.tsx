@@ -25,7 +25,7 @@ export async function HeroSection({ stats }: { stats: any }) {
 
             <h1 className="hero-h1" id="hero-heading">
               <span>{t('hero_title')}</span>
-              <span className="grad"> {t('hero_highlight')}</span><br />
+              <span className="grad"> {t('hero_highlight')}</span><br />{' '}
               <span>{t('hero_title2')}</span>
             </h1>
 

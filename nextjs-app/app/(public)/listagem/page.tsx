@@ -7,15 +7,16 @@ import { t as _t } from '@/lib/constants';
 import { escapeJsonLd } from '@/lib/json-ld';
 import { imageUrl } from '@/lib/storage';
 import { getLocale } from '@/lib/locale-server';
-import { localizedPath, buildHreflangAlternates } from '@/lib/locale';
+import { localizedPath, buildHreflangAlternates, SITE_URL } from '@/lib/locale';
 
-const SITE_URL = 'https://tauzeclass.com.br';
 // Imagem genérica do site pra OG/Twitter/JSON-LD quando não há categoria ou
 // foto específica — mesmo asset (existente de fato em public/assets) usado
-// como FALLBACK_IMG em app/(public)/anuncio/[id]/page.tsx. NÃO reaproveita
-// '/assets/og-home.jpg' (usado em leiloes/page.tsx e eventos/page.tsx): esse
-// arquivo não existe em public/assets, então essas duas páginas hoje
-// declaram uma og:image quebrada — fora do escopo deste agente corrigir.
+// como FALLBACK_IMG em app/(public)/anuncio/[id]/page.tsx. leiloes/page.tsx e
+// eventos/page.tsx já foram corrigidos numa rodada anterior de auditoria e
+// usam o MESMO fallback (hero_farm.webp) — o og:image quebrado que
+// referenciava '/assets/og-home.jpg' (arquivo que nunca existiu em
+// public/assets) não existe mais em nenhuma página do site (conferido nesta
+// auditoria).
 const FALLBACK_IMG_ABSOLUTE = `${SITE_URL}/assets/hero_farm.webp`;
 
 function absoluteImageUrl(path?: string | null): string {
@@ -87,13 +88,28 @@ export async function generateMetadata({
   // variação, então ela não pertence ao canonical). Os demais parâmetros
   // (busca/ordem/página/etc.) não geram title/description distintos e por
   // isso continuam fora daqui, caindo no canonical mais genérico aplicável.
+  // BUG CORRIGIDO (teste de estresse final, 2026-09-02): quando o único
+  // filtro que afeta title/description é `categoria` (sem geo junto),
+  // /listagem?categoria=X e /categoria/X mostram o mesmo conjunto de
+  // anúncios com título quase idêntico, cada um se autodeclarando seu
+  // próprio canonical — conteúdo duplicado real pro Google (confirmado ao
+  // vivo). /categoria/[slug] é a landing pública pensada pra ser indexada
+  // (breadcrumb, JSON-LD dedicado); /listagem é a busca/filtro genérica.
+  // categories.id já É o slug usado em /categoria/[slug] (mesmo valor, sem
+  // tradução necessária), então só nesse caso simples (categoria sozinha,
+  // sem pais/estado/cidade) o canonical aponta pra lá em vez de si mesmo.
+  const soCategoriaSemGeo = !!parsedParams.categoria && !parsedParams.pais && !parsedParams.estado && !parsedParams.cidade;
   const canonicalParams = new URLSearchParams();
-  if (parsedParams.categoria) canonicalParams.set('categoria', parsedParams.categoria);
-  if (parsedParams.pais) canonicalParams.set('pais', parsedParams.pais);
-  if (parsedParams.estado) canonicalParams.set('estado', parsedParams.estado);
-  if (parsedParams.cidade) canonicalParams.set('cidade', parsedParams.cidade);
+  if (!soCategoriaSemGeo) {
+    if (parsedParams.categoria) canonicalParams.set('categoria', parsedParams.categoria);
+    if (parsedParams.pais) canonicalParams.set('pais', parsedParams.pais);
+    if (parsedParams.estado) canonicalParams.set('estado', parsedParams.estado);
+    if (parsedParams.cidade) canonicalParams.set('cidade', parsedParams.cidade);
+  }
   const canonicalQuery = canonicalParams.toString();
-  const path = `/listagem${canonicalQuery ? `?${canonicalQuery}` : ''}`;
+  const path = soCategoriaSemGeo
+    ? `/categoria/${parsedParams.categoria}`
+    : `/listagem${canonicalQuery ? `?${canonicalQuery}` : ''}`;
   const canonicalUrl = `${SITE_URL}${localizedPath(path, lang)}`;
 
   return {
@@ -116,6 +132,7 @@ export async function generateMetadata({
       url: canonicalUrl,
       type: 'website',
       locale: lang === 'es' ? 'es_AR' : 'pt_BR',
+      alternateLocale: lang === 'es' ? 'pt_BR' : 'es_AR',
       images: [{ url: FALLBACK_IMG_ABSOLUTE, width: 1200, height: 630 }],
     },
     twitter: {
@@ -163,13 +180,15 @@ function buildItemListJsonLd(ads: any[], lang: 'pt' | 'es') {
     '@type': 'ItemList',
     itemListElement: ads.map((ad: any, index: number) => {
       const adTitle = lang === 'es' ? (ad.title_es || ad.title_pt) : ad.title_pt;
+      const adUrl = `${SITE_URL}${localizedPath(`/anuncio/${ad.slug}`, lang)}`;
       return {
         '@type': 'ListItem',
         position: index + 1,
-        url: `${SITE_URL}/anuncio/${ad.slug}`,
+        url: adUrl,
         item: {
           '@type': 'Product',
           name: adTitle,
+          url: adUrl,
           // Array vazio (ad.images sem fotos) é truthy em JS — mesmo cuidado
           // já documentado em anuncio/[id]/page.tsx: sempre resolve pro
           // fallback explicitamente, nunca deixa `image: []`.
@@ -184,6 +203,7 @@ function buildItemListJsonLd(ads: any[], lang: 'pt' | 'es') {
           ...(ad.price ? {
             offers: {
               '@type': 'Offer',
+              url: adUrl,
               priceCurrency: ad.currency || 'BRL',
               price: ad.price,
               availability: 'https://schema.org/InStock',

@@ -220,23 +220,129 @@ export async function POST(req: Request) {
       updateData.current_period_end = end.toISOString()
 
     } else if (effectiveType === 'subscription.renewed') {
-      updateData.status = 'active'
-      updateData.cancel_at_period_end = false  // reset if was pending cancellation
-      updateData.updated_at = now.toISOString()
-      // Extend from current period end (not from now) to avoid gaps
-      const base = sub.current_period_end ? new Date(sub.current_period_end) : now
-      if (sub.billing_cycle === 'annual') base.setFullYear(base.getFullYear() + 1)
-      else base.setMonth(base.getMonth() + 1)
-      updateData.current_period_end = base.toISOString()
+      // BUG CORRIGIDO (achado ao vivo, teste de estresse completo,
+      // 2026-09-01): isto era um read-modify-write clássico — lia
+      // sub.current_period_end (carregado uma vez, no topo desta
+      // requisição), somava 1 mês/ano em memória, e gravava sem nenhuma
+      // condição amarrada ao valor lido. O guard de idempotência acima (por
+      // eventKey) já impede reprocessar o MESMO evento duas vezes, mas dois
+      // eventos de renovação DISTINTOS e legítimos (event.id diferentes)
+      // chegando verdadeiramente concorrentes pra mesma assinatura ainda
+      // corriam aqui: a 2ª escrita perdia o efeito da 1ª (lost update) — o
+      // período avançava só 1x em vez de 2x, sub-creditando uma renovação
+      // paga de verdade. Reproduzido ao vivo de forma independente.
+      // Corrigido com concorrência otimista + retry curto: o UPDATE só vale
+      // se current_period_end ainda for o valor que acabamos de ler; se
+      // outra requisição já mudou entre a leitura e a escrita, relê a linha
+      // e tenta de novo — a janela de corrida real é da ordem de
+      // milissegundos, poucas tentativas bastam. Este ramo persiste direto
+      // (não usa o updateData genérico mais abaixo, que não tem como
+      // expressar a condição otimista no WHERE).
+      let subAtual = sub
+      let renovado = false
+      for (let tentativa = 0; tentativa < 5 && !renovado; tentativa++) {
+        const base = subAtual.current_period_end ? new Date(subAtual.current_period_end) : now
+        if (subAtual.billing_cycle === 'annual') base.setFullYear(base.getFullYear() + 1)
+        else base.setMonth(base.getMonth() + 1)
+
+        let query = supabase
+          .from('subscriptions')
+          .update({
+            status: 'active',
+            cancel_at_period_end: false, // reset if was pending cancellation
+            current_period_end: base.toISOString(),
+            updated_at: now.toISOString(),
+          })
+          .eq('id', sub.id)
+        query = subAtual.current_period_end
+          ? query.eq('current_period_end', subAtual.current_period_end)
+          : query.is('current_period_end', null)
+
+        const { data: claimedRows, error: renewErr } = await query.select('id')
+        if (renewErr) {
+          console.error(`[Webhook:${gateway}] Falha ao renovar sub ${sub.id}:`, renewErr.message)
+          break
+        }
+        if (claimedRows && claimedRows.length > 0) {
+          renovado = true
+          // O bloco de entitlement mais abaixo ("Update user's plan in
+          // profiles table") lê updateData.current_period_end pra
+          // sincronizar profiles.plan_expires_at — como este ramo persiste
+          // fora do updateData genérico (por causa da condição otimista no
+          // WHERE, que o objeto genérico não expressa), precisa gravar o
+          // valor REALMENTE commitado aqui manualmente, ou aquele bloco
+          // sincronizaria plan_expires_at com `undefined` -> null.
+          updateData.current_period_end = base.toISOString()
+        } else {
+          const { data: fresh } = await supabase.from('subscriptions').select('*').eq('id', sub.id).maybeSingle()
+          if (!fresh) break
+          subAtual = fresh
+        }
+      }
+      if (!renovado) {
+        // BUG CORRIGIDO (teste de estresse final, 2026-09-02): esgotar as 5
+        // tentativas só logava o erro e caía no `return 200` genérico do
+        // fim da função — o gateway nunca reenvia um evento que recebeu 200,
+        // e não existe nenhum reprocessamento automático depois disso. Uma
+        // renovação paga de verdade ficava sem refletir current_period_end
+        // pra sempre, em silêncio. Retorna 409 (conflito) — os 4 adapters já
+        // tratam qualquer resposta não-2xx como falha e reenviam o evento.
+        console.error(`[Webhook:${gateway}] Não foi possível renovar sub ${sub.id} — corrida persistente após várias tentativas, revisão manual necessária.`)
+        return NextResponse.json({ error: 'Concurrent update conflict, retry needed' }, { status: 409 })
+      }
 
     } else if (effectiveType === 'subscription.cancelled') {
-      updateData.status = 'cancelled'
-      updateData.cancel_at_period_end = true
       updateData.updated_at = now.toISOString()
+      // BUG CORRIGIDO (teste de estresse final, 2026-09-02): este ramo
+      // sobrescrevia status='cancelled' incondicionalmente — um
+      // 'subscription.cancelled' entregue fora de ordem, depois de um
+      // evento mais recente já ter marcado a assinatura 'expired' (estado
+      // terminal novo da migration 20260901150000_enforce_plan_expiration_
+      // cobre_cancelled.sql), revertia 'expired' de volta pra 'cancelled' —
+      // o badge/status do admin ficava inconsistente com a realidade.
+      if (sub.status !== 'expired') {
+        updateData.status = 'cancelled'
+      }
+      // BUG CORRIGIDO (achado ao vivo, teste de estresse completo, 2026-09-01):
+      // este ramo forçava cancel_at_period_end=true incondicionalmente, mas
+      // nem toda origem de 'subscription.cancelled' é um cancelamento
+      // "normal" que preserva acesso até o fim do período. O fallback de
+      // troca de plano (finalizarCancelamentoAntigo, app/api/checkout/
+      // route.ts) cancela a assinatura ANTIGA de propósito, gravando
+      // cancel_at_period_end=false (é cancelamento IMEDIATO — a nova
+      // assinatura já assumiu o lugar, não há "período restante" prometido
+      // nessa linha). O webhook de confirmação que a Asaas dispara de volta
+      // logo em seguida sobrescrevia esse false pra true, produzindo uma
+      // mensagem visível e enganosa em BillingTab.tsx ("Cancela ao fim do
+      // período") numa assinatura que já está morta há muito tempo.
+      // Reproduzido 2x ao vivo. Só aplica cancel_at_period_end=true quando a
+      // linha ainda não estava marcada 'cancelled' por outro caminho — nesse
+      // caso é a PRIMEIRA vez que sabemos do cancelamento (ex.: cancelado
+      // direto no painel da Asaas, fora do app), e assumir "preserva acesso
+      // até o fim do período" é o padrão mais seguro. Quando já estava
+      // 'cancelled', o valor que o caminho que chegou primeiro escreveu
+      // (true no cancelamento normal do usuário, false no fallback de troca)
+      // prevalece — o webhook só confirma o status, não decide a semântica.
+      if (sub.status !== 'cancelled' && sub.status !== 'expired') {
+        updateData.cancel_at_period_end = true
+      }
 
     } else if (effectiveType === 'payment.failed' && !isProrationFailure) {
-      updateData.status = 'past_due'
-      updateData.updated_at = now.toISOString()
+      // BUG CORRIGIDO (teste de estresse final, 2026-09-02): sem essa
+      // guarda, um 'payment.failed' entregue fora de ordem (depois de um
+      // 'subscription.renewed'/'plan_changed' mais recente já ter sido
+      // processado) revertia o status de volta pra 'past_due' — aviso
+      // falso de cobrança pendente pro cliente em BillingTab.tsx numa
+      // assinatura que já está em dia. `enforce_plan_expiration` lê outra
+      // coluna pra decidir expiração, então o entitlement real nunca foi
+      // corrompido por isso — mas o mesmo padrão de concorrência otimista
+      // já usado em 'renewed'/'plan_changed' vale aplicar aqui: só marca
+      // past_due se a assinatura ainda estava 'active' (ainda não avançou
+      // por nenhum caminho mais recente).
+      if (sub.status === 'active') {
+        updateData.status = 'past_due'
+        updateData.updated_at = now.toISOString()
+      }
     }
     // 'subscription.plan_changed' não toca em status/período aqui —
     // app/api/checkout/route.ts já atualizou plan/price/billing_cycle/
@@ -244,7 +350,12 @@ export async function POST(req: Request) {
     // Stripe teve sucesso. Este evento é só a confirmação de que a fatura
     // de proração foi PAGA — ver bloco de entitlement abaixo.
 
-    if (Object.keys(updateData).length > 0) {
+    // 'subscription.renewed' já persistiu tudo sozinho acima, dentro do loop
+    // de concorrência otimista (current_period_end != {}) — rodar este
+    // UPDATE genérico de novo aqui reescreveria current_period_end SEM a
+    // condição de WHERE que protege contra a corrida, reabrindo exatamente
+    // o lost update que o loop acima existe pra evitar.
+    if (effectiveType !== 'subscription.renewed' && Object.keys(updateData).length > 0) {
       const { error: updateErr } = await supabase.from('subscriptions').update(updateData).eq('id', sub.id)
       if (updateErr) console.error(`[Webhook:${gateway}] Failed to update subscription:`, updateErr.message)
     }

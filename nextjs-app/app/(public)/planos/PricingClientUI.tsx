@@ -21,6 +21,13 @@ export interface Plan {
   description_es?: string
   price: number
   promotional_price?: number | null
+  // GAP CORRIGIDO (RESOLVER PROBLEMA GEO-LOCALIZAÇÃO): já vinham do banco via
+  // `...p` (app/(public)/planos/page.tsx faz um select sem `select=`
+  // explícito, então toda coluna de plans volta, incluindo estas), só não
+  // estavam tipadas nem usadas aqui — a página sempre mostrava R$,
+  // independente de onde o visitante está.
+  price_usd?: number | null
+  promotional_price_usd?: number | null
   currency: string
   max_ads: number
   max_photos: number
@@ -238,6 +245,47 @@ export default function PricingClientUI({ initialPlans, plansError = false }: { 
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null)
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly')
 
+  // GAP CORRIGIDO (RESOLVER PROBLEMA GEO-LOCALIZAÇÃO): a página é SSR/ISR
+  // (page.tsx: `revalidate = 3600`) — o HTML é o MESMO pra todo visitante
+  // dentro da janela de cache, então a moeda não pode ser decidida no
+  // servidor sem desligar o cache. Detecção client-side, só por IP (sem
+  // pedir permissão de GPS — preço não precisa de precisão de metros,
+  // /api/geoip já é o mesmo provedor usado em outros pontos do app via
+  // lib/useGeoLocation.ts). Default BRL: mesma regra seria usada mesmo que
+  // o geoip falhasse (ver isNational em app/api/checkout/route.ts, que
+  // também assume nacional quando o país não é conhecido) — visitante
+  // brasileiro (a maioria) nunca vê flash de preço.
+  const [displayCurrency, setDisplayCurrency] = useState<'BRL' | 'USD'>('BRL')
+
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/geoip?lang=${lang}`, { signal: AbortSignal.timeout(6000) })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (cancelled || !data?.countryCode) return
+        if (data.countryCode.toUpperCase() !== 'BR') setDisplayCurrency('USD')
+      })
+      .catch(() => { /* mantém BRL — mesmo fallback seguro do checkout */ })
+    return () => { cancelled = true }
+  }, [lang])
+
+  // Preço/moeda por plano pra exibição — mesma regra de useUsd em
+  // app/api/checkout/init/route.ts (Stripe é o único gateway internacional,
+  // mas aqui ainda nem se sabe o gateway; plan.price_usd cadastrado é o
+  // sinal de que o plano TEM preço internacional definido pelo admin). Sem
+  // price_usd, continua em BRL mesmo pra visitante fora do Brasil — igual ao
+  // fallback já usado no checkout real.
+  const priceFor = (p: Plan) => {
+    const useUsd = displayCurrency === 'USD' && p.price_usd !== null && p.price_usd !== undefined
+    return {
+      currency: useUsd ? 'USD' : 'BRL',
+      price: useUsd ? Number(p.price_usd) : Number(p.price),
+      promo: useUsd
+        ? (p.promotional_price_usd !== null && p.promotional_price_usd !== undefined ? Number(p.promotional_price_usd) : null)
+        : (p.promotional_price !== null && p.promotional_price !== undefined ? Number(p.promotional_price) : null),
+    }
+  }
+
   useEffect(() => {
     async function fetchUserPlan() {
       if (session) {
@@ -334,7 +382,7 @@ export default function PricingClientUI({ initialPlans, plansError = false }: { 
   // GAP CORRIGIDO (revisão de regras de negócio, 2026-08-25): a tabela
   // comparativa hardcodava "R$" enquanto os cards logo acima já usavam
   // plan.currency dinamicamente — mesma classe do fix em CheckoutModal.tsx.
-  const currencySymbol = (p: Plan) => getCurrencySymbol(p.currency)
+  const currencySymbol = (p: Plan) => getCurrencySymbol(priceFor(p).currency)
 
   // GAP CORRIGIDO (auditoria completa de i18n, 2026-08-26/27): nome/descrição/
   // features vinham só da coluna _pt, mesmo com lang="es" — plans.name_es/
@@ -443,28 +491,31 @@ export default function PricingClientUI({ initialPlans, plansError = false }: { 
 
                   {isFree ? (
                     <div className={styles.freePrice}><span className={styles.amount}>{t.free}</span></div>
-                  ) : (
+                  ) : (() => {
+                    const { currency: planCurrency, price: planPrice, promo: planPromo } = priceFor(plan)
+                    return (
                     <div className={styles.proPrice}>
-                      <span className={styles.currency}>{currencySymbol(plan)}</span>
+                      <span className={styles.currency}>{getCurrencySymbol(planCurrency)}</span>
 
-                      {(plan.promotional_price ?? 0) > 0 ? (
+                      {(planPromo ?? 0) > 0 ? (
                         <>
                           <span style={{ textDecoration: 'line-through', color: '#9ca3af', fontSize: '1.2rem', marginRight: '8px' }}>
-                            {formatAmount(billingCycle === 'monthly' ? plan.price : plan.price * 0.8, lang)}
+                            {formatAmount(billingCycle === 'monthly' ? planPrice : planPrice * 0.8, lang)}
                           </span>
                           <span className={styles.amount} style={{ color: '#22c55e' }}>
-                            {formatAmount(billingCycle === 'monthly' ? Number(plan.promotional_price) : Number(plan.promotional_price) * 0.8, lang)}
+                            {formatAmount(billingCycle === 'monthly' ? Number(planPromo) : Number(planPromo) * 0.8, lang)}
                           </span>
                         </>
                       ) : (
                         <span className={styles.amount}>
-                          {formatAmount(billingCycle === 'monthly' ? plan.price : plan.price * 0.8, lang)}
+                          {formatAmount(billingCycle === 'monthly' ? planPrice : planPrice * 0.8, lang)}
                         </span>
                       )}
 
                       <span className={styles.period}>{t.perMonth}</span>
                     </div>
-                  )}
+                    )
+                  })()}
                   {billingCycle === 'annual' && !isFree && (
                     <div className={styles.annualNote}>{t.annualNote}</div>
                   )}
@@ -580,9 +631,9 @@ export default function PricingClientUI({ initialPlans, plansError = false }: { 
                 </tr>
                 <tr>
                   <td><span className={styles.featName}>{t.rowPrice}</span></td>
-                  <td><strong style={{color: '#818cf8'}}>{free.price <= 0 ? t.free : currencySymbol(free) + formatAmount(free.price, lang) + t.perMonthTable}</strong></td>
-                  <td><strong style={{color: '#22c55e'}}>{currencySymbol(pro)}{formatAmount(pro.price, lang)}{t.perMonthTable}</strong></td>
-                  <td><strong style={{color: '#f59e0b'}}>{currencySymbol(premium)}{formatAmount(premium.price, lang)}{t.perMonthTable}</strong></td>
+                  <td><strong style={{color: '#818cf8'}}>{free.price <= 0 ? t.free : currencySymbol(free) + formatAmount(priceFor(free).price, lang) + t.perMonthTable}</strong></td>
+                  <td><strong style={{color: '#22c55e'}}>{currencySymbol(pro)}{formatAmount(priceFor(pro).price, lang)}{t.perMonthTable}</strong></td>
+                  <td><strong style={{color: '#f59e0b'}}>{currencySymbol(premium)}{formatAmount(priceFor(premium).price, lang)}{t.perMonthTable}</strong></td>
                 </tr>
               </tbody>
             </table>

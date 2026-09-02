@@ -4,7 +4,7 @@ import Script from 'next/script';
 import '../globals.css';
 import { LangProvider } from '@/lib/lang-context';
 import { getLocale } from '@/lib/locale-server';
-import { localizedPath, buildHreflangAlternates } from '@/lib/locale';
+import { localizedPath, buildHreflangAlternates, SITE_URL } from '@/lib/locale';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { AuthProvider } from '@/components/AuthProvider';
@@ -52,7 +52,6 @@ const METADATA_TRANSLATIONS = {
   },
 } as const;
 
-const SITE_URL = 'https://tauzeclass.com.br';
 
 export async function generateMetadata(): Promise<Metadata> {
   const lang = await getLocale();
@@ -79,15 +78,16 @@ export async function generateMetadata(): Promise<Metadata> {
       // dedicada (og-home.jpg nunca existiu em public/assets/). Usa o mesmo
       // fallback já estabelecido em components/ads/AdGallery.tsx e
       // app/(public)/anuncio/[id]/page.tsx até haver um asset de OG real.
-      images: [{ url: 'https://tauzeclass.com.br/assets/hero_farm.webp', width: 1200, height: 630, alt: m.ogImageAlt }],
+      images: [{ url: `${SITE_URL}/assets/hero_farm.webp`, width: 1200, height: 630, alt: m.ogImageAlt }],
       locale: m.locale,
+      alternateLocale: lang === 'es' ? 'pt_BR' : 'es_AR',
       siteName: 'Tauze Class',
     },
     twitter: {
       card: 'summary_large_image',
       title: m.twitterTitle,
       description: m.twitterDescription,
-      images: ['https://tauzeclass.com.br/assets/hero_farm.webp'],
+      images: [`${SITE_URL}/assets/hero_farm.webp`],
     },
     alternates: {
       canonical: canonicalUrl,
@@ -224,16 +224,34 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           dangerouslySetInnerHTML={{
             __html: `
               if ('serviceWorker' in navigator) {
-                var registrarSW = function() {
-                  navigator.serviceWorker.register('/sw.js')
-                    .then(function(r) { console.log('[SW] Registrado:', r.scope); })
-                    .catch(function(e) { console.warn('[SW] Falha:', e); });
-                };
-                // strategy="afterInteractive" pode executar DEPOIS do evento
-                // load. Nesse caso o listener nunca dispararia e o service
-                // worker jamais era registrado — era o que acontecia aqui.
-                if (document.readyState === 'complete') registrarSW();
-                else window.addEventListener('load', registrarSW);
+                if (${process.env.NODE_ENV === 'production'}) {
+                  var registrarSW = function() {
+                    navigator.serviceWorker.register('/sw.js')
+                      .then(function(r) { console.log('[SW] Registrado:', r.scope); })
+                      .catch(function(e) { console.warn('[SW] Falha:', e); });
+                  };
+                  // strategy="afterInteractive" pode executar DEPOIS do evento
+                  // load. Nesse caso o listener nunca dispararia e o service
+                  // worker jamais era registrado — era o que acontecia aqui.
+                  if (document.readyState === 'complete') registrarSW();
+                  else window.addEventListener('load', registrarSW);
+                } else {
+                  // BUG CORRIGIDO (achado ao vivo depurando o seletor de
+                  // idioma): sw.js cacheia /_next/static/* em cache-first,
+                  // assumindo nome de arquivo com hash e conteúdo imutável —
+                  // premissa válida em produção (next build), mas NÃO em
+                  // next dev (Turbopack pode reusar a mesma URL de chunk
+                  // entre edições). Resultado: qualquer visitante que já
+                  // tivesse o SW registrado de uma sessão de dev anterior
+                  // continuava recebendo JS ANTIGO depois de uma correção de
+                  // código, mesmo com o servidor já recompilado — mascarando
+                  // o próprio fix sem erro nenhum visível. Fora de produção,
+                  // desregistra qualquer SW remanescente em vez de registrar
+                  // um novo.
+                  navigator.serviceWorker.getRegistrations().then(function(regs) {
+                    regs.forEach(function(r) { r.unregister(); });
+                  });
+                }
               }
             `
           }}

@@ -47,14 +47,25 @@ serve(async (req) => {
 
     const strategy = settings.retention_strategy || 'metadata'
     
+    // BUG CORRIGIDO (achado em auditoria de imagens, validação ao vivo): o
+    // enum real de `ads.status` é pending/active/rejected/paused/expired/
+    // draft/deleted — 'archived' e 'cancelled' NUNCA existiram nesse enum
+    // (confirmado ao vivo: um filtro com esses valores retorna erro de tipo
+    // inválido do Postgres, não zero linhas). Esta query sempre falhou
+    // silenciosamente (capturada pelo catch externo, respondendo 400) desde
+    // que a função existe — nenhum anúncio jamais foi arquivado por este
+    // job, independente do bug de limpeza de imagem corrigido acima.
+    // Estados escolhidos: expired/deleted/rejected nunca voltam a ficar
+    // ativos sozinhos (diferente de paused, reversível pelo próprio dono).
+    //
     // 2. Fetch ads to archive (older than 180 days, inactive)
     const sixMonthsAgo = new Date()
     sixMonthsAgo.setDate(sixMonthsAgo.getDate() - 180)
-    
+
     const { data: oldAds, error: adsError } = await supabaseClient
       .from('ads')
       .select('*')
-      .in('status', ['archived', 'cancelled'])
+      .in('status', ['expired', 'deleted', 'rejected'])
       .lt('updated_at', sixMonthsAgo.toISOString())
       .limit(50) // Batch process
 
@@ -70,11 +81,17 @@ serve(async (req) => {
         let mediaLogs = []
         let coldStorageUrl = null
 
-        // If ad has images/videos, handle them
-        if (ad.media && Array.isArray(ad.media)) {
+        // BUG CORRIGIDO (achado em auditoria de imagens): este bloco lia
+        // `ad.media` e o bucket `'ads'` — nenhum dos dois existe no schema
+        // real (a coluna é `ads.images`, o bucket é `ad-images`, ver
+        // lib/supabase.ts uploadAdImage). `ad.media` sempre foi `undefined`
+        // em produção, então este `if` nunca era verdadeiro: nenhuma imagem
+        // de anúncio arquivado/excluído por este job jamais foi limpa do
+        // Storage, silenciosamente, desde que a função existe.
+        if (ad.images && Array.isArray(ad.images)) {
           if (strategy === 'metadata') {
             // A. Just save metadata
-            mediaLogs = ad.media.map((url: string) => ({
+            mediaLogs = ad.images.map((url: string) => ({
               original_url: url,
               deleted_at: new Date().toISOString(),
               reason: 'Data Retention Policy (180 days)'
@@ -82,16 +99,16 @@ serve(async (req) => {
           } else if (strategy === 'cold_storage') {
             // B. Cold storage logic (mocked structure for S3 compatible APIs)
             // Here you would download from Supabase and upload to S3 using settings.s3_access_key
-            mediaLogs = ad.media.map((url: string) => ({
+            mediaLogs = ad.images.map((url: string) => ({
               original_url: url,
               moved_to_cold_storage: true
             }))
             coldStorageUrl = `s3://${settings.s3_bucket}/archives/${ad.id}`
           }
-
-          // Delete from Supabase Storage (assuming standard bucket structure)
-          // const paths = ad.media.map(url => getPathFromUrl(url))
-          // await supabaseClient.storage.from('ads').remove(paths)
+          // A remoção de verdade do Storage só acontece MAIS ABAIXO, depois
+          // que o anúncio já estiver arquivado e removido de `ads` com
+          // sucesso — nunca apagar o arquivo de um anúncio que uma falha no
+          // meio do caminho deixou vivo na tabela.
         }
 
         // 3. Move to ads_archive
@@ -107,6 +124,21 @@ serve(async (req) => {
         // 4. Delete from original ads table
         const { error: deleteError } = await supabaseClient.from('ads').delete().eq('id', ad.id)
         if (deleteError) throw deleteError
+
+        // BUG CORRIGIDO (achado em auditoria de imagens): agora habilitado —
+        // o anúncio JÁ foi arquivado (passo 3) e removido de `ads` (passo 4)
+        // com sucesso quando chegamos aqui, então as imagens dele em
+        // ad-images realmente nunca mais serão referenciadas por nada.
+        // Best-effort: uma falha aqui não desfaz o archive/delete acima (já
+        // committed) nem derruba o processamento dos outros anúncios do
+        // lote — só fica um arquivo extra no bucket pra próxima rodada.
+        if (ad.images && Array.isArray(ad.images) && ad.images.length > 0) {
+          const paths = ad.images.map((url: string) => url.split('/ad-images/')[1]).filter(Boolean)
+          if (paths.length > 0) {
+            const { error: removeError } = await supabaseClient.storage.from('ad-images').remove(paths)
+            if (removeError) console.error(`Falha ao limpar imagens do anuncio ${ad.id} no Storage:`, removeError.message)
+          }
+        }
 
         processedIds.push(ad.id)
       } catch (e) {

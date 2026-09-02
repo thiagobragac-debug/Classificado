@@ -3,14 +3,14 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import { createClient, createAnonClient } from '@/lib/supabase-server';
 import { isSafeExternalUrl } from '@/lib/sanitize';
+import { AdBanner } from '@/components/AdBanner';
 import LotGrid from '@/components/auctions/LotGrid';
 import { LotData } from '@/components/auctions/LotBiddingModal';
 import { imageUrl } from '@/lib/storage';
 import { escapeJsonLd } from '@/lib/json-ld';
 import { getLocale } from '@/lib/locale-server';
-import { localizedPath, buildHreflangAlternates } from '@/lib/locale';
+import { localizedPath, buildHreflangAlternates, SITE_URL } from '@/lib/locale';
 
-const SITE_URL = 'https://tauzeclass.com.br';
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 // BUG CORRIGIDO (auditoria de i18n, 2026-08-26/27 — confirmado ao vivo
@@ -99,7 +99,7 @@ export async function generateMetadata({
       const { data: byId } = await sb.from('auction_events').select('slug').eq('id', slugParam).maybeSingle();
       if (byId) permanentRedirect(localizedPath(`/leiloes/${byId.slug}`, lang));
     }
-    return { title: T.notFound };
+    notFound();
   }
 
   const title = lang === 'es' && data.title_es ? data.title_es : data.title;
@@ -137,6 +137,7 @@ export async function generateMetadata({
       url: canonicalUrl,
       type: 'website',
       locale: lang === 'es' ? 'es_AR' : 'pt_BR',
+      alternateLocale: lang === 'es' ? 'pt_BR' : 'es_AR',
       images: coverUrl
         ? [{ url: coverUrl, width: 1200, height: 630, alt: title }]
         : [],
@@ -260,13 +261,14 @@ export default async function AuctionPage(props: { params: Promise<{ slug: strin
   // existe pra um auction_event, então cai sempre no ramo "online"); não dá
   // pra inventar um Place que não existe no banco.
   const jsonLdDateLocale = lang === 'es' ? 'es-AR' : 'pt-BR';
+  const auctionUrl = `${SITE_URL}${localizedPath(`/leiloes/${auction.slug}`, lang)}`;
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Event',
     name: auctionTitle,
     startDate: new Date(auction.date).toISOString(),
     endDate: new Date(new Date(auction.date).getTime() + 4 * 60 * 60 * 1000).toISOString(),
-    url: `https://tauzeclass.com.br/leiloes/${auction.slug}`,
+    url: auctionUrl,
     eventAttendanceMode: 'https://schema.org/OnlineEventAttendanceMode',
     // Mesmo mapeamento da listagem: só 'cancelled' vira EventCancelled;
     // schema.org não tem um status "concluído" e 'closed' (encerrado
@@ -274,7 +276,7 @@ export default async function AuctionPage(props: { params: Promise<{ slug: strin
     eventStatus: auction.status === 'cancelled'
       ? 'https://schema.org/EventCancelled'
       : 'https://schema.org/EventScheduled',
-    location: { '@type': 'VirtualLocation', url: `https://tauzeclass.com.br/leiloes/${auction.slug}` },
+    location: { '@type': 'VirtualLocation', url: auctionUrl },
     description: T.descriptionText(
       new Date(auction.date).toLocaleDateString(jsonLdDateLocale),
       new Date(auction.date).toLocaleTimeString(jsonLdDateLocale, { hour: '2-digit', minute: '2-digit' })
@@ -283,8 +285,8 @@ export default async function AuctionPage(props: { params: Promise<{ slug: strin
       ? auction.cover.startsWith('http')
         ? auction.cover
         : `https://rfzuzuobwuanmbrcthqe.supabase.co/storage/v1/object/public/ad-images/${auction.cover}`
-      : 'https://tauzeclass.com.br/assets/hero_farm.webp',
-    organizer: { '@type': 'Organization', name: 'Tauze Class', url: 'https://tauzeclass.com.br' },
+      : `${SITE_URL}/assets/hero_farm.webp`,
+    organizer: { '@type': 'Organization', name: 'Tauze Class', url: SITE_URL },
   };
 
   return (
@@ -406,6 +408,11 @@ export default async function AuctionPage(props: { params: Promise<{ slug: strin
           }}>
             {T.sponsorAuction}
           </a>
+        </div>
+
+        {/* Banner - Rodape horizontal do leilao */}
+        <div style={{ marginTop: '3rem', minHeight: '120px' }}>
+          <AdBanner position="leilao_footer" />
         </div>
       </div>
     </>

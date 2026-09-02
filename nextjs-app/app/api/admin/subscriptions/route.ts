@@ -48,18 +48,44 @@ export async function GET(request: Request) {
       admin.from('subscriptions').select('*', { count: 'exact', head: true }).neq('status', 'switch_applied'),
       admin.from('subscriptions').select('*', { count: 'exact', head: true }).eq('status', 'active'),
       admin.from('subscriptions').select('*', { count: 'exact', head: true }).eq('status', 'past_due'),
-      admin.from('subscriptions').select('*', { count: 'exact', head: true }).eq('status', 'cancelled'),
-      admin.from('subscriptions').select('price').eq('status', 'active'),
+      // BUG CORRIGIDO (teste de estresse final, 2026-09-02): só contava
+      // 'cancelled', sem o estado terminal 'expired' (migration
+      // 20260901150000_enforce_plan_expiration_cobre_cancelled.sql) — o KPI
+      // "Canceladas" deixava de bater com "total - ativas - atrasadas"
+      // assim que a 1ª assinatura expirou (em vez de cancelada pelo
+      // usuário), sem nenhuma linha visível pra onde essa diferença foi.
+      admin.from('subscriptions').select('*', { count: 'exact', head: true }).in('status', ['cancelled', 'expired']),
+      admin.from('subscriptions').select('price, currency, billing_cycle').eq('status', 'active'),
     ])
     const firstError = [totalRes, ativosRes, atrasadosRes, canceladosRes, mrrRes].find(r => r.error)?.error
     if (firstError) return NextResponse.json({ error: firstError.message }, { status: 500 })
-    const mrr = (mrrRes.data || []).reduce((acc: number, r: any) => acc + (r.price || 0), 0)
+    // BUG CORRIGIDO (achado ao vivo, 2026-09-01): somar price de assinaturas
+    // em moedas diferentes (BRL + USD, ver plans.price_usd) num único número
+    // produz um MRR sem sentido (mistura Real com Dólar como se fossem a
+    // mesma unidade). Agrupa por moeda; o front mostra um card por moeda com
+    // assinatura ativa em vez de um total falso.
+    //
+    // BUG CORRIGIDO (RESOLVER PROBLEMA DESCONTO ANUAL, achado ao vivo,
+    // 2026-09-01): subscriptions.price é o valor EXATO cobrado por ciclo
+    // (ver app/api/checkout/route.ts: `price: finalPrice`) — numa assinatura
+    // anual isso é o total do ANO (preço mensal com 20% off × 12), não um
+    // valor mensal. Somar direto no "MRR" (Monthly Recurring Revenue)
+    // inflava a receita mensal de cada assinante anual em até ~12x. Divide
+    // por 12 antes de somar quando billing_cycle === 'annual', igual a toda
+    // ferramenta de billing (Stripe MRR, por ex.) normaliza receita anual
+    // pra base mensal.
+    const mrrByCurrency: Record<string, number> = {}
+    for (const r of (mrrRes.data || []) as any[]) {
+      const cur = r.currency || 'BRL'
+      const monthlyEquivalent = r.billing_cycle === 'annual' ? (r.price || 0) / 12 : (r.price || 0)
+      mrrByCurrency[cur] = (mrrByCurrency[cur] || 0) + monthlyEquivalent
+    }
     return NextResponse.json({
       total: totalRes.count || 0,
       ativos: ativosRes.count || 0,
       atrasados: atrasadosRes.count || 0,
       cancelados: canceladosRes.count || 0,
-      mrr,
+      mrrByCurrency,
     })
   }
 

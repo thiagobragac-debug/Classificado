@@ -28,7 +28,7 @@ const METADATA_I18N = {
 
 export async function generateMetadata(): Promise<Metadata> {
   const lang = await getRequestLang()
-  return METADATA_I18N[lang]
+  return { ...METADATA_I18N[lang], robots: { index: false, follow: false } }
 }
 
 export default function VerificacaoPage() {

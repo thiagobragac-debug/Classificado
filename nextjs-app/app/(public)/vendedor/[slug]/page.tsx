@@ -8,7 +8,7 @@ import { getAllCategories } from '@/lib/listagem-utils';
 import { createAnonClient } from '@/lib/supabase-server';
 import { escapeJsonLd } from '@/lib/json-ld';
 import { getLocale } from '@/lib/locale-server';
-import { localizedPath, buildHreflangAlternates } from '@/lib/locale';
+import { localizedPath, buildHreflangAlternates, SITE_URL } from '@/lib/locale';
 import { t as _t, type Lang } from '@/lib/constants';
 
 type Props = {
@@ -45,7 +45,6 @@ const resolveProfileBySlug = cache(async (slugParam: string, lang: Lang) => {
   return null;
 });
 
-const SITE_URL = 'https://tauzeclass.com.br';
 // BUG CORRIGIDO (auditoria de SEO): og-home.jpg nunca existiu em
 // public/assets/ — og:image quebrado (404) para todo vendedor sem
 // avatar/banner cadastrado. Mesmo fallback comprovadamente existente já
@@ -73,7 +72,7 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
   const lang = await getLocale();
   const profile = await resolveProfileBySlug(params.slug, lang);
 
-  if (!profile) return { title: lang === 'es' ? 'Vendedor no encontrado' : 'Vendedor não encontrado' };
+  if (!profile) notFound();
 
   const sellerName = profile.display_name || profile.name || 'Vendedor';
   const ogImage = toAbsoluteImageUrl(profile.avatar_url) || toAbsoluteImageUrl(profile.banner_url) || FALLBACK_OG_IMAGE;
@@ -101,6 +100,7 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
       url: canonicalUrl,
       type: 'profile',
       locale: lang === 'es' ? 'es_AR' : 'pt_BR',
+      alternateLocale: lang === 'es' ? 'pt_BR' : 'es_AR',
       images: [{ url: ogImage, width: 1200, height: 630, alt: `${sellerName} | Tauze Class` }],
     },
     twitter: {
@@ -168,6 +168,9 @@ export default async function VendedorPage(props: Props) {
               <nav aria-label={lang === 'es' ? 'Navegación' : 'Navegação'} className="breadcrumb">
                 <a href="/">{t('nav_home')}</a>
                 <span aria-hidden="true">›</span>
+                {/* "Vendedores" é a mesma palavra em PT e ES (cognato) —
+                    confirmado de propósito, não esquecido: sem branch de
+                    idioma porque não há tradução diferente a aplicar. */}
                 <span>Vendedores</span>
               </nav>
               <h1 className="list-hero-title">
@@ -182,7 +185,7 @@ export default async function VendedorPage(props: Props) {
       </div>
 
       <Suspense fallback={
-        <div className="container" style={{ marginTop: '-40px', position: 'relative', zIndex: 10 }}>
+        <div className="container" style={{ marginTop: '-8px', position: 'relative', zIndex: 10 }}>
            <div style={{ height: '120px', background: 'var(--clr-surface)', borderRadius: '1rem', border: '1px solid var(--clr-border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
              <span className="spinner" />
            </div>
@@ -194,13 +197,14 @@ export default async function VendedorPage(props: Props) {
           parsedParams={parsedParams}
           geoContext={geoContext}
           profile={profile}
+          lang={lang}
         />
       </Suspense>
     </main>
   );
 }
 
-async function SellerContent({ sellerId, sellerName, parsedParams, geoContext, profile }: { sellerId: string, sellerName: string, parsedParams: any, geoContext: any, profile: { created_at: string; verified: boolean | null; avatar_url: string | null; banner_url: string | null } }) {
+async function SellerContent({ sellerId, sellerName, parsedParams, geoContext, profile, lang }: { sellerId: string, sellerName: string, parsedParams: any, geoContext: any, profile: { slug: string; created_at: string; verified: boolean | null; avatar_url: string | null; banner_url: string | null }, lang: Lang }) {
   const sb = createAnonClient();
   const [
     { ads, total, nextCursor },
@@ -219,7 +223,7 @@ async function SellerContent({ sellerId, sellerName, parsedParams, geoContext, p
     '@type': 'ProfilePage',
     dateCreated: profile?.created_at ?? new Date().toISOString(),
     mainEntity: {
-      '@type': 'Person',
+      '@type': 'Organization',
       name: sellerName,
       aggregateRating: stats.total_reviews > 0 ? {
         '@type': 'AggregateRating',
@@ -236,10 +240,25 @@ async function SellerContent({ sellerId, sellerName, parsedParams, geoContext, p
   // quando um dos dois pontos é atualizado e o outro é esquecido).
   const safeJsonLd = escapeJsonLd(jsonLd);
 
+  // BUG CORRIGIDO (auditoria de SEO): breadcrumb visual real já existe
+  // (Início > Vendedores, ver <nav className="breadcrumb"> em VendedorPage
+  // acima) mas nunca tinha o schema.org BreadcrumbList correspondente —
+  // mesmo padrão já usado em anuncio/[slug]/page.tsx e categoria/[slug]/page.tsx.
+  const breadcrumbJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: _t('nav_home', lang), item: `${SITE_URL}${localizedPath('/', lang)}` },
+      { '@type': 'ListItem', position: 2, name: 'Vendedores', item: `${SITE_URL}${localizedPath(`/vendedor/${profile.slug}`, lang)}` },
+    ],
+  };
+  const safeBreadcrumbJsonLd = escapeJsonLd(breadcrumbJsonLd);
+
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd }} />
-      <div style={{ marginTop: '-40px', position: 'relative', zIndex: 10 }}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeBreadcrumbJsonLd }} />
+      <div style={{ marginTop: '-8px', position: 'relative', zIndex: 10 }}>
         <SellerProfileHeader
           sellerId={sellerId}
           sellerName={sellerName}

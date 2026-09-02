@@ -11,15 +11,22 @@ export default function robots(): MetadataRoute.Robots {
       // Google de baixar JS/CSS usados para renderizar client components,
       // o que prejudica a avaliação de páginas que dependem de hidratação.
       //
-      // BUG CORRIGIDO (revisão pós-merge da migração de i18n): o protocolo
-      // de exclusão de robôs casa por PREFIXO LITERAL do path — '/painel/'
-      // não cobre '/es/painel/'. Hoje nenhum link real do site gera esses
-      // paths sob /es (proxy.ts exclui explicitamente /painel e /admin do
-      // redirect de locale, e nada no app constrói esse href), então o
-      // risco prático é baixo — mas é defesa em profundidade barata contra
-      // qualquer link futuro que vaze pra lá (ex.: um usuário colando uma
-      // URL de recuperação de senha com o prefixo errado).
-      disallow: ['/painel/', '/admin/', '/api/', '/es/painel/', '/es/admin/', '/es/api/'],
+      // BUG CORRIGIDO (auditoria de SEO): '/painel/' e '/admin/' SAÍRAM do
+      // disallow — a própria documentação do Google recomenda NUNCA usar
+      // robots.txt para impedir indexação (só serve para poupar crawl
+      // budget). Bloquear via Disallow impede o Googlebot de sequer
+      // acessar a página e enxergar a meta noindex que ela já declara
+      // (toda rota sob /painel e /admin retorna `robots: {index: false,
+      // follow: false}` — ver app/(public)/painel/page.tsx,
+      // app/(admin)/layout.tsx etc.) — o resultado prático da combinação
+      // Disallow+noindex é o Google poder indexar a URL nua (sem snippet,
+      // "descrição não disponível por causa do robots.txt") caso algum link
+      // externo aponte pra lá, exatamente o cenário que o noindex sozinho
+      // evitaria. Sem o Disallow, a meta noindex passa a ser a única (e
+      // suficiente) fonte de verdade. '/api/' continua bloqueado: são
+      // endpoints, não páginas HTML com meta tag nenhuma, então aqui
+      // Disallow só economiza crawl budget sem conflitar com nada.
+      disallow: ['/api/', '/es/api/'],
     },
     sitemap: `${baseUrl}/sitemap.xml`,
   };

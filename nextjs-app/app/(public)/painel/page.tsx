@@ -2,8 +2,14 @@ import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase-server';
+import { createAdminClient } from '@/lib/supabase-admin';
 import { PLAN_META } from '@/lib/supabase';
 import PainelClient from './PainelClient';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 export default async function PainelPage() {
   // BUG CORRIGIDO (revalidação do zero da auditoria de i18n): fallback do
@@ -29,7 +35,29 @@ export default async function PainelPage() {
   // Ensure that if a plan has passed its plan_expires_at date, the user is downgraded.
   // This prevents infinite access if gateways fail to send a cancellation webhook
   // or if the user cancelled but their plan was set to remain active until period end.
-  await supabase.rpc('enforce_plan_expiration', { p_user_id: user.id });
+  //
+  // BUG CORRIGIDO (achado ao vivo, validação completa do Stripe, 2026-09-01):
+  // dois bugs empilhados faziam essa checagem nunca ter efeito real.
+  // (1) A função SQL tinha uma regressão (migration 20260901110000, corrigida
+  // em 20260901140000) que quebrava com erro 42703 em 100% das chamadas.
+  // (2) MESMO corrigido o SQL, chamar via `supabase` (cliente da SESSÃO do
+  // usuário, papel 'authenticated') faz o UPDATE em profiles.plan_id/
+  // subscription_status/plan_expires_at ser silenciosamente REVERTIDO pelo
+  // trigger tr_protect_sensitive_profile_fields — por design (ver migration
+  // 20260828130000): esses campos só podem mesmo ser gravados por
+  // service_role, exatamente pra impedir um usuário comum de se auto-conceder
+  // plano pago. enforce_plan_expiration é SECURITY DEFINER, mas isso não
+  // ajuda aqui — o trigger deliberadamente lê auth.role() (o papel de quem
+  // fez a chamada de verdade), não o dono da função. Corrigido usando o
+  // client admin (service_role) só para esta chamada — confirmado ao vivo
+  // que só assim os 3 campos de profiles realmente mudam. `p_user_id` segue
+  // vindo do server (user.id já resolvido acima via getUser()), nunca de
+  // entrada do cliente, então não abre brecha nenhuma.
+  const adminSupabase = createAdminClient();
+  const { error: expirationCheckError } = await adminSupabase.rpc('enforce_plan_expiration', { p_user_id: user.id });
+  if (expirationCheckError) {
+    console.error('[Painel] enforce_plan_expiration falhou — verificação de expiração de plano pode não ter rodado:', expirationCheckError.message);
+  }
 
   // Buscar perfil e secrets em paralelo com colunas específicas
   const [{ data: profileData, error: profileError }, { data: secretsData }] = await Promise.all([

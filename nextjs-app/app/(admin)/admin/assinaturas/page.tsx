@@ -5,6 +5,7 @@ import { useDebounce } from 'use-debounce'
 import { getSupabase } from '@/lib/supabase'
 import { showToast } from '@/lib/toast'
 import { useConfirm } from '@/components/ui/ConfirmProvider'
+import { getCurrencySymbol } from '@/lib/currency'
 
 export default function AdminAssinaturas() {
   const { confirm } = useConfirm()
@@ -20,7 +21,7 @@ export default function AdminAssinaturas() {
   // de verdade no servidor via .range(), e os KPIs vêm de contagens/soma
   // globais separadas (loadCounts()), não do array já paginado.
   const [totalSubscriptions, setTotalSubscriptions] = useState(0)
-  const [counts, setCounts] = useState({ total: 0, ativos: 0, atrasados: 0, cancelados: 0, mrr: 0 })
+  const [counts, setCounts] = useState({ total: 0, ativos: 0, atrasados: 0, cancelados: 0, mrrByCurrency: {} as Record<string, number> })
 
   // Filters
   const [search, setSearch] = useState('')
@@ -77,7 +78,7 @@ export default function AdminAssinaturas() {
         ativos: body.ativos || 0,
         atrasados: body.atrasados || 0,
         cancelados: body.cancelados || 0,
-        mrr: body.mrr || 0,
+        mrrByCurrency: body.mrrByCurrency || {},
       })
     } else {
       showToast('Erro ao carregar contadores: ' + (body.error || ''), 'error')
@@ -146,7 +147,14 @@ export default function AdminAssinaturas() {
   }
 
   // KPIs: globais, vindos de loadCounts() — não dependem da página/filtro atual
-  const { total, ativos, atrasados, cancelados, mrr } = counts
+  const { total, ativos, atrasados, cancelados, mrrByCurrency } = counts
+  // BUG CORRIGIDO (achado ao vivo, 2026-09-01): um card por moeda com
+  // assinatura ativa — nunca soma BRL com USD (ver mrrByCurrency em
+  // app/api/admin/subscriptions/route.ts). BRL sempre aparece primeiro
+  // mesmo com valor 0 (é o caso normal, sem assinatura internacional).
+  const mrrCurrencies = Object.keys(mrrByCurrency).includes('BRL')
+    ? Object.keys(mrrByCurrency)
+    : ['BRL', ...Object.keys(mrrByCurrency)]
 
   const totalPages = Math.ceil(totalSubscriptions / pageSize)
 
@@ -171,11 +179,16 @@ export default function AdminAssinaturas() {
           <div><div className="adm-stat-val" style={{ color: 'var(--adm-amber)' }}>{atrasados}</div><div className="adm-stat-lbl">Atrasadas</div></div>
         </div>
         <div className="adm-stat-card">
-          <div><div className="adm-stat-val" style={{ color: 'var(--adm-red)' }}>{cancelados}</div><div className="adm-stat-lbl">Canceladas</div></div>
+          <div><div className="adm-stat-val" style={{ color: 'var(--adm-red)' }}>{cancelados}</div><div className="adm-stat-lbl">Canceladas/Expiradas</div></div>
         </div>
-        <div className="adm-stat-card">
-          <div><div className="adm-stat-val">R$ {mrr.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div><div className="adm-stat-lbl">Receita (MRR)</div></div>
-        </div>
+        {mrrCurrencies.map(cur => (
+          <div className="adm-stat-card" key={cur}>
+            <div>
+              <div className="adm-stat-val">{getCurrencySymbol(cur)} {(mrrByCurrency[cur] || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+              <div className="adm-stat-lbl">Receita (MRR{mrrCurrencies.length > 1 ? ` ${cur}` : ''})</div>
+            </div>
+          </div>
+        ))}
       </div>
 
       <div className="adm-card">
@@ -222,7 +235,17 @@ export default function AdminAssinaturas() {
                     {sub.plan !== 'Premium' && sub.plan !== 'Pro' && <span className="adm-badge">{sub.plan}</span>}
                   </td>
                   <td><span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--adm-text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}><div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#34D399' }}></div>{sub.gateway || 'Stripe'}</span></td>
-                  <td>R$ {Number(sub.price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                  {/* BUG CORRIGIDO (RESOLVER PROBLEMA DESCONTO ANUAL, achado ao
+                      vivo, 2026-09-01): sub.price é o total cobrado POR
+                      CICLO (ver app/api/checkout/route.ts) — numa assinatura
+                      anual isso é o valor do ano inteiro. Sem indicar o
+                      ciclo aqui, um admin lia "R$ 948,00" e presumia
+                      cobrança mensal (mesma leitura errada que inflava o
+                      card de MRR antes do fix em /api/admin/subscriptions). */}
+                  <td>
+                    {getCurrencySymbol(sub.currency)} {Number(sub.price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    <span style={{ fontSize: '0.72rem', color: 'var(--adm-text-muted)' }}> /{sub.billing_cycle === 'annual' ? 'ano' : 'mês'}</span>
+                  </td>
                   <td>
                     {sub.status === 'active' && <span className="adm-badge adm-badge--green">Ativa</span>}
                     {sub.status === 'past_due' && <span className="adm-badge adm-badge--amber">Atrasada</span>}

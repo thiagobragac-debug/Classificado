@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient, getSettings } from '@/lib/supabase-admin'
 import { selectGateway, asaasAdapter, GatewayAdapter } from '@/lib/gateways'
 import { resolverIpConfiavel } from '@/lib/ip-utils'
+import { resolveCountryCode } from '@/lib/geoip'
 import { dentroDoLimiteFallback } from '@/lib/rate-limit-fallback'
 import { getRequestLang } from '@/lib/api-lang'
 
@@ -94,7 +95,15 @@ export async function POST(req: Request) {
     }
 
     const { data: profile } = await supabase.from('profiles').select('country, name, display_name').eq('id', user.id).single()
-    const userCountry: string | undefined = profile?.country || undefined
+    // BUG CORRIGIDO (achado ao vivo, "burlar localização", 2026-09-01): mesma
+    // correção de app/api/checkout/route.ts — precisa decidir o gateway com
+    // a MESMA fonte de país que a cobrança real vai usar, senão o cartão
+    // pode ser tokenizado pra um gateway diferente do que /api/checkout
+    // realmente escolhe (ex.: token Asaas gerado aqui, mas a cobrança real
+    // decide Stripe pelo IP verdadeiro — token inútil, ou pior, usado com o
+    // gateway errado se algum caminho não revalidar).
+    const ipCountryCode = await resolveCountryCode(req.headers)
+    const userCountry: string | undefined = ipCountryCode || profile?.country || undefined
 
     const settings = await getSettings(supabase)
     const nationalDefault = settings['gateway_nacional_padrao'] || 'mercadopago'

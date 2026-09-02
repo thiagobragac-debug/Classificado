@@ -24,7 +24,18 @@ export default function AdminInstitutionalPages() {
     group_name: '',
     icon_name: '',
     content: '',
-    order_idx: 0
+    order_idx: 0,
+    // GAP CORRIGIDO (revisão institucional x admin): a página pública
+    // (app/(public)/institucional/page.tsx) já lê e mistura title_es/
+    // subtitle_es/content_es/group_name_es normalmente — o conteúdo em
+    // espanhol das 10 páginas em produção é real, não fallback. Mas este
+    // formulário nunca teve os campos _es, então não havia como editar essa
+    // tradução por aqui (só mexendo direto no banco). Mesmo gap já corrigido
+    // antes em admin/depoimentos (text_es) e admin/categorias (name_es).
+    title_es: '',
+    subtitle_es: '',
+    group_name_es: '',
+    content_es: '',
   })
 
   // To know if we are creating or editing
@@ -56,7 +67,11 @@ export default function AdminInstitutionalPages() {
       group_name: page.group_name || '',
       icon_name: page.icon_name || '',
       content: page.content || '',
-      order_idx: page.order_idx || 0
+      order_idx: page.order_idx || 0,
+      title_es: page.title_es || '',
+      subtitle_es: page.subtitle_es || '',
+      group_name_es: page.group_name_es || '',
+      content_es: page.content_es || '',
     })
     setIsEditing(true)
     setIsModalOpen(true)
@@ -70,7 +85,11 @@ export default function AdminInstitutionalPages() {
       group_name: 'Nova Categoria',
       icon_name: 'file',
       content: '',
-      order_idx: 99
+      order_idx: 99,
+      title_es: '',
+      subtitle_es: '',
+      group_name_es: '',
+      content_es: '',
     })
     setIsEditing(false)
     setIsModalOpen(true)
@@ -128,6 +147,7 @@ export default function AdminInstitutionalPages() {
     const payload = {
       ...form,
       content: sanitizeInstitutionalHtml(form.content),
+      content_es: sanitizeInstitutionalHtml(form.content_es),
       updated_at: new Date().toISOString()
     }
 
@@ -299,58 +319,102 @@ export default function AdminInstitutionalPages() {
                   </div>
                 </div>
 
-                <div className="adm-field">
-                  <label>Título da Página *</label>
-                  <input 
-                    type="text" 
-                    className="adm-input" 
-                    value={form.title} 
-                    onChange={e => setForm({...form, title: e.target.value})} 
-                    required 
-                  />
+                <div style={{ display: 'flex', gap: '16px' }}>
+                  <div className="adm-field" style={{ flex: 1 }}>
+                    <label>Título da Página *</label>
+                    <input
+                      type="text"
+                      className="adm-input"
+                      value={form.title}
+                      onChange={e => setForm({...form, title: e.target.value})}
+                      required
+                    />
+                  </div>
+                  <div className="adm-field" style={{ flex: 1 }}>
+                    <label>Título (Espanhol)</label>
+                    <input
+                      type="text"
+                      className="adm-input"
+                      value={form.title_es}
+                      onChange={e => setForm({...form, title_es: e.target.value})}
+                    />
+                  </div>
                 </div>
 
-                <div className="adm-field">
-                  <label>Subtítulo (Opcional)</label>
-                  <input 
-                    type="text" 
-                    className="adm-input" 
-                    value={form.subtitle} 
-                    onChange={e => setForm({...form, subtitle: e.target.value})} 
-                  />
+                <div style={{ display: 'flex', gap: '16px' }}>
+                  <div className="adm-field" style={{ flex: 1 }}>
+                    <label>Subtítulo (Opcional)</label>
+                    <input
+                      type="text"
+                      className="adm-input"
+                      value={form.subtitle}
+                      onChange={e => setForm({...form, subtitle: e.target.value})}
+                    />
+                  </div>
+                  <div className="adm-field" style={{ flex: 1 }}>
+                    <label>Subtítulo (Espanhol)</label>
+                    <input
+                      type="text"
+                      className="adm-input"
+                      value={form.subtitle_es}
+                      onChange={e => setForm({...form, subtitle_es: e.target.value})}
+                    />
+                  </div>
                 </div>
 
                 <div style={{ display: 'flex', gap: '16px' }}>
                   <div className="adm-field" style={{ flex: 1 }}>
                     <label>Grupo no Menu *</label>
-                    <input 
-                      type="text" 
-                      className="adm-input" 
-                      value={form.group_name} 
-                      onChange={e => setForm({...form, group_name: e.target.value})} 
-                      placeholder="ex: Ajuda & Suporte" 
-                      required 
+                    <input
+                      type="text"
+                      className="adm-input"
+                      value={form.group_name}
+                      onChange={e => setForm({...form, group_name: e.target.value})}
+                      placeholder="ex: Ajuda & Suporte"
+                      required
                     />
                   </div>
                   <div className="adm-field" style={{ flex: 1 }}>
-                    <label>Ícone do Menu (Opcional)</label>
-                    <input 
-                      type="text" 
-                      className="adm-input" 
-                      value={form.icon_name} 
-                      onChange={e => setForm({...form, icon_name: e.target.value})} 
-                      placeholder="ex: help, shield, file-text" 
+                    <label>Grupo no Menu (Espanhol)</label>
+                    <input
+                      type="text"
+                      className="adm-input"
+                      value={form.group_name_es}
+                      onChange={e => setForm({...form, group_name_es: e.target.value})}
+                      placeholder="ex: Ayuda y Soporte"
                     />
                   </div>
+                </div>
+
+                <div className="adm-field">
+                  <label>Ícone do Menu (Opcional)</label>
+                  <input
+                    type="text"
+                    className="adm-input"
+                    value={form.icon_name}
+                    onChange={e => setForm({...form, icon_name: e.target.value})}
+                    placeholder="ex: help, shield, file-text"
+                  />
                 </div>
 
                 <div className="adm-field" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '300px' }}>
                   <label>Conteúdo da Página (HTML)</label>
                   <div style={{ flex: 1, border: '1px solid var(--adm-border)', borderRadius: '8px', overflow: 'hidden' }}>
-                    <RichTextEditor 
-                      value={form.content} 
-                      onChange={value => setForm({...form, content: value})} 
-                      placeholder="Escreva o conteúdo da página aqui..." 
+                    <RichTextEditor
+                      value={form.content}
+                      onChange={value => setForm({...form, content: value})}
+                      placeholder="Escreva o conteúdo da página aqui..."
+                    />
+                  </div>
+                </div>
+
+                <div className="adm-field" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '300px' }}>
+                  <label>Conteúdo da Página em Espanhol (Opcional)</label>
+                  <div style={{ flex: 1, border: '1px solid var(--adm-border)', borderRadius: '8px', overflow: 'hidden' }}>
+                    <RichTextEditor
+                      value={form.content_es}
+                      onChange={value => setForm({...form, content_es: value})}
+                      placeholder="Escreva la traducción al español aquí (opcional)..."
                     />
                   </div>
                 </div>

@@ -9,6 +9,190 @@ diretamente. Reconfira antes do go-live.
 
 ---
 
+## ✅ Revalidação do zero + correção de regressão própria — 2026-09-02 (2ª parte)
+
+Pedido: "refazer todo teste completo do zero ao vivo novamente para
+certificar que não temos erros" — imediatamente depois da rodada abaixo.
+Metodologia: nova auditoria de código (22 domínios, tratando a rodada
+anterior como não-confirmada) + validação ao vivo direta por mim.
+
+**Achado real, ao vivo, em produção, horas depois da própria correção
+anterior**: a policy nova de `messages` (item 7 da rodada abaixo) validava
+`receiver_id` com `EXISTS (select ... from ads where ...)` — mas essa
+subquery roda como o PRÓPRIO remetente (RLS normal), e `ads` só deixa ver
+anúncio de outro dono quando `status='active'`. Resultado: **toda primeira
+mensagem pra um anúncio ainda `pending` era bloqueada**, mesmo sendo pro
+dono certo. Reproduzido ao vivo (5 cenários: contato inicial em anúncio
+`pending` falhava; com `status='active'` funcionava). Corrigido com
+`is_ad_owner()` SECURITY DEFINER (mesmo padrão de `check_report_rate_limit`)
+— migration `20260902010000_corrige_regressao_messages_receiver_id.sql`,
+aplicada e reconfirmada ao vivo: os 5 cenários (contato inicial em anúncio
+pending, resposta do dono, resposta de novo do comprador, contato de
+terceiro sem relação bloqueado, contato novo de terceiro direto pro dono
+permitido) passam certo agora.
+
+Também re-confirmados ao vivo sem regressão: `auction_events` (leilão real
+continua visível, draft de teste continua escondido), `checkout/init` (
+gateway nacional/internacional resolvendo certo), cadastro + documento
+duplicado.
+
+Auditoria de código de 2ª rodada cobrindo os gaps da 1ª (`checkout_code` e
+`ad_quota_pending`, que nunca tiveram revisão dedicada) ainda em andamento
+no momento deste registro — resultado final a ser adicionado depois.
+
+---
+
+## ✅ Teste de estresse full-system final + correções — 2026-09-02
+
+Pedido: "REALIZE UM TESTE DE STRESS DE USUARIO EM TODO SISTEMA, VALIDE TUDO...
+este teste será o final para envio para produção". Metodologia: workflow de
+auditoria de código (21 domínios, verificação adversarial de cada achado) +
+validação empírica ao vivo feita diretamente por mim, sequencial, via HTTP
+direto (sem navegador, contas descartáveis via Auth Admin API, limpeza
+confirmada por leitura independente). 42 achados brutos de código, 39
+sobreviveram à verificação — mas **2 dos achados de maior severidade (1
+crítico, 1 alto) foram refutados por MIM depois, ao confirmar contra o estado
+real de produção em vez de confiar no arquivo de migration ou numa chamada de
+teste que não replicava exatamente o que o app faz**: RLS de `ads` já esconde
+corretamente anúncio de vendedor bloqueado (confirmado via `pg_policies` ao
+vivo — o achado leu só o `DROP POLICY` do arquivo, com nome diferente do da
+policy real, e concluiu errado que a correção nunca rodou); "denúncia anônima
+quebrada" era um artefato do MEU próprio teste (`Prefer: return=representation`
+exige uma policy de SELECT em `reports` que não existe pra ninguém além de
+admin — o INSERT em si sempre funcionou; `AdReportModal.tsx` nunca usa
+`return=representation`). Fica registrado como reforço de que "provar
+rodando" só vale a pena quando a prova replica o caminho real.
+
+### 🔴 Crítico — não corrigido nesta rodada (fora do alcance de código)
+
+1. **Nem `tauzeclass.com.br` (SEO — sitemap/robots/canonical/hreflang) nem
+   `www.tauzeclass.com.br` (`NEXT_PUBLIC_BASE_URL`, retorno de checkout dos 4
+   gateways) resolvem em DNS** — confirmado via DNS público (Google), não é
+   instabilidade de ambiente. `tauzeclass.com.br` existe mas sem registro A;
+   `www.tauzeclass.com.br` é NXDOMAIN. Pode ser corte de DNS ainda pendente
+   antes do go-live — decisão de infraestrutura, fora do que corrijo em código.
+
+### 🟠 Alto — corrigidos
+
+2. **Rate limit de denúncias nunca disparava** — `check_report_rate_limit()`
+   rodava SECURITY INVOKER; `reports` não tem NENHUMA policy de SELECT pra
+   usuário comum (só admin), então o `count(*)` do trigger sempre via 0
+   linhas. Reproduzido ao vivo: 13 denúncias seguidas do mesmo usuário, todas
+   aceitas. Corrigido com SECURITY DEFINER (mesmo padrão de `is_admin()` e
+   toda função de guarda do projeto) — migration
+   `20260902000000_correcoes_teste_estresse_final.sql`.
+3. **Leilões `draft` e seus lotes visíveis a qualquer anônimo** — policies
+   reais em produção ("Qualquer um pode ler eventos"/"...lotes", sem filtro)
+   não são as que nenhuma migration deste repositório criou — mesmo drift já
+   visto em `is_admin()`. Corrigido na mesma migration.
+4. **Rascunho do wizard perdia subcategoria/finalidade silenciosamente** —
+   corrida entre o `useEffect` de `StepData.tsx` e o `reset()` do rascunho no
+   componente pai (React roda efeito de filho antes do de pai — o filho já
+   gravava `prevCategoriaRef` com o valor vazio inicial antes do pai
+   restaurar o rascunho). Corrigido com um `readyRef` armado só no próximo
+   macrotask, deixando a cascata síncrona do mount assentar antes de tratar
+   qualquer mudança como intencional do usuário.
+5. **Upload de banner apagava a imagem antiga do Storage antes do "Salvar"**
+   — cancelar a edição, ou uma falha no save, deixava o banner publicado
+   apontando pra um arquivo já apagado. Corrigido: a remoção agora só roda
+   depois que `handleSave` confirma a troca persistida.
+
+### 🟡 Médio — corrigidos
+
+6. **Perfil público do vendedor sem gate de bloqueio** — `ads` já esconde
+   corretamente (ver nota acima); `profiles` nunca ganhou o mesmo filtro de
+   `is_blocked`. Corrigido na mesma migration.
+7. **`messages`: `receiver_id` não validado contra o dono do anúncio** —
+   qualquer autenticado podia iniciar conversa com qualquer outro citando
+   qualquer anúncio alheio. Corrigido consolidando as 4 policies de INSERT
+   redundantes (acumuladas por migrations que nunca limparam a anterior) numa
+   só, validando que `receiver_id` é o dono do anúncio OU alguém que já
+   mandou mensagem pro remetente sobre o mesmo anúncio (resposta legítima).
+8. **Webhook `subscription.renewed`: 5 tentativas de concorrência otimista
+   esgotadas ainda retornava 200** — o gateway nunca reenviava um evento que
+   recebeu 200, sem nenhum reprocessamento depois. Agora retorna 409.
+9. **Webhook `subscription.cancelled` atrasado revertia `expired` de volta
+   pra `cancelled`** — o estado terminal novo (`expired`,
+   `20260901150000_enforce_plan_expiration_cobre_cancelled.sql`) não era
+   reconhecido. Corrigido: só marca `cancelled`/`cancel_at_period_end` quando
+   a assinatura ainda não estava `expired`.
+10. **`payment.failed` fora de ordem revertia status pra `past_due` mesmo
+    depois de um evento mais recente já ter avançado a assinatura** — aviso
+    falso de cobrança pendente em `BillingTab.tsx` numa assinatura em dia
+    (entitlement real nunca foi afetado — `enforce_plan_expiration` lê outra
+    coluna). Corrigido: só aplica `past_due` se a assinatura ainda está
+    `active`.
+11. **Conteúdo duplicado entre `/categoria/[slug]` e
+    `/listagem?categoria=X`** — cada um se autodeclarava seu próprio
+    canonical. Corrigido: quando `categoria` é o único filtro (sem geo
+    junto), `/listagem` canonicaliza pra `/categoria/[slug]`.
+12. **`/eventos/[id]` devolvia 200 (soft-404) pra evento inexistente** —
+    não era o `notFound()` em si (chamado corretamente); um
+    `app/(public)/eventos/loading.tsx` ancestral cria um Suspense boundary
+    que já começa a streamar 200 antes do `notFound()` rodar. Reproduzido ao
+    vivo (rotas irmãs sem `loading.tsx` próprio 404am normal). Corrigido
+    removendo esse `loading.tsx` — perde o skeleton na navegação pra
+    `/eventos`, ganha status HTTP correto.
+13. **Banner do fluxo de graça de cota sempre em português** —
+    `AdQuotaGraceBanner.tsx` era o único componente do fluxo de downgrade que
+    não usava `title_es`. Corrigido.
+14. **KPI "Canceladas" sem o estado `expired`** — card deixava de bater com
+    `total - ativas - atrasadas` assim que a 1ª assinatura expirou em vez de
+    cancelada. Corrigido (conta os dois estados; renomeado pra
+    "Canceladas/Expiradas").
+
+### 🟢 Baixo — corrigidos
+
+15. Cupom fixo sem equivalente USD consumia `usage_count` mesmo dando
+    desconto zero (aviso ao cliente já existia, `CheckoutModal.tsx`) —
+    corrigido pra só marcar `appliedCoupon` quando um desconto real foi
+    aplicado.
+16. Parser de data em texto livre errava o dia de início em intervalos
+    "D1 a/- D2 de Mês" (ex.: "15 a 18 de Agosto" virava badge "18 AGO") —
+    `\D*?` não atravessa dígito, então nunca alcançava o mês partindo do
+    primeiro número. Corrigido com um padrão de intervalo tentado primeiro.
+17. `messages.content` sem `CHECK` de tamanho no banco (limite de 1000
+    era só client-side) — `CHECK (char_length(content) <= 2000)` adicionado.
+18. `messages` com GRANT de UPDATE sem nenhuma policy de UPDATE — revogado.
+19. `enforce_plan_expiration` (SECURITY DEFINER) sem REVOKE de EXECUTE,
+    chamável por `anon` com `p_user_id` arbitrário — revogado, só
+    `service_role` (único chamador real, via `createAdminClient()`).
+
+### Não corrigido nesta rodada (registrado, não esquecido)
+
+- **DNS de produção** (item crítico acima) — ação de infraestrutura, não de
+  código.
+- **Downgrade entre planos pagos pode cair no fallback de cobrança imediata
+  se o gateway nacional padrão mudar** — a troca nativa exige que o gateway
+  da assinatura atual seja igual ao vigente; o valor observado em produção
+  hoje é `asaas`, diferente do `mercadopago` historicamente documentado.
+  Vale confirmar se algum assinante antigo (gateway MP) ainda existe e se o
+  FAQ de `/planos` precisa de ressalva.
+- **Achado não confirmado**: "`checkout/route.ts` reimplementa
+  `isNativePlanSwitchEligible` em vez de importar" — não encontrei essa
+  duplicação no arquivo real; não persegui um fix pra algo que não consegui
+  reproduzir.
+- **Auditoria de código dedicada de `checkout_code`** não rodou nesta rodada
+  (falha de conexão do agente) — coberta só incidentalmente por outros
+  domínios (`recent_uncommitted_diff`, `downgrade_code`, `webhooks_code`).
+- **Subsistema novo de janela de graça de cota** (`ad_quota_pending`, criado
+  em 01/09) sem auditoria de código dedicada — só smoke-testado (cron roda
+  sem erro) e revisado manualmente por código.
+- Mercado Pago (unknown-event nunca reprocessado), CAPTCHA do Supabase Auth,
+  cadastro via Google OAuth (não testável sem conta real) — sem mudança
+  nesta rodada, ver rodadas anteriores.
+
+**Migration**: `20260902000000_correcoes_teste_estresse_final.sql` — precisa
+ser aplicada manualmente (classificador de segurança do Claude Code bloqueou
+a aplicação automática via Management API nesta sessão, mesmo read-only
+funcionando; ver [[quirks-browser-pane-testes]] na memória do projeto).
+
+Validado: `tsc --noEmit` e `vitest run` (137/137) limpos após todas as
+mudanças de código. Migration ainda NÃO aplicada em produção no momento
+deste registro.
+
+---
+
 ## ✅ Correção dos 24 achados do teste de estresse full-system — 2026-08-31
 
 Fecha a entrada "🔍 Teste de estresse full-system" logo abaixo — usuário
@@ -2305,9 +2489,10 @@ Para ligar:
    ligar o CAPTCHA no servidor sem o cliente enviar o token trava o login para
    todo mundo. Avise quando tiver as chaves que eu faço os dois lados juntos.
 
-### 3. ✅ Limites nos buckets de storage — APLICADO em 2026-08-22
+### 3. ✅ Limites nos buckets de storage — APLICADO em 2026-08-22, ATUALIZADO desde então
 
-Estado final:
+Estado final desta rodada original (2026-08-22) — **já superado**, ver nota
+abaixo:
 
 | Bucket | Público | Limite | Tipos aceitos |
 |---|---|---|---|
@@ -2333,8 +2518,28 @@ PDF em kyc-docs          -> aceito
 
 Conteúdo preexistente conferido e intacto; o logo continua servindo 200.
 
-Para revisar ou reaplicar: `node scripts/aplicar-limites-buckets.mjs`
-(dry-run) ou `--aplicar`.
+**BUG CORRIGIDO (achado em auditoria de imagens, sessão posterior):** a
+tabela acima ficou desatualizada e o "Para revisar ou reaplicar" abaixo virou
+um conselho ativamente errado — rodar o script com os valores registrados
+aqui reverteria correções de segurança feitas depois. Migrations posteriores
+mudaram o estado real para:
+
+| Bucket | Público | Limite | Tipos aceitos |
+|---|---|---|---|
+| `ad-images` | sim | 10 MB | jpeg, png, webp, **gif** |
+| `ad-videos` | sim | 50 MB | mp4, webm |
+| `profile-banners` | sim | 5 MB | jpeg, png, webp |
+| `kyc-docs` | não | 10 MB | jpeg, png, webp, **heic, heif** (perdeu o pdf — o fluxo real nunca aceitou PDF) |
+| `site-assets` | sim | — | — (não usado por nenhuma rota do app hoje) |
+
+Fonte de verdade: `supabase/migrations/20260830170200_enforce_upload_type_size_limits.sql`,
+`20260830180100_defensive_enable_rls_batch2.sql` e
+`20260830200300_hardening_kyc_docs.sql` — não esta tabela nem o script.
+
+Para conferir se o bucket real bate com as migrations (drift), não pra
+definir o valor: `node scripts/aplicar-limites-buckets.mjs` (dry-run) ou
+`--aplicar` — o script foi atualizado para espelhar os valores corretos
+acima.
 
 ---
 

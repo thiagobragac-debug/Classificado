@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
 import { useLang } from '@/lib/lang-context';
-import { switchLocalePath } from '@/lib/locale';
+import { switchLocalePath, switchLocaleQuery } from '@/lib/locale';
 import { getSupabase, getSession } from '@/lib/supabase';
 import { SECRET_SETTING_KEYS } from '@/lib/secret-settings';
 
@@ -88,10 +88,12 @@ export default function Header({
   // BUG CORRIGIDO (migração de SEO): usePathname() nunca inclui querystring
   // — preserva ela via useSearchParams() (hidrata igual no server/client,
   // diferente de window.location), senão trocar de idioma no meio de uma
-  // busca/filtro (?categoria=X) perderia o filtro ativo.
-  const searchSuffix = searchParamsForLang.toString() ? `?${searchParamsForLang.toString()}` : '';
-  const ptHref = switchLocalePath(pathname, 'pt') + searchSuffix;
-  const esHref = switchLocalePath(pathname, 'es') + searchSuffix;
+  // busca/filtro (?categoria=X) perderia o filtro ativo. switchLocaleQuery
+  // mescla esses parâmetros com o `setLocale` que o proxy precisa pra
+  // resolver a troca de idioma de verdade (ver comentário em lib/locale.ts).
+  const currentSearch = searchParamsForLang.toString();
+  const ptHref = switchLocalePath(pathname, 'pt') + switchLocaleQuery('pt', currentSearch);
+  const esHref = switchLocalePath(pathname, 'es') + switchLocaleQuery('es', currentSearch);
 
   // ─── All hooks must be declared unconditionally before any early return ──
   const [scrolled, setScrolled]         = useState(false);

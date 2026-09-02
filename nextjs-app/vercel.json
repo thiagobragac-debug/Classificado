@@ -3,6 +3,10 @@
     {
       "path": "/api/internal/expire-stale-subscriptions",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/internal/enforce-ad-quota-deadlines",
+      "schedule": "0 * * * *"
     }
   ]
 }

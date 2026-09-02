@@ -1,12 +1,12 @@
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import AuctionsBrowser from '@/components/auctions/AuctionsBrowser';
+import { AdBanner } from '@/components/AdBanner';
 import { createAnonClient } from '@/lib/supabase-server';
 import { escapeJsonLd } from '@/lib/json-ld';
 import { getLocale } from '@/lib/locale-server';
-import { localizedPath, buildHreflangAlternates } from '@/lib/locale';
+import { localizedPath, buildHreflangAlternates, SITE_URL } from '@/lib/locale';
 
-const SITE_URL = 'https://tauzeclass.com.br';
 
 // BUG CORRIGIDO (auditoria de i18n, 2026-08-26/27): metadata era um objeto
 // estático sempre em português — o <title>/description da aba nunca mudava
@@ -51,17 +51,18 @@ export async function generateMetadata(): Promise<Metadata> {
       url: canonicalUrl,
       type: 'website',
       locale: lang === 'es' ? 'es_AR' : 'pt_BR',
+      alternateLocale: lang === 'es' ? 'pt_BR' : 'es_AR',
       // BUG CORRIGIDO (auditoria de SEO): og-home.jpg nunca existiu em
       // public/assets/ — og:image quebrado (404) em toda a página de
       // leilões. Mesmo fallback comprovadamente existente já usado em
       // listagem/page.tsx e anuncio/[slug]/page.tsx.
-      images: [{ url: 'https://tauzeclass.com.br/assets/hero_farm.webp', width: 1200, height: 630, alt: ogAlt }],
+      images: [{ url: `${SITE_URL}/assets/hero_farm.webp`, width: 1200, height: 630, alt: ogAlt }],
     },
     twitter: {
       card: 'summary_large_image',
       title: ogTitle,
       description: ogDescription,
-      images: ['https://tauzeclass.com.br/assets/hero_farm.webp'],
+      images: [`${SITE_URL}/assets/hero_farm.webp`],
     },
   };
 }
@@ -172,7 +173,7 @@ export default async function LeiloesPage({ searchParams }: { searchParams: Prom
   const ORGANIZER = {
     '@type': 'Organization',
     name: 'Tauze Class',
-    url: 'https://tauzeclass.com.br',
+    url: SITE_URL,
   } as const;
 
   const jsonLdArray = {
@@ -182,12 +183,13 @@ export default async function LeiloesPage({ searchParams }: { searchParams: Prom
       const endDate = new Date(new Date(ev.date).getTime() + 4 * 60 * 60 * 1000).toISOString();
       const isOnline = !ev.location || ev.location.toLowerCase().includes('online');
       const evTitle = lang === 'es' && ev.title_es ? ev.title_es : ev.title;
+      const evUrl = `${SITE_URL}${localizedPath(`/leiloes/${ev.slug}`, lang)}`;
       return {
         '@type': 'Event',
         name: evTitle,
         startDate,
         endDate,
-        url: `https://tauzeclass.com.br/leiloes/${ev.slug}`,
+        url: evUrl,
         eventAttendanceMode: isOnline
           ? 'https://schema.org/OnlineEventAttendanceMode'
           : 'https://schema.org/OfflineEventAttendanceMode',
@@ -201,7 +203,7 @@ export default async function LeiloesPage({ searchParams }: { searchParams: Prom
             ? 'https://schema.org/EventCancelled'
             : 'https://schema.org/EventScheduled',
         location: isOnline
-          ? { '@type': 'VirtualLocation', url: `https://tauzeclass.com.br/leiloes/${ev.slug}` }
+          ? { '@type': 'VirtualLocation', url: evUrl }
           : {
               '@type': 'Place',
               name: ev.location || (lang === 'es' ? 'Ubicación del Remate' : 'Local do Leilão'),
@@ -216,7 +218,7 @@ export default async function LeiloesPage({ searchParams }: { searchParams: Prom
           ? ev.cover.startsWith('http')
             ? ev.cover
             : `https://rfzuzuobwuanmbrcthqe.supabase.co/storage/v1/object/public/ad-images/${ev.cover}`
-          : 'https://tauzeclass.com.br/assets/hero_farm.webp',
+          : `${SITE_URL}/assets/hero_farm.webp`,
         organizer: ORGANIZER,
       };
     }),
@@ -244,6 +246,11 @@ export default async function LeiloesPage({ searchParams }: { searchParams: Prom
       >
         <AuctionsBrowser events={events} loadError={loadError} />
       </Suspense>
+
+      {/* Banner - Rodape horizontal da listagem de leiloes */}
+      <div className="container" style={{ minHeight: '120px' }}>
+        <AdBanner position="leilao_footer" />
+      </div>
     </>
   );
 }

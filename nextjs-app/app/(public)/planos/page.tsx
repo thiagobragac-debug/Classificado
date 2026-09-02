@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import { SUPABASE_URL, SUPABASE_ANON } from '@/lib/supabase'
 import PricingClientUI, { Plan } from './PricingClientUI'
 import { getLocale } from '@/lib/locale-server'
-import { localizedPath, buildHreflangAlternates } from '@/lib/locale'
+import { localizedPath, buildHreflangAlternates, SITE_URL } from '@/lib/locale'
 
 type Lang = 'pt' | 'es'
 
@@ -41,7 +41,6 @@ const LOADING_I18N = {
   es: 'Cargando planes...',
 } as const
 
-const SITE_URL = 'https://tauzeclass.com.br'
 
 // BUG CORRIGIDO (auditoria de SEO): esta página não declarava `alternates`
 // nem `openGraph`/`twitter` — o Next.js mescla esses campos ausentes com os
@@ -70,6 +69,7 @@ export async function generateMetadata(): Promise<Metadata> {
       url: canonicalUrl,
       type: 'website',
       locale: lang === 'es' ? 'es_AR' : 'pt_BR',
+      alternateLocale: lang === 'es' ? 'pt_BR' : 'es_AR',
       images: [{ url: `${SITE_URL}/assets/hero_farm.webp`, width: 1200, height: 630, alt: m.ogAlt }],
     },
     twitter: {

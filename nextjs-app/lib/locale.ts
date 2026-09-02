@@ -8,6 +8,18 @@ import type { Lang } from './constants';
 // proxy.ts) fica em lib/locale-server.ts, que só Server Components podem
 // importar.
 
+// BUG CORRIGIDO (auditoria de SEO): cada página pública declarava sua PRÓPRIA
+// cópia de `const SITE_URL = 'https://tauzeclass.com.br'` (12 arquivos,
+// confirmado via grep) — hardcoded, divergente de app/sitemap.ts e
+// app/robots.ts, que sempre leram `process.env.NEXT_PUBLIC_SITE_URL` (com o
+// mesmo fallback). Em produção com o domínio de hoje o efeito é nulo, mas
+// qualquer ambiente com domínio diferente (preview, staging, uma futura
+// troca de domínio) faria canonical/OG apontarem pra produção enquanto
+// sitemap/robots seguiriam corretamente a env var — uma divergência interna
+// silenciosa. Centralizado aqui (mesmo módulo que já concentra a lógica de
+// URL por locale) para as páginas importarem em vez de redeclarar o literal.
+export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://tauzeclass.com.br';
+
 const LOCALE_PREFIX = '/es';
 
 /** Remove o prefixo /es de um path, se houver. Espelha proxy.ts (stripLocalePrefix). */
@@ -32,6 +44,26 @@ export function localizedPath(path: string, locale: Lang): string {
  */
 export function switchLocalePath(currentPath: string, targetLocale: Lang): string {
   return localizedPath(stripLocale(currentPath), targetLocale);
+}
+
+/**
+ * Querystring a anexar no link do seletor de idioma (além do path calculado
+ * por switchLocalePath). BUG CORRIGIDO (seletor PT não fazia nada quando o
+ * cookie/geo já apontava pra ES): diferente de ES, que tem o prefixo /es como
+ * sinal inequívoco de URL, PT não tem prefixo nenhum — uma navegação pra '/'
+ * é ambígua entre "visitante novo, use o cookie/geo salvo" e "acabei de
+ * clicar em PT no seletor". Sem este parâmetro, o redirect automático de
+ * proxy.ts (cookie/geo apontando pra es) devolvia o visitante pra /es antes
+ * do cookie sequer ter chance de virar 'pt' — o clique no seletor parecia
+ * simplesmente não ter efeito. proxy.ts resolve e remove este parâmetro da
+ * URL antes de qualquer outra decisão de locale, atualizando o cookie no
+ * mesmo redirect.
+ */
+export function switchLocaleQuery(targetLocale: Lang, currentSearch: string): string {
+  const params = new URLSearchParams(currentSearch);
+  params.set('setLocale', targetLocale);
+  const qs = params.toString();
+  return qs ? `?${qs}` : '';
 }
 
 /**
