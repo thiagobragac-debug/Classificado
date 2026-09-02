@@ -174,17 +174,21 @@ const formatAmount = (amount: number, lang: Lang) => formatCurrencyAmount(amount
 // (iframe do Stripe Elements / Brick do MP) — nosso servidor nunca vê número
 // nem CVV pra estes dois.
 //
-// Pagar.me continua de fora de propósito: reativá-lo ainda exige o SDK
-// client-side dele (endpoint público de tokens com a pk_), não implementado
-// aqui — teria o mesmo formulário genérico de "cartão indisponível" abaixo.
+// Pagar.me e Asaas ficam de fora desta lista de propósito: nenhum dos dois
+// tem um SDK com iframe pronto — cada um usa seu próprio formulário HTML
+// simples mais abaixo (blocos `gatewayConfig?.gateway === 'pagarme'` /
+// `=== 'asaas'`), tratado à parte tanto no aviso de "indisponível" quanto no
+// botão padrão escondido logo abaixo desta constante.
 //
-// Asaas NÃO tem tokenização client-side (a chamada exige a access_token
-// secreta, que não pode ir pro browser) — por isso não entra nesta lista,
-// mas também não cai no aviso de indisponível: usa seu próprio formulário
-// (ver bloco `gatewayConfig?.gateway === 'asaas'` mais abaixo), que tokeniza
-// via /api/checkout/tokenize-card — a ÚNICA rota que recebe PAN/CVV em
-// claro, e só o repassa à Asaas, nunca grava nem loga (ver esse arquivo).
+// Diferença entre os dois: Asaas NÃO tem tokenização client-side (a chamada
+// exige a access_token secreta, que não pode ir pro browser) — o cartão
+// passa em claro só até /api/checkout/tokenize-card, a ÚNICA rota que recebe
+// PAN/CVV, e só repassa à Asaas, nunca grava nem loga. Pagar.me tokeniza com
+// a public_key (pagarme_pub_key), então o POST vai DIRETO do navegador pra
+// api.pagar.me/core/v5/tokens (ver handlePagarmeCardSubmit) — nosso servidor
+// nunca vê PAN/CVV nesse caminho, igual Stripe/MP.
 const TOKENIZED_GATEWAYS = ['stripe', 'mercadopago']
+const CUSTOM_FORM_GATEWAYS = ['pagarme', 'asaas']
 
 export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose }: { plan: any, billingCycle?: 'monthly' | 'annual', onClose: () => void }) {
   const { session } = useAuth()
@@ -517,6 +521,49 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
     }
   }
 
+  // Pagar.me: tokeniza DIRETO contra a API deles (só a public_key,
+  // pagarme_pub_key em gatewayConfig.publicKey — mesmo par pub/secret do
+  // fluxo já validado ao vivo em lib/gateways/pagarme.ts::createSubscription).
+  // Igual ao Stripe/MP, nenhum dado de cartão passa pelo nosso servidor.
+  const handlePagarmeCardSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!gatewayConfig?.publicKey) {
+      setError(t.errCheckoutInit)
+      return
+    }
+    if (!cardHolderName || !cardNumber || !cardExpMonth || !cardExpYear || !cardCvv) {
+      setError(t.errCardIncomplete)
+      return
+    }
+    setTokenizing(true)
+    setError('')
+    try {
+      const tokRes = await fetch(`https://api.pagar.me/core/v5/tokens?appId=${gatewayConfig.publicKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'card',
+          card: {
+            number: cardNumber.replace(/\s/g, ''),
+            holder_name: cardHolderName,
+            exp_month: parseInt(cardExpMonth, 10),
+            exp_year: parseInt(cardExpYear, 10),
+            cvv: cardCvv,
+          },
+        }),
+      })
+      const tokData = await tokRes.json()
+      if (!tokRes.ok || !tokData.id) {
+        throw new Error(tokData.message || t.stripeCardError)
+      }
+      await handleServerCheckout({ gatewayToken: tokData.id })
+    } catch (err: any) {
+      setError(err.message || t.errUnexpected)
+    } finally {
+      setTokenizing(false)
+    }
+  }
+
   // BUG CORRIGIDO (validação do zero, 3ª rodada): o Brick de cartão do
   // Mercado Pago (CardPayment) recebia `initialization`/`onSubmit` como
   // literais inline — recriados em TODA re-renderização do modal. O SDK
@@ -545,7 +592,7 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
   // Cartão em Stripe/Mercado Pago é enviado pelos componentes deles, que
   // devolvem um token — nenhum dado de cartão passa por aqui.
   const handleNativeCheckout = () => {
-    if (paymentMethod === 'card' && !TOKENIZED_GATEWAYS.includes(gatewayConfig?.gateway || '')) {
+    if (paymentMethod === 'card' && !TOKENIZED_GATEWAYS.includes(gatewayConfig?.gateway || '') && !CUSTOM_FORM_GATEWAYS.includes(gatewayConfig?.gateway || '')) {
       setError(t.errCardUnavailable)
       return
     }
@@ -874,7 +921,63 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
                 </form>
               )}
 
-              {paymentMethod === 'card' && gatewayConfig && !TOKENIZED_GATEWAYS.includes(gatewayConfig.gateway) && gatewayConfig.gateway !== 'asaas' && (
+              {paymentMethod === 'card' && gatewayConfig?.gateway === 'pagarme' && (
+                <form onSubmit={handlePagarmeCardSubmit} style={{ marginBottom: '1.5rem' }}>
+                  <div style={{ marginBottom: '1rem' }}>
+                    <label htmlFor="pg-card-holder" style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>{t.cardHolderName}</label>
+                    <input
+                      id="pg-card-holder" type="text" required autoComplete="cc-name"
+                      value={cardHolderName} onChange={e => setCardHolderName(e.target.value)}
+                      style={{ width: '100%', padding: '14px 16px', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '10px', background: '#f8fafc', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div style={{ marginBottom: '1rem' }}>
+                    <label htmlFor="pg-card-number" style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>{t.cardNumber}</label>
+                    <input
+                      id="pg-card-number" type="text" required inputMode="numeric" autoComplete="cc-number" placeholder="0000 0000 0000 0000"
+                      value={cardNumber} onChange={e => setCardNumber(e.target.value)}
+                      style={{ width: '100%', padding: '14px 16px', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '10px', background: '#f8fafc', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                    <div>
+                      <label htmlFor="pg-card-exp-month" style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>{t.cardExpiry}</label>
+                      <input
+                        id="pg-card-exp-month" type="text" required inputMode="numeric" maxLength={2} placeholder="MM" autoComplete="cc-exp-month"
+                        value={cardExpMonth} onChange={e => setCardExpMonth(e.target.value)}
+                        style={{ width: '100%', padding: '10px', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '10px', background: '#f8fafc', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="pg-card-exp-year" style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>&nbsp;</label>
+                      <input
+                        id="pg-card-exp-year" type="text" required inputMode="numeric" maxLength={4} placeholder="AAAA" autoComplete="cc-exp-year"
+                        value={cardExpYear} onChange={e => setCardExpYear(e.target.value)}
+                        style={{ width: '100%', padding: '10px', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '10px', background: '#f8fafc', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="pg-card-cvv" style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>{t.cardCvv}</label>
+                      <input
+                        id="pg-card-cvv" type="text" required inputMode="numeric" maxLength={4} placeholder="000" autoComplete="cc-csc"
+                        value={cardCvv} onChange={e => setCardCvv(e.target.value)}
+                        style={{ width: '100%', padding: '10px', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '10px', background: '#f8fafc', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                  </div>
+
+                  <button type="submit" disabled={tokenizing || loading} style={{
+                    width: '100%', padding: '1rem',
+                    background: (tokenizing || loading) ? '#cbd5e1' : '#10b981', color: '#ffffff',
+                    border: 'none', borderRadius: '10px', fontSize: '1.1rem', fontWeight: 600,
+                    cursor: (tokenizing || loading) ? 'not-allowed' : 'pointer', transition: 'background 200ms'
+                  }}>
+                    {tokenizing ? t.tokenizingCard : loading ? t.processing : t.payWithCard}
+                  </button>
+                </form>
+              )}
+
+              {paymentMethod === 'card' && gatewayConfig && !TOKENIZED_GATEWAYS.includes(gatewayConfig.gateway) && !CUSTOM_FORM_GATEWAYS.includes(gatewayConfig.gateway) && (
                 <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '10px', padding: '1.25rem', marginBottom: '1.5rem' }}>
                   <p style={{ fontWeight: 700, color: '#92400e', marginBottom: '0.5rem' }}>{t.cardUnavailableTitle}</p>
                   <p style={{ fontSize: '0.875rem', color: '#78350f', margin: 0 }}>
@@ -893,7 +996,7 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
               )}
 
               {/* Botão padrão, escondido se for Stripe/MP (têm o próprio botão) ou Asaas (botão dentro do form de cartão acima) */}
-              {!(paymentMethod === 'card' && (gatewayConfig?.gateway === 'stripe' || gatewayConfig?.gateway === 'mercadopago' || gatewayConfig?.gateway === 'asaas')) && (
+              {!(paymentMethod === 'card' && (gatewayConfig?.gateway === 'stripe' || gatewayConfig?.gateway === 'mercadopago' || CUSTOM_FORM_GATEWAYS.includes(gatewayConfig?.gateway || ''))) && (
                 <button
                   type="button"
                   onClick={handleNativeCheckout}

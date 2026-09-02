@@ -1,0 +1,21 @@
+-- ============================================================================
+--  Corrige /admin/leiloes com CRUD bloqueado (achado alto, revalidação
+--  do zero, 2026-09-02)
+-- ============================================================================
+--
+-- O hardening de segurança de 31/08 revogou INSERT/UPDATE/DELETE de
+-- auction_events/auction_lots do papel `authenticated` (GRANT de tabela,
+-- não RLS) — correto para o público em geral, mas o próprio painel admin
+-- (app/(admin)/admin/leiloes/page.tsx e [id]/page.tsx) escreve DIRETO do
+-- client como `authenticated` (mesmo padrão usado em banners/categorias/
+-- cupons, que continuam funcionando porque mantiveram o GRANT). GRANT é
+-- checado ANTES da RLS — mesmo um admin real (is_admin=true) toma
+-- "permission denied for table auction_events", nunca chega a avaliar a
+-- policy "Admin gerencia leilões"/"Admins gerenciam lotes" (ambas já
+-- corretas, cmd=ALL, qual=is_admin()).
+--
+-- Restaura o GRANT pro mesmo padrão das tabelas irmãs de conteúdo
+-- administrável (banners, categories, coupons) — a RLS já existente
+-- continua sendo a única linha de defesa real, exatamente como nelas.
+grant insert, update, delete on public.auction_events to authenticated;
+grant insert, update, delete on public.auction_lots to authenticated;

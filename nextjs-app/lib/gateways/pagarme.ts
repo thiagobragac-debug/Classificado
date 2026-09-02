@@ -1,4 +1,3 @@
-import crypto from 'crypto'
 import { GatewayAdapter, WebhookEvent } from './types'
 import { assinaturaConfere } from './signature'
 
@@ -49,11 +48,31 @@ export function pagarmeAdapter(apiKey: string): GatewayAdapter {
       }
 
       // card_token (gerado por POST /core/v5/tokens no navegador, com a
-      // public_key) substitui os dados crus do cartão — nome exato do campo
-      // confirmado na doc oficial ("Propriedades do objeto credit_card"):
-      // card / card_id / card_token / network_token são mutuamente exclusivos.
-      const card = paymentData.gatewayToken
-        ? { card_token: paymentData.gatewayToken, billing_address: billingAddress }
+      // public_key) substitui os dados crus do cartão.
+      //
+      // BUG CORRIGIDO (achado ao vivo contra o sandbox real, 2026-09-02):
+      // a doc do objeto "credit_card" (usado em pedidos/orders) diz que
+      // card_token é propriedade direta, não aninhada — mas em
+      // /subscriptions isso só vale pela metade. Testado empiricamente
+      // (4 variações, cartão de teste "sucesso total" da Pagar.me
+      // 4000000000000010):
+      //   - card_token aninhado em `card` (como antes) -> 422, a API
+      //     tenta validar `card` como se fossem dados crus e ignora
+      //     card_token silenciosamente.
+      //   - card_token no nível raiz SEM billing_address em `card` -> a
+      //     assinatura é criada (200) mas a 1ª cobrança falha com
+      //     "billing | value is required" (o adquirente exige endereço
+      //     de cobrança do cartão e ele não estava chegando).
+      //   - card_token no nível raiz billing_address como irmão (raiz)
+      //     -> mesma falha acima.
+      //   - card_token no nível raiz + `card: { billing_address }` (SEM
+      //     card_token aninhado) -> cobrança "paid", assinatura "active".
+      // Ou seja: card_token e billing_address não podem estar no mesmo
+      // objeto `card` — card_token vai solto na raiz, billing_address
+      // continua dentro de `card`.
+      const cardToken = paymentData.gatewayToken
+      const card = cardToken
+        ? { billing_address: billingAddress }
         : {
             number: paymentData.creditCard!.number,
             holder_name: paymentData.creditCard!.holderName,
@@ -63,11 +82,22 @@ export function pagarmeAdapter(apiKey: string): GatewayAdapter {
             billing_address: billingAddress
           }
 
+      // BUG CORRIGIDO (achado ao vivo contra o sandbox real, 2026-09-02 —
+      // primeira vez que este adapter foi testado com credenciais válidas):
+      // billing_type='exact_day' exige billing_day (dia do mês em que a
+      // cobrança recorrente acontece) — confirmado pela própria API real
+      // ("The billing_day field is required if the billing_type is equal
+      // to 'exact_day'"), toda criação de assinatura falhava com 422 sem
+      // esse campo. Usa o dia de hoje (assinatura começa e cobra todo mês
+      // no mesmo dia) — mesmo padrão de "cobra a partir de hoje" que
+      // stripe.ts/asaas.ts já usam.
+      const billingDay = new Date().getDate()
       const body = {
         payment_method: 'credit_card',
         interval,
         interval_count: intervalCount,
         billing_type: 'exact_day', // Pagar.me recommended for cc subscriptions
+        billing_day: billingDay,
         items: [{
           description: plan.name,
           quantity: 1,
@@ -95,6 +125,7 @@ export function pagarmeAdapter(apiKey: string): GatewayAdapter {
             }
           }
         },
+        ...(cardToken ? { card_token: cardToken } : {}),
         card,
         metadata: { user_id: user.id, subscription_id: subscriptionId }
       }
@@ -135,38 +166,26 @@ export function pagarmeAdapter(apiKey: string): GatewayAdapter {
     },
     
     async validateWebhook(body, headers, secret) {
-      // ⚠️ CONFIRMADO SEM BASE DOCUMENTAL (varredura extensiva em 2026-08-24
-      // contra docs.pagar.me: visão geral de webhooks, eventos, exemplo de
-      // payload, criar/listar/obter webhook, segurança, IP allowlist) —
-      // NENHUMA página oficial do Pagar.me v5 documenta HMAC, assinatura
-      // criptográfica, ou um header 'x-hub-signature' para webhooks. Os
-      // únicos mecanismos de segurança documentados (Basic Auth, IP
-      // allowlist) são para chamadas DE ENTRADA feitas À API do Pagar.me —
-      // sentido inverso do que esta função precisa validar (uma notificação
-      // que o Pagar.me ENVIA para nós). Existe um campo opcional de "senha"
-      // na tela de cadastro do webhook no dashboard (mencionado só em um
-      // artigo de suporte de terceiros, fora da doc oficial) cuja semântica
-      // exata (Basic Auth na URL? outra coisa?) não está confirmada.
-      //
-      // NÃO PREENCHER pagarme_webhook_secret em produção até resolver isso
-      // de verdade (inspecionar os headers de um webhook real de teste no
-      // dashboard, ou perguntar ao suporte do Pagar.me) — do jeito que essa
-      // função está, preencher o secret faz a UI mostrar "configurado" mas
-      // REJEITA 100% dos webhooks reais (o Pagar.me quase certamente nunca
-      // manda 'x-hub-signature'), uma falsa sensação de segurança pior do
-      // que deixar vazio. Hoje o secret está vazio, então o fail-closed
-      // abaixo já rejeita tudo de qualquer forma — sem efeito prático ainda.
-      const sigHeader = headers['x-hub-signature']
-      if (!sigHeader) throw new Error('Missing Pagar.me signature')
-
-      if (!secret) {
-        throw new Error('Pagar.me webhook secret not configured. Rejecting webhook.')
+      // RESOLVIDO (confirmado ao vivo no painel real da Pagar.me,
+      // 2026-09-02 — a rodada de 24/08 tinha varrido só a documentação
+      // pública e não achado nada; o mecanismo real só aparece na TELA de
+      // cadastro de webhook, atrás de um toggle "Habilitar autenticação",
+      // nunca documentado publicamente). Não é HMAC nenhum: é HTTP Basic
+      // Auth simples ("Usuário do Webhook" + "Senha do Webhook" na UI deles)
+      // — a Pagar.me manda `Authorization: Basic base64(usuario:senha)` na
+      // notificação. `pagarme_webhook_secret` agora guarda os dois valores
+      // juntos no formato `usuario:senha` (mesmo texto que se cola direto
+      // da UI deles, sem transformação).
+      if (!secret || !secret.includes(':')) {
+        throw new Error('Pagar.me webhook secret not configured (esperado usuario:senha). Rejecting webhook.')
       }
 
-      const expectedSig = crypto.createHmac('sha256', secret).update(body).digest('hex')
-      const hashOnly = sigHeader.replace('sha256=', '')
-      if (!assinaturaConfere(expectedSig, hashOnly)) {
-        throw new Error('Invalid Pagar.me signature')
+      const authHeader = headers['authorization']
+      if (!authHeader) throw new Error('Missing Pagar.me Authorization header')
+
+      const expectedAuth = `Basic ${Buffer.from(secret, 'utf8').toString('base64')}`
+      if (!assinaturaConfere(expectedAuth, authHeader)) {
+        throw new Error('Invalid Pagar.me webhook credentials')
       }
 
       const event = JSON.parse(body)
@@ -240,8 +259,19 @@ export function pagarmeAdapter(apiKey: string): GatewayAdapter {
       // Mesma correção idempotente aplicada nos 4 adapters (achado ao vivo,
       // 2026-09-01, ver comentário equivalente em stripe.ts): se o gateway já
       // não tem essa assinatura, o objetivo (parar de cobrar) já está
-      // cumprido — trata 404 como sucesso em vez de travar o cancelamento.
-      if (!response.ok && response.status !== 404) {
+      // cumprido.
+      //
+      // BUG CORRIGIDO (primeiro teste ao vivo real deste adapter contra o
+      // sandbox, 2026-09-02): ao contrário dos outros 3 gateways (que
+      // respondem 404 pra "assinatura já não existe"), a Pagar.me responde
+      // **412 Precondition Failed** com {"message":"This subscription is
+      // canceled."} quando a assinatura já está cancelada — reproduzido ao
+      // vivo cancelando a mesma assinatura de teste 2x seguidas. O check só
+      // com 404 (copiado dos outros adapters sem validar contra a API real
+      // desta) nunca teria pego esse caso — reativação de assinatura
+      // (admin, flip de status local) travaria aqui exatamente como o bug
+      // original (já corrigido nos outros 3) descrevia.
+      if (!response.ok && response.status !== 404 && response.status !== 412) {
         throw new Error(`Pagar.me cancel error: ${await response.text()}`)
       }
     },
@@ -275,12 +305,18 @@ export function pagarmeAdapter(apiKey: string): GatewayAdapter {
         throw new Error('Pagar.me: assinatura existente sem item — não é possível trocar o preço.')
       }
 
+      // BUG CORRIGIDO (primeiro teste ao vivo real deste adapter contra o
+      // sandbox, 2026-09-02): faltava `status` no corpo — confirmado pela
+      // própria API real ("The status field is required"), toda troca de
+      // plano falhava com 422. Mantém o item ativo (não é uma pausa/
+      // cancelamento de item, só troca de preço/descrição).
       const patchRes = await fetch(`https://api.pagar.me/core/v5/subscriptions/${gatewaySubscriptionId}/items/${itemId}`, {
         method: 'PUT',
         headers: { 'Authorization': basicAuth, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           description: plan.name,
           quantity: 1,
+          status: 'active',
           pricing_scheme: { price: Math.round(plan.price * 100) },
         }),
       })

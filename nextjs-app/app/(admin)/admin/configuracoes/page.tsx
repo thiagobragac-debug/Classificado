@@ -715,12 +715,12 @@ export default function AdminConfiguracoes() {
                       placeholder="pk_test_..."
                     />
                     <PasswordField
-                      label="Webhook Secret"
-                      hint="Em: painel.pagar.me → Configurações → Webhooks → Secret"
+                      label="Webhook Usuário:Senha"
+                      hint="Painel Pagar.me → Configurações → Webhooks → 'Habilitar autenticação' — cole aqui como usuario:senha (confirmado ao vivo, 2026-09-02: é Basic Auth simples, não HMAC)"
                       value={get('pagarme_webhook_secret')}
                       onChange={v => set('pagarme_webhook_secret', v)}
                       jaConfigurado={estaPreenchido('pagarme_webhook_secret')}
-                      placeholder=""
+                      placeholder="usuario:senha"
                     />
                   </div>
 

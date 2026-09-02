@@ -9,6 +9,78 @@ diretamente. Reconfira antes do go-live.
 
 ---
 
+## 🔍 Migração Asaas → Pagar.me (checkout transparente, sem redirect) — 2026-09-02 (4ª parte)
+
+Pedido explícito do usuário: o checkout precisa acontecer **dentro do site**,
+sem redirecionar o cliente pro gateway. Auditada a Asaas pra esse modelo e
+achado que ela não tem opção compatível (checkout transparente ali expõe o
+site a SAQ-A-EP, hosted checkout redireciona) — decisão do usuário foi trocar
+o gateway nacional padrão pra **Pagar.me**, que já tem tokenização
+client-side com a chave pública (sem o servidor tocar em PAN/CVV) e sem
+redirect nenhum.
+
+### 🔴 Bug crítico achado ao vivo contra o sandbox real da Pagar.me
+
+O fluxo completo (tokenizar no navegador com `pk_test_...` → mandar só o
+`card_token` pro nosso servidor → `createSubscription` cobrar com a
+`sk_test_...`) falhava 100% das vezes com HTTP 422 ("The card number is
+required"), mesmo com o cartão de teste "sucesso total" da própria Pagar.me
+(`4000000000000010`). Isolado por eliminação empírica (4 variações de corpo
+testadas direto contra a API):
+
+- `card_token` **aninhado** dentro de `card: {...}` (formato que o código
+  tinha) → a API ignora `card_token` em silêncio e tenta validar `card` como
+  se fossem dados crus — daí o erro de "número do cartão obrigatório".
+- `card_token` solto na raiz **sem** `billing_address` em `card` → a
+  assinatura chega a ser criada (200), mas a 1ª cobrança falha com
+  `"billing | value is required"` (endereço de cobrança não chega no
+  adquirente).
+- `card_token` solto na raiz **+** `billing_address` também solto na raiz →
+  mesma falha acima.
+- `card_token` solto na raiz **+** `card: { billing_address }` (sem
+  `card_token` aninhado) → cobrança `"paid"`, assinatura `"active"`. ✅
+
+Corrigido em [`lib/gateways/pagarme.ts`](../lib/gateways/pagarme.ts) e
+reconfirmado rodando o **código real do adapter** (não uma réplica) via
+`tsx` contra o sandbox: token gerado só com a chave pública → 
+`pagarmeAdapter().createSubscription()` → cobrança liquidada em ~2s
+(`status: "processing"` é assentamento assíncrono normal da Pagar.me, não
+bug) → cancelamento de limpeza confirmado.
+
+Também implementado o formulário de cartão da Pagar.me em
+[`CheckoutModal.tsx`](../components/ui/CheckoutModal.tsx) (mesmo padrão do
+formulário já existente da Asaas, mas tokenizando **direto no navegador**
+contra `api.pagar.me` — nosso servidor nunca vê PAN/CVV neste caminho) e o
+retorno da chave pública em
+[`checkout/init/route.ts`](../app/api/checkout/init/route.ts). `tsc --noEmit`
+limpo.
+
+O mecanismo de autenticação do webhook (HTTP Basic Auth — usuário/senha
+cadastrados no painel deles, não HMAC) também foi confirmado ao vivo contra
+a tela real de configuração de webhook da Pagar.me e reescrito em
+`validateWebhook` — 42 testes unitários cobrindo o novo formato.
+
+### ⏳ Pendente (bloqueado em ação do usuário — não é código)
+
+`platform_settings` ainda tem `pagarme_api_key`/`pagarme_pub_key` com
+**valores placeholder** (`sk_test_12345678901234567890` /
+`pk_test_12345678901234567890`), diferentes das credenciais sandbox reais
+já usadas nos testes acima (guardadas só em `.env.local`), e
+`pagarme_webhook_secret` está vazio. Sem acesso de admin no site neste
+momento (conta de teste descartável foi apagada numa rodada anterior) —
+precisa que o usuário:
+
+1. Cole a chave pública e secreta reais em Admin → Configurações → Pagar.me.
+2. Cole `usuario:senha` do webhook (mesmo texto da tela de webhook da
+   Pagar.me) no mesmo painel.
+3. Só depois disso: um teste end-to-end de verdade pelo navegador (não só
+   API direta) — abrir `/planos`, ir até o formulário de cartão da Pagar.me,
+   confirmar assinatura "active" e o webhook chegando.
+4. Só então trocar `gateway_nacional_padrao` de `asaas` pra `pagarme` —
+   intencionalmente ainda não mexido, por ser a troca que afeta cliente real.
+
+---
+
 ## ✅ v1 no ar em produção (Vercel) + 3 bugs achados só depois do deploy real — 2026-09-02 (3ª parte)
 
 Pedido: "enviar todo projeto para github bem como salvar com primeira

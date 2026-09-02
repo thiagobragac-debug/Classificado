@@ -17,6 +17,7 @@ const ERRORS = {
     tooManyAttempts: 'Muitas tentativas. Aguarde um momento.',
     stripeNotConfigured: 'Stripe não configurado.',
     mpNotConfigured: 'Mercado Pago não configurado.',
+    pagarmeNotConfigured: 'Pagar.me não configurado.',
     stripeInitFailed: 'Não foi possível iniciar o checkout no momento. Tente novamente ou contate o suporte.',
     internal: 'Erro interno. Tente novamente.',
   },
@@ -26,6 +27,7 @@ const ERRORS = {
     tooManyAttempts: 'Demasiados intentos. Espera un momento.',
     stripeNotConfigured: 'Stripe no está configurado.',
     mpNotConfigured: 'Mercado Pago no está configurado.',
+    pagarmeNotConfigured: 'Pagar.me no está configurado.',
     stripeInitFailed: 'No se pudo iniciar el checkout en este momento. Inténtalo de nuevo o contacta al soporte.',
     internal: 'Error interno. Inténtalo de nuevo.',
   },
@@ -195,6 +197,15 @@ export async function POST(req: Request) {
       publicKey = settings['mp_public_key'] || ''
       if (!publicKey) {
         return NextResponse.json({ error: tx.mpNotConfigured }, { status: 503 })
+      }
+    } else if (!isNativePlanSwitch && gatewayName === 'pagarme') {
+      // Sem SDK client-side com iframe (como Stripe Elements/MP Bricks) — o
+      // CheckoutModal usa esta chave pública pra chamar POST
+      // core/v5/tokens?appId=... direto do navegador (ver pagarme.ts::
+      // createSubscription). Nenhum dado de cartão passa por este servidor.
+      publicKey = settings['pagarme_pub_key'] || ''
+      if (!publicKey) {
+        return NextResponse.json({ error: tx.pagarmeNotConfigured }, { status: 503 })
       }
     }
 

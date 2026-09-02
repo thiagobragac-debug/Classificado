@@ -96,6 +96,18 @@ const MP_ANTIFRAUDE = ['https://*.mercadolibre.com', 'https://*.mercadolivre.com
 // funcionava para nenhum usuário real até esta correção.
 const MP_CONNECT = ['https://api.mercadopago.com', 'https://api.mercadolibre.com', 'https://events.mercadopago.com', 'https://http2.mlstatic.com', ...MP_ANTIFRAUDE];
 
+// BUG CRÍTICO CORRIGIDO (achado testando o formulário novo da Pagar.me no
+// navegador real, 2026-09-02 — mesma classe do bug do MP_CONNECT acima, só
+// que pra Pagar.me): CheckoutModal.tsx::handlePagarmeCardSubmit tokeniza o
+// cartão chamando api.pagar.me DIRETO do navegador (só com a public_key,
+// nunca a secret — ver comentário em pagarme.ts). Sem este host em
+// connect-src, o fetch() era bloqueado pelo próprio CSP do site antes de
+// sair — "Failed to fetch" pro usuário, sem nenhuma chamada de rede chegando
+// a sair do browser. Reproduzido ao vivo: console mostrava o bloqueio de CSP
+// explicitamente ("Refused to connect... violates the document's Content
+// Security Policy").
+const PAGARME_CONNECT = ['https://api.pagar.me'];
+
 // Rotas onde o CheckoutModal roda (Card Payment Brick da Mercado Pago) — a
 // única exceção à política de script-src baseada em nonce, ver comentário
 // em buildCsp() abaixo.
@@ -178,6 +190,7 @@ function buildCsp(nonce: string, pathname: string): string {
       'https://nominatim.openstreetmap.org',  // geocodificação reversa (StepLocation)
       ...STRIPE_CONNECT,
       ...MP_CONNECT,
+      ...PAGARME_CONNECT,
       // BUG CORRIGIDO (auditoria de SEO, 2ª rodada): GA4 (app/(public)/
       // layout.tsx, carregado só se NEXT_PUBLIC_GA_MEASUREMENT_ID existir)
       // usa nonce pra passar em script-src, mas o beacon de medição em si

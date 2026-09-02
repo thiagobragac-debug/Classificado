@@ -105,31 +105,37 @@ describe('stripeAdapter.validateWebhook', () => {
 
 describe('pagarmeAdapter.validateWebhook', () => {
   const adapter = pagarmeAdapter('ak_test_fake');
+  // RESOLVIDO (confirmado ao vivo no painel real da Pagar.me, 2026-09-02):
+  // não é HMAC, é Basic Auth (usuário/senha do painel de webhooks deles).
+  // pagarme_webhook_secret guarda os dois juntos como 'usuario:senha'.
+  const PAGARME_SECRET = 'usuario_teste:senha_teste';
 
-  function assinar(body: string, secret: string) {
-    return 'sha256=' + crypto.createHmac('sha256', secret).update(body).digest('hex');
+  function autenticar(secret: string) {
+    return `Basic ${Buffer.from(secret, 'utf8').toString('base64')}`;
   }
 
-  it('rejeita sem header x-hub-signature', async () => {
-    await expect(adapter.validateWebhook('{}', {}, SECRET)).rejects.toThrow('Missing Pagar.me signature');
+  it('rejeita sem header authorization', async () => {
+    await expect(adapter.validateWebhook('{}', {}, PAGARME_SECRET)).rejects.toThrow('Missing Pagar.me Authorization header');
   });
 
   it('rejeita sem secret configurado', async () => {
     const body = '{}';
-    await expect(adapter.validateWebhook(body, { 'x-hub-signature': assinar(body, SECRET) }, '')).rejects.toThrow('secret not configured');
+    await expect(adapter.validateWebhook(body, { authorization: autenticar(PAGARME_SECRET) }, '')).rejects.toThrow('secret not configured');
   });
 
-  it('rejeita body adulterado', async () => {
-    const bodyOriginal = JSON.stringify({ id: 'evt_1', type: 'invoice.paid', data: { subscription: { id: 'sub_1' } } });
-    const header = assinar(bodyOriginal, SECRET);
-    const bodyAdulterado = JSON.stringify({ id: 'evt_1', type: 'invoice.paid', data: { subscription: { id: 'sub_forjado' } } });
-    await expect(adapter.validateWebhook(bodyAdulterado, { 'x-hub-signature': header }, SECRET)).rejects.toThrow('Invalid Pagar.me signature');
+  it('rejeita secret sem o formato usuario:senha', async () => {
+    const body = '{}';
+    await expect(adapter.validateWebhook(body, { authorization: autenticar(PAGARME_SECRET) }, 'sem-dois-pontos')).rejects.toThrow('secret not configured');
+  });
+
+  it('rejeita credenciais erradas', async () => {
+    const body = JSON.stringify({ id: 'evt_1', type: 'invoice.paid', data: { subscription: { id: 'sub_forjado' } } });
+    await expect(adapter.validateWebhook(body, { authorization: autenticar('outro:credencial') }, PAGARME_SECRET)).rejects.toThrow('Invalid Pagar.me webhook credentials');
   });
 
   it('invoice.paid com subscription -> subscription.activated (Invoice tem o campo subscription de verdade)', async () => {
     const body = JSON.stringify({ id: 'evt_1', type: 'invoice.paid', data: { subscription: { id: 'sub_1' }, customer: { id: 'cus_1', email: 'a@a.com' } } });
-    const header = assinar(body, SECRET);
-    const evt = await adapter.validateWebhook(body, { 'x-hub-signature': header }, SECRET);
+    const evt = await adapter.validateWebhook(body, { authorization: autenticar(PAGARME_SECRET) }, PAGARME_SECRET);
     expect(evt.type).toBe('subscription.activated');
     expect(evt.gatewaySubscriptionId).toBe('sub_1');
   });
@@ -140,37 +146,32 @@ describe('pagarmeAdapter.validateWebhook', () => {
     // `data.subscription` direto para charge.paid estaria testando um payload
     // que o Pagar.me nunca envia de verdade.
     const body = JSON.stringify({ id: 'evt_1', type: 'charge.paid', data: { invoice: { subscription: { id: 'sub_1' } }, customer: { id: 'cus_1' } } });
-    const header = assinar(body, SECRET);
-    const evt = await adapter.validateWebhook(body, { 'x-hub-signature': header }, SECRET);
+    const evt = await adapter.validateWebhook(body, { authorization: autenticar(PAGARME_SECRET) }, PAGARME_SECRET);
     expect(evt.type).toBe('subscription.activated');
     expect(evt.gatewaySubscriptionId).toBe('sub_1');
   });
 
   it('charge.paid SEM invoice.subscription -> unknown (cobrança avulsa, não é de assinatura)', async () => {
     const body = JSON.stringify({ id: 'evt_1', type: 'charge.paid', data: { customer: { id: 'cus_1' } } });
-    const header = assinar(body, SECRET);
-    const evt = await adapter.validateWebhook(body, { 'x-hub-signature': header }, SECRET);
+    const evt = await adapter.validateWebhook(body, { authorization: autenticar(PAGARME_SECRET) }, PAGARME_SECRET);
     expect(evt.type).toBe('unknown');
   });
 
   it('subscription.canceled (uma L) -> subscription.cancelled', async () => {
     const body = JSON.stringify({ id: 'evt_2', type: 'subscription.canceled', data: {} });
-    const header = assinar(body, SECRET);
-    const evt = await adapter.validateWebhook(body, { 'x-hub-signature': header }, SECRET);
+    const evt = await adapter.validateWebhook(body, { authorization: autenticar(PAGARME_SECRET) }, PAGARME_SECRET);
     expect(evt.type).toBe('subscription.cancelled');
   });
 
   it('charge.payment_failed com data.invoice.subscription -> payment.failed', async () => {
     const body = JSON.stringify({ id: 'evt_3', type: 'charge.payment_failed', data: { invoice: { subscription: { id: 'sub_1' } } } });
-    const header = assinar(body, SECRET);
-    const evt = await adapter.validateWebhook(body, { 'x-hub-signature': header }, SECRET);
+    const evt = await adapter.validateWebhook(body, { authorization: autenticar(PAGARME_SECRET) }, PAGARME_SECRET);
     expect(evt.type).toBe('payment.failed');
   });
 
   it('invoice.payment_failed com subscription -> payment.failed', async () => {
     const body = JSON.stringify({ id: 'evt_4', type: 'invoice.payment_failed', data: { subscription: { id: 'sub_1' } } });
-    const header = assinar(body, SECRET);
-    const evt = await adapter.validateWebhook(body, { 'x-hub-signature': header }, SECRET);
+    const evt = await adapter.validateWebhook(body, { authorization: autenticar(PAGARME_SECRET) }, PAGARME_SECRET);
     expect(evt.type).toBe('payment.failed');
   });
 
@@ -180,15 +181,13 @@ describe('pagarmeAdapter.validateWebhook', () => {
   // presa em 'active' para sempre.
   it('charge.refunded com subscription -> payment.failed', async () => {
     const body = JSON.stringify({ id: 'evt_5', type: 'charge.refunded', data: { invoice: { subscription: { id: 'sub_1' } } } });
-    const header = assinar(body, SECRET);
-    const evt = await adapter.validateWebhook(body, { 'x-hub-signature': header }, SECRET);
+    const evt = await adapter.validateWebhook(body, { authorization: autenticar(PAGARME_SECRET) }, PAGARME_SECRET);
     expect(evt.type).toBe('payment.failed');
   });
 
   it('invoice.canceled com subscription -> payment.failed', async () => {
     const body = JSON.stringify({ id: 'evt_6', type: 'invoice.canceled', data: { subscription: { id: 'sub_1' } } });
-    const header = assinar(body, SECRET);
-    const evt = await adapter.validateWebhook(body, { 'x-hub-signature': header }, SECRET);
+    const evt = await adapter.validateWebhook(body, { authorization: autenticar(PAGARME_SECRET) }, PAGARME_SECRET);
     expect(evt.type).toBe('payment.failed');
   });
 });
