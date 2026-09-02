@@ -192,6 +192,14 @@ export function pagarmeAdapter(apiKey: string): GatewayAdapter {
       let type: WebhookEvent['type'] = 'unknown'
       const dataObj = event.data || {}
 
+      // LOG TEMPORÁRIO DE DIAGNÓSTICO (2026-09-02): 6 webhooks reais
+      // chegaram num teste ao vivo contra produção e todos caíram em
+      // 'unknown' — precisa ver o event.type CRU que a Pagar.me manda de
+      // verdade antes de ajustar o mapeamento abaixo (que hoje assume só
+      // charge.paid/invoice.paid/subscription.canceled/*.payment_failed,
+      // baseado só na doc pública). Remover depois de confirmar.
+      console.info('[Webhook:pagarme] evento cru recebido:', event.type, '| tem subscriptionRef?', !!(dataObj.subscription || dataObj.invoice?.subscription))
+
       // BUG CRÍTICO CORRIGIDO: para eventos charge.* (event.data = objeto
       // Cobrança), a doc oficial confirma que Charge NÃO tem campo
       // 'subscription' nem 'subscription_id' — só o objeto Fatura (Invoice,
