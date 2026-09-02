@@ -34,6 +34,18 @@ export async function POST(req: Request) {
     req.headers.forEach((val, key) => { headers[key.toLowerCase()] = val })
 
     // Identify gateway
+    //
+    // ACHADO AO VIVO (2026-09-02): a Pagar.me não manda nenhum header
+    // próprio identificando a origem (sem 'x-gateway'/'x-source' — só
+    // Content-Type + Authorization, confirmado inspecionando os headers
+    // reais de 6 webhooks de teste que chegaram). O painel de webhook deles
+    // (Configurações → Webhooks) não tem campo pra header customizado, só
+    // URL + usuário/senha — a ÚNICA forma de identificar o gateway pra essa
+    // integração é cadastrar a URL já com `?gateway=pagarme` no final.
+    // Sem isso, TODO webhook real da Pagar.me cai aqui embaixo com 400
+    // "Missing gateway identifier" antes de sequer chegar em
+    // adapter.validateWebhook — a assinatura fica presa em 'pending' pra
+    // sempre mesmo com a cobrança confirmada paga do lado deles.
     const gateway = (
       headers['x-gateway'] ||
       headers['x-source'] ||

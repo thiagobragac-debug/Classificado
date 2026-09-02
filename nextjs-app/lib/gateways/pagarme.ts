@@ -181,22 +181,6 @@ export function pagarmeAdapter(apiKey: string): GatewayAdapter {
       }
 
       const authHeader = headers['authorization']
-
-      // LOG TEMPORÁRIO DE DIAGNÓSTICO (2026-09-02): 6 webhooks reais
-      // chegaram num teste ao vivo contra produção, todos com HTTP 400 —
-      // a checagem de auth abaixo está rejeitando. Precisa ver os headers
-      // reais que a Pagar.me manda (e um comparativo mascarado do valor
-      // esperado x recebido) antes de mexer na lógica. Nada de segredo
-      // completo em claro no log. Remover depois de confirmar.
-      console.info('[Webhook:pagarme] diagnostico auth:', JSON.stringify({
-        headerKeys: Object.keys(headers),
-        temAuthorization: !!authHeader,
-        authHeaderPrefix: authHeader ? authHeader.slice(0, 12) : null,
-        authHeaderLen: authHeader ? authHeader.length : 0,
-        esperadoPrefix: `Basic ${Buffer.from(secret, 'utf8').toString('base64')}`.slice(0, 12),
-        esperadoLen: `Basic ${Buffer.from(secret, 'utf8').toString('base64')}`.length,
-      }))
-
       if (!authHeader) throw new Error('Missing Pagar.me Authorization header')
 
       const expectedAuth = `Basic ${Buffer.from(secret, 'utf8').toString('base64')}`
