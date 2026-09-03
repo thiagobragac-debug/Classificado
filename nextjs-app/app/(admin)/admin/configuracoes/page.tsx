@@ -527,6 +527,74 @@ export default function AdminConfiguracoes() {
                     label="Exibir Banner no Topo"
                     description="Ativa o bloco hero na página inicial do site público."
                   />
+
+                  {/* BUG CORRIGIDO (achado ao vivo, 2026-09-03): estas 5
+                      configurações (tc_cnt_*) já existiam no banco havia
+                      tempo, mas não tinham tela nenhuma pra editar — e o
+                      site nunca as lia, então a home sempre mostrava a
+                      contagem crua (às vezes "0 Bovinos"), mesmo com um
+                      piso mínimo já salvo. Agora getServerPlatformStats()
+                      aplica max(contagem real, piso configurado) — este
+                      formulário é o que faltava pra editar esse piso. */}
+                  <p className="cfg-section-title" style={{ marginTop: '2rem' }}>📊 Contadores da Vitrine</p>
+                  <p className="cfg-hint" style={{ marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                    Piso mínimo exibido nos cartões da home (🐄 Bovinos, 🚜 Máquinas,
+                    🔨 Leilões, ⭐ Vendedores Verificados) — mostra sempre o MAIOR entre
+                    a contagem real do site e o número aqui, pra vitrine nunca parecer
+                    vazia. Quando o real ultrapassar o piso, o número real passa a
+                    aparecer sozinho.
+                  </p>
+
+                  <FieldGroup label="Bovinos (anúncios ativos)">
+                    <input
+                      type="number"
+                      min={0}
+                      className="adm-input"
+                      value={get('tc_cnt_bovinos')}
+                      onChange={e => set('tc_cnt_bovinos', e.target.value)}
+                      placeholder="Ex: 1000"
+                    />
+                  </FieldGroup>
+
+                  <FieldGroup label="Máquinas (anúncios ativos)">
+                    <input
+                      type="number"
+                      min={0}
+                      className="adm-input"
+                      value={get('tc_cnt_maquinas')}
+                      onChange={e => set('tc_cnt_maquinas', e.target.value)}
+                      placeholder="Ex: 1000"
+                    />
+                  </FieldGroup>
+
+                  <FieldGroup label="Leilões (agendados)">
+                    <input
+                      type="number"
+                      min={0}
+                      className="adm-input"
+                      value={get('tc_cnt_auctions')}
+                      onChange={e => set('tc_cnt_auctions', e.target.value)}
+                      placeholder="Ex: 1000"
+                    />
+                  </FieldGroup>
+
+                  <FieldGroup label="Vendedores Verificados">
+                    <input
+                      type="number"
+                      min={0}
+                      className="adm-input"
+                      value={get('tc_cnt_users')}
+                      onChange={e => set('tc_cnt_users', e.target.value)}
+                      placeholder="Ex: 1000"
+                    />
+                  </FieldGroup>
+
+                  <Toggle
+                    checked={getBool('tc_cnt_plus')}
+                    onChange={v => setBool('tc_cnt_plus', v)}
+                    label='Mostrar sufixo "+"'
+                    description='Ex: "1k+" em vez de "1k" nos 4 contadores acima.'
+                  />
                 </div>
               )}
 
