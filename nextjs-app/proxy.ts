@@ -108,6 +108,18 @@ const MP_CONNECT = ['https://api.mercadopago.com', 'https://api.mercadolibre.com
 // Security Policy").
 const PAGARME_CONNECT = ['https://api.pagar.me'];
 
+// Login com Google via Google Identity Services (One Tap / botão
+// customizado, lib/google-identity.ts) — troca o fluxo antigo de redirect
+// (supabase.auth.signInWithOAuth) por signInWithIdToken: o script da
+// Google roda inteiramente na própria página (sem sair do domínio nem
+// mostrar a tela "Prosseguir para <projeto>.supabase.co" no meio do
+// caminho — essa tela só existe no fluxo de redirect, que dependia do
+// Supabase como intermediário). O SDK carrega um <script src> externo
+// (script-src), abre um iframe pro prompt/FedCM (frame-src) e faz suas
+// próprias chamadas de rede pra trocar a credencial (connect-src) — os
+// três precisam do host liberado.
+const GOOGLE_IDENTITY = ['https://accounts.google.com'];
+
 // Rotas onde o CheckoutModal roda (Card Payment Brick da Mercado Pago) — a
 // única exceção à política de script-src baseada em nonce, ver comentário
 // em buildCsp() abaixo.
@@ -150,11 +162,17 @@ function buildCsp(nonce: string, pathname: string): string {
       'https://cdn.jsdelivr.net',
       ...STRIPE_SCRIPT,
       ...MP_SCRIPT,
+      ...GOOGLE_IDENTITY,
       // Turbopack / React Refresh precisam de eval apenas em desenvolvimento
       ...(isProd ? [] : [`'unsafe-eval'`]),
     ]),
     // CSS inline é aceitável (sem vetor de execução de código)
-    `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`,
+    // Google Identity Services carrega sua própria folha de estilo
+    // (accounts.google.com/gsi/style) pro botão/prompt — achado ao vivo
+    // testando o login novo, mesma classe de bug já vista com script-src/
+    // connect-src/frame-src pra outros SDKs de terceiro (Stripe, MP,
+    // Pagar.me): faltava aqui também.
+    `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com ${GOOGLE_IDENTITY.join(' ')}`,
     // Imagens: self + Supabase Storage + avatares Google + base64 + CDNs em uso
     directive('img-src', [
       `'self'`,
@@ -191,6 +209,7 @@ function buildCsp(nonce: string, pathname: string): string {
       ...STRIPE_CONNECT,
       ...MP_CONNECT,
       ...PAGARME_CONNECT,
+      ...GOOGLE_IDENTITY,
       // BUG CORRIGIDO (auditoria de SEO, 2ª rodada): GA4 (app/(public)/
       // layout.tsx, carregado só se NEXT_PUBLIC_GA_MEASUREMENT_ID existir)
       // usa nonce pra passar em script-src, mas o beacon de medição em si
@@ -203,7 +222,7 @@ function buildCsp(nonce: string, pathname: string): string {
       'https://www.googletagmanager.com',
     ]),
     // Frames: YouTube (leilões ao vivo) + iframes de cartão dos gateways
-    directive('frame-src', ['https://www.youtube.com', ...STRIPE_FRAME, ...MP_FRAME]),
+    directive('frame-src', ['https://www.youtube.com', ...STRIPE_FRAME, ...MP_FRAME, ...GOOGLE_IDENTITY]),
     `frame-ancestors 'none'`,
     // Bloquear plugins e object injection
     `object-src 'none'`,

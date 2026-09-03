@@ -74,22 +74,21 @@ export async function signupWithEmail(email: string, password: string, name: str
   return data;
 }
 
-// BUG CORRIGIDO (varredura cruzada de cenários): apontava redirectTo direto
-// pro destino final (ex. /painel) em vez de app/(public)/auth/callback/route.ts
-// — a rota que de fato existe e faz exchangeCodeForSession() no servidor. Sem
-// passar por ela, o Supabase manda ?code=... direto pro destino, mas o
-// middleware de auth (proxy.ts) ainda não vê sessão nenhuma (a troca de
-// código por sessão nunca aconteceu) e redireciona de volta pro login antes
-// de qualquer código da aplicação rodar — o usuário fica preso num loop de
-// volta ao login mesmo com o Google tendo autenticado com sucesso.
-export async function loginWithGoogle(redirectTo?: string) {
-  const path = redirectTo || '/painel';
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const { error } = await getSupabase().auth.signInWithOAuth({
+// BUG CORRIGIDO (feature aprovada pelo usuário, 2026-09-02): loginWithGoogle
+// (fluxo de redirect via signInWithOAuth) foi substituído por este —
+// signInWithIdToken aceita o ID token que o Google Identity Services devolve
+// direto no navegador (ver lib/google-identity.ts), sem nenhum redirect.
+// Diferente do fluxo antigo, não precisa de rota de callback nenhuma (não
+// existe /auth/callback?code=... pra trocar por sessão) — o resultado já
+// vem pronto aqui, o chamador só decide pra onde navegar depois.
+export async function loginWithGoogleIdToken(idToken: string, nonce: string) {
+  const { data, error } = await getSupabase().auth.signInWithIdToken({
     provider: 'google',
-    options: { redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(path)}` }
+    token: idToken,
+    nonce,
   });
   if (error) throw error;
+  return data;
 }
 
 export async function resetPassword(email: string) {
