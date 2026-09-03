@@ -74,13 +74,13 @@ export async function signupWithEmail(email: string, password: string, name: str
   return data;
 }
 
-// BUG CORRIGIDO (feature aprovada pelo usuário, 2026-09-02): loginWithGoogle
-// (fluxo de redirect via signInWithOAuth) foi substituído por este —
-// signInWithIdToken aceita o ID token que o Google Identity Services devolve
-// direto no navegador (ver lib/google-identity.ts), sem nenhum redirect.
-// Diferente do fluxo antigo, não precisa de rota de callback nenhuma (não
-// existe /auth/callback?code=... pra trocar por sessão) — o resultado já
-// vem pronto aqui, o chamador só decide pra onde navegar depois.
+// BUG CORRIGIDO (feature aprovada pelo usuário, 2026-09-02): caminho
+// PRINCIPAL do login com Google agora é este — signInWithIdToken aceita o
+// ID token que o Google Identity Services devolve direto no navegador (ver
+// lib/google-identity.ts), sem nenhum redirect, então a tela "Prosseguir
+// para <projeto>.supabase.co" nunca aparece. Não precisa de rota de
+// callback (não existe /auth/callback?code=... pra trocar por sessão) — o
+// resultado já vem pronto aqui, o chamador só decide pra onde navegar.
 export async function loginWithGoogleIdToken(idToken: string, nonce: string) {
   const { data, error } = await getSupabase().auth.signInWithIdToken({
     provider: 'google',
@@ -89,6 +89,28 @@ export async function loginWithGoogleIdToken(idToken: string, nonce: string) {
   });
   if (error) throw error;
   return data;
+}
+
+// FALLBACK do login com Google (achado ao vivo, 2026-09-02): o fluxo
+// principal acima (signInWithIdToken) depende do seletor de conta do
+// Google (FedCM) conseguir abrir — testado ao vivo e confirmado que isso
+// falha em aba anônima (Chrome desliga FedCM de propósito, por
+// privacidade) e em qualquer Chrome sem login feito NO PRÓPRIO
+// NAVEGADOR (diferente de estar logado no Gmail numa aba) — os dois são
+// cenários reais que uma parte real dos usuários vai bater. Mantido como
+// segunda opção: LoginForm.tsx cai pra este fluxo automaticamente quando
+// o seletor de conta não consegue nem abrir (GoogleIdentityUnavailable),
+// nunca quando o usuário só fechou o seletor sem escolher nada
+// (GoogleSignInCancelled) — nesse caso a intenção do usuário foi não
+// logar agora, não "tenta de outro jeito".
+export async function loginWithGoogle(redirectTo?: string) {
+  const path = redirectTo || '/painel';
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const { error } = await getSupabase().auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(path)}` }
+  });
+  if (error) throw error;
 }
 
 export async function resetPassword(email: string) {

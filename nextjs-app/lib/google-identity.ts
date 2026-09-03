@@ -28,8 +28,11 @@ declare global {
           prompt: (
             momentListener?: (notification: {
               isNotDisplayed?: () => boolean;
+              getNotDisplayedReason?: () => string;
               isSkippedMoment?: () => boolean;
+              getSkippedReason?: () => string;
               isDismissedMoment?: () => boolean;
+              getDismissedReason?: () => string;
             }) => void
           ) => void;
         };
@@ -87,6 +90,28 @@ export class GoogleSignInCancelled extends Error {
   }
 }
 
+// BUG CORRIGIDO (achado ao vivo testando em produção, 2026-09-02): o
+// seletor de conta (FedCM) depende do navegador saber "com qual conta
+// Google você está" — isso é o login DO PRÓPRIO CHROME (chrome://settings/
+// people), não a mesma coisa que estar logado no Gmail numa aba. Testado
+// ao vivo em 3 cenários: aba anônima ("Provider's accounts list is
+// empty" — Chrome desliga FedCM de propósito em modo anônimo, por
+// privacidade) e aba normal SEM login no Chrome ("Not signed in with the
+// identity provider") — os dois casos são reais e não vão sumir só
+// porque o código está certo; uma parte real dos usuários (Chrome
+// corporativo/gerenciado, quem nunca fez login no navegador, outros
+// navegadores) nunca vai ter FedCM disponível. Distingue esse caso
+// (isNotDisplayed — o seletor nem chegou a abrir) de um cancelamento de
+// verdade (isSkippedMoment/isDismissedMoment — o seletor abriu e o
+// usuário fechou) pra quem chama poder cair de volta no fluxo de
+// redirect nesse caso específico, em vez de simplesmente falhar.
+export class GoogleIdentityUnavailable extends Error {
+  constructor(reason?: string) {
+    super(`Google Identity Services indisponível neste navegador${reason ? ` (${reason})` : ''}.`);
+    this.name = 'GoogleIdentityUnavailable';
+  }
+}
+
 /**
  * Abre o seletor de conta da Google (One Tap / FedCM) e resolve com o ID
  * token + nonce cru assim que o usuário escolhe uma conta — pronto pra
@@ -95,7 +120,9 @@ export class GoogleSignInCancelled extends Error {
  *
  * Rejeita com GoogleSignInCancelled se o usuário fechar o seletor sem
  * escolher nada (não é um erro de verdade, não deveria virar mensagem de
- * alerta) — qualquer outro erro rejeita normalmente.
+ * alerta), ou com GoogleIdentityUnavailable se o seletor nem chegou a
+ * conseguir abrir neste navegador (quem chama deveria cair pro fluxo de
+ * redirect nesse caso) — qualquer outro erro rejeita normalmente.
  */
 export async function signInWithGooglePrompt(): Promise<{ idToken: string; nonce: string }> {
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
@@ -109,7 +136,7 @@ export async function signInWithGooglePrompt(): Promise<{ idToken: string; nonce
   return new Promise((resolve, reject) => {
     const google = window.google;
     if (!google?.accounts?.id) {
-      reject(new Error('SDK do Google não carregou corretamente.'));
+      reject(new GoogleIdentityUnavailable('SDK não carregou'));
       return;
     }
 
@@ -126,11 +153,33 @@ export async function signInWithGooglePrompt(): Promise<{ idToken: string; nonce
       use_fedcm_for_prompt: true,
     });
 
+    // BUG CORRIGIDO (achado ao vivo, 2ª rodada — o ambiente de teste
+    // automatizado e o navegador real do usuário classificaram o MESMO
+    // tipo de indisponibilidade de formas diferentes: um caiu em
+    // isNotDisplayed, o outro em isSkippedMoment com motivo genérico).
+    // Só os motivos que a própria Google documenta como decisão CONSCIENTE
+    // do usuário ('user_cancel' — fechou de propósito, 'tap_outside' —
+    // clicou fora) contam como cancelamento de verdade. Qualquer outro
+    // motivo (reason ausente, 'unknown_reason', 'issuing_failed', conta
+    // indisponível, etc.) é tratado como "este navegador não consegue
+    // completar esse fluxo agora" — cai pro fallback de redirect em vez de
+    // simplesmente devolver o botão ao normal sem explicação.
+    const MOTIVOS_CANCELAMENTO_DELIBERADO = new Set(['user_cancel', 'tap_outside']);
     google.accounts.id.prompt((notification) => {
       if (settled) return;
-      if (notification?.isNotDisplayed?.() || notification?.isSkippedMoment?.() || notification?.isDismissedMoment?.()) {
+      const skippedReason = notification?.getSkippedReason?.();
+      const dismissedReason = notification?.getDismissedReason?.();
+      const foiCancelamentoDeliberado =
+        (notification?.isSkippedMoment?.() && MOTIVOS_CANCELAMENTO_DELIBERADO.has(skippedReason || '')) ||
+        (notification?.isDismissedMoment?.() && MOTIVOS_CANCELAMENTO_DELIBERADO.has(dismissedReason || ''));
+      if (foiCancelamentoDeliberado) {
         settled = true;
         reject(new GoogleSignInCancelled());
+        return;
+      }
+      if (notification?.isNotDisplayed?.() || notification?.isSkippedMoment?.() || notification?.isDismissedMoment?.()) {
+        settled = true;
+        reject(new GoogleIdentityUnavailable(notification.getNotDisplayedReason?.() || skippedReason || dismissedReason));
       }
     });
   });

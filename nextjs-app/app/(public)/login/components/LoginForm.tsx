@@ -3,8 +3,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { loginWithEmail, loginWithGoogleIdToken } from '@/lib/supabase'
-import { signInWithGooglePrompt, GoogleSignInCancelled } from '@/lib/google-identity'
+import { loginWithEmail, loginWithGoogleIdToken, loginWithGoogle } from '@/lib/supabase'
+import { signInWithGooglePrompt, GoogleSignInCancelled, GoogleIdentityUnavailable } from '@/lib/google-identity'
 import { useLang } from '@/lib/lang-context'
 import { Mail, Lock, Eye, EyeOff, Loader2 } from 'lucide-react'
 
@@ -110,14 +110,25 @@ export function LoginForm({ onSetAlert, onNavigateToForgot, initialEmail = '' }:
   // Sem redirect nenhum, não existe mais a etapa de callback — o redirect
   // pós-login (mesma lógica de segurança de sempre, getSafeRedirect) acontece
   // aqui direto, igual ao login por e-mail/senha logo acima.
+  //
+  // BUG CORRIGIDO (achado ao vivo testando em produção, 2 rodadas): o
+  // seletor de conta (FedCM) depende do usuário estar "logado no próprio
+  // Chrome" (chrome://settings/people), não só logado no Gmail numa aba —
+  // confirmado ao vivo que falha em aba anônima (Chrome desliga FedCM de
+  // propósito) e em Chrome normal sem esse login feito. Cai automaticamente
+  // pro fluxo antigo de redirect (loginWithGoogle) SÓ quando o seletor nem
+  // consegue abrir (GoogleIdentityUnavailable) — nunca quando o usuário só
+  // fechou o seletor sem escolher conta (GoogleSignInCancelled), caso em
+  // que a intenção dele foi não logar agora mesmo, não "tenta de outro
+  // jeito".
   const handleGoogle = async () => {
     setGoogleLoading(true)
     onSetAlert('', 'success')
+    const redirect = searchParams.get('next') || searchParams.get('redirect') || searchParams.get('redirectTo')
+    const safeRedirect = getSafeRedirect(redirect)
     try {
       const { idToken, nonce } = await signInWithGooglePrompt()
       await loginWithGoogleIdToken(idToken, nonce)
-      const redirect = searchParams.get('next') || searchParams.get('redirect') || searchParams.get('redirectTo')
-      const safeRedirect = getSafeRedirect(redirect)
       window.location.href = safeRedirect
     } catch (err: any) {
       // Usuário fechou o seletor de conta sem escolher nada — não é erro,
@@ -125,6 +136,18 @@ export function LoginForm({ onSetAlert, onNavigateToForgot, initialEmail = '' }:
       if (err instanceof GoogleSignInCancelled) {
         setGoogleLoading(false)
         return
+      }
+      if (err instanceof GoogleIdentityUnavailable) {
+        console.info('[Login Google] Seletor de conta indisponível neste navegador, caindo pro fluxo de redirect:', err.message)
+        try {
+          await loginWithGoogle(safeRedirect)
+          return // signInWithOAuth já navega sozinho — não chega no finally
+        } catch (fallbackErr: any) {
+          console.error('[Login Google] Fallback de redirect também falhou:', fallbackErr.message)
+          onSetAlert(tr.googleError, 'error')
+          setGoogleLoading(false)
+          return
+        }
       }
       // BUG CORRIGIDO (i18n): err.message do Supabase vazava cru em inglês na UI.
       console.error('[Login Google] Erro:', err.message)
