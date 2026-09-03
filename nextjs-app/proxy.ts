@@ -714,6 +714,7 @@ export async function proxy(request: NextRequest) {
   // preferência escolhida pelo usuário: só uma navegação de verdade (sem
   // esse header) tem permissão pra atualizar o cookie salvo.
   const isRouterPrefetch = request.headers.get('next-router-prefetch') === '1';
+  response.headers.set('x-debug-prefetch-header', JSON.stringify(request.headers.get('next-router-prefetch')));
   if (!isRouterPrefetch && request.cookies.get('tc_lang')?.value !== activeLocale) {
     response.cookies.set('tc_lang', activeLocale, {
       path: '/',
