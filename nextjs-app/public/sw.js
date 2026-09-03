@@ -12,10 +12,11 @@
 //  todo HTML — inclusive /painel e /admin, já renderizados com os dados da
 //  sessão. Agora esses caminhos passam direto, sem cache.
 
-// VERSION subido pra v7 (2026-09-02, mesmo dia — 3ª correção): navegação
-// parou de ser interceptada (ver handler de 'navigate' abaixo) — precisa
-// que os navegadores com SW antigo detectem a troca de novo.
-const VERSION = 'v7';
+// VERSION subido pra v8 (2026-09-02, mesmo dia — 4ª correção): isBypass()
+// agora reconhece navegação client-side do App Router de verdade (ver
+// comentário na função) — precisa que os navegadores com SW antigo
+// detectem a troca de novo.
+const VERSION = 'v8';
 const STATIC_CACHE = `tc-static-${VERSION}`;
 const OFFLINE_URL = '/_offline.html';
 
@@ -51,15 +52,48 @@ self.addEventListener('activate', (event) => {
 
 // Caminhos que o SW nunca deve tocar: respostas dependentes de sessão ou de
 // dados vivos. Servir qualquer uma delas do cache mostra estado errado.
+//
+// BUG CRÍTICO CORRIGIDO (achado ao vivo pelo usuário em produção,
+// 2026-09-02, 4ª rodada da mesma classe de erro): a navegação (clique de
+// <Link>) nunca dispara request.mode:'navigate' — é sempre um fetch()
+// comum do App Router buscando o payload RSC do destino, o mesmo tipo de
+// requisição que este bypass deveria reconhecer e ignorar. Este `isBypass`
+// só checava o header 'RSC' e o parâmetro `_rsc` — mas o próprio CSP deste
+// site (proxy.ts) declara `Vary: rsc, next-router-state-tree,
+// next-router-prefetch, next-router-segment-prefetch`, confirmando que o
+// App Router usa PELO MENOS 4 headers diferentes pra sinalizar uma
+// requisição de roteamento, dependendo do tipo (navegação completa,
+// prefetch, prefetch de segmento). Qualquer requisição de navegação que
+// não carregasse especificamente 'RSC: 1' nem `?_rsc=` (ex.: uma
+// carregando só 'Next-Router-State-Tree') passava batida por este bypass e
+// caía no handler genérico de "outros estáticos" mais abaixo — cache-first
+// pra uma resposta que NUNCA deveria ser cacheada, e se a rede falhasse (ou
+// só demorasse), devolvia o 504 sintético no lugar do payload RSC real. O
+// App Router tentava reconciliar essa resposta vazia como se fosse a
+// página nova, produzindo "Cannot read properties of null (reading
+// 'removeChild')" — reproduzido ao vivo repetidas vezes, numa aba anônima
+// limpa, num <Link> comum sem nada de especial (sem locale, sem POST).
 function isBypass(url, request) {
   return (
     url.pathname.startsWith('/api/') ||
     url.pathname.startsWith('/auth/') ||
     url.pathname.startsWith('/painel') ||
     url.pathname.startsWith('/admin') ||
-    // Payloads RSC de navegação client-side do App Router
+    // Qualquer sinal de requisição de roteamento do App Router (navegação
+    // client-side, prefetch de página inteira ou só de um segmento) — os 4
+    // headers que o próprio CSP deste site declara em Vary (proxy.ts).
     url.searchParams.has('_rsc') ||
-    request.headers.get('RSC') === '1'
+    request.headers.get('RSC') === '1' ||
+    request.headers.has('Next-Router-State-Tree') ||
+    request.headers.has('Next-Router-Prefetch') ||
+    request.headers.has('Next-Router-Segment-Prefetch') ||
+    // Reforço: nenhuma navegação/fetch de roteamento tem destination
+    // 'image'/'style'/'font'/etc. — só o handler de "outros estáticos"
+    // mais abaixo deveria valer pra esses tipos. Qualquer requisição sem
+    // destination reconhecido (destination === '' é o valor padrão de
+    // fetch() comum, exatamente o que o App Router usa aqui) não deveria
+    // cair no cache-first genérico.
+    request.destination === ''
   );
 }
 
