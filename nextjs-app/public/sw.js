@@ -12,10 +12,10 @@
 //  todo HTML — inclusive /painel e /admin, já renderizados com os dados da
 //  sessão. Agora esses caminhos passam direto, sem cache.
 
-// VERSION subido pra v6 (2026-09-02, mesmo dia — 2ª correção): o fix do
-// método/body em POST (ver comentário no handler de 'navigate' abaixo)
-// também precisa que os navegadores com o SW antigo detectem a troca.
-const VERSION = 'v6';
+// VERSION subido pra v7 (2026-09-02, mesmo dia — 3ª correção): navegação
+// parou de ser interceptada (ver handler de 'navigate' abaixo) — precisa
+// que os navegadores com SW antigo detectem a troca de novo.
+const VERSION = 'v7';
 const STATIC_CACHE = `tc-static-${VERSION}`;
 const OFFLINE_URL = '/_offline.html';
 
@@ -107,53 +107,30 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Navegação: sempre rede. Se cair, mostra a tela offline. Não guardamos o
-  // HTML — no App Router ele já vem renderizado com o estado do usuário.
+  // Navegação: NÃO intercepta — deixa o navegador cuidar de verdade.
   //
-  // BUG CORRIGIDO (achado ao vivo em produção, 2026-09-02): fetch(request)
-  // reusando o Request de navegação original (mode: 'navigate') direto
-  // falhava sempre que a navegação envolvia um redirect no meio do caminho
-  // (ex.: proxy.ts redirecionando /login -> /es/login com base no cookie
-  // tc_lang) — o Chrome rejeita esse fetch com TypeError em vez de seguir o
-  // redirect, cai no .catch() e devolve o 504 sintético "Offline" mesmo com
-  // a rede funcionando normalmente. Reproduzido ao vivo: a URL avançava
-  // (History API), mas o conteúdo ficava preso na página anterior — o
-  // router do Next tentava reconciliar uma resposta de erro, produzindo
-  // "Cannot read properties of null (reading 'removeChild')" no console.
-  // Construir uma Request NOVA (mode 'same-origin' por padrão, não
-  // 'navigate') evita a restrição — mesmo padrão recomendado para Service
-  // Workers que precisam refazer o fetch de uma navegação interceptada.
+  // BUG CRÍTICO CORRIGIDO (achado ao vivo em produção, 2026-09-02, 3
+  // rodadas seguidas da MESMA classe de erro): duas tentativas anteriores
+  // tentaram reconstruir a navegação interceptada como um fetch() manual
+  // (primeiro só seguindo redirect, depois também preservando method/body
+  // de POST) — as duas vezes reproduziu de novo ao vivo, numa aba anônima
+  // limpa (sem cache/SW velho nenhum, então não era resíduo): a URL
+  // avançava (History API) mas o conteúdo ficava preso na página anterior,
+  // com "Cannot read properties of null (reading 'removeChild')" e um 504
+  // sintético no console — mesmo em casos simples, sem locale, sem POST,
+  // só um <Link> comum pra uma rota diferente. Reconstruir uma navegação
+  // inteira manualmente dentro de um Service Worker (redirects, streaming
+  // de RSC, headers do navegador que JS não consegue replicar 100% fiel)
+  // é terreno conhecido por ter esse tipo de sutileza — três correções
+  // pontuais seguidas reproduzindo de novo é sinal de que o problema é a
+  // abordagem, não o detalhe. Só devolvia valor nenhuma diferença
+  // perceptível hoje (não guardamos HTML nenhum — o App Router já renderiza
+  // com o estado do usuário) e uma tela offline bonita quando a rede cai —
+  // não vale o risco de quebrar toda navegação do site. Sem
+  // event.respondWith() aqui, o próprio navegador processa a navegação
+  // nativamente, sem o SW no meio — o mesmo comportamento 100% confiável
+  // de sempre, de antes de existir Service Worker nenhum neste projeto.
   if (request.mode === 'navigate') {
-    // BUG CRÍTICO CORRIGIDO (achado ao vivo pelo usuário em produção,
-    // 2026-09-02): a Request nova acima nunca copiava `method` nem `body`
-    // — Request() sem esses campos assume GET silenciosamente, mesmo
-    // quando a navegação original era um POST de verdade (ex.: o "Sair" do
-    // admin em app/(admin)/layout.tsx é um <form method="post"
-    // action="/auth/signout"> puro, sem JS — um form submit TAMBÉM é uma
-    // navegação, mode:'navigate', interceptada aqui igual a um clique de
-    // link). A rota (app/auth/signout/route.ts) só exporta POST; a versão
-    // GET que este SW mandava batia em 405 sem nunca fazer logout nem
-    // redirecionar — reproduzido ao vivo como ERR_FAILED no navegador. Body
-    // só é copiado pra métodos que podem ter um (nunca GET/HEAD — o Fetch
-    // spec proíbe) e exige `duplex: 'half'` quando o body é um stream, ou o
-    // `new Request(...)` abaixo lança TypeError SÍNCRONO, fora do .catch()
-    // — outra forma de produzir o mesmo ERR_FAILED, agora pra QUALQUER
-    // navegação POST, se não declarado.
-    const initNavegacao = {
-      method: request.method,
-      headers: request.headers,
-      credentials: request.credentials,
-      redirect: 'follow',
-    };
-    if (request.method !== 'GET' && request.method !== 'HEAD') {
-      initNavegacao.body = request.body;
-      initNavegacao.duplex = 'half';
-    }
-    event.respondWith(
-      fetch(new Request(request.url, initNavegacao)).catch(() =>
-        caches.match(OFFLINE_URL).then((offline) => offline || respostaOffline())
-      )
-    );
     return;
   }
 
