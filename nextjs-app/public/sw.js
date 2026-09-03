@@ -12,7 +12,16 @@
 //  todo HTML — inclusive /painel e /admin, já renderizados com os dados da
 //  sessão. Agora esses caminhos passam direto, sem cache.
 
-const VERSION = 'v4';
+// VERSION subido pra v5 (2026-09-02) só pra forçar o navegador a detectar
+// que existe um SW novo — bytes deste arquivo precisam mudar pra Chrome
+// notar a atualização. Abas já abertas antes disso (rodando build antiga
+// depois de vários deploys seguidos) ficavam com JS/HTML dessincronizado
+// do servidor, navegação falhando com ERR_FAILED, sem nenhum jeito de se
+// recuperar sozinhas — o novo listener de 'controllerchange' em
+// app/(public)/layout.tsx só entra em ação quando o SW de fato troca de
+// versão, e sem mudar VERSION aqui nenhuma troca acontece pra deploys que
+// não tocam neste arquivo (a maioria).
+const VERSION = 'v5';
 const STATIC_CACHE = `tc-static-${VERSION}`;
 const OFFLINE_URL = '/_offline.html';
 

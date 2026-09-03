@@ -225,6 +225,32 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             __html: `
               if ('serviceWorker' in navigator) {
                 if (${process.env.NODE_ENV === 'production'}) {
+                  // BUG CORRIGIDO (achado ao vivo pelo usuário em produção,
+                  // 2026-09-02): depois de um deploy, uma aba que já estava
+                  // aberta continua rodando o JS/HTML da versão ANTERIOR —
+                  // navegação (Link, window.location.href) tentava buscar
+                  // pedaços de uma build que a Vercel não serve mais,
+                  // aparecendo como ERR_FAILED, obrigando o usuário a
+                  // descobrir sozinho que precisava dar um hard refresh.
+                  // 'controllerchange' dispara quando o Service Worker ATIVO
+                  // desta aba é substituído por um novo (skipWaiting +
+                  // clients.claim, já configurados em sw.js, fazem isso
+                  // acontecer assim que o novo SW termina de instalar) — o
+                  // sinal mais confiável de "existe uma build mais nova no
+                  // ar" sem precisar de polling. 'hadController' evita
+                  // recarregar na PRIMEIRA ativação de uma aba nova (toda
+                  // aba nova ganha um controller pela primeira vez via
+                  // clients.claim(), o que também dispara este evento —
+                  // recarregar aí seria um refresh inútil pra quem acabou
+                  // de abrir o site).
+                  var hadController = !!navigator.serviceWorker.controller;
+                  var recarregandoPorSW = false;
+                  navigator.serviceWorker.addEventListener('controllerchange', function() {
+                    if (!hadController) { hadController = true; return; }
+                    if (recarregandoPorSW) return;
+                    recarregandoPorSW = true;
+                    window.location.reload();
+                  });
                   var registrarSW = function() {
                     navigator.serviceWorker.register('/sw.js')
                       .then(function(r) { console.log('[SW] Registrado:', r.scope); })
