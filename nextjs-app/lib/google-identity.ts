@@ -142,11 +142,28 @@ export async function signInWithGooglePrompt(): Promise<{ idToken: string; nonce
 
     let settled = false;
 
+    // BUG CORRIGIDO (achado ao vivo, 2026-09-03): nem initialize() nem
+    // prompt() têm timeout embutido — se a notificação de momento da Google
+    // nunca chegar (script lento, silencioso, ou algum caso extremo entre o
+    // script carregar e o FedCM mediar), a Promise nunca resolve nem
+    // rejeita, `settled` nunca vira true, e o botão fica girando pra
+    // sempre, sem erro visível e sem cair no fallback de redirect que já
+    // existe pra este exato cenário (GoogleIdentityUnavailable). Generoso o
+    // bastante pra não interromper um fluxo real do FedCM em andamento
+    // (a confirmação normal do usuário de retorno é quase instantânea),
+    // curto o bastante pra nunca deixar o usuário girando indefinidamente.
+    const timeoutId = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      reject(new GoogleIdentityUnavailable('timeout'));
+    }, 8000);
+
     google.accounts.id.initialize({
       client_id: clientId,
       callback: (response) => {
         if (settled) return;
         settled = true;
+        clearTimeout(timeoutId);
         resolve({ idToken: response.credential, nonce });
       },
       nonce: hashedNonce,
@@ -174,11 +191,13 @@ export async function signInWithGooglePrompt(): Promise<{ idToken: string; nonce
         (notification?.isDismissedMoment?.() && MOTIVOS_CANCELAMENTO_DELIBERADO.has(dismissedReason || ''));
       if (foiCancelamentoDeliberado) {
         settled = true;
+        clearTimeout(timeoutId);
         reject(new GoogleSignInCancelled());
         return;
       }
       if (notification?.isNotDisplayed?.() || notification?.isSkippedMoment?.() || notification?.isDismissedMoment?.()) {
         settled = true;
+        clearTimeout(timeoutId);
         reject(new GoogleIdentityUnavailable(notification.getNotDisplayedReason?.() || skippedReason || dismissedReason));
       }
     });

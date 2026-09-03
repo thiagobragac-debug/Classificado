@@ -15,8 +15,8 @@ export function LangToggle() {
   return (
     // BUG CORRIGIDO (i18n): aria-label do grupo estava fixo em português
     <div className="lang-toggle" role="group" aria-label={t('selectLanguage')} style={{ position: 'fixed', top: '1.2rem', right: '1.2rem', zIndex: 999 }}>
-      <Link href={switchLocalePath(pathname, 'pt') + switchLocaleQuery('pt', '')} className={lang === 'pt' ? 'active' : ''} aria-label="Português">PT</Link>
-      <Link href={switchLocalePath(pathname, 'es') + switchLocaleQuery('es', '')} className={lang === 'es' ? 'active' : ''} aria-label="Español">ES</Link>
+      <Link data-lang="pt" href={switchLocalePath(pathname, 'pt') + switchLocaleQuery('pt', '')} className={lang === 'pt' ? 'active' : ''} aria-label="Português">PT</Link>
+      <Link data-lang="es" href={switchLocalePath(pathname, 'es') + switchLocaleQuery('es', '')} className={lang === 'es' ? 'active' : ''} aria-label="Español">ES</Link>
     </div>
   )
 }
