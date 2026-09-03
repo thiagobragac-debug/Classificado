@@ -5,6 +5,7 @@ import { useLang } from '@/lib/lang-context';
 import { FOOTER_LINKS } from '@/lib/constants';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
+import { stripLocale } from '@/lib/locale';
 
 const TRANSLATIONS = {
   pt: {
@@ -51,9 +52,18 @@ export default function Footer() {
     }
   }, []);
 
-  if (pathname?.startsWith('/login') || pathname?.startsWith('/cadastro') || pathname?.startsWith('/admin')) return null;
+  // BUG CORRIGIDO (achado por auditoria, 2026-09-02 — mesma classe do bug já
+  // corrigido em components/Header.tsx): usePathname() devolve o path CRU
+  // visto pelo navegador (com prefixo /es quando presente), não o path
+  // reescrito internamente — as duas comparações abaixo usavam `pathname`
+  // direto contra rotas sem prefixo, então nunca reconheciam /es/login,
+  // /es/admin nem nenhuma das rotas do footer simplificado quando o idioma
+  // era espanhol. Normaliza com o mesmo stripLocale() já usado no Header.
+  const effectivePathname = pathname ? stripLocale(pathname) : pathname;
 
-  const isSimplified = pathname?.startsWith('/painel') || pathname?.startsWith('/anunciar') || pathname?.startsWith('/listagem') || pathname?.startsWith('/vendedor') || pathname?.startsWith('/leiloes') || pathname?.startsWith('/anuncio') || pathname?.startsWith('/eventos');
+  if (effectivePathname?.startsWith('/login') || effectivePathname?.startsWith('/cadastro') || effectivePathname?.startsWith('/admin')) return null;
+
+  const isSimplified = effectivePathname?.startsWith('/painel') || effectivePathname?.startsWith('/anunciar') || effectivePathname?.startsWith('/listagem') || effectivePathname?.startsWith('/vendedor') || effectivePathname?.startsWith('/leiloes') || effectivePathname?.startsWith('/anuncio') || effectivePathname?.startsWith('/eventos');
 
   if (isSimplified) {
     return (
