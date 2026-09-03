@@ -692,7 +692,29 @@ export async function proxy(request: NextRequest) {
   // visitas (pro redirect automático mais acima) e pro estado inicial do
   // LangProvider client-side bater com o que o servidor já renderizou —
   // nunca mais como fonte de verdade do conteúdo em si.
-  if (request.cookies.get('tc_lang')?.value !== activeLocale) {
+  //
+  // BUG CRÍTICO CORRIGIDO (achado ao vivo, validação empírica com
+  // instrumentação de document.cookie no navegador real, 2026-09-03): um
+  // usuário com tc_lang=pt já salvo, ao simplesmente submeter o formulário
+  // de /login (sucesso OU falha — o gatilho nunca foi o login em si), tinha
+  // sua preferência revertida pra ES sem clicar em nada relacionado a
+  // idioma. Causa raiz: o Next.js faz PREFETCH em segundo plano de
+  // qualquer link /es/... presente na página (aqui, o próprio seletor
+  // PT/ES do Header, que precisa expor os dois destinos pro usuário poder
+  // trocar) — cada prefetch é uma requisição real de rede, com
+  // `next-router-prefetch: 1`, que batia direto nesta rota abaixo com
+  // `urlLocale='es'` (prioridade máxima) e reescrevia o cookie GLOBAL de
+  // preferência, mesmo o usuário nunca tendo pedido pra ver nada em
+  // espanhol — confirmado ao vivo via curl reproduzindo o Set-Cookie
+  // apenas com os headers de prefetch, sem navegação nenhuma envolvida.
+  // `activeLocale` (usado pra decidir o CONTEÚDO desta resposta) deve
+  // mesmo respeitar a URL — um prefetch de /es/login deve renderizar em
+  // espanhol, caso o usuário clique de verdade. O que não deveria acontecer
+  // é essa requisição invisível e especulativa persistir como se fosse a
+  // preferência escolhida pelo usuário: só uma navegação de verdade (sem
+  // esse header) tem permissão pra atualizar o cookie salvo.
+  const isRouterPrefetch = request.headers.get('next-router-prefetch') === '1';
+  if (!isRouterPrefetch && request.cookies.get('tc_lang')?.value !== activeLocale) {
     response.cookies.set('tc_lang', activeLocale, {
       path: '/',
       maxAge: 60 * 60 * 24 * 365,
