@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
 import { useLang } from '@/lib/lang-context';
-import { switchLocalePath, switchLocaleQuery } from '@/lib/locale';
+import { switchLocalePath, switchLocaleQuery, stripLocale } from '@/lib/locale';
 import { getSupabase, getSession } from '@/lib/supabase';
 import { SECRET_SETTING_KEYS } from '@/lib/secret-settings';
 
@@ -82,6 +82,18 @@ export default function Header({
   initialUserInitials?: string;
 } = {}) {
   const pathname = usePathname();
+  // BUG CRÍTICO CORRIGIDO (achado ao vivo pelo usuário em produção,
+  // 2026-09-02): usePathname() nesta versão do Next.js devolve o path CRU
+  // visto pelo navegador (com o prefixo /es quando presente), não o path
+  // reescrito internamente — todo `pathname?.startsWith('/rota')' abaixo
+  // comparava contra um path SEM prefixo, então nunca batia pra quem
+  // estava em /es/algo. Efeito visível: o Header inteiro (nav completa)
+  // aparecia por cima do layout dedicado de /login quando o idioma era
+  // espanhol (checagem `startsWith('/login')` nunca via `/es/login` como
+  // login), e o destaque do link ativo no menu também ficava sempre apagado
+  // em qualquer página servida em /es/*. `stripLocale` (mesmo helper que já
+  // resolve o seletor de idioma logo abaixo) normaliza antes de comparar.
+  const effectivePathname = pathname ? stripLocale(pathname) : pathname;
   const searchParamsForLang = useSearchParams();
   const { lang, t } = useLang();
   const tt = TRANSLATIONS[lang];
@@ -229,10 +241,10 @@ export default function Header({
   useEffect(() => { setMobileOpen(false); }, [pathname]);
 
   // ─── Early returns AFTER all hooks (Rules of Hooks) ─────────────────────
-  if (pathname?.startsWith('/admin')) return null;
-  if (pathname?.startsWith('/login')) return null;
+  if (effectivePathname?.startsWith('/admin')) return null;
+  if (effectivePathname?.startsWith('/login')) return null;
 
-  const isActive = (href: string) => pathname === href || pathname?.startsWith(href + '/');
+  const isActive = (href: string) => effectivePathname === href || effectivePathname?.startsWith(href + '/');
 
   // ─── Estilo do logo-mark (imagem ou gradiente CSS) ───────────────────────
   const logoMarkStyle = logoUrl ? {
@@ -260,7 +272,7 @@ export default function Header({
           </Link>
 
           <nav className="header-nav" role="navigation" aria-label={tt.navAria}>
-            <Link href="/"          className={isActive('/') && pathname === '/' ? 'active' : ''}>{t('nav_home')}</Link>
+            <Link href="/"          className={isActive('/') && effectivePathname === '/' ? 'active' : ''}>{t('nav_home')}</Link>
             <Link href="/listagem"  className={isActive('/listagem') ? 'active' : ''}>{t('nav_ads')}</Link>
             <Link href="/eventos"   className={isActive('/eventos') ? 'active' : ''}>{t('nav_events')}</Link>
             <Link href="/leiloes"   className={`nav-live${isActive('/leiloes') ? ' active' : ''}`}>
@@ -400,7 +412,7 @@ export default function Header({
 
       {/* ─── MOBILE MENU ─────────────────────────── */}
       <nav className={`mobile-menu${mobileOpen ? ' open' : ''}`} id="mobile-menu" aria-label={tt.mobileNavAria}>
-        <Link href="/"         className={pathname === '/' ? 'active' : ''}>{t('nav_home')}</Link>
+        <Link href="/"         className={effectivePathname === '/' ? 'active' : ''}>{t('nav_home')}</Link>
         <Link href="/listagem" className={isActive('/listagem') ? 'active' : ''}>{t('nav_ads')}</Link>
         <Link href="/eventos"  className={isActive('/eventos') ? 'active' : ''}>{t('nav_events')}</Link>
         <Link href="/leiloes"  className={`nav-live${isActive('/leiloes') ? ' active' : ''}`}>
