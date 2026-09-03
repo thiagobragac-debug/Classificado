@@ -383,14 +383,35 @@ export async function proxy(request: NextRequest) {
   // qualquer outra decisão de locale, com o cookie atualizado no mesmo
   // redirect (senão a PRÓXIMA navegação, sem o parâmetro, ainda leria o
   // cookie antigo e voltaria a rebater pro /es).
+  //
+  // BUG CRÍTICO CORRIGIDO (achado ao vivo, validação empírica no navegador
+  // real, 2026-09-03 — 2ª causa raiz do mesmo sintoma corrigido mais abaixo
+  // no bloco "Cookie de idioma"): o próprio href do seletor já inclui
+  // ?setLocale=es (precisa incluir — é o que faz o seletor funcionar) e o
+  // navegador/Next.js prefetcha esse link em segundo plano só por ele estar
+  // no DOM, mesmo sendo uma tag <a> pura. Como este bloco tratava QUALQUER
+  // requisição pra essa URL como um clique deliberado, o prefetch invisível
+  // reescrevia a preferência de idioma salva sem o usuário clicar em nada —
+  // confirmado ao vivo instrumentando document.cookie: um fetch() de teste
+  // pra essa mesma URL chega aqui com Sec-Fetch-Mode: cors / Sec-Fetch-Dest:
+  // empty, enquanto uma navegação de verdade (clique real, digitar a URL)
+  // chega com Sec-Fetch-Mode: navigate / Sec-Fetch-Dest: document — sinal
+  // padrão do próprio navegador (Fetch Metadata Request Headers), não um
+  // header customizado do Next.js, e por isso sobrevive à Vercel Edge (ao
+  // contrário do `next-router-prefetch`, testado antes e descartado: a
+  // Vercel Edge não repassa esse pro proxy). Só o valor 'navigate' (ou a
+  // ausência do header — navegadores/clientes antigos que não implementam
+  // Fetch Metadata) autoriza a troca de verdade; qualquer outro valor
+  // (cors/no-cors/same-origin, de um fetch/prefetch em segundo plano) cai
+  // no fluxo normal abaixo, sem tocar no cookie salvo.
   const explicitLocale = request.nextUrl.searchParams.get('setLocale');
-  if (explicitLocale === 'pt' || explicitLocale === 'es') {
+  const secFetchMode = request.headers.get('sec-fetch-mode');
+  const isRealNavigation = secFetchMode === null || secFetchMode === 'navigate';
+  if ((explicitLocale === 'pt' || explicitLocale === 'es') && isRealNavigation) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = withLocale(pathname, explicitLocale);
     redirectUrl.searchParams.delete('setLocale');
     const redirectResponse = NextResponse.redirect(redirectUrl, 307);
-    redirectResponse.cookies.set('x_debug_mode', String(request.headers.get('sec-fetch-mode')), { path: '/', maxAge: 300 });
-    redirectResponse.cookies.set('x_debug_dest', String(request.headers.get('sec-fetch-dest')), { path: '/', maxAge: 300 });
     redirectResponse.cookies.set('tc_lang', explicitLocale, {
       path: '/',
       maxAge: 60 * 60 * 24 * 365,
