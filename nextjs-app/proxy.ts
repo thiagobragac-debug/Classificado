@@ -698,24 +698,30 @@ export async function proxy(request: NextRequest) {
   // usuário com tc_lang=pt já salvo, ao simplesmente submeter o formulário
   // de /login (sucesso OU falha — o gatilho nunca foi o login em si), tinha
   // sua preferência revertida pra ES sem clicar em nada relacionado a
-  // idioma. Causa raiz: o Next.js faz PREFETCH em segundo plano de
-  // qualquer link /es/... presente na página (aqui, o próprio seletor
-  // PT/ES do Header, que precisa expor os dois destinos pro usuário poder
-  // trocar) — cada prefetch é uma requisição real de rede, com
-  // `next-router-prefetch: 1`, que batia direto nesta rota abaixo com
-  // `urlLocale='es'` (prioridade máxima) e reescrevia o cookie GLOBAL de
-  // preferência, mesmo o usuário nunca tendo pedido pra ver nada em
-  // espanhol — confirmado ao vivo via curl reproduzindo o Set-Cookie
-  // apenas com os headers de prefetch, sem navegação nenhuma envolvida.
-  // `activeLocale` (usado pra decidir o CONTEÚDO desta resposta) deve
-  // mesmo respeitar a URL — um prefetch de /es/login deve renderizar em
-  // espanhol, caso o usuário clique de verdade. O que não deveria acontecer
-  // é essa requisição invisível e especulativa persistir como se fosse a
-  // preferência escolhida pelo usuário: só uma navegação de verdade (sem
-  // esse header) tem permissão pra atualizar o cookie salvo.
-  const isRouterPrefetch = request.headers.get('next-router-prefetch') === '1';
-  response.headers.set('x-debug-prefetch-header', JSON.stringify(request.headers.get('next-router-prefetch')));
-  if (!isRouterPrefetch && request.cookies.get('tc_lang')?.value !== activeLocale) {
+  // idioma. Causa raiz: o próprio navegador (prefetch em segundo plano do
+  // Next.js e/ou preload especulativo nativo) dispara requisições reais pra
+  // qualquer link /es/... presente na página (aqui, o link "Español" do
+  // seletor, que precisa existir no DOM pro usuário poder trocar) — cada
+  // uma bate nesta rota com `urlLocale='es'` (prioridade máxima) e
+  // reescrevia o cookie GLOBAL de preferência, mesmo o usuário nunca tendo
+  // pedido pra ver nada em espanhol. Tentativa inicial (descartada):
+  // distinguir prefetch de navegação de verdade pelo header
+  // `next-router-prefetch` — confirmado ao vivo que a Vercel Edge não
+  // repassa esse header pra este proxy (tanto em curl manual quanto no
+  // prefetch real do navegador, ele sempre chega null aqui), e existe mais
+  // de um tipo de requisição de fundo envolvida, então checar só esse
+  // header deixava metade dos casos passar. `activeLocale` (usado pra
+  // decidir o CONTEÚDO desta resposta) deve mesmo respeitar a URL — um
+  // prefetch de /es/login deve renderizar em espanhol, caso o usuário
+  // clique de verdade. O que não deveria acontecer é isso persistir como
+  // se fosse a preferência escolhida pelo usuário. A troca deliberada de
+  // idioma já tem seu próprio caminho dedicado (bloco `explicitLocale`
+  // acima, via o seletor PT/ES) que grava o cookie explicitamente — este
+  // bloco abaixo só precisa persistir automaticamente o palpite inicial
+  // (geo ou URL) na PRIMEIRA visita, quando `hasStoredLang` ainda é falso;
+  // uma vez que existe uma preferência salva, só a escolha deliberada do
+  // usuário (o seletor) tem permissão pra sobrescrevê-la.
+  if (!hasStoredLang && request.cookies.get('tc_lang')?.value !== activeLocale) {
     response.cookies.set('tc_lang', activeLocale, {
       path: '/',
       maxAge: 60 * 60 * 24 * 365,
