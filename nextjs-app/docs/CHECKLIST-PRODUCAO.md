@@ -9,6 +9,75 @@ diretamente. Reconfira antes do go-live.
 
 ---
 
+## ✅ Validação ao vivo do checkout Stripe + webhooks apontando pra túnel morto — 2026-09-03 (7ª parte)
+
+Pedido do usuário: validar o fluxo de pagamento internacional (Stripe) ao
+vivo, do mesmo jeito que o Pagar.me já tinha sido validado (ver 4ª parte).
+
+### Gateway Stripe é só para país ≠ BR — não dá pra testar direto em produção
+
+`selectGateway()` (`lib/gateways/index.ts`) só cai no gateway internacional
+quando o país resolvido não é `BR`, e `resolveCountryCode()`
+(`lib/geoip.ts`) usa **exclusivamente** `x-vercel-forwarded-for` (header que
+só a própria Vercel escreve, não repassável pelo cliente) — decisão
+deliberada de uma correção de segurança anterior ("burlar localização pra
+contratar em outra moeda"). Confirmado ao vivo que o IP real deste ambiente
+geolocaliza pra Belo Horizonte/BR (`/api/geoip`), então não existe forma de
+alcançar o fluxo Stripe testando direto contra `www.tauzeclass.com.br`.
+Contornado rodando contra o `next dev` local: sem o header da Vercel,
+`resolveCountryCode()` devolve `null` e o código cai no fallback legítimo
+pra `profiles.country` (só usado quando o geoip falha) — setando
+`country='US'` no usuário de teste, o checkout local roteia pra Stripe
+normalmente. Webhook real da Stripe (que já aponta pra produção, ver
+abaixo) ainda dispara pra `www.tauzeclass.com.br` mesmo com o checkout
+rodando local, porque quem recebe o evento é sempre o endpoint cadastrado
+na Stripe, não a origem da requisição que criou a assinatura.
+
+### 🔴 Achado crítico: webhook da Stripe (e do Asaas) apontava pra túnel Cloudflare morto
+
+Já documentado como problema conhecido (ver `[[webhooks-gateway-apontam-tunel-cloudflare]]`
+na memória do Claude) mas nunca corrigido de vez: `GET /v1/webhook_endpoints`
+(Stripe) e `GET /v3/webhooks` (Asaas sandbox) mostravam os dois apontando
+pra `https://respective-serving-whenever-classroom.trycloudflare.com/...`
+— um "quick tunnel" efêmero que já tinha caído. No Asaas isso é visível
+(`"interrupted": true`, 76 requisições penalizadas); na Stripe não existe
+esse sinalizador, o histórico de eventos (`GET /v1/events`) só mostra os
+eventos sendo *criados* normalmente, nunca se a entrega falhou.
+
+**Efeito prático**: um cliente internacional de verdade assinando via
+Stripe teria o cartão cobrado com sucesso (confirmado: `payment_intent.
+succeeded`, `invoice.paid`), mas a assinatura ficaria presa em `pending`
+pra sempre — a UI mostra "Assinatura ativada com sucesso!" de qualquer
+forma (a mensagem de sucesso do checkout depende só da resposta da API de
+criar a assinatura, não da confirmação por webhook), então esse gap não
+tinha NENHUM sintoma visível sem testar o webhook de ponta a ponta.
+
+**Corrigido**: `POST /v1/webhook_endpoints/{id}` (Stripe) e
+`PUT /v3/webhooks/{id}` (Asaas, com `interrupted: false`) atualizando a URL
+pra `https://www.tauzeclass.com.br/api/webhooks/payments?gateway=<nome>`
+— mesmo padrão de query string já usado pelos outros gateways nessa rota
+compartilhada. Confirmado com `curl -X POST` que os dois endpoints
+respondem `400` (rejeição de assinatura ausente — rota viva) em vez de
+`404`.
+
+### ✅ Confirmado ao vivo, duas vezes, com webhook de verdade (sem relay manual na 2ª)
+
+1ª rodada: evento real (`invoice.payment_succeeded`) buscado via
+`GET /v1/events/{id}` e repassado manualmente pro handler local (mesmo
+truque já usado pro Asaas — só pra confirmar a LÓGICA do handler antes de
+mexer na config compartilhada da Stripe) — `subscription.activated`,
+`profiles.verified=true`, `user_secrets.plan='pro'`, confirmado na tela
+("Productor PRO", 15 anúncios).
+
+2ª rodada, DEPOIS do fix da URL: novo usuário descartável, checkout Stripe
+completo de novo (cartão de teste `4242 4242 4242 4242`), **sem nenhum
+relay manual** — 10s depois, `subscriptions.status='active'` e
+`user_secrets.plan='pro'` já refletidos no banco sozinhos. Webhook chegando
+em produção de verdade agora. Assinaturas de teste canceladas na Stripe e
+usuários apagados nas duas rodadas.
+
+---
+
 ## ✅ Achados ao vivo em produção real (idioma revertendo sozinho) — 2026-09-03 (6ª parte)
 
 Usuário reportou dois sintomas juntos: (1) clicar em "Sair" parecia não
