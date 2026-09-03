@@ -423,7 +423,17 @@ export async function proxy(request: NextRequest) {
   // de simplesmente servir ES por baixo dos panos na URL de PT — isso
   // reabriria o mesmíssimo problema que motivou toda essa migração (a
   // MESMA URL servindo conteúdo diferente por visitante).
-  if (!urlLocale && activeLocale === 'es' && !pathname.startsWith('/painel') && !pathname.startsWith('/admin')) {
+  //
+  // BUG CRÍTICO CORRIGIDO (achado ao vivo pelo usuário em produção,
+  // 2026-09-02): faltava excluir /auth aqui — só /painel e /admin tinham
+  // guarda. O callback do login por Google (/auth/callback?code=...&next=)
+  // vinha de fora (Supabase, sem prefixo /es nunca) e caía nesta regra geral
+  // com cookie tc_lang=es, virando um 307 pra /es/auth/callback?code=...
+  // ANTES da troca do código pela sessão acontecer. Login com Google
+  // simplesmente falhava (ERR_FAILED) pra qualquer usuário com preferência
+  // de idioma ES — rota técnica, nunca deveria ganhar prefixo de idioma
+  // nenhum (não existe "página de callback em espanhol" pra servir).
+  if (!urlLocale && activeLocale === 'es' && !pathname.startsWith('/painel') && !pathname.startsWith('/admin') && !pathname.startsWith('/auth')) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = withLocale(pathname, 'es');
     return NextResponse.redirect(redirectUrl, 307);
