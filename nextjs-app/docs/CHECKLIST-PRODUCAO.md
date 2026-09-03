@@ -9,6 +9,78 @@ diretamente. Reconfira antes do go-live.
 
 ---
 
+## ✅ Achados ao vivo em produção real (idioma revertendo sozinho) — 2026-09-03 (6ª parte)
+
+Usuário reportou dois sintomas juntos: (1) clicar em "Sair" parecia não
+desconectar de verdade — login seguinte "reconhecia como já conectado"; (2)
+mesmo definindo o idioma da sessão como PT, o site sempre reabria em ES.
+
+### 🔴 Bug real de código — preferência de idioma (`tc_lang`) revertida por
+### requisições invisíveis de fundo
+
+Reproduzido ao vivo, sem ambiguidade, com um usuário de teste descartável
+(criado/removido via Admin API): definir `tc_lang=pt` pelo seletor e depois
+simplesmente **submeter o formulário de `/login`** (sucesso OU falha — nunca
+teve relação com o login em si) revertia a preferência pra ES sem nenhum
+clique relacionado a idioma. Confirmado via instrumentação de
+`document.cookie` no navegador real (override do setter + `beforeunload`)
+que a reversão já tinha acontecido ENQUANTO ainda na página de login, antes
+de qualquer navegação — ou seja, é o próprio navegador fazendo isso, não o
+fluxo de login.
+
+Duas causas raiz, ambas no mesmo arquivo (`proxy.ts`), ambas do mesmo tipo:
+**qualquer requisição HTTP pra uma URL `/es/...` era tratada como se fosse a
+escolha deliberada do usuário — inclusive requisições que o usuário nunca
+pediu.**
+
+1. **Bloco de sincronização passiva do cookie** (`activeLocale` decide o
+   conteúdo da resposta, e se o cookie não bate com isso, o cookie era
+   reescrito): qualquer prefetch de fundo pra uma URL `/es/...` (o próprio
+   link "Español" do seletor precisa existir no DOM, então o navegador/
+   Next.js prefetcha ele mesmo sendo uma tag `<a>` pura) reescrevia o
+   cookie. Corrigido: esse sync automático agora só roda quando **não
+   existe preferência salva ainda** (`hasStoredLang === false` — visitante
+   genuinamente novo). Uma vez que existe uma preferência, só a escolha
+   deliberada do usuário pode sobrescrevê-la.
+2. **Bloco de troca explícita de idioma** (`?setLocale=es`, o próprio
+   destino do link do seletor): como o HREF do seletor já inclui
+   `?setLocale=es`, um prefetch desse link específico caía direto no fluxo
+   que existe justamente pra tratar isso como clique deliberado — e
+   reescrevia o cookie incondicionalmente. Corrigido usando `Sec-Fetch-Mode`
+   (header padrão do navegador — Fetch Metadata Request Headers, não um
+   header customizado do Next.js): só `navigate` (navegação de verdade) ou
+   a ausência do header (clientes antigos) autoriza a troca; `cors`/
+   `no-cors`/`same-origin` (fetch/prefetch de fundo) é ignorado. Tentativa
+   inicial descartada: o header `next-router-prefetch` do próprio Next.js
+   — confirmado ao vivo que a Vercel Edge não repassa esse header pro
+   proxy (chegava `null` tanto num prefetch real quanto num `fetch()` de
+   teste), inviabilizando distinguir prefetch de navegação por ele.
+
+Ambas verificadas ao vivo em produção real, duas vezes cada (login com
+senha errada E com senha certa), depois do deploy: preferência PT
+permanece PT do início ao fim do fluxo. Clique de verdade no seletor
+continua funcionando normalmente (testado nos dois sentidos).
+
+### Investigado, não reproduzido — logout
+
+O sintoma "clico em Sair, mas o login seguinte reconhece como já
+conectado" foi investigado a fundo: o botão "Sair" do `/painel` usa
+`logout()` (`lib/supabase.ts`), que `await`s `signOut()` (limpeza local do
+cookie de sessão é síncrona dentro dessa cadeia, mesmo se a chamada de
+rede pro Supabase pra invalidar o token no servidor falhar) antes de
+navegar. Testado ao vivo múltiplas vezes com um clique real (via `ref`,
+não coordenada) no botão: o cookie `sb-*-auth-token` sempre foi removido
+por completo antes da navegação, e o login seguinte sempre criou uma
+sessão nova de verdade (JWT com `iat`/`session_id` novos), nunca reaproveitou
+uma sessão antiga. Não foi possível reproduzir o sintoma reportado — mais
+provável é ter sido a MESMA reversão de idioma (item acima) confundindo a
+percepção de "ainda conectado" no momento do teste, já que os dois
+sintomas foram reportados juntos e o de idioma era 100% reprodutível. Sem
+uma segunda ocorrência confirmada, nenhuma mudança de código foi feita
+para o logout em si.
+
+---
+
 ## ✅ Achados ao vivo em produção real (login Google, Service Worker, i18n) — 2026-09-02 (5ª parte)
 
 Rodada de bugs achados pelo usuário testando o site publicado de verdade — a
