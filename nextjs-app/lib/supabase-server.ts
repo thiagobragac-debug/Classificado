@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { cache } from 'react';
 import { SUPABASE_URL, SUPABASE_ANON } from './supabase';
 import { parseEventDate } from './event-date';
+import { createAdminClient, getSettings } from './supabase-admin';
 
 export function createAnonClient() {
   return createServerClient(SUPABASE_URL, SUPABASE_ANON, { 
@@ -94,13 +95,28 @@ export async function getServerAds({
   return { ads: data || [], total: null, nextCursor, hasMore };
 }
 
+// BUG CORRIGIDO (achado ao vivo, 2026-09-03 — usuário reparou que os
+// cartões flutuantes da home mostravam "0 Bovinos"/"0 Máquinas" e lembrou
+// de ter configurado um piso mínimo pra isso no admin): as configurações
+// `tc_cnt_*` (platform_settings) sempre existiram no banco com valores
+// reais (ex.: tc_cnt_bovinos=1000), mas NENHUM código as lia — a home
+// sempre mostrou a contagem crua do banco, sem nenhum piso. `getSettings`
+// exige o client admin (colunas sensíveis do mesmo jeito compartilhado da
+// tabela são RLS-protegidas), mas só os 4 números numéricos abaixo saem
+// desta função — o restante do settings blob (chaves de gateway etc.)
+// nunca é repassado adiante.
+function piso(real: number, configurado: string | undefined): number {
+  const n = parseInt(configurado || '', 10);
+  return Number.isFinite(n) && n > real ? n : real;
+}
+
 // Server version of fetchPlatformStats
 export const getServerPlatformStats = cache(async () => {
   const supabase = createAnonClient();
 
   // All 5 count queries run in parallel
   const today = new Date().toISOString();
-  const [adsResult, usersResult, bovinosResult, maquinasResult, auctionsResult] = await Promise.all([
+  const [adsResult, usersResult, bovinosResult, maquinasResult, auctionsResult, settings] = await Promise.all([
     supabase.from('ads').select('*', { count: 'exact', head: true }).eq('status', 'active'),
     // select('id', ...): profiles.is_admin/is_blocked deixaram de ter grant
     // público (achado de segurança 2026-08-24) — select('*') quebra até num
@@ -113,16 +129,31 @@ export const getServerPlatformStats = cache(async () => {
     supabase.from('ads').select('*', { count: 'exact', head: true }).eq('status', 'active').eq('category_id', 'cat-bovinos'),
     supabase.from('ads').select('*', { count: 'exact', head: true }).eq('status', 'active').eq('category_id', 'cat-maquinas'),
     supabase.from('auction_events').select('*', { count: 'exact', head: true }).neq('status', 'draft').gte('date', today),
+    getSettings(createAdminClient()),
   ]);
 
+  const total_sellers  = piso(usersResult.count    || 0, settings.tc_cnt_users);
+  const total_bovinos  = piso(bovinosResult.count  || 0, settings.tc_cnt_bovinos);
+  const total_machines = piso(maquinasResult.count || 0, settings.tc_cnt_maquinas);
+  const total_auctions = piso(auctionsResult.count || 0, settings.tc_cnt_auctions);
+
   return {
-    total_ads:      adsResult.count      || 0,
-    total_sellers:  usersResult.count    || 0,
-    total_bovinos:  bovinosResult.count  || 0,
-    total_machines: maquinasResult.count || 0,
-    total_auctions: auctionsResult.count || 0,
+    total_ads:      adsResult.count || 0,
+    total_sellers,
+    total_bovinos,
+    total_machines,
+    total_auctions,
+    // tc_cnt_paises/tc_cnt_cidades existem no banco mas não são aplicados
+    // aqui de propósito: país é uma contagem fechada (só os 4 do Mercosul
+    // que o site atende), um "piso" ali mostraria algo sem sentido tipo
+    // "1000+ Países". Cidade seria só validado depois de virar contagem
+    // real (hoje também é fixo) — deixado de fora por ora.
     total_cities:   120,
     total_countries: 4,
+    // Usado por HeroSection pra decidir o sufixo "+" nos cartões
+    // flutuantes — controla os 4 contadores acima juntos, não por
+    // categoria (mesmo escopo do único toggle `tc_cnt_plus` salvo).
+    cnt_plus: settings.tc_cnt_plus === '1',
   };
 });
 

@@ -25,6 +25,13 @@ export function AnimatedNumber({ target, suffix = '' }: { target: number; suffix
     return () => obs.disconnect();
   }, [target]);
 
-  const display = val >= 1000 ? `${(val / 1000).toFixed(val >= 10000 ? 0 : 1)}k` : String(val);
+  // BUG CORRIGIDO (achado ao vivo, 2026-09-03): toFixed(1) sempre mostrava
+  // uma casa decimal, mesmo pra número redondo (1000 -> "1.0k" em vez de
+  // "1k") — só ficou visível agora que o piso mínimo dos contadores da home
+  // (tc_cnt_*) passou a alcançar essa faixa de verdade.
+  const emMilhares = val / 1000;
+  const display = val >= 1000
+    ? `${Number.isInteger(emMilhares) ? emMilhares : emMilhares.toFixed(val >= 10000 ? 0 : 1)}k`
+    : String(val);
   return <span ref={ref}>{display}{suffix}</span>;
 }

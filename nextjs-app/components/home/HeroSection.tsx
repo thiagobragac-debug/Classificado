@@ -74,11 +74,19 @@ export async function HeroSection({ stats }: { stats: any }) {
           <div className="hero-right fade-in-up visible" style={{ transitionDelay: '.15s' }}>
             <div className="hero-img-frame">
 
+              {/* BUG CORRIGIDO (achado ao vivo, 2026-09-03): os 4 números
+                  abaixo sempre foram contagem crua do banco, sem nenhum piso
+                  mínimo — mesmo com tc_cnt_bovinos/tc_cnt_maquinas/
+                  tc_cnt_auctions/tc_cnt_users já configurados no admin (só
+                  nunca lidos por código nenhum, ver getServerPlatformStats).
+                  `stats.total_*` já vem com max(real, configurado) aplicado;
+                  o sufixo "+" agora segue o mesmo toggle `cnt_plus` nos 4
+                  cartões (antes só "vendedores" tinha "+", hardcoded). */}
               <div className="hero-float-card hero-float-card--1" aria-hidden="true">
                 <div className="fc-icon fc-icon--green">🐄</div>
                 <div>
                   <div className="fc-text-main">
-                    <AnimatedNumber target={stats?.total_bovinos ?? 18400} /> <span>{t('fc_bovinos')}</span>
+                    <AnimatedNumber target={stats?.total_bovinos ?? 18400} suffix={stats?.cnt_plus ? '+' : ''} /> <span>{t('fc_bovinos')}</span>
                   </div>
                   <div className="fc-text-sub">{t('fc_ads_available')}</div>
                 </div>
@@ -89,7 +97,7 @@ export async function HeroSection({ stats }: { stats: any }) {
                 <div>
                   <div className="fc-text-main">{t('fc_verified')}</div>
                   <div className="fc-text-sub">
-                    <AnimatedNumber target={stats?.total_sellers ?? 450} suffix="+" /> <span>{t('fc_sellers')}</span>
+                    <AnimatedNumber target={stats?.total_sellers ?? 450} suffix={stats?.cnt_plus ? '+' : ''} /> <span>{t('fc_sellers')}</span>
                   </div>
                 </div>
               </div>
@@ -98,7 +106,7 @@ export async function HeroSection({ stats }: { stats: any }) {
                 <div className="fc-icon" style={{ color: 'var(--clr-accent)' }}>🔨</div>
                 <div>
                   <div className="fc-text-main">
-                    <AnimatedNumber target={stats?.total_auctions ?? 15} /> <span>{t('fc_auctions')}</span>
+                    <AnimatedNumber target={stats?.total_auctions ?? 15} suffix={stats?.cnt_plus ? '+' : ''} /> <span>{t('fc_auctions')}</span>
                   </div>
                   <div className="fc-text-sub">{t('fc_scheduled')}</div>
                 </div>
@@ -108,7 +116,7 @@ export async function HeroSection({ stats }: { stats: any }) {
                 <div className="fc-icon" style={{ color: 'var(--clr-primary)' }}>🚜</div>
                 <div>
                   <div className="fc-text-main">
-                    <AnimatedNumber target={stats?.total_machines ?? 1200} /> <span>{t('fc_machines')}</span>
+                    <AnimatedNumber target={stats?.total_machines ?? 1200} suffix={stats?.cnt_plus ? '+' : ''} /> <span>{t('fc_machines')}</span>
                   </div>
                   <div className="fc-text-sub">{t('fc_machines_sub')}</div>
                 </div>
