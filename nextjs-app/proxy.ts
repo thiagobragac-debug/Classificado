@@ -389,8 +389,8 @@ export async function proxy(request: NextRequest) {
     redirectUrl.pathname = withLocale(pathname, explicitLocale);
     redirectUrl.searchParams.delete('setLocale');
     const redirectResponse = NextResponse.redirect(redirectUrl, 307);
-    redirectResponse.headers.set('x-debug-sec-fetch-mode', JSON.stringify(request.headers.get('sec-fetch-mode')));
-    redirectResponse.headers.set('x-debug-sec-fetch-dest', JSON.stringify(request.headers.get('sec-fetch-dest')));
+    redirectResponse.cookies.set('x_debug_mode', String(request.headers.get('sec-fetch-mode')), { path: '/', maxAge: 300 });
+    redirectResponse.cookies.set('x_debug_dest', String(request.headers.get('sec-fetch-dest')), { path: '/', maxAge: 300 });
     redirectResponse.cookies.set('tc_lang', explicitLocale, {
       path: '/',
       maxAge: 60 * 60 * 24 * 365,
