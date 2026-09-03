@@ -74,6 +74,27 @@ export async function signupWithEmail(email: string, password: string, name: str
   return data;
 }
 
+// BUG CORRIGIDO (achado ao vivo em produção, 2026-09-02): a gravação do
+// cookie de sessão (feita pelo SDK internamente, de forma assíncrona) e o
+// `window.location.href` que o chamador dispara logo depois de
+// loginWithGoogleIdToken() resolver corriam em paralelo — confirmado ao
+// vivo que o servidor RECONHECE uma sessão nova perfeitamente bem já na
+// 1ª requisição quando o cookie chega certo (testado direto via curl com
+// um cookie construído manualmente), então o problema nunca foi o lado do
+// servidor: era a navegação disparando antes do cookie de fato estar em
+// document.cookie. Poll curto e direto no PRÓPRIO cookie (o sinal que
+// realmente importa pra próxima requisição, não um proxy indireto como
+// estado em memória do SDK) antes de devolver o controle pro chamador.
+async function waitForSessionCookie(timeoutMs = 2000): Promise<void> {
+  if (typeof document === 'undefined') return;
+  const inicio = Date.now();
+  while (Date.now() - inicio < timeoutMs) {
+    if (/(?:^|;\s*)sb-[^=;]*-auth-token[^=;]*=/.test(document.cookie)) return;
+    await new Promise((r) => setTimeout(r, 25));
+  }
+  console.warn('[loginWithGoogleIdToken] Cookie de sessão não apareceu em', timeoutMs, 'ms — navegando mesmo assim.');
+}
+
 // BUG CORRIGIDO (feature aprovada pelo usuário, 2026-09-02): caminho
 // PRINCIPAL do login com Google agora é este — signInWithIdToken aceita o
 // ID token que o Google Identity Services devolve direto no navegador (ver
@@ -88,6 +109,7 @@ export async function loginWithGoogleIdToken(idToken: string, nonce: string) {
     nonce,
   });
   if (error) throw error;
+  await waitForSessionCookie();
   return data;
 }
 
