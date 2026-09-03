@@ -9,6 +9,108 @@ diretamente. Reconfira antes do go-live.
 
 ---
 
+## ✅ Achados ao vivo em produção real (login Google, Service Worker, i18n) — 2026-09-02 (5ª parte)
+
+Rodada de bugs achados pelo usuário testando o site publicado de verdade — a
+mesma classe de coisa que só aparece com um navegador real, sessão real,
+depois de vários deploys seguidos (não é achado por teste headless/API).
+
+### Login com Google (2 configurações, não código)
+
+1. **Tela de consentimento do Google mostrando o domínio técnico do
+   Supabase** em vez de "Tauze Class" — resolvido publicando o app no Google
+   Cloud Console (estava em "Teste"; precisava de Política de Privacidade +
+   Termos de Serviço preenchidos no Branding antes do botão "Publicar app"
+   destravar).
+2. **🔴 Login redirecionava pra `localhost:3000`** em produção — `Site URL`
+   do projeto Supabase estava presa em `http://localhost:3000` (resquício
+   de quando o projeto foi criado em dev, nunca atualizada) e a lista de
+   redirecionamentos permitidos (`uri_allow_list`) estava vazia. Corrigido
+   via Management API: `site_url` → `https://www.tauzeclass.com.br`,
+   `uri_allow_list` → domínio de produção + localhost (pra continuar
+   testando local).
+3. **🔴 Bug real de código**: `/auth/callback` (rota técnica de callback do
+   OAuth, chamada pelo Supabase depois do Google autenticar) não estava
+   excluída da regra geral de `proxy.ts` que redireciona qualquer página
+   pra sua versão `/es/` quando o idioma ativo é espanhol — um usuário com
+   `tc_lang=es` era redirecionado pra `/es/auth/callback?code=...`
+   ANTES da troca do código pela sessão acontecer, e o login falhava com
+   `ERR_FAILED`. Corrigido excluindo `/auth` da mesma regra que já
+   protegia `/painel` e `/admin`.
+
+### 🔴 Service Worker: navegação travando (5 rodadas até a causa raiz)
+
+Sintoma: clicar num link mudava a URL (History API) mas o conteúdo ficava
+preso na página anterior — `"Cannot read properties of null (reading
+'removeChild')"` no console, às vezes com um 504 sintético. Reproduzido
+repetidamente pelo usuário, inclusive em aba anônima 100% limpa (não era
+resíduo de cache).
+
+Histórico de correções na mesma sessão, cada uma reduzindo o escopo do que
+o Service Worker interceptava — e cada uma reproduzindo o mesmo sintoma de
+novo, só que por um caminho ligeiramente diferente:
+
+1. Corrigir a reconstrução do `fetch()` de navegação pra seguir redirect.
+2. Corrigir a mesma reconstrução pra também preservar `method`/`body` de
+   POST (achado à parte, ver abaixo).
+3. Parar de reconstruir a navegação inteiramente (`mode:'navigate'` só dá
+   `return`, sem `respondWith()`).
+4. Corrigir `isBypass()` pra reconhecer navegação client-side do App
+   Router de verdade (o CSP do próprio site, em `Vary`, já denunciava 4
+   headers diferentes de roteamento que o SW só reconhecia 1).
+5. **Causa raiz de verdade, confirmada com prova concreta** (aba Network:
+   a requisição de navegação tinha sucesso e devolvia o RSC certo, mas
+   vários dos chunks JS que aquele payload carrega em seguida — via
+   `/_next/static/`, o único caminho que ainda passava pelo cache-first do
+   SW — apareciam duplicados com falha/retry; confirmado isolando a causa
+   com "Bypass for network" do DevTools, que fez o mesmo clique nunca
+   falhar). O Service Worker parou de interceptar QUALQUER fetch da
+   aplicação — nem navegação, nem estáticos do build. Next.js já nomeia
+   esses arquivos com hash de conteúdo e `Cache-Control: immutable`; o
+   cache HTTP nativo do navegador já resolve isso sozinho, sem ajuda de SW
+   nenhuma. Sobra só precache (página offline + ícones na instalação) e
+   push notifications — nunca fizeram parte do problema.
+
+Junto: **`app/(admin)/layout.tsx`, botão "Sair" da sidebar** — um
+`<form method="post" action="/auth/signout">` puro (sem JS), que É uma
+navegação (`mode:'navigate'`) igual a um clique de link. A reconstrução do
+SW (item 2 do histórico acima) nunca copiava `method` nem `body` —
+silenciosamente virava GET, e a rota só aceita POST — o logout do admin
+simplesmente não fazia nada (nem deslogava, nem redirecionava),
+reproduzido como `ERR_FAILED`. Corrigido junto com a #2, e depois coberto
+de vez pela #3-#5, que eliminaram a reconstrução por completo.
+
+**Trade-off aceito conscientemente**: perdeu-se a tela offline customizada
+quando o usuário está genuinamente sem internet (mostra a tela padrão do
+navegador agora, não a nossa) — decisão consciente, não uma omissão.
+
+### i18n: Footer com o mesmo bug de pathname do Header
+
+Achado por uma varredura sistemática (Workflow) rodada depois dos fixes do
+SW, procurando a mesma classe de bug em outros componentes:
+`components/Footer.tsx` comparava `usePathname()` CRU (com prefixo `/es`
+quando presente) contra rotas sem prefixo — rodapé completo vazava em
+`/es/login` e `/es/admin` (deveria ficar oculto), e o rodapé simplificado
+nunca ativava em 7 rotas espanholas (`/es/painel`, `/es/listagem`, etc).
+Corrigido normalizando com `stripLocale()` — mesmo helper e mesmo padrão
+já usado no Header.tsx.
+
+### Nota sobre o seletor PT/ES
+
+Corrigido antes desta rodada (ver commits anteriores do mesmo dia): o
+seletor de idioma usava `<Link>` do Next (navegação client-side) — quando
+o destino final (depois do redirect do `proxy.ts`) é o MESMO pathname que
+o usuário já está vendo, o router client-side não repintava a página,
+mesmo buscando o RSC novo com sucesso. Trocado por `<a>` puro, que força
+navegação de página inteira.
+
+Se o idioma parecer "grudado" em espanhol sem motivo aparente, quase
+sempre é o cookie `tc_lang=es` de uma sessão anterior — comportamento
+intencional (a escolha do usuário é sticky), não bug. Confirmado ao vivo:
+visitante sem cookie nenhum abre em português normalmente.
+
+---
+
 ## ✅ Migração Asaas → Pagar.me (checkout transparente, sem redirect) — 2026-09-02 (4ª parte)
 
 Pedido explícito do usuário: o checkout precisa acontecer **dentro do site**,
