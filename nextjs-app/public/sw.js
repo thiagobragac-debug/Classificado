@@ -12,16 +12,10 @@
 //  todo HTML — inclusive /painel e /admin, já renderizados com os dados da
 //  sessão. Agora esses caminhos passam direto, sem cache.
 
-// VERSION subido pra v5 (2026-09-02) só pra forçar o navegador a detectar
-// que existe um SW novo — bytes deste arquivo precisam mudar pra Chrome
-// notar a atualização. Abas já abertas antes disso (rodando build antiga
-// depois de vários deploys seguidos) ficavam com JS/HTML dessincronizado
-// do servidor, navegação falhando com ERR_FAILED, sem nenhum jeito de se
-// recuperar sozinhas — o novo listener de 'controllerchange' em
-// app/(public)/layout.tsx só entra em ação quando o SW de fato troca de
-// versão, e sem mudar VERSION aqui nenhuma troca acontece pra deploys que
-// não tocam neste arquivo (a maioria).
-const VERSION = 'v5';
+// VERSION subido pra v6 (2026-09-02, mesmo dia — 2ª correção): o fix do
+// método/body em POST (ver comentário no handler de 'navigate' abaixo)
+// também precisa que os navegadores com o SW antigo detectem a troca.
+const VERSION = 'v6';
 const STATIC_CACHE = `tc-static-${VERSION}`;
 const OFFLINE_URL = '/_offline.html';
 
@@ -130,12 +124,33 @@ self.addEventListener('fetch', (event) => {
   // 'navigate') evita a restrição — mesmo padrão recomendado para Service
   // Workers que precisam refazer o fetch de uma navegação interceptada.
   if (request.mode === 'navigate') {
+    // BUG CRÍTICO CORRIGIDO (achado ao vivo pelo usuário em produção,
+    // 2026-09-02): a Request nova acima nunca copiava `method` nem `body`
+    // — Request() sem esses campos assume GET silenciosamente, mesmo
+    // quando a navegação original era um POST de verdade (ex.: o "Sair" do
+    // admin em app/(admin)/layout.tsx é um <form method="post"
+    // action="/auth/signout"> puro, sem JS — um form submit TAMBÉM é uma
+    // navegação, mode:'navigate', interceptada aqui igual a um clique de
+    // link). A rota (app/auth/signout/route.ts) só exporta POST; a versão
+    // GET que este SW mandava batia em 405 sem nunca fazer logout nem
+    // redirecionar — reproduzido ao vivo como ERR_FAILED no navegador. Body
+    // só é copiado pra métodos que podem ter um (nunca GET/HEAD — o Fetch
+    // spec proíbe) e exige `duplex: 'half'` quando o body é um stream, ou o
+    // `new Request(...)` abaixo lança TypeError SÍNCRONO, fora do .catch()
+    // — outra forma de produzir o mesmo ERR_FAILED, agora pra QUALQUER
+    // navegação POST, se não declarado.
+    const initNavegacao = {
+      method: request.method,
+      headers: request.headers,
+      credentials: request.credentials,
+      redirect: 'follow',
+    };
+    if (request.method !== 'GET' && request.method !== 'HEAD') {
+      initNavegacao.body = request.body;
+      initNavegacao.duplex = 'half';
+    }
     event.respondWith(
-      fetch(new Request(request.url, {
-        headers: request.headers,
-        credentials: request.credentials,
-        redirect: 'follow',
-      })).catch(() =>
+      fetch(new Request(request.url, initNavegacao)).catch(() =>
         caches.match(OFFLINE_URL).then((offline) => offline || respostaOffline())
       )
     );
