@@ -95,6 +95,24 @@
       top: 100px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.03);
     }
+    /* BUG CORRIGIDO (achado ao vivo pelo usuário): .inst-sidebar continuava
+       position:sticky no layout de coluna única (regra acima, sem media
+       query, vencendo por vir depois no arquivo) — como .inst-sidebar vem
+       ANTES de .inst-content-box no DOM mas é um elemento posicionado
+       (sticky conta como "positioned"), ele pintava por cima do conteúdo
+       estático (FAQ etc.) sempre que os dois se sobrepunham durante o
+       scroll, dando a impressão de conteúdo "por baixo" do menu
+       institucional. Sticky só faz sentido ao lado do conteúdo (grid de 2
+       colunas do desktop); em coluna única vira um bloco normal. Regra
+       precisa vir DEPOIS da base acima pra vencer o empate de
+       especificidade (mesma classe, sem media query nenhuma delas).
+     */
+    @media (max-width: 900px) {
+      .inst-sidebar {
+        position: static;
+        top: auto;
+      }
+    }
     
     .inst-nav-group {
       margin-bottom: 2.25rem;

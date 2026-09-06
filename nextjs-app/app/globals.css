@@ -1307,6 +1307,14 @@ html.is-logged-in .auth-wrapper a[href="login.html"]::after {
   .cta-actions { width: 100%; }
   .cta-actions .btn { width: 100%; justify-content: center; }
   .trust-grid { grid-template-columns: 1fr; }
+  /* BUG CORRIGIDO (achado ao vivo pelo usuário, viewport bem estreito):
+     .header-inner não quebra linha — logo + "Anunciar Grátis" (texto sem
+     quebra) + .hamburger (piso de 44px, WCAG 2.5.5) somados passavam da
+     largura da tela, empurrando o hamburger pra fora da viewport visível
+     (cortado). Reduz o botão a só o ícone aqui, liberando espaço
+     suficiente pro hamburger caber inteiro sem sair da tela. */
+  .btn-anunciar-header span { display: none; }
+  .btn-anunciar-header { padding: 10px; }
 }
 
 /* ==========================================================================
