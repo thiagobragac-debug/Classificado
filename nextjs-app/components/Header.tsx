@@ -395,7 +395,12 @@ export default function Header({
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
             </svg>
-            <span>{t('btn_post')}</span>
+            <span className="btn-anunciar-full">{t('btn_post')}</span>
+            {/* Versão curta ("Anunciar", sem "Grátis") só aparece em telas bem
+                estreitas (ver @media max-width:480px em globals.css) — troca o
+                ícone sozinho (ambíguo, achado ao vivo pelo usuário) sem
+                estourar a largura do header como o texto completo estourava. */}
+            <span className="btn-anunciar-short">{t('btn_post_short')}</span>
           </Link>
 
           <button
