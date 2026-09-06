@@ -397,6 +397,21 @@ export default function PricingClientUI({ initialPlans, plansError = false }: { 
     return planFeatures(p)?.some(feat => feat.toLowerCase().includes('selo') || feat.toLowerCase().includes('sello')) || false
   }
 
+  // GAP CORRIGIDO (achado ao vivo pelo usuário): a linha "Análise de
+  // desempenho" da tabela comparativa era 3 células fixas no código
+  // (✕ / Básica / Avançada), sem nenhuma relação com o que o admin edita
+  // em Regras — mesmo padrão de derivação por texto já usado acima em
+  // hasSelo/getSuporte. Hoje o plano Premium já tem literalmente
+  // "Análise avançada de desempenho" cadastrado em features, então isso
+  // não muda nada visível agora — só passa a refletir o que o admin
+  // cadastrar daqui pra frente.
+  const analyticsLevel = (p: Plan): 'none' | 'basic' | 'advanced' => {
+    const feats = planFeatures(p) || []
+    const advanced = feats.some(f => /avan[çz]ada|avanzado/i.test(f))
+    if (advanced) return 'advanced'
+    return p.price > 0 ? 'basic' : 'none'
+  }
+
   const getSuporte = (p: Plan) => {
     const feats = planFeatures(p)
     if (!feats) return t.supportEmail
@@ -619,9 +634,16 @@ export default function PricingClientUI({ initialPlans, plansError = false }: { 
                     <span className={styles.featName}>{t.rowAnalytics}</span>
                     <span className={styles.featDesc}>{t.rowAnalyticsDesc}</span>
                   </td>
-                  <td><span className={styles.tblCross} aria-hidden="true">✕</span></td>
-                  <td>{t.basic}</td>
-                  <td><span className={styles.tblGold}>{t.advanced}</span></td>
+                  {[free, pro, premium].map((p, i) => {
+                    const level = analyticsLevel(p)
+                    return (
+                      <td key={i}>
+                        {level === 'none' && <span className={styles.tblCross} aria-hidden="true">✕</span>}
+                        {level === 'basic' && t.basic}
+                        {level === 'advanced' && <span className={styles.tblGold}>{t.advanced}</span>}
+                      </td>
+                    )
+                  })}
                 </tr>
                 <tr>
                   <td><span className={styles.featName}>{t.rowAuction}</span></td>

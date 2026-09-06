@@ -48,7 +48,13 @@ export default function AdminPlanos() {
     // isso pela UI, só via SQL direto.
     has_video: false,
     has_banner: false,
-    features: ['']
+    features: [''],
+    // GAP CORRIGIDO (achado ao vivo pelo usuário): plans.features_es já
+    // existe no banco e /planos (público) já lê essa coluna pra quem
+    // navega em espanhol (com fallback pra features/pt se vazia) — mas
+    // este formulário nunca teve campo pra editá-la, só a versão em
+    // português.
+    features_es: ['']
   })
 
   useEffect(() => {
@@ -106,7 +112,7 @@ export default function AdminPlanos() {
   const openNew = () => {
     setEditingId(null)
     setForm({
-      name: '', icon: '🚀', description: '', price: 0, promotional_price: '', price_usd: '', promotional_price_usd: '', is_active: true, max_ads: 15, max_photos: 15, highlight_count: 2, has_video: false, has_banner: false, features: ['']
+      name: '', icon: '🚀', description: '', price: 0, promotional_price: '', price_usd: '', promotional_price_usd: '', is_active: true, max_ads: 15, max_photos: 15, highlight_count: 2, has_video: false, has_banner: false, features: [''], features_es: ['']
     })
     setIsModalOpen(true)
   }
@@ -127,24 +133,25 @@ export default function AdminPlanos() {
       highlight_count: p.highlight_count || 0,
       has_video: !!p.has_video,
       has_banner: !!p.has_banner,
-      features: Array.isArray(p.features) ? p.features : p.features ? [p.features] : ['']
+      features: Array.isArray(p.features) ? p.features : p.features ? [p.features] : [''],
+      features_es: Array.isArray(p.features_es) ? p.features_es : p.features_es ? [p.features_es] : ['']
     })
     setIsModalOpen(true)
   }
 
-  const handleFeatureChange = (index: number, val: string) => {
-    const newFeatures = [...form.features]
+  const handleFeatureChange = (field: 'features' | 'features_es', index: number, val: string) => {
+    const newFeatures = [...form[field]]
     newFeatures[index] = val
-    setForm({ ...form, features: newFeatures })
+    setForm({ ...form, [field]: newFeatures })
   }
 
-  const addFeature = () => {
-    setForm({ ...form, features: [...form.features, ''] })
+  const addFeature = (field: 'features' | 'features_es') => {
+    setForm({ ...form, [field]: [...form[field], ''] })
   }
 
-  const removeFeature = (index: number) => {
-    const newFeatures = form.features.filter((_, i) => i !== index)
-    setForm({ ...form, features: newFeatures })
+  const removeFeature = (field: 'features' | 'features_es', index: number) => {
+    const newFeatures = form[field].filter((_, i) => i !== index)
+    setForm({ ...form, [field]: newFeatures })
   }
 
   const handleSave = async () => {
@@ -176,6 +183,7 @@ export default function AdminPlanos() {
       currency: 'BRL',
       interval: 'month',
       features: form.features.filter(f => f.trim() !== ''),
+      features_es: form.features_es.filter(f => f.trim() !== ''),
       updated_at: new Date().toISOString()
     }
 
@@ -451,21 +459,41 @@ export default function AdminPlanos() {
                 </label>
               </div>
 
-              <h4 style={{ margin: '20px 0 10px', fontSize: '1rem', color: 'var(--adm-text)' }}>Regras (Features)</h4>
+              <h4 style={{ margin: '20px 0 10px', fontSize: '1rem', color: 'var(--adm-text)' }}>Regras (Features) — Português</h4>
               <p style={{ fontSize: '0.8rem', color: 'var(--adm-text-muted)', marginBottom: '12px' }}>Adicione as regras textuais que aparecem na tela (Ex: Suporte WhatsApp, Selo Verificado).</p>
-              
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {form.features.map((feat, i) => (
                   <div key={i} style={{ display: 'flex', gap: '8px' }}>
-                    <input type="text" className="adm-input" value={feat} onChange={e => handleFeatureChange(i, e.target.value)} placeholder={`Feature ${i + 1}`} style={{ flex: 1 }} />
+                    <input type="text" className="adm-input" value={feat} onChange={e => handleFeatureChange('features', i, e.target.value)} placeholder={`Feature ${i + 1}`} style={{ flex: 1 }} />
                     {form.features.length > 1 && (
-                      <button type="button" className="adm-btn adm-btn--outline" style={{ padding: '0 12px', color: 'var(--adm-red)' }} onClick={() => removeFeature(i)}>X</button>
+                      <button type="button" className="adm-btn adm-btn--outline" style={{ padding: '0 12px', color: 'var(--adm-red)' }} onClick={() => removeFeature('features', i)}>X</button>
                     )}
                   </div>
                 ))}
               </div>
-              
-              <button className="adm-btn adm-btn--outline" style={{ marginTop: '10px', width: '100%', justifyContent: 'center' }} onClick={addFeature}>+ Adicionar Regra</button>
+
+              <button className="adm-btn adm-btn--outline" style={{ marginTop: '10px', width: '100%', justifyContent: 'center' }} onClick={() => addFeature('features')}>+ Adicionar Regra</button>
+
+              {/* GAP CORRIGIDO (achado ao vivo pelo usuário): não existia campo
+                  pra editar plans.features_es — quem via /planos em espanhol
+                  ficava preso no que uma migration/script gravou uma vez,
+                  sem jeito de atualizar pelo admin. */}
+              <h4 style={{ margin: '24px 0 10px', fontSize: '1rem', color: 'var(--adm-text)' }}>Regras (Features) — Español</h4>
+              <p style={{ fontSize: '0.8rem', color: 'var(--adm-text-muted)', marginBottom: '12px' }}>Reglas equivalentes para visitantes en español. Si quedar vacío, a página em espanhol usa as regras em português acima.</p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {form.features_es.map((feat, i) => (
+                  <div key={i} style={{ display: 'flex', gap: '8px' }}>
+                    <input type="text" className="adm-input" value={feat} onChange={e => handleFeatureChange('features_es', i, e.target.value)} placeholder={`Feature ${i + 1} (ES)`} style={{ flex: 1 }} />
+                    {form.features_es.length > 1 && (
+                      <button type="button" className="adm-btn adm-btn--outline" style={{ padding: '0 12px', color: 'var(--adm-red)' }} onClick={() => removeFeature('features_es', i)}>X</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <button className="adm-btn adm-btn--outline" style={{ marginTop: '10px', width: '100%', justifyContent: 'center' }} onClick={() => addFeature('features_es')}>+ Agregar Regla</button>
             </div>
 
             {/* 3. FIXED FOOTER */}
