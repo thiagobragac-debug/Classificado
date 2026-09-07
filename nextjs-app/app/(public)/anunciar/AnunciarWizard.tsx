@@ -298,6 +298,8 @@ export function AnunciarWizard({ initialData, userProfile, isEditMode }: Anuncia
       country: data.pais,
       state: data.estado,
       city: data.cidade,
+      lat: data.lat ?? null,
+      lng: data.lng ?? null,
       negotiable: data.aNegociar,
       condition: data.condicao || null,
       status: status,

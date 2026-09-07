@@ -172,7 +172,15 @@ export function StepLocation({ onNext, onPrev }: StepLocationProps) {
       return null
     }
 
-    const setLocationData = (country: string, state: string, city: string) => {
+    // BUG CORRIGIDO (achado ao vivo pelo usuário, plano cascata+raio):
+    // pos.coords.latitude/longitude (e o par lat/long que ipapi.co também
+    // devolve) eram lidos só pra montar a URL do Nominatim e depois
+    // descartados — nunca chegavam a ser gravados no anúncio. Sem
+    // coordenada nenhuma, a busca por raio em KM (lib/services/ads.service.ts)
+    // não tem como incluir este anúncio, mesmo o vendedor tendo usado
+    // "Usar minha localização". Best-effort: se o provedor não devolver
+    // lat/lng válidos, o anúncio publica normalmente do mesmo jeito.
+    const setLocationData = (country: string, state: string, city: string, lat?: number, lng?: number) => {
       if (country) {
         const paisNormalizado = normalizeCountry(country)
         if (paisNormalizado) setValue('pais', paisNormalizado, { shouldValidate: true })
@@ -188,6 +196,10 @@ export function StepLocation({ onNext, onPrev }: StepLocationProps) {
         setValue('estado', stateFull, { shouldValidate: true })
       }
       if (city) setValue('cidade', city, { shouldValidate: true })
+      if (typeof lat === 'number' && typeof lng === 'number' && !Number.isNaN(lat) && !Number.isNaN(lng)) {
+        setValue('lat', lat, { shouldValidate: false })
+        setValue('lng', lng, { shouldValidate: false })
+      }
       setIsLocating(false)
     }
 
@@ -195,7 +207,7 @@ export function StepLocation({ onNext, onPrev }: StepLocationProps) {
       try {
         const res = await fetch('https://ipapi.co/json/')
         const data = await res.json()
-        setLocationData(data.country_name, data.region, data.city)
+        setLocationData(data.country_name, data.region, data.city, data.latitude, data.longitude)
       } catch(e) {
         console.warn("Could not fetch location via IP", e)
         setIsLocating(false)
@@ -212,7 +224,7 @@ export function StepLocation({ onNext, onPrev }: StepLocationProps) {
         try {
           const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`)
           const data = await res.json()
-          setLocationData(data.address.country, data.address.state, data.address.city || data.address.town || data.address.village)
+          setLocationData(data.address.country, data.address.state, data.address.city || data.address.town || data.address.village, pos.coords.latitude, pos.coords.longitude)
         } catch (e) {
           console.warn("Could not fetch location via OSM, falling back to IP", e)
           fetchViaIP()

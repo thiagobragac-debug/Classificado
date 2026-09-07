@@ -71,6 +71,12 @@ export function createAnuncioSchema(lang: Lang = 'pt') {
     pais: z.string().min(1, m.pais),
     estado: z.string().min(1, m.estado),
     cidade: z.string().min(1, m.cidade),
+    // Coordenadas opcionais — só preenchidas quando o vendedor usa "Usar
+    // minha localização" (StepLocation.tsx). Nunca exigidas (quem digita a
+    // cidade na mão publica normalmente, só fica fora da busca por raio em
+    // KM). Ver lib/geo-cascade.ts / lib/services/ads.service.ts.
+    lat: z.number().nullable().optional(),
+    lng: z.number().nullable().optional(),
     // O máximo de 6 aqui é só um teto de segurança (evita payload gigante) —
     // o limite real do plano do usuário (5/15/30) é aplicado no banco
     // (enforce_ad_media_plan_limits) e refletido na UI do StepPhotos, que

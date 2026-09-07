@@ -258,6 +258,10 @@ export interface AdPayload {
   country: string;
   state: string;
   city: string;
+  // Coordenadas opcionais (ver schema.ts) — usadas pela busca por raio em
+  // KM; nunca bloqueiam a criação/edição do anúncio quando ausentes.
+  lat?: number | null;
+  lng?: number | null;
   negotiable: boolean;
   condition?: string | null;
   // status: apenas 'draft' ou 'pending' — 'active' é definido pelo servidor após moderação
