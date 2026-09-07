@@ -18,6 +18,10 @@ export interface AdsFilters {
   // comentário lá.
   lat: string;
   lng: string;
+  // Raio em KM escolhido manualmente pelo usuário (ver AdsSidebar.tsx) —
+  // sobrescreve a escada automática 100km->300km com um valor só. Vazio =
+  // usa a escada padrão (ver getAdsListagemComFallbackGeografico).
+  raio: string;
   precoMin: string;
   precoMax: string;
   ordem: string;
@@ -43,6 +47,7 @@ export function useAdsFilters(initialGeo?: { pais: string | null; estado: string
   const cidade = searchParams.get('cidade') || initialGeo?.cidade || '';
   const lat = searchParams.get('lat') || '';
   const lng = searchParams.get('lng') || '';
+  const raio = searchParams.get('raio') || '';
   const precoMin = searchParams.get('preco_min') || '';
   const precoMax = searchParams.get('preco_max') || '';
   const ordem = searchParams.get('ordem') || 'recent';
@@ -61,13 +66,14 @@ export function useAdsFilters(initialGeo?: { pais: string | null; estado: string
     cidade,
     lat,
     lng,
+    raio,
     precoMin,
     precoMax,
     ordem,
     destaque,
     negociavel,
     page
-  }), [debouncedBusca, categoria, subcategoria, finalidade, pais, estado, cidade, lat, lng, precoMin, precoMax, ordem, destaque, negociavel, page]);
+  }), [debouncedBusca, categoria, subcategoria, finalidade, pais, estado, cidade, lat, lng, raio, precoMin, precoMax, ordem, destaque, negociavel, page]);
 
   const hasFilters = !!(categoria || subcategoria || finalidade || pais || estado || cidade || precoMin || precoMax || destaque || negociavel || debouncedBusca);
 
@@ -99,6 +105,7 @@ export function useAdsFilters(initialGeo?: { pais: string | null; estado: string
     if (f.cidade) params.set('cidade', f.cidade);
     if (f.lat) params.set('lat', f.lat);
     if (f.lng) params.set('lng', f.lng);
+    if (f.raio) params.set('raio', f.raio);
     if (f.precoMin) params.set('preco_min', f.precoMin);
     if (f.precoMax) params.set('preco_max', f.precoMax);
     if (f.destaque) params.set('destaque', 'true');
@@ -137,6 +144,7 @@ export function useAdsFilters(initialGeo?: { pais: string | null; estado: string
   const setPais = useCallback((v: string) => applyFilters({ pais: v }), [applyFilters]);
   const setEstado = useCallback((v: string) => applyFilters({ estado: v }), [applyFilters]);
   const setCidade = useCallback((v: string) => applyFilters({ cidade: v }), [applyFilters]);
+  const setRaio = useCallback((v: string) => applyFilters({ raio: v }), [applyFilters]);
   const setPrecoMin = useCallback((v: string) => applyFilters({ precoMin: v }), [applyFilters]);
   const setPrecoMax = useCallback((v: string) => applyFilters({ precoMax: v }), [applyFilters]);
   const setPrice = useCallback((min: string, max: string) => applyFilters({ precoMin: min, precoMax: max }), [applyFilters]);
@@ -154,6 +162,7 @@ export function useAdsFilters(initialGeo?: { pais: string | null; estado: string
     estado, setEstado,
     cidade, setCidade,
     lat, lng,
+    raio, setRaio,
     precoMin, setPrecoMin,
     precoMax, setPrecoMax, setPrice,
     ordem, setOrdem,

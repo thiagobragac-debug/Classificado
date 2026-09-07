@@ -94,6 +94,7 @@ export default function AdsBrowser({
     pais, setPais,
     estado, setEstado,
     cidade, setCidade,
+    lat, lng, raio, setRaio,
     precoMin, setPrecoMin, precoMax, setPrecoMax, setPrice,
     ordem, setOrdem,
     destaque, setDestaque,
@@ -165,6 +166,7 @@ export default function AdsBrowser({
     hasFilters, clearFilters, applyFilters, handleSearch,
     busca, categoria, setCategoria, subcategoria, setSubcategoria, toggleSubcategoria, finalidade, setFinalidade,
     pais, setPais, estado, setEstado, cidade, setCidade,
+    lat, lng, raio, setRaio,
     precoMin, setPrecoMin, precoMax, setPrecoMax, setPrice,
     destaque, setDestaque, negociavel, setNegociavel
   };

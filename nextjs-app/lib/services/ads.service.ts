@@ -59,6 +59,16 @@ export const adsSearchParamsSchema = z.object({
       const n = Number(val);
       return Number.isFinite(n) && n >= -180 && n <= 180 ? n : undefined;
     }).optional(),
+  // Raio em KM escolhido manualmente pelo usuário (AdsSidebar.tsx) —
+  // sobrescreve a escada automática 100km->300km com um único valor.
+  // Faixa 1-2000km: acima disso não é mais "raio", é praticamente
+  // "qualquer lugar do Mercosul", sem sentido prático.
+  raio: z.union([z.string(), z.array(z.string())]).transform(val => Array.isArray(val) ? val[0] : val)
+    .transform(val => {
+      if (!val) return undefined;
+      const n = Number(val);
+      return Number.isFinite(n) && n > 0 && n <= 2000 ? n : undefined;
+    }).optional(),
   categoria: z.union([z.string(), z.array(z.string())]).transform(val => Array.isArray(val) ? val[0] : val).optional(),
   subcategoria: z.union([z.string(), z.array(z.string())]).transform(val => Array.isArray(val) ? val[0] : val).optional(),
   finalidade: z.union([z.string(), z.array(z.string())]).transform(val => Array.isArray(val) ? val[0] : val).optional(),
@@ -258,7 +268,14 @@ export async function getAdsListagemComFallbackGeografico(params: AdsSearchParam
   type Tentativa = { nivel: GeoFallbackLevel; rotulo: string | null; pais?: string; estado?: string; cidade?: string; raioKm?: number };
 
   const tentativas: Tentativa[] = [];
-  if (temCoordenadas) {
+  if (temCoordenadas && params.raio) {
+    // BUG CORRIGIDO (achado ao vivo pelo usuário): raio escolhido
+    // manualmente (botões em AdsSidebar.tsx) usa só esse valor — o
+    // usuário já decidiu, não faz sentido a escada automática
+    // 100km->300km por cima. Ainda cai pra estado/país/tudo se vier
+    // vazio (rede de segurança, mesmo espírito do resto da escada).
+    tentativas.push({ nivel: 'radius_close', rotulo: cidade || estado || null, raioKm: params.raio });
+  } else if (temCoordenadas) {
     tentativas.push({ nivel: 'radius_close', rotulo: cidade || estado || null, raioKm: RADIUS_CLOSE_KM });
     tentativas.push({ nivel: 'radius_wide', rotulo: `até ${RADIUS_WIDE_KM}km`, raioKm: RADIUS_WIDE_KM });
   } else if (cidade) {

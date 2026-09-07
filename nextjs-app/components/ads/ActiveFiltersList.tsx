@@ -102,9 +102,9 @@ export default function ActiveFiltersList({ categories, initialGeo, disableAutoG
         // filtrando por uma coordenada que não corresponde mais a nada
         // visível na tela.
         if (cidade) {
-          applyFilters({ cidade: '', lat: '', lng: '' });
+          applyFilters({ cidade: '', lat: '', lng: '', raio: '' });
         } else if (estado) {
-          applyFilters({ estado: '', lat: '', lng: '' });
+          applyFilters({ estado: '', lat: '', lng: '', raio: '' });
         } else {
           // Último nível (país): usa clearFilters (igual "Limpar Todos").
           // suppressAutoGeo() é essencial aqui — sem ela, assim que

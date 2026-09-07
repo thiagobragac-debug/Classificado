@@ -14,6 +14,7 @@ const TRANSLATIONS = {
     clearSelection: 'Limpar seleção',
     location: 'Localização', allCountries: 'Todos os Países',
     allStates: 'Todos os Estados', allCities: 'Todas as Cidades',
+    radiusLabel: 'Raio de busca', radiusAria: 'Raio de busca em quilômetros',
     priceRange: 'Faixa de Preço', min: 'Mínimo', max: 'Máximo', upTo: 'Até',
     offerType: 'Tipo de Oferta', onlyFeatured: 'Apenas Destaques',
     negotiable: 'Negociável', closeFilters: 'Fechar filtros',
@@ -26,6 +27,7 @@ const TRANSLATIONS = {
     clearSelection: 'Limpiar selección',
     location: 'Ubicación', allCountries: 'Todos los Países',
     allStates: 'Todos los Estados', allCities: 'Todas las Ciudades',
+    radiusLabel: 'Radio de búsqueda', radiusAria: 'Radio de búsqueda en kilómetros',
     priceRange: 'Rango de Precio', min: 'Mínimo', max: 'Máximo', upTo: 'Hasta',
     offerType: 'Tipo de Oferta', onlyFeatured: 'Solo Destacados',
     negotiable: 'Negociable', closeFilters: 'Cerrar filtros',
@@ -52,6 +54,7 @@ export default function AdsSidebar() {
     hasFilters, clearFilters, applyFilters, handleSearch,
     busca, categoria, setCategoria, subcategoria, setSubcategoria, toggleSubcategoria, finalidade, setFinalidade,
     pais, setPais, estado, setEstado, cidade, setCidade,
+    lat, lng, raio, setRaio,
     precoMin, precoMax, setPrice,
     destaque, setDestaque, negociavel, setNegociavel
   } = useAdsFilter();
@@ -191,16 +194,16 @@ export default function AdsSidebar() {
                 setPais(val); setEstado(''); setCidade('');
                 if (val) {
                   // BUG CORRIGIDO (plano cascata+raio): escolher manualmente
-                  // desliga o modo raio — lat/lng só fazem sentido junto da
+                  // desliga o modo raio — lat/lng/raio só fazem sentido junto da
                   // localização auto-detectada que os originou.
-                  applyFilters({ pais: val, estado: '', cidade: '', lat: '', lng: '' });
+                  applyFilters({ pais: val, estado: '', cidade: '', lat: '', lng: '', raio: '' });
                 } else {
                   // User chose "Todos os Países" — delete cookies so server doesn't re-inject geo
                   try {
                     document.cookie = 'user_geo_v1=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
                     clearGeoCache();
                   } catch { /* ignore */ }
-                  applyFilters({ pais: '', estado: '', cidade: '', lat: '', lng: '' });
+                  applyFilters({ pais: '', estado: '', cidade: '', lat: '', lng: '', raio: '' });
                 }
               }}>
               <option value="">{t.allCountries}</option>
@@ -210,7 +213,7 @@ export default function AdsSidebar() {
           <div className="location-divider"></div>
           <div className="location-select-wrapper">
             <select className="filter-select-clean" aria-label={t.allStates} disabled={!pais}
-              value={estado} onChange={e => { setEstado(e.target.value); setCidade(''); applyFilters({ estado: e.target.value, cidade: '', lat: '', lng: '' }); }}>
+              value={estado} onChange={e => { setEstado(e.target.value); setCidade(''); applyFilters({ estado: e.target.value, cidade: '', lat: '', lng: '', raio: '' }); }}>
               <option value="">{t.allStates}</option>
               {states.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
@@ -218,12 +221,49 @@ export default function AdsSidebar() {
           <div className="location-divider"></div>
           <div className="location-select-wrapper">
             <select className="filter-select-clean" aria-label={t.allCities} disabled={!estado}
-              value={cidade} onChange={e => { setCidade(e.target.value); applyFilters({ cidade: e.target.value, lat: '', lng: '' }); }}>
+              value={cidade} onChange={e => { setCidade(e.target.value); applyFilters({ cidade: e.target.value, lat: '', lng: '', raio: '' }); }}>
               <option value="">{t.allCities}</option>
               {cities.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
         </div>
+
+        {/* GAP CORRIGIDO (achado ao vivo pelo usuário, plano cascata+raio):
+            a busca por raio em KM já funcionava por baixo dos panos (ver
+            lib/services/ads.service.ts), mas sem controle nenhum pro
+            usuário ajustar — só aparece quando há coordenada (lat/lng),
+            ou seja, só faz sentido junto do modo "Perto de você"
+            auto-detectado; escolher um país/estado/cidade manualmente
+            já limpa lat/lng (ver onChange dos selects acima) e some com
+            este bloco junto, sem ficar um controle "morto" na tela. */}
+        {lat && lng && (
+          <div className="radius-shortcuts" role="group" aria-label={t.radiusAria} style={{ marginTop: '12px' }}>
+            <span style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--clr-text-muted, #6b7280)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t.radiusLabel}</span>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+              {['50', '100', '200', '300'].map(km => {
+                // Sem escolha explícita (raio === ''), 100km é o degrau
+                // inicial de verdade da escada automática (ver
+                // RADIUS_CLOSE_KM em lib/geo-cascade.ts) — destaca ele
+                // como "selecionado" por padrão, não deixa os 4 botões
+                // parecendo todos desmarcados quando na verdade um já
+                // está em uso nos bastidores.
+                const isActive = raio ? raio === km : km === '100';
+                return (
+                  <button
+                    key={km}
+                    type="button"
+                    className="price-shortcut"
+                    aria-pressed={isActive}
+                    onClick={() => setRaio(km)}
+                    style={isActive ? { background: 'var(--clr-primary)', color: '#fff', borderColor: 'var(--clr-primary)' } : undefined}
+                  >
+                    {km} km
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </FilterGroup>
 
       {/* GAP CORRIGIDO (revisão de regras de negócio, 2026-08-25): "R$"

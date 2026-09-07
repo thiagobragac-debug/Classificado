@@ -202,7 +202,7 @@ export function useAutoGeo(
       setGeoLabel(estado ? T.yourState(estado) : null);
       autoAppliedRef.current = { pais, estado, cidade: '' };
       autoApplyPendingRef.current = true;
-      applyFilters({ cidade: '', lat: '', lng: '' });
+      applyFilters({ cidade: '', lat: '', lng: '', raio: '' });
     }
     else if (geoLevel === 'city') {
       setCidade(''); setGeoLevel('state');
@@ -219,7 +219,7 @@ export function useAutoGeo(
       setGeoLabel(pais ? T.yourCountry(pais) : null);
       autoAppliedRef.current = { pais, estado: '', cidade: '' };
       autoApplyPendingRef.current = true;
-      applyFilters({ estado: '', cidade: '', lat: '', lng: '' });
+      applyFilters({ estado: '', cidade: '', lat: '', lng: '', raio: '' });
     }
     else if (geoLevel === 'country') {
       setPais(''); setEstado(''); setCidade('');
@@ -234,7 +234,7 @@ export function useAutoGeo(
         document.cookie = `user_geo_v1=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax${secure}`;
         clearGeoCache();
       } catch { /* ignore */ }
-      applyFilters({ pais: '', estado: '', cidade: '', lat: '', lng: '' });
+      applyFilters({ pais: '', estado: '', cidade: '', lat: '', lng: '', raio: '' });
     }
   }, [geoLevel, pais, estado, setPais, setEstado, setCidade, applyFilters, T]);
 

@@ -32,7 +32,15 @@ export interface AdsFilterContextType {
   setEstado: (v: string) => void;
   cidade: string;
   setCidade: (v: string) => void;
-  
+  // Coordenadas da busca "Perto de você" (ver lib/useAutoGeo.ts) e raio em
+  // KM escolhido manualmente (ver AdsSidebar.tsx) — lat/lng só existem
+  // quando a localização foi auto-detectada; raio sobrescreve a escada
+  // automática 100km->300km com um valor fixo.
+  lat: string;
+  lng: string;
+  raio: string;
+  setRaio: (v: string) => void;
+
   precoMin: string;
   setPrecoMin: (v: string) => void;
   precoMax: string;
