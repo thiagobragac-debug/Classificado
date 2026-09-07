@@ -81,8 +81,12 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
+// TESTE TEMPORARIO (revertido no proximo commit): forcando sem cache pra
+// confirmar ao vivo em producao que o dado novo do banco (remocao do
+// "Suporte VIP 24/7" + tabela comparativa) aparece de verdade, sem
+// depender de logar como admin real pra disparar a revalidacao sob demanda.
 // Revalidate this page every hour (ISR)
-export const revalidate = 3600;
+export const revalidate = 0;
 
 export default async function PlanosPage() {
   // SSR / ISR: Fetch plans on the server directly via REST API
@@ -102,7 +106,7 @@ export default async function PlanosPage() {
         'Authorization': `Bearer ${SUPABASE_ANON}`,
         'Content-Type': 'application/json'
       },
-      next: { revalidate: 3600 }
+      cache: 'no-store'
     })
 
     if (res.ok) {
