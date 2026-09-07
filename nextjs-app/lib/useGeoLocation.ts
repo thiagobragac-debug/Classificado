@@ -18,7 +18,21 @@ export interface GeoLoc {
 
 // BUG CORRIGIDO (propagação de idioma na geolocalização): cache agora é indexado por lang.
 const CACHE_KEY = (lang: string) => `user_loc_v9_${lang}`;
-const CACHE_TTL = 24 * 60 * 60 * 1000; // 24h
+const CACHE_TTL = 24 * 60 * 60 * 1000; // 24h — validade do valor pra pintar a tela na hora
+
+// BUG CORRIGIDO (achado ao vivo pelo usuário: viajou ~250km de Belo
+// Horizonte e o site continuou mostrando "Perto de você — Belo Horizonte"
+// por até 24h, só resolvia limpando cache do navegador): o CACHE_TTL de 24h
+// não era só "validade pra pintar rápido" — enquanto estivesse dentro desse
+// prazo, detectLocation() nem tentava uma checagem nova por IP, então uma
+// mudança real de cidade ficava invisível até o cache expirar de vez. Este
+// segundo intervalo, bem mais curto, controla só a REVALIDAÇÃO em segundo
+// plano (sessionStorage, por aba): o valor cacheado continua pintando a
+// tela instantaneamente, mas uma checagem fresca por IP roda de qualquer
+// forma no máximo 1x a cada 15min por aba — se a cidade real mudou, o
+// valor exibido é atualizado sem precisar limpar nada manualmente.
+const REVALIDATE_KEY = (lang: string) => `user_loc_v9_${lang}_revalidated_at`;
+const REVALIDATE_INTERVAL = 15 * 60 * 1000; // 15min
 
 // BUG CORRIGIDO (revisão adversarial da propagação de idioma): a chave real
 // de cache virou versionada por idioma (user_loc_v9_pt/es), mas 3 outros
@@ -31,6 +45,11 @@ export function clearGeoCache() {
   try {
     localStorage.removeItem(CACHE_KEY('pt'));
     localStorage.removeItem(CACHE_KEY('es'));
+    // Limpa junto o marcador de revalidação — sem isso, uma limpeza manual
+    // logo após uma revalidação recente ficaria presa esperando os 15min
+    // do REVALIDATE_INTERVAL antes de checar a localização de novo.
+    sessionStorage.removeItem(REVALIDATE_KEY('pt'));
+    sessionStorage.removeItem(REVALIDATE_KEY('es'));
   } catch { /* ignore */ }
 }
 
@@ -92,16 +111,22 @@ async function detectIp(lang: string = 'pt'): Promise<GeoLoc | null> {
   return null;
 }
 
-export async function detectLocation(lang: string = 'pt'): Promise<GeoLoc | null> {
-  // 1. Cache localStorage
-  try {
-    const cached = localStorage.getItem(CACHE_KEY(lang));
-    if (cached) {
-      const { ts, loc } = JSON.parse(cached);
-      if (loc && (loc.city || loc.state || loc.country) && (Date.now() - ts < CACHE_TTL)) {
-        return loc as GeoLoc;
+export async function detectLocation(lang: string = 'pt', force: boolean = false): Promise<GeoLoc | null> {
+  // 1. Cache localStorage — pulado quando force=true (revalidação em
+  // segundo plano da useGeoLocation abaixo, que precisa de uma checagem
+  // de verdade por IP, não do valor já cacheado).
+  if (!force) {
+    try {
+      const cached = localStorage.getItem(CACHE_KEY(lang));
+      if (cached) {
+        const { ts, loc } = JSON.parse(cached);
+        if (loc && (loc.city || loc.state || loc.country) && (Date.now() - ts < CACHE_TTL)) {
+          return loc as GeoLoc;
+        }
       }
-    }
+    } catch { /* ignore */ }
+  }
+  try {
     // Clean old caches
     ['user_loc_v8', 'user_loc_v7', 'user_loc_v6', 'user_loc_v5', 'user_loc_v4'].forEach(k => {
       try { localStorage.removeItem(k); } catch { /* ignore */ }
@@ -151,7 +176,10 @@ export function useGeoLocation(lang: string = 'pt') {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Tenta cache instantâneo
+    let cancelled = false;
+    let paintedFromCache = false;
+
+    // Tenta cache instantâneo (só pra pintar a tela sem esperar rede).
     try {
       const cached = localStorage.getItem(CACHE_KEY(lang));
       if (cached) {
@@ -159,16 +187,45 @@ export function useGeoLocation(lang: string = 'pt') {
         if (loc && (loc.city || loc.state || loc.country) && (Date.now() - ts < CACHE_TTL)) {
           setGeo(loc as GeoLoc);
           setLoading(false);
-          return;
+          paintedFromCache = true;
         }
       }
     } catch { /* ignore */ }
 
-    // Detecção assíncrona
-    detectLocation(lang).then(loc => {
-      setGeo(loc);
+    // BUG CORRIGIDO (achado ao vivo pelo usuário, viajou ~250km e ficou
+    // preso na cidade antiga): antes, ter cache "fresco" (< 24h) bloqueava
+    // qualquer checagem nova por IP. Agora a revalidação em segundo plano
+    // roda de qualquer forma, no máximo 1x a cada REVALIDATE_INTERVAL por
+    // aba (sessionStorage) — se a cidade real mudou, atualiza sozinho sem
+    // precisar limpar cache manualmente.
+    let shouldRevalidate = true;
+    try {
+      const lastCheck = sessionStorage.getItem(REVALIDATE_KEY(lang));
+      if (lastCheck && Date.now() - Number(lastCheck) < REVALIDATE_INTERVAL) {
+        shouldRevalidate = false;
+      }
+    } catch { /* ignore */ }
+
+    if (paintedFromCache && !shouldRevalidate) {
+      return;
+    }
+
+    try { sessionStorage.setItem(REVALIDATE_KEY(lang), String(Date.now())); } catch { /* ignore */ }
+
+    detectLocation(lang, /* force */ paintedFromCache).then(loc => {
+      if (cancelled) return;
+      if (loc) {
+        setGeo(loc);
+      } else if (!paintedFromCache) {
+        setGeo(null);
+      }
+      // Se a revalidação forçada falhar (loc null) mas já tínhamos pintado
+      // do cache, mantém o valor cacheado na tela em vez de zerar pra
+      // "sem localização" por causa de uma falha pontual de rede.
       setLoading(false);
     });
+
+    return () => { cancelled = true; };
   }, [lang]);
 
   return { geo, loading };
