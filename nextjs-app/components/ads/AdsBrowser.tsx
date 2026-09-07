@@ -7,6 +7,7 @@ import { AdsFilterContext } from '@/components/ads/AdsFilterContext';
 import { useAdsFilters } from '@/lib/useAdsFilters';
 import { useGeoCascading } from '@/lib/useGeoCascading';
 import { clearGeoCache } from '@/lib/useGeoLocation';
+import { buildGeoFallbackMessage, type GeoFallbackInfo } from '@/lib/geo-cascade';
 import { useLang } from '@/lib/lang-context';
 import { getSupabase } from '@/lib/supabase';
 import { getPurposeOptions } from '@/lib/purposeOptions';
@@ -52,19 +53,27 @@ const TRANSLATIONS = {
 };
 
 export default function AdsBrowser({
-  initialAds = [], 
-  initialTotal = 0, 
+  initialAds = [],
+  initialTotal = 0,
   initialGeo,
+  geoFallback,
   categories = [],
   sellerId,
   hideHero,
   heroTitle,
   hideHeroBreadcrumb,
   children
-}: { 
-  initialAds?: Ad[], 
-  initialTotal?: number, 
+}: {
+  initialAds?: Ad[],
+  initialTotal?: number,
   initialGeo?: { pais: string | null; estado: string | null; cidade: string | null },
+  // BUG CORRIGIDO (achado ao vivo pelo usuário): cidade sem anúncio nenhum
+  // caía direto no estado vazio, sem explicar nada — ver
+  // getAdsListagemComFallbackGeografico em lib/services/ads.service.ts.
+  // Presente só quando a busca precisou ampliar de verdade (cidade→estado→
+  // país→tudo); nesse caso initialAds já vem preenchido com os resultados
+  // do nível mais amplo que funcionou, então só falta avisar o motivo.
+  geoFallback?: GeoFallbackInfo | null,
   categories?: Category[],
   sellerId?: string,
   hideHero?: boolean,
@@ -282,7 +291,14 @@ export default function AdsBrowser({
                 fora da cidade detectada dele, mesmo o vendedor tendo
                 anúncios ativos reais em outro lugar. */}
             <ActiveFiltersList categories={categories} initialGeo={initialGeo} disableAutoGeo={!!sellerId} />
-            
+
+            {geoFallback && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', padding: 'var(--sp-3) var(--sp-4)', marginBottom: 'var(--sp-4)', background: 'var(--clr-primary-pale)', color: 'var(--clr-primary-mid)', borderRadius: 'var(--r-md)', fontSize: 'var(--fs-sm)', fontWeight: 600 }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }} aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                <span>{buildGeoFallbackMessage(geoFallback, lang as 'pt' | 'es')}</span>
+              </div>
+            )}
+
             <div style={{ opacity: isPending ? 0.5 : 1, transition: 'opacity 0.2s', pointerEvents: isPending ? 'none' : 'auto' }}>
               {initialAds.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: 'var(--sp-20) var(--sp-8)', background: 'var(--clr-surface)', borderRadius: 'var(--r-2xl)', border: '1px dashed var(--clr-border)', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: 'var(--shadow-sm)' }}>

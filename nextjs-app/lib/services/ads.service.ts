@@ -202,3 +202,53 @@ export async function getAdsListagem(params: AdsSearchParams, geoContext: any) {
     nextCursor,
   };
 }
+
+// BUG CORRIGIDO (achado ao vivo pelo usuário): cidade sem nenhum anúncio
+// caía direto na tela vazia "Nenhum anúncio encontrado" — sem sugerir nada,
+// mesmo já existindo anúncios no estado/país. getAdsListagem (acima) fica
+// intocado (outras chamadas, como vendedor/[slug]/page.tsx, continuam
+// funcionando exatamente como antes) — este wrapper tenta cidade→estado→
+// país→tudo, em ordem, parando no primeiro nível que encontrar pelo menos 1
+// anúncio, e informa em `geoFallback` se (e o quanto) a busca precisou
+// ampliar, pra a página mostrar um aviso em vez de silenciosamente trocar
+// os resultados. Trata localização manual e auto-detectada da mesma forma —
+// mesmo critério já usado pelo botão "Remover filtro de X" existente em
+// AdsBrowser.tsx (getNarrowestFilterRemoval), que também não distingue as
+// duas origens.
+export async function getAdsListagemComFallbackGeografico(params: AdsSearchParams, geoContext: any) {
+  const cidade = params.cidade || geoContext.cidade;
+  const estado = params.estado || geoContext.estado;
+  const pais = params.pais || geoContext.pais;
+
+  type Nivel = 'city' | 'state' | 'country' | 'all';
+  type Tentativa = { nivel: Nivel; rotulo: string | null; pais?: string; estado?: string; cidade?: string };
+
+  const tentativas: Tentativa[] = [];
+  if (cidade) tentativas.push({ nivel: 'city', rotulo: cidade, pais, estado, cidade });
+  if (estado) tentativas.push({ nivel: 'state', rotulo: estado, pais, estado });
+  if (pais && pais !== 'todos') tentativas.push({ nivel: 'country', rotulo: pais, pais });
+  tentativas.push({ nivel: 'all', rotulo: null });
+
+  const nivelOriginal = tentativas[0].nivel;
+  const rotuloOriginal = tentativas[0].rotulo;
+
+  let resultado: Awaited<ReturnType<typeof getAdsListagem>> | null = null;
+  let nivelEncontrado: Nivel = 'all';
+  let rotuloEncontrado: string | null = null;
+
+  for (const tentativa of tentativas) {
+    resultado = await getAdsListagem(
+      { ...params, pais: tentativa.pais, estado: tentativa.estado, cidade: tentativa.cidade },
+      { pais: tentativa.pais, estado: tentativa.estado, cidade: tentativa.cidade }
+    );
+    nivelEncontrado = tentativa.nivel;
+    rotuloEncontrado = tentativa.rotulo;
+    if (resultado.total > 0 || tentativa.nivel === 'all') break;
+  }
+
+  const geoFallback = (nivelOriginal !== 'all' && nivelEncontrado !== nivelOriginal && resultado && resultado.total > 0 && rotuloOriginal)
+    ? { level: nivelEncontrado, fromLabel: rotuloOriginal, toLabel: rotuloEncontrado }
+    : null;
+
+  return { ...resultado!, geoFallback };
+}

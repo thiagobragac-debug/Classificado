@@ -1,7 +1,7 @@
 import { Metadata } from 'next';
 import AdsBrowser from '@/components/ads/AdsBrowser';
 import { getGeoParams, getAllCategories } from '@/lib/listagem-utils';
-import { getAdsListagem, adsSearchParamsSchema } from '@/lib/services/ads.service';
+import { getAdsListagemComFallbackGeografico, adsSearchParamsSchema } from '@/lib/services/ads.service';
 import { logError } from '@/lib/monitoring';
 import { t as _t } from '@/lib/constants';
 import { escapeJsonLd } from '@/lib/json-ld';
@@ -217,10 +217,10 @@ function buildItemListJsonLd(ads: any[], lang: 'pt' | 'es') {
 
 async function AdsBrowserWrapper({ parsedParams, geoContext, lang }: { parsedParams: any, geoContext: any, lang: 'pt' | 'es' }) {
   const [
-    { ads, total, nextCursor },
+    { ads, total, nextCursor, geoFallback },
     categories
   ] = await Promise.all([
-    getAdsListagem(parsedParams, geoContext),
+    getAdsListagemComFallbackGeografico(parsedParams, geoContext),
     getAllCategories()
   ]);
 
@@ -236,6 +236,7 @@ async function AdsBrowserWrapper({ parsedParams, geoContext, lang }: { parsedPar
         initialAds={ads}
         initialTotal={total}
         initialGeo={!geoContext.hasManualGeo && geoContext.geoCookie ? geoContext.geoCookie : undefined}
+        geoFallback={geoFallback}
         nextCursor={nextCursor}
         categories={categories}
       />
