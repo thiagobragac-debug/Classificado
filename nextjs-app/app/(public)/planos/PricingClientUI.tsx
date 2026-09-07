@@ -579,7 +579,7 @@ export default function PricingClientUI({ initialPlans, plansError = false }: { 
                   <td><span className={styles.featName}>{t.rowActiveAds}</span></td>
                   <td><span className={`${styles.tblPill} ${styles.pillFree}`}>{free.max_ads}</span></td>
                   <td><span className={`${styles.tblPill} ${styles.pillPro}`}>{pro.max_ads}</span></td>
-                  <td><span className={`${styles.tblPill} ${styles.pillPremium}`}>{t.unlimited}</span></td>
+                  <td><span className={`${styles.tblPill} ${styles.pillPremium}`}>{premium.max_ads >= 9999 ? t.unlimited : premium.max_ads}</span></td>
                 </tr>
                 <tr>
                   <td><span className={styles.featName}>{t.rowPhotos}</span></td>
