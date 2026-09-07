@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase-server';
 import { cache } from 'react';
 
-export async function getGeoParams(params: { pais?: string; estado?: string; cidade?: string }) {
+export async function getGeoParams(params: { pais?: string; estado?: string; cidade?: string; lat?: string | number; lng?: string | number }) {
   let geoCookie = null;
   try {
     const cookieStore = await cookies();
@@ -16,11 +16,19 @@ export async function getGeoParams(params: { pais?: string; estado?: string; cid
   const pais = params.pais || (!hasManualGeo ? (geoCookie?.pais ?? null) : null);
   const estado = params.estado || (!hasManualGeo ? (geoCookie?.estado ?? null) : null);
   const cidade = params.cidade || (!hasManualGeo ? (geoCookie?.cidade ?? null) : null);
+  // BUG CORRIGIDO (plano cascata+raio): lat/lng só chegam por query param —
+  // ao contrário de pais/estado/cidade, não têm fallback pro cookie
+  // user_geo_v1 (que nunca é escrito de verdade em lugar nenhum do app —
+  // confirmado por busca completa no repositório; só é lido/apagado).
+  const lat = params.lat ? Number(params.lat) : null;
+  const lng = params.lng ? Number(params.lng) : null;
 
   return {
     pais,
     estado,
     cidade,
+    lat: Number.isFinite(lat) ? lat : null,
+    lng: Number.isFinite(lng) ? lng : null,
     hasManualGeo,
     geoCookie
   };

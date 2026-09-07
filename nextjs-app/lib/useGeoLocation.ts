@@ -13,6 +13,11 @@ export interface GeoLoc {
   state:     string | null;
   stateCode: string | null;
   country:   string | null;
+  // Coordenadas opcionais — nem toda fonte tem (ver detectIp/detectGps
+  // abaixo). Usadas pela busca por raio em KM (lib/useAutoGeo.ts repassa
+  // pra lib/services/ads.service.ts via query params).
+  lat?:      number | null;
+  lng?:      number | null;
   _source?:  string;
 }
 
@@ -90,6 +95,13 @@ async function detectGps(lang: string = 'pt'): Promise<GeoLoc | null> {
         state: geo.address.state || null,
         stateCode: null, // fallback matching vai ser por nome no AdsBrowser
         country: geo.address.country || null,
+        // BUG CORRIGIDO (achado ao vivo pelo usuário, plano cascata+raio):
+        // coords já estava disponível aqui (é o próprio GPS!) mas era
+        // descartado depois de montar a URL do Nominatim — sem isso, a
+        // busca por raio em KM não tinha como funcionar nem quando o
+        // usuário concede a localização precisa do navegador.
+        lat: coords.lat,
+        lng: coords.lon,
         _source: 'gps+nominatim'
       };
     }

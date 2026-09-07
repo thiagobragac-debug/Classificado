@@ -190,14 +190,17 @@ export default function AdsSidebar() {
                 const val = e.target.value;
                 setPais(val); setEstado(''); setCidade('');
                 if (val) {
-                  applyFilters({ pais: val, estado: '', cidade: '' });
+                  // BUG CORRIGIDO (plano cascata+raio): escolher manualmente
+                  // desliga o modo raio — lat/lng só fazem sentido junto da
+                  // localização auto-detectada que os originou.
+                  applyFilters({ pais: val, estado: '', cidade: '', lat: '', lng: '' });
                 } else {
                   // User chose "Todos os Países" — delete cookies so server doesn't re-inject geo
                   try {
                     document.cookie = 'user_geo_v1=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
                     clearGeoCache();
                   } catch { /* ignore */ }
-                  applyFilters({ pais: '', estado: '', cidade: '' });
+                  applyFilters({ pais: '', estado: '', cidade: '', lat: '', lng: '' });
                 }
               }}>
               <option value="">{t.allCountries}</option>
@@ -207,7 +210,7 @@ export default function AdsSidebar() {
           <div className="location-divider"></div>
           <div className="location-select-wrapper">
             <select className="filter-select-clean" aria-label={t.allStates} disabled={!pais}
-              value={estado} onChange={e => { setEstado(e.target.value); setCidade(''); applyFilters({ estado: e.target.value, cidade: '' }); }}>
+              value={estado} onChange={e => { setEstado(e.target.value); setCidade(''); applyFilters({ estado: e.target.value, cidade: '', lat: '', lng: '' }); }}>
               <option value="">{t.allStates}</option>
               {states.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
@@ -215,7 +218,7 @@ export default function AdsSidebar() {
           <div className="location-divider"></div>
           <div className="location-select-wrapper">
             <select className="filter-select-clean" aria-label={t.allCities} disabled={!estado}
-              value={cidade} onChange={e => { setCidade(e.target.value); applyFilters({ cidade: e.target.value }); }}>
+              value={cidade} onChange={e => { setCidade(e.target.value); applyFilters({ cidade: e.target.value, lat: '', lng: '' }); }}>
               <option value="">{t.allCities}</option>
               {cities.map(c => <option key={c} value={c}>{c}</option>)}
             </select>

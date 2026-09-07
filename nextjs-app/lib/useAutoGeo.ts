@@ -15,6 +15,12 @@ const TRANSLATIONS = {
   }
 };
 
+// BUG CORRIGIDO (plano cascata+raio): não sobrevive a NaN/undefined
+// silenciosamente — vira '' (ausência), nunca "0" (Golfo da Guiné).
+function coordToParam(n: number | null | undefined): string {
+  return typeof n === 'number' && Number.isFinite(n) ? String(n) : '';
+}
+
 export function useAutoGeo(
   pais: string, setPais: (v: string) => void,
   estado: string, setEstado: (v: string) => void,
@@ -62,7 +68,7 @@ export function useAutoGeo(
   const suppressedRef = useRef(false);
 
   const [geoLabel, setGeoLabel] = useState<string | null>(null);
-  const [geoLevel, setGeoLevel] = useState<'city'|'state'|'country'|null>(null);
+  const [geoLevel, setGeoLevel] = useState<'radius'|'city'|'state'|'country'|null>(null);
   const [geoReady, setGeoReady] = useState(false);
 
   const hasSpecificManualLoc = !!(searchParams.get('pais') || searchParams.get('estado') || searchParams.get('cidade'));
@@ -119,6 +125,14 @@ export function useAutoGeo(
       let newPais = geo.country || 'Brasil';
       let newEstado = geo.state || '';
       let newCidade = geo.city || '';
+      // BUG CORRIGIDO (plano cascata+raio): geo.lat/lng (GPS ou IP-geo, ver
+      // lib/useGeoLocation.ts/geoip.ts) nunca eram repassados pro filtro —
+      // sem eles, a busca por raio em KM (lib/services/ads.service.ts) não
+      // tem como saber onde o visitante está, mesmo quando a fonte de
+      // localização tinha coordenada disponível.
+      const newLat = coordToParam(geo.lat);
+      const newLng = coordToParam(geo.lng);
+      const temCoordenadas = !!newLat && !!newLng;
 
       autoAppliedRef.current = { pais: newPais, estado: newEstado, cidade: newCidade };
       autoApplyPendingRef.current = true;
@@ -126,7 +140,10 @@ export function useAutoGeo(
       if (newEstado) setEstado(newEstado);
       if (newCidade) setCidade(newCidade);
 
-      if (newCidade) {
+      if (temCoordenadas && newCidade) {
+        setGeoLabel(T.nearYou(newCidade));
+        setGeoLevel('radius');
+      } else if (newCidade) {
         setGeoLabel(T.nearYou(newCidade));
         setGeoLevel('city');
       } else if (newEstado) {
@@ -137,7 +154,7 @@ export function useAutoGeo(
         setGeoLevel('country');
       }
 
-      applyFilters({ pais: newPais, estado: newEstado, cidade: newCidade });
+      applyFilters({ pais: newPais, estado: newEstado, cidade: newCidade, lat: newLat, lng: newLng });
       setGeoReady(true);
     };
 
@@ -174,7 +191,20 @@ export function useAutoGeo(
   }, [pais, estado, cidade, geoLabel]);
 
   const advanceGeoLevel = useCallback(() => {
-    if (geoLevel === 'city') {
+    if (geoLevel === 'radius') {
+      // BUG CORRIGIDO (plano cascata+raio): raio colapsa direto pra estado
+      // num clique só (não dois) — diferente do nível 'city' (texto), que
+      // some com CADA nível decrescente virando uma etapa própria, o "raio"
+      // já representa 2 tentativas internas (100km/300km, ver
+      // getAdsListagemComFallbackGeografico); pedir 2 cliques pra sair dele
+      // pareceria quebrado pro usuário.
+      setCidade(''); setGeoLevel('state');
+      setGeoLabel(estado ? T.yourState(estado) : null);
+      autoAppliedRef.current = { pais, estado, cidade: '' };
+      autoApplyPendingRef.current = true;
+      applyFilters({ cidade: '', lat: '', lng: '' });
+    }
+    else if (geoLevel === 'city') {
       setCidade(''); setGeoLevel('state');
       setGeoLabel(estado ? T.yourState(estado) : null);
       // Mantém a ref em sincronia com o novo nível — senão o efeito de
@@ -189,7 +219,7 @@ export function useAutoGeo(
       setGeoLabel(pais ? T.yourCountry(pais) : null);
       autoAppliedRef.current = { pais, estado: '', cidade: '' };
       autoApplyPendingRef.current = true;
-      applyFilters({ estado: '', cidade: '' });
+      applyFilters({ estado: '', cidade: '', lat: '', lng: '' });
     }
     else if (geoLevel === 'country') {
       setPais(''); setEstado(''); setCidade('');
@@ -204,7 +234,7 @@ export function useAutoGeo(
         document.cookie = `user_geo_v1=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax${secure}`;
         clearGeoCache();
       } catch { /* ignore */ }
-      applyFilters({ pais: '', estado: '', cidade: '' });
+      applyFilters({ pais: '', estado: '', cidade: '', lat: '', lng: '' });
     }
   }, [geoLevel, pais, estado, setPais, setEstado, setCidade, applyFilters, T]);
 

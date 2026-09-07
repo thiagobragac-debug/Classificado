@@ -285,7 +285,9 @@ export default async function CategoriaPage({ params, searchParams }: Props) {
   const geoContext = await getGeoParams({
     pais: parsedParams.pais,
     estado: parsedParams.estado,
-    cidade: parsedParams.cidade
+    cidade: parsedParams.cidade,
+    lat: parsedParams.lat,
+    lng: parsedParams.lng,
   });
 
   try {

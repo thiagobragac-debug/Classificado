@@ -54,7 +54,7 @@ export async function generateMetadata({
   const { pais, estado, cidade } = await getGeoParams({
     pais: parsedParams.pais,
     estado: parsedParams.estado,
-    cidade: parsedParams.cidade
+    cidade: parsedParams.cidade,
   });
 
   if (cidade) location = T.locationSuffix(cidade);
@@ -256,7 +256,9 @@ export default async function ListagemPage({
   const geoContext = await getGeoParams({
     pais: parsedParams.pais,
     estado: parsedParams.estado,
-    cidade: parsedParams.cidade
+    cidade: parsedParams.cidade,
+    lat: parsedParams.lat,
+    lng: parsedParams.lng,
   });
 
   try {

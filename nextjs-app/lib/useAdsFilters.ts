@@ -10,6 +10,14 @@ export interface AdsFilters {
   pais: string;
   estado: string;
   cidade: string;
+  // Coordenadas da busca por raio em KM — só viajam junto quando a
+  // localização foi auto-detectada com coordenadas (ver lib/useAutoGeo.ts).
+  // String (não number) pelo mesmo motivo de precoMin/precoMax: espelham
+  // direto o valor cru da URLSearchParams. Escolher manualmente um
+  // país/estado/cidade nos selects de AdsSidebar.tsx limpa os dois — ver
+  // comentário lá.
+  lat: string;
+  lng: string;
   precoMin: string;
   precoMax: string;
   ordem: string;
@@ -33,6 +41,8 @@ export function useAdsFilters(initialGeo?: { pais: string | null; estado: string
   const pais = searchParams.get('pais') || initialGeo?.pais || '';
   const estado = searchParams.get('estado') || initialGeo?.estado || '';
   const cidade = searchParams.get('cidade') || initialGeo?.cidade || '';
+  const lat = searchParams.get('lat') || '';
+  const lng = searchParams.get('lng') || '';
   const precoMin = searchParams.get('preco_min') || '';
   const precoMax = searchParams.get('preco_max') || '';
   const ordem = searchParams.get('ordem') || 'recent';
@@ -49,13 +59,15 @@ export function useAdsFilters(initialGeo?: { pais: string | null; estado: string
     pais,
     estado,
     cidade,
+    lat,
+    lng,
     precoMin,
     precoMax,
     ordem,
     destaque,
     negociavel,
     page
-  }), [debouncedBusca, categoria, subcategoria, finalidade, pais, estado, cidade, precoMin, precoMax, ordem, destaque, negociavel, page]);
+  }), [debouncedBusca, categoria, subcategoria, finalidade, pais, estado, cidade, lat, lng, precoMin, precoMax, ordem, destaque, negociavel, page]);
 
   const hasFilters = !!(categoria || subcategoria || finalidade || pais || estado || cidade || precoMin || precoMax || destaque || negociavel || debouncedBusca);
 
@@ -85,6 +97,8 @@ export function useAdsFilters(initialGeo?: { pais: string | null; estado: string
     if (f.pais) params.set('pais', f.pais);
     if (f.estado) params.set('estado', f.estado);
     if (f.cidade) params.set('cidade', f.cidade);
+    if (f.lat) params.set('lat', f.lat);
+    if (f.lng) params.set('lng', f.lng);
     if (f.precoMin) params.set('preco_min', f.precoMin);
     if (f.precoMax) params.set('preco_max', f.precoMax);
     if (f.destaque) params.set('destaque', 'true');
@@ -139,6 +153,7 @@ export function useAdsFilters(initialGeo?: { pais: string | null; estado: string
     pais, setPais,
     estado, setEstado,
     cidade, setCidade,
+    lat, lng,
     precoMin, setPrecoMin,
     precoMax, setPrecoMax, setPrice,
     ordem, setOrdem,

@@ -96,10 +96,15 @@ export default function ActiveFiltersList({ categories, initialGeo, disableAutoG
       // país é que aí sim limpa tudo.
       const manualLabel = cidade || estado || pais;
       list.push({ key: 'manualGeo', label: manualLabel as string, action: () => {
+        // BUG CORRIGIDO (plano cascata+raio): fechar manualmente cidade/
+        // estado precisa limpar lat/lng junto — senão a busca por raio
+        // (que só faz sentido junto da cidade que a originou) continuaria
+        // filtrando por uma coordenada que não corresponde mais a nada
+        // visível na tela.
         if (cidade) {
-          applyFilters({ cidade: '' });
+          applyFilters({ cidade: '', lat: '', lng: '' });
         } else if (estado) {
-          applyFilters({ estado: '' });
+          applyFilters({ estado: '', lat: '', lng: '' });
         } else {
           // Último nível (país): usa clearFilters (igual "Limpar Todos").
           // suppressAutoGeo() é essencial aqui — sem ela, assim que

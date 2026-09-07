@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase-server';
 import { logError } from '@/lib/monitoring';
+import { RADIUS_CLOSE_KM, RADIUS_WIDE_KM, type GeoFallbackLevel } from '@/lib/geo-cascade';
 
 const PAGE_SIZE = 24;
 
@@ -41,6 +42,23 @@ export const adsSearchParamsSchema = z.object({
   pais: z.union([z.string(), z.array(z.string())]).transform(val => Array.isArray(val) ? val[0] : val).optional(),
   estado: z.union([z.string(), z.array(z.string())]).transform(val => Array.isArray(val) ? val[0] : val).optional(),
   cidade: z.union([z.string(), z.array(z.string())]).transform(val => Array.isArray(val) ? val[0] : val).optional(),
+  // Coordenadas da busca por raio em KM — ver getAdsListagemComFallbackGeografico.
+  // String->number manual (em vez de z.coerce.number()) porque precisa
+  // tratar entrada ausente/inválida como "sem coordenada" (undefined),
+  // nunca como 0 — z.coerce.number() sozinho aceita '' como 0 (coerção do
+  // JS), o que apontaria pro Golfo da Guiné em vez de "sem localização".
+  lat: z.union([z.string(), z.array(z.string())]).transform(val => Array.isArray(val) ? val[0] : val)
+    .transform(val => {
+      if (!val) return undefined;
+      const n = Number(val);
+      return Number.isFinite(n) && n >= -90 && n <= 90 ? n : undefined;
+    }).optional(),
+  lng: z.union([z.string(), z.array(z.string())]).transform(val => Array.isArray(val) ? val[0] : val)
+    .transform(val => {
+      if (!val) return undefined;
+      const n = Number(val);
+      return Number.isFinite(n) && n >= -180 && n <= 180 ? n : undefined;
+    }).optional(),
   categoria: z.union([z.string(), z.array(z.string())]).transform(val => Array.isArray(val) ? val[0] : val).optional(),
   subcategoria: z.union([z.string(), z.array(z.string())]).transform(val => Array.isArray(val) ? val[0] : val).optional(),
   finalidade: z.union([z.string(), z.array(z.string())]).transform(val => Array.isArray(val) ? val[0] : val).optional(),
@@ -84,9 +102,12 @@ export const adSchema = z.object({
 export const adsResponseSchema = z.array(adSchema);
 export type AdValidated = z.infer<typeof adSchema>;
 
-export async function getAdsListagem(params: AdsSearchParams, geoContext: any) {
+// idsFilter é de uso INTERNO (busca por raio, ver
+// getAdsListagemComFallbackGeografico abaixo) — nunca vem direto de query
+// param do usuário, por isso não faz parte de AdsSearchParams/zod.
+export async function getAdsListagem(params: AdsSearchParams, geoContext: any, idsFilter?: string[]) {
   const sb = await createClient();
-  
+
   let q = sb.from('ads')
     // BUG CORRIGIDO (achado durante a validação do zero de i18n): a
     // migration 20260827100000_i18n_colunas_es.sql adicionou price_unit_es
@@ -96,6 +117,11 @@ export async function getAdsListagem(params: AdsSearchParams, geoContext: any) {
     // _pt, mesmo pra anúncios com tradução real preenchida.
     .select('id, slug, title_pt, title_es, price, currency, price_unit_pt, price_unit_es, negotiable, country, state, city, location_text, images, tags_pt, tags_es, status, featured, created_at, category_id', { count: 'exact' })
     .eq('status', 'active');
+
+  // Busca por raio em KM (ver getAdsListagemComFallbackGeografico) — os ids
+  // já vêm filtrados por distância via RPC; aqui só restringe a consulta
+  // normal (categoria/preço/etc.) a esse conjunto.
+  if (idsFilter) q = q.in('id', idsFilter);
 
   // Filtros geográficos e de categoria
   if (params.categoria) q = q.eq('category_id', params.categoria);
@@ -219,12 +245,25 @@ export async function getAdsListagemComFallbackGeografico(params: AdsSearchParam
   const cidade = params.cidade || geoContext.cidade;
   const estado = params.estado || geoContext.estado;
   const pais = params.pais || geoContext.pais;
+  // BUG CORRIGIDO (plano cascata+raio): quando a localização do visitante
+  // tem coordenadas (GPS ou IP-geo — ver lib/useGeoLocation.ts/geoip.ts),
+  // raio em KM substitui o match exato de cidade como critério padrão de
+  // "Perto de você" — cidade é uma fronteira administrativa arbitrária,
+  // alguém a poucos km fora do limite não deveria ficar de fora. Sem
+  // coordenadas, cai na escada de texto (cidade→estado→país→tudo) de antes.
+  const lat = params.lat ?? geoContext.lat ?? undefined;
+  const lng = params.lng ?? geoContext.lng ?? undefined;
+  const temCoordenadas = typeof lat === 'number' && typeof lng === 'number';
 
-  type Nivel = 'city' | 'state' | 'country' | 'all';
-  type Tentativa = { nivel: Nivel; rotulo: string | null; pais?: string; estado?: string; cidade?: string };
+  type Tentativa = { nivel: GeoFallbackLevel; rotulo: string | null; pais?: string; estado?: string; cidade?: string; raioKm?: number };
 
   const tentativas: Tentativa[] = [];
-  if (cidade) tentativas.push({ nivel: 'city', rotulo: cidade, pais, estado, cidade });
+  if (temCoordenadas) {
+    tentativas.push({ nivel: 'radius_close', rotulo: cidade || estado || null, raioKm: RADIUS_CLOSE_KM });
+    tentativas.push({ nivel: 'radius_wide', rotulo: `até ${RADIUS_WIDE_KM}km`, raioKm: RADIUS_WIDE_KM });
+  } else if (cidade) {
+    tentativas.push({ nivel: 'city', rotulo: cidade, pais, estado, cidade });
+  }
   if (estado) tentativas.push({ nivel: 'state', rotulo: estado, pais, estado });
   if (pais && pais !== 'todos') tentativas.push({ nivel: 'country', rotulo: pais, pais });
   tentativas.push({ nivel: 'all', rotulo: null });
@@ -233,14 +272,31 @@ export async function getAdsListagemComFallbackGeografico(params: AdsSearchParam
   const rotuloOriginal = tentativas[0].rotulo;
 
   let resultado: Awaited<ReturnType<typeof getAdsListagem>> | null = null;
-  let nivelEncontrado: Nivel = 'all';
+  let nivelEncontrado: GeoFallbackLevel = 'all';
   let rotuloEncontrado: string | null = null;
 
   for (const tentativa of tentativas) {
-    resultado = await getAdsListagem(
-      { ...params, pais: tentativa.pais, estado: tentativa.estado, cidade: tentativa.cidade },
-      { pais: tentativa.pais, estado: tentativa.estado, cidade: tentativa.cidade }
-    );
+    if (tentativa.nivel === 'radius_close' || tentativa.nivel === 'radius_wide') {
+      const sb = await createClient();
+      const { data: idsComDistancia, error: rpcError } = await sb.rpc('search_ads_ids_within_radius', {
+        p_lat: lat, p_lng: lng, p_radius_km: tentativa.raioKm, p_limit: 300,
+      });
+      if (rpcError) {
+        // Extensão/função pode não existir ainda em algum ambiente (ex.:
+        // migration aplicada em produção mas não num preview) — não
+        // derruba a página, só pula pro próximo nível da escada.
+        logError(rpcError, { context: 'search_ads_ids_within_radius', raioKm: tentativa.raioKm });
+        continue;
+      }
+      const ids = (idsComDistancia || []).map((r: { id: string }) => r.id);
+      if (ids.length === 0) continue; // ninguém nesse raio, tenta o próximo nível
+      resultado = await getAdsListagem({ ...params, pais: undefined, estado: undefined, cidade: undefined }, {}, ids);
+    } else {
+      resultado = await getAdsListagem(
+        { ...params, pais: tentativa.pais, estado: tentativa.estado, cidade: tentativa.cidade },
+        { pais: tentativa.pais, estado: tentativa.estado, cidade: tentativa.cidade }
+      );
+    }
     nivelEncontrado = tentativa.nivel;
     rotuloEncontrado = tentativa.rotulo;
     if (resultado.total > 0 || tentativa.nivel === 'all') break;

@@ -4,7 +4,15 @@
 // lado servidor (ads.service.ts) quanto de componentes cliente, se algum
 // dia precisar montar a mesma mensagem fora do server.
 
-export type GeoFallbackLevel = 'city' | 'state' | 'country' | 'all';
+export type GeoFallbackLevel = 'radius_close' | 'radius_wide' | 'city' | 'state' | 'country' | 'all';
+
+// Escada de raio em KM — só usada quando a localização do visitante tem
+// coordenadas (GPS ou IP-geo, ambos passam a carregar lat/lng — ver
+// lib/useGeoLocation.ts / lib/geoip.ts). Substitui o match exato de cidade
+// como critério padrão de "Perto de você"; sem coordenadas, cai na escada
+// de texto (cidade→estado→país→tudo) como antes.
+export const RADIUS_CLOSE_KM = 100;
+export const RADIUS_WIDE_KM = 300;
 
 export interface GeoFallbackInfo {
   level: GeoFallbackLevel;

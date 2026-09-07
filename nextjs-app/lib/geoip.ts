@@ -84,6 +84,13 @@ export type GeoResult = {
   stateCode:   string | null;
   country:     string | null;   // nome localizado: "Brasil" / "Estados Unidos"
   countryCode: string | null;   // ISO-2 cru: "BR"
+  // BUG CORRIGIDO (achado ao vivo pelo usuário, plano cascata+raio): os 3
+  // provedores já devolvem latitude/longitude — só nunca eram lidos. Sem
+  // isso, a busca por raio em KM (lib/services/ads.service.ts) não tinha
+  // como saber onde o visitante está quando o GPS do navegador é negado
+  // (o caso mais comum — só o IP fica disponível).
+  lat: number | null;
+  lng: number | null;
 };
 
 /**
@@ -107,6 +114,8 @@ async function lookupByIp(ip: string, local: boolean, lang: 'pt' | 'es'): Promis
           stateCode: d.region_code ?? null,
           country: normalizeCountry(d.country_code, lang),
           countryCode: d.country_code.toUpperCase(),
+          lat: typeof d.latitude === 'number' ? d.latitude : null,
+          lng: typeof d.longitude === 'number' ? d.longitude : null,
         };
       }
     }
@@ -126,6 +135,8 @@ async function lookupByIp(ip: string, local: boolean, lang: 'pt' | 'es'): Promis
           stateCode: d.region_code ?? null,
           country: normalizeCountry(d.country_code, lang),
           countryCode: d.country_code.toUpperCase(),
+          lat: typeof d.latitude === 'number' ? d.latitude : null,
+          lng: typeof d.longitude === 'number' ? d.longitude : null,
         };
       }
     }
@@ -135,7 +146,7 @@ async function lookupByIp(ip: string, local: boolean, lang: 'pt' | 'es'): Promis
 
   try {
     const ipParam = local ? '' : `/${ip}`;
-    const url = `http://ip-api.com/json${ipParam}?fields=status,city,regionName,regionCode,countryCode&lang=${lang}`;
+    const url = `http://ip-api.com/json${ipParam}?fields=status,city,regionName,regionCode,countryCode,lat,lon&lang=${lang}`;
     const res = await fetch(url, { signal: AbortSignal.timeout(2000) });
     if (res.ok) {
       const d = await res.json();
@@ -146,6 +157,8 @@ async function lookupByIp(ip: string, local: boolean, lang: 'pt' | 'es'): Promis
           stateCode: d.regionCode ?? null,
           country: normalizeCountry(d.countryCode, lang),
           countryCode: d.countryCode.toUpperCase(),
+          lat: typeof d.lat === 'number' ? d.lat : null,
+          lng: typeof d.lon === 'number' ? d.lon : null,
         };
       }
     }
