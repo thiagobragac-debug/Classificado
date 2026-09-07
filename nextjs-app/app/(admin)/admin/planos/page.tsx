@@ -4,6 +4,16 @@ import React, { useEffect, useState } from 'react'
 import { getSupabase } from '@/lib/supabase'
 import { showToast } from '@/lib/toast'
 
+// BUG CORRIGIDO (achado ao vivo removendo "Suporte VIP 24/7" do Premium):
+// /planos (público) usa ISR por tempo (`next: { revalidate: 3600 }`) e esta
+// tela salva direto no Supabase — sem isto, qualquer edição de plano ficava
+// até 1h sem aparecer pro público. Fire-and-forget: se falhar, o pior caso é
+// voltar ao comportamento antigo (espera a revalidação natural), não vale
+// bloquear o salvamento nem mostrar erro pro admin por causa disso.
+function revalidatePlanosPublico() {
+  fetch('/api/admin/revalidate-planos', { method: 'POST' }).catch(() => {})
+}
+
 export default function AdminPlanos() {
   const [plans, setPlans] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -102,6 +112,7 @@ export default function AdminPlanos() {
     if (!error && data && data.length > 0) {
       setPlans(plans.map(p => p.id === id ? { ...p, is_active: !currentActive } : p))
       loadCounts()
+      revalidatePlanosPublico()
     } else if (!error) {
       showToast('Nenhuma linha foi atualizada — verifique permissões ou se o registro ainda existe.', 'error')
     } else {
@@ -194,6 +205,7 @@ export default function AdminPlanos() {
         setIsModalOpen(false)
         showToast('Plano atualizado!', 'success')
         loadCounts()
+        revalidatePlanosPublico()
       } else if (!error) {
         showToast('Nenhuma linha foi atualizada — verifique permissões ou se o registro ainda existe.', 'error')
       } else {
@@ -211,6 +223,7 @@ export default function AdminPlanos() {
         // diferente da atual, então recarrega de verdade.
         loadPlans()
         loadCounts()
+        revalidatePlanosPublico()
       } else {
         showToast('Erro: ' + error?.message, 'error')
       }
