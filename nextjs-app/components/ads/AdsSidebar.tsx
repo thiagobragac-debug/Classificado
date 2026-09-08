@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
+import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 import { useDebouncedCallback } from 'use-debounce';
 import { AdBanner } from '@/components/AdBanner';
 import { Category, COUNTRY_FLAGS } from './AdCard';
@@ -59,6 +61,7 @@ export default function AdsSidebar() {
     destaque, setDestaque, negociavel, setNegociavel
   } = useAdsFilter();
 
+  const pathname = usePathname();
   const t = TRANSLATIONS[lang as keyof typeof TRANSLATIONS] || TRANSLATIONS.pt;
   const purposeOptions = getPurposeOptions(categoria);
   const subcategoryLabels = getSubcategoryLabels(categoria);
@@ -138,16 +141,32 @@ export default function AdsSidebar() {
           <span className="cat-icon-wrap" style={{ color: 'var(--clr-text-muted)', fontSize: '14px' }}>🗂️</span>
           <span>{t.allCats}</span>
         </label>
+        {/* BUG CORRIGIDO (auditoria de SEO, 2026-09-08): cada opção de
+            categoria era só um <input type="radio"> com onChange — sem
+            nenhum <a href> por trás, um crawler que não simula clique não
+            descobre essas URLs sozinho (diferente de /categoria/[slug], que
+            já é linkado no rodapé e no sitemap, mas cobre só categoria
+            isolada). Envolve com um <Link> real (display:contents não afeta
+            o layout do label/input por dentro) — clique continua 100% via
+            JS (preventDefault + mesma lógica de sempre), mas agora existe um
+            href de verdade pro Google seguir. */}
         {categories.map(cat => (
-          <label key={cat.id} className="filter-option category-option">
-            <input type="radio" name="category" value={cat.id} checked={categoria === cat.id} onChange={() => { setCategoria(cat.id); applyFilters({ categoria: cat.id, subcategoria: '', finalidade: '' }); }} />
-            {/* BUG CORRIGIDO (re-auditoria de segurança, 2026-08-30): cat.icon é
-                um emoji de texto (admin limita a 2 caracteres) — nunca precisou
-                de dangerouslySetInnerHTML. Um admin comprometido gravando HTML
-                arbitrário nesse campo afetaria todo visitante da listagem. */}
-            <span className="cat-icon-wrap" style={{ color: cat.color || 'var(--clr-text-muted)' }}>{cat.icon || '🗂️'}</span>
-            <span>{lang === 'es' ? cat.name_es : cat.name_pt}</span>
-          </label>
+          <Link
+            key={cat.id}
+            href={`${pathname}?categoria=${cat.id}`}
+            onClick={(e) => { e.preventDefault(); setCategoria(cat.id); applyFilters({ categoria: cat.id, subcategoria: '', finalidade: '' }); }}
+            style={{ display: 'contents' }}
+          >
+            <label className="filter-option category-option">
+              <input type="radio" name="category" value={cat.id} checked={categoria === cat.id} onChange={() => { setCategoria(cat.id); applyFilters({ categoria: cat.id, subcategoria: '', finalidade: '' }); }} />
+              {/* BUG CORRIGIDO (re-auditoria de segurança, 2026-08-30): cat.icon é
+                  um emoji de texto (admin limita a 2 caracteres) — nunca precisou
+                  de dangerouslySetInnerHTML. Um admin comprometido gravando HTML
+                  arbitrário nesse campo afetaria todo visitante da listagem. */}
+              <span className="cat-icon-wrap" style={{ color: cat.color || 'var(--clr-text-muted)' }}>{cat.icon || '🗂️'}</span>
+              <span>{lang === 'es' ? cat.name_es : cat.name_pt}</span>
+            </label>
+          </Link>
         ))}
       </FilterGroup>
 

@@ -19,40 +19,33 @@ import { escapeJsonLd } from '@/lib/json-ld';
 import { getLocale } from '@/lib/locale-server';
 import { localizedPath, SITE_URL } from '@/lib/locale';
 
-// Descrição-base por idioma (mesmo texto do fallback em app/(public)/layout.tsx)
-// enriquecida com a região do visitante quando os headers de geolocalização
-// da Vercel estão disponíveis — mesma fonte (x-vercel-ip-*) já lida em Home().
+// Descrição-base por idioma (mesmo texto do fallback em app/(public)/layout.tsx).
 const HOME_METADATA_I18N = {
   pt: {
     description: 'O maior portal de classificados do agronegócio do Mercosul. Compre e venda animais, insumos, máquinas e imóveis rurais no Brasil, Argentina, Paraguai e Uruguai.',
-    withLocation: (loc: string) => ` Veja anúncios perto de você em ${loc}.`,
   },
   es: {
     description: 'El mayor portal de clasificados del agronegocio del Mercosur. Compra y vende animales, insumos, maquinaria e inmuebles rurales en Brasil, Argentina, Paraguay y Uruguay.',
-    withLocation: (loc: string) => ` Mira anuncios cerca de ti en ${loc}.`,
   },
 } as const;
 
+// BUG CORRIGIDO (auditoria de SEO, 2026-09-08): a description usava headers()
+// de geolocalização (x-vercel-ip-*) pra inserir "veja anúncios perto de você
+// em {cidade}" — o Googlebot rastreia de data centers próprios (fora do
+// Mercosul), então o snippet indexado no Google mostrava uma cidade sem
+// nenhuma relação com o site. Description agora é fixa por idioma; a
+// personalização por geo continua existindo no CONTEÚDO da página (seções
+// de anúncios/vendedores/eventos próximos em Home(), abaixo), que é onde
+// isso faz sentido — não no meta usado pra indexação.
 export async function generateMetadata(): Promise<Metadata> {
-  // Mesmos headers de geolocalização já lidos em Home() — reaproveitados
-  // aqui só para enriquecer a description, sem mexer no title (que continua
-  // herdando o title.template definido em app/(public)/layout.tsx).
-  const headersList = await headers();
-  const city = headersList.get('x-vercel-ip-city') || undefined;
-  const state = headersList.get('x-vercel-ip-country-region') || undefined;
-  const country = headersList.get('x-vercel-ip-country') || undefined;
-
   const lang = await getLocale();
-  const m = HOME_METADATA_I18N[lang];
-
-  const location = [city, state, country].filter(Boolean).join(', ');
-  const description = location ? `${m.description}${m.withLocation(location)}` : m.description;
-
-  return { description };
+  return { description: HOME_METADATA_I18N[lang].description };
 }
 
-// Nota: A página agora é dinâmica automaticamente (pois usamos headers() no código)
-// Não podemos exportar 'dynamic' aqui pois dá conflito de nome com a importação 'next/dynamic'
+// Nota: A página é dinâmica de qualquer forma — Home() (abaixo) já lê
+// headers() de geolocalização pra personalizar anúncios/vendedores/eventos
+// em destaque por proximidade. Não podemos exportar 'dynamic' aqui pois dá
+// conflito de nome com a importação 'next/dynamic'.
 
 function SectionSkeleton() {
   return (

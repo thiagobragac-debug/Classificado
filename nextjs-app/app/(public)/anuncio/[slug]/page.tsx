@@ -440,11 +440,19 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ slug
                 ver. Só existe visualmente no mobile (globals.css); no
                 desktop o mesmo título/preço/local continua só dentro do
                 AdSidebar (.sidebar-title-price-location, oculto no mobile) —
-                nunca os dois ao mesmo tempo, pra não duplicar. */}
+                nunca os dois ao mesmo tempo, pra não duplicar.
+                BUG CORRIGIDO (auditoria de SEO, 2026-09-08): esta cópia usava
+                <h1> igual à do AdSidebar — como as duas ficam no HTML o
+                tempo todo (só uma visível por vez via CSS), o documento
+                tinha 2 <h1> idênticos. O <h1> de verdade agora é só o do
+                AdSidebar (título original, sempre existiu); este aqui vira
+                role="heading" aria-level={1} — leitor de tela ainda anuncia
+                como título nível 1 quando é o visível (mobile), mas o HTML
+                bruto só tem um <h1> literal. */}
             <div className="ad-mobile-summary">
-              <h1 className="product-title" style={{ fontSize: '1.5rem', fontWeight: 700, lineHeight: 1.2 }}>
+              <div className="product-title" role="heading" aria-level={1} style={{ fontSize: '1.5rem', fontWeight: 700, lineHeight: 1.2 }}>
                 {adTitle}
-              </h1>
+              </div>
               <div className="product-price" style={{ marginTop: '0.5rem' }}>
                 {ad.price !== null ? (
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', flexWrap: 'wrap' }}>
