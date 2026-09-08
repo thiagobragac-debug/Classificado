@@ -511,6 +511,49 @@ export default function AdminConfiguracoes() {
                       <option value="light">Sempre Claro</option>
                     </select>
                   </FieldGroup>
+
+                  {/* GAP CORRIGIDO (achado ao vivo pelo usuário): os 3 ícones
+                      sociais no rodapé (Footer.tsx) foram removidos antes por
+                      apontarem pra href="#" — reintroduzidos aqui, condicionados
+                      a existir uma URL real configurada (ícone só aparece
+                      quando preenchido, nunca mais um link morto). Chaves
+                      simples em platform_settings (URL pública, não é
+                      segredo) — sincronizam pro rodapé via o mesmo mecanismo
+                      de localStorage que Header.tsx já usa pra tc_logo_url. */}
+                  <p className="cfg-section-title" style={{ marginTop: '2rem' }}>📱 Redes Sociais</p>
+                  <p className="cfg-hint" style={{ marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                    O ícone só aparece no rodapé do site quando o campo está preenchido.
+                  </p>
+
+                  <FieldGroup label="Instagram">
+                    <input
+                      type="url"
+                      className="adm-input"
+                      value={get('social_instagram')}
+                      onChange={e => set('social_instagram', e.target.value)}
+                      placeholder="https://instagram.com/seuusuario"
+                    />
+                  </FieldGroup>
+
+                  <FieldGroup label="Facebook">
+                    <input
+                      type="url"
+                      className="adm-input"
+                      value={get('social_facebook')}
+                      onChange={e => set('social_facebook', e.target.value)}
+                      placeholder="https://facebook.com/suapagina"
+                    />
+                  </FieldGroup>
+
+                  <FieldGroup label="WhatsApp" hint="Link direto, ex: https://wa.me/5511999999999">
+                    <input
+                      type="url"
+                      className="adm-input"
+                      value={get('social_whatsapp')}
+                      onChange={e => set('social_whatsapp', e.target.value)}
+                      placeholder="https://wa.me/5511999999999"
+                    />
+                  </FieldGroup>
                 </div>
               )}
 
