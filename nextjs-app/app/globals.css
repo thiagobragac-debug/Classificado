@@ -1312,6 +1312,21 @@ html.is-logged-in .auth-wrapper a[href="login.html"]::after {
     white-space: normal;
     width: 100%;
   }
+  /* Meio-termo pedido pelo usuário: a grade estática sozinha "perdia a
+     funcionalidade do hero" (o efeito de cartão flutuando sobre a foto).
+     Só a PRIMEIRA linha (cartões 1 e 2) sobe por cima da borda inferior
+     do círculo — não dá pra fazer isso com as 3 linhas (viraria
+     sobreposição real, escondendo metade da foto). position:relative +
+     z-index:2 é necessário aqui: .hero-img-wrap já é position:relative
+     z-index:1 (regra base) — sem isso, um item position:static nunca
+     pinta por cima de um irmão posicionado com z-index, não importa a
+     ordem no DOM, e o "encaixe" ficaria cortado pela borda da foto em
+     vez de ficar por cima dela.  */
+  .hero-float-card--1, .hero-float-card--2 {
+    position: relative;
+    z-index: 2;
+    margin-top: -28px;
+  }
   .hero-mini-stats { gap: var(--sp-5); }
 }
 
