@@ -1263,70 +1263,75 @@ html.is-logged-in .auth-wrapper a[href="login.html"]::after {
      400px de viewport. */
   .hero-right { order: -1; width: 100%; max-width: 400px; margin-inline: auto; }
 
-  /* BUG CORRIGIDO (achado ao vivo pelo usuário: cartões flutuantes sumiam
-     no mobile): no desktop os 5 cartões usam position:absolute com
-     offsets negativos (ex.: left:-10%) que "vazam" pra fora do círculo,
-     usando .hero-img-frame só como âncora de posicionamento — isso exige
-     bastante espaço sobrando ao redor da imagem, que não existe numa tela
-     de ~360-400px de largura (por isso a versão antiga simplesmente
-     escondia tudo com display:none). Solução: no mobile os cartões saem
-     do fluxo absoluto e viram uma grade estática de 2 colunas ABAIXO da
-     imagem — sem sobreposição, sem vazar da tela, sempre visíveis.
-     .hero-img-frame vira o grid: a imagem ocupa as 2 colunas (grid-column:
-     1/-1) e vem primeiro via order:-1 (o DOM tem os cartões antes dela);
-     aspect-ratio sai daqui e vai pra .hero-img-wrap, que preserva sozinha
-     o formato quadrado/blob da foto independente da altura do grid, que
-     agora cresce pra caber os cartões abaixo também. */
+  /* HISTÓRICO (não se aplica mais, mantido só de referência pro próximo
+     ajuste): tentamos (1) esconder os cartões de vez (usuário reportou
+     que sumiam), depois (2) uma grade estática de 2 colunas abaixo da
+     imagem (usuário reportou que "perdia a funcionalidade do hero" — o
+     efeito de flutuar sobre a foto), depois (3) só a 1ª linha flutuando
+     por cima da borda como meio-termo. Solução atual, pedida pelo
+     usuário: selo COMPACTO (só ícone + número, sem rótulo nem
+     subtítulo) — bem menor que o cartão completo do desktop, cabe
+     flutuando de verdade ao redor do círculo, igual ao desktop
+     (position:absolute), só que com offsets bem mais enxutos (não pode
+     vazar pra fora do frame — quase não sobra margem lateral numa tela
+     de ~360-400px, ao contrário do desktop). */
   .hero-img-frame {
     max-width: 360px;
-    /* BUG CORRIGIDO (achado ao vivo, imagem virava uma tira esmagada): a
-       regra base define aspect-ratio:4/4.2 pensando só na altura da foto
-       sozinha — sem resetar aqui, o frame inteiro (foto + 5 cartões
-       abaixo) ficava travado nessa altura fixa, e a foto era espremida
-       pra caber junto com os cartões no mesmo espaço apertado. */
-    aspect-ratio: auto;
-    margin-inline: auto;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--sp-3);
-  }
-  .hero-img-frame::before {
-    /* Halo decorativo (blob colorido atrás da foto) só faz sentido do
-       tamanho do círculo — esticado pra cobrir os cartões abaixo também
-       ficaria estranho. A própria foto já mantém seu recorte em blob via
-       .hero-img-wrap, então perder só o halo externo aqui é uma
-       simplificação visual pequena, não uma regressão. */
-    display: none;
-  }
-  .hero-img-wrap {
-    grid-column: 1 / -1;
-    order: -1;
-    width: 100%;
     aspect-ratio: 1;
-    flex-shrink: 0;
+    margin-inline: auto;
   }
   .hero-float-card {
-    position: static;
-    transform: none;
+    padding: 6px 10px;
+    gap: 6px;
+    border-radius: var(--r-full);
     animation: none;
-    white-space: normal;
-    width: 100%;
+    box-shadow: var(--shadow-lg);
   }
-  /* Meio-termo pedido pelo usuário: a grade estática sozinha "perdia a
-     funcionalidade do hero" (o efeito de cartão flutuando sobre a foto).
-     Só a PRIMEIRA linha (cartões 1 e 2) sobe por cima da borda inferior
-     do círculo — não dá pra fazer isso com as 3 linhas (viraria
-     sobreposição real, escondendo metade da foto). position:relative +
-     z-index:2 é necessário aqui: .hero-img-wrap já é position:relative
-     z-index:1 (regra base) — sem isso, um item position:static nunca
-     pinta por cima de um irmão posicionado com z-index, não importa a
-     ordem no DOM, e o "encaixe" ficaria cortado pela borda da foto em
-     vez de ficar por cima dela.  */
-  .hero-float-card--1, .hero-float-card--2 {
-    position: relative;
-    z-index: 2;
-    margin-top: -28px;
+  .hero-float-card .fc-icon {
+    width: 26px; height: 26px;
+    font-size: .8rem;
+    border-radius: var(--r-md);
   }
+  .hero-float-card .fc-text-main {
+    font-size: .8rem;
+    white-space: nowrap;
+  }
+  /* Rótulo da categoria ("Bovinos", "Máquinas"...) e a linha de
+     subtítulo ("anúncios disponíveis"...) saem — só sobra o número. Tanto
+     o AnimatedNumber quanto o rótulo são <span> sem classe própria (só o
+     :last-child distingue os dois) — .fc-text-main span sozinho
+     esconderia o NÚMERO também, já que o AnimatedNumber some vem
+     primeiro no DOM. */
+  .hero-float-card .fc-text-main span:last-child,
+  .hero-float-card .fc-text-sub {
+    display: none;
+  }
+  /* Cartão 2 (Verificado) é o único com a estrutura invertida: o NÚMERO
+     mora em .fc-text-sub (não em .fc-text-main, que aqui é só o texto
+     "Verificado ✓") — herdar as regras gerais acima esconderia o número
+     dele e deixaria "Verificado ✓" por extenso, bem mais largo que um
+     selo compacto "⭐ 282+". Inverte só pra este cartão. */
+  .hero-float-card--2 .fc-text-main { display: none; }
+  .hero-float-card--2 .fc-text-sub {
+    display: block;
+    font-size: .8rem;
+    white-space: nowrap;
+  }
+  .hero-float-card--2 .fc-text-sub span:last-child { display: none; }
+  /* BUG CORRIGIDO (achado ao vivo: cartão 2 virava uma cápsula gigante
+     esticada verticalmente): a regra do breakpoint de tablet (1024px,
+     acima) define bottom:15% pro cartão 2 — como esse breakpoint
+     continua valendo junto com este (max-width:900px é mais estreito,
+     não substitui o de 1024px sozinho), um elemento absolute com TOP e
+     BOTTOM definidos ao mesmo tempo estica a altura pra preencher o vão
+     entre os dois em vez de usar a altura natural do conteúdo. bottom:
+     auto reseta explicitamente pra cada cartão aqui, mesmo quando este
+     bloco só define `top` (senão o bottom antigo continua "vazando"). */
+  .hero-float-card--1 { top: 4%; left: 2%; bottom: auto; }
+  .hero-float-card--2 { top: 4%; right: 2%; bottom: auto; }
+  .hero-float-card--3 { top: 44%; left: -2%; bottom: auto; }
+  .hero-float-card--4 { top: 44%; right: -2%; bottom: auto; }
+  .hero-float-card--5 { bottom: 4%; left: 50%; top: auto; transform: translateX(-50%); }
   .hero-mini-stats { gap: var(--sp-5); }
 }
 
