@@ -38,6 +38,7 @@ export async function GET() {
 
   return NextResponse.json({
     dbTotalBytes: Number((dbRes.data as any)?.total_bytes || 0),
+    dbTotalRows: Number((dbRes.data as any)?.total_rows || 0),
     dbTables: (dbRes.data as any)?.tables || [],
     storageTotalBytes,
     storageBuckets: buckets,

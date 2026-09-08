@@ -21,8 +21,13 @@ function formatBytes(bytes: number): string {
   return `${(mb / 1024).toFixed(2)} GB`
 }
 
+function formatRows(n: number): string {
+  return n.toLocaleString('pt-BR')
+}
+
 interface ResourceUsage {
   dbTotalBytes: number
+  dbTotalRows: number
   dbTables: { table_name: string; bytes: number }[]
   storageTotalBytes: number
   storageBuckets: { bucket_id: string; bytes: number; object_count: number }[]
@@ -185,6 +190,24 @@ export default function AdminDashboard() {
               <div>
                 {usageLoading ? <div className="adm-skel-val" /> : <div className="adm-stat-val">{formatBytes(usage?.storageTotalBytes || 0)}</div>}
                 <div className="adm-stat-lbl">Armazenamento (Fotos/Vídeos)</div>
+              </div>
+            </div>
+            <div className="adm-stat-card">
+              <div>
+                {usageLoading ? <div className="adm-skel-val" /> : <div className="adm-stat-val">{formatRows(usage?.dbTotalRows || 0)}</div>}
+                <div className="adm-stat-lbl">Registros no Banco</div>
+              </div>
+            </div>
+            <div className="adm-stat-card">
+              <div>
+                {usageLoading ? <div className="adm-skel-val" /> : (
+                  <div className="adm-stat-val" style={{ fontSize: '1.2rem' }}>
+                    {usage?.dbTables?.[0] ? formatBytes(usage.dbTables[0].bytes) : '—'}
+                  </div>
+                )}
+                <div className="adm-stat-lbl">
+                  Maior Tabela{usage?.dbTables?.[0] ? ` (${usage.dbTables[0].table_name.replace(/^public\./, '')})` : ''}
+                </div>
               </div>
             </div>
           </div>

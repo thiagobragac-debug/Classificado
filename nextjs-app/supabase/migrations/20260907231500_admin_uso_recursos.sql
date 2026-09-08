@@ -20,8 +20,13 @@
 --  do PostgREST nem lista a função como executável.
 -- ============================================================================
 
-create or replace function public.admin_db_usage()
-returns table(total_bytes bigint, tables jsonb)
+-- Postgres não deixa CREATE OR REPLACE mudar o tipo de retorno de uma
+-- função existente (a primeira versão desta migration não tinha
+-- total_rows) — precisa dropar antes.
+drop function if exists public.admin_db_usage();
+
+create function public.admin_db_usage()
+returns table(total_bytes bigint, total_rows bigint, tables jsonb)
 language plpgsql
 security definer
 set search_path = 'public'
@@ -30,6 +35,11 @@ begin
   return query
   select
     pg_database_size(current_database()) as total_bytes,
+    -- n_live_tup é a estimativa do próprio Postgres (atualizada pelo
+    -- autovacuum/analyze), não um count(*) exato em cada tabela — mesma
+    -- fonte que pg_stat_user_tables já usa para as linhas por tabela,
+    -- então soma sem custo extra de varrer tabela nenhuma.
+    (select coalesce(sum(n_live_tup), 0) from pg_stat_user_tables)::bigint as total_rows,
     (
       select coalesce(jsonb_agg(t), '[]'::jsonb)
       from (
