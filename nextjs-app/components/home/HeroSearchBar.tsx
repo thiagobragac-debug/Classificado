@@ -152,11 +152,18 @@ export function HeroSearchBar() {
 
         {showAuto && (search.length > 1 || popular.length > 0) && (
           <div className="search-autocomplete-dropdown" style={{
-            position: 'absolute', top: '100%', left: 0, right: 0, 
-            background: 'white', borderRadius: '0 0 var(--r-xl) var(--r-xl)', 
-            marginTop: 4, zIndex: 50, 
+            position: 'absolute', top: '100%', left: 0, right: 0,
+            background: 'white', borderRadius: '0 0 var(--r-xl) var(--r-xl)',
+            marginTop: 4, zIndex: 50,
             boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
-            textAlign: 'left'
+            textAlign: 'left',
+            // BUG CORRIGIDO (achado ao vivo em celular real): garante que o
+            // dropdown nunca cresça a ponto de sair da tela em aparelhos
+            // baixos (ex.: com o teclado virtual aberto, reduzindo a altura
+            // visível) — rola dentro dele em vez de empurrar/cobrir o resto
+            // da página.
+            maxHeight: '60vh',
+            overflowY: 'auto',
           }}>
             {matchedLocs.length > 0 && (
               <div style={{ padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}>

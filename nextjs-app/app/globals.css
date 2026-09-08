@@ -3073,20 +3073,18 @@ textarea.form-input { resize: vertical; min-height: 140px; }
 }
 
 /* ─── MOBILE SEARCH AUTOCOMPLETE ───────────────────────────── */
-@media (max-width: 768px) {
-  .search-autocomplete-dropdown {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
-    margin-top: 0 !important;
-    border-radius: 0 !important;
-    z-index: 100 !important;
-    overflow-y: auto;
-    padding-top: 80px; /* Space for the search box above it if needed, or just let it cover everything except header */
-  }
-}
+/* BUG CORRIGIDO (achado ao vivo pelo usuário em celular real: "abre uma
+   tela em branco... sem opção de sair"): position:fixed + inset:0 fazia o
+   dropdown de sugestões cobrir a tela INTEIRA no mobile, inclusive por
+   cima do próprio <input> de busca (que fica na mesma caixa, mas
+   z-index:100 no dropdown o esconde atrás de um fundo branco opaco) — o
+   usuário não via o que estava digitando e não tinha nenhum botão de
+   fechar, só o "clique fora" do handleClickOutside (HeroSearchBar.tsx),
+   que não tem "fora" nenhum pra clicar quando o dropdown é a tela toda.
+   Removida a versão fixed/full-screen — mobile agora usa o mesmo
+   dropdown absolute (ancorado embaixo do input, como no desktop) que já
+   funciona sem esse problema; max-height+scroll (ver estilo inline em
+   HeroSearchBar.tsx) evita que ele cresça demais em telas baixas. */
 
 /* ─── HEART POP ANIMATION ──────────────────────────────────── */
 @keyframes heart-pop {
