@@ -1252,95 +1252,14 @@ html.is-logged-in .auth-wrapper a[href="login.html"]::after {
 
 @media (max-width: 900px) {
   .hero-grid { grid-template-columns: 1fr; gap: var(--sp-10); }
-  /* BUG CORRIGIDO (achado ao vivo pelo usuário, imagem sumia no mobile):
-     margin-inline:auto num item de CSS Grid desliga o stretch padrão e
-     passa a dimensionar pelo conteúdo (fit-content) — como o único
-     conteúdo real aqui é uma <Image fill> (position:absolute, não conta
-     pra tamanho do pai) atrás de uma cadeia inteira de width:100%, não
-     sobra nenhum tamanho intrínseco pra herdar e o item colapsava pra
-     0x0. width:100% torna o tamanho explícito de novo — max-width:400px +
-     margin-inline:auto continuam centralizando normalmente acima de
-     400px de viewport. */
-  /* BUG CORRIGIDO (achado ao vivo pelo usuário, opinião profissional
-     pedida): order:-1 colocava a imagem decorativa ANTES do headline,
-     busca e botão "Anunciar Grátis" no mobile — a ação principal (buscar/
-     anunciar) ficava escondida atrás de uma foto bonita, exigindo rolar a
-     tela antes de conseguir agir. Removendo o order, .hero-left (que não
-     define order, fica 0 por padrão) volta a aparecer PRIMEIRO — mesma
-     ordem do próprio DOM (o "LEFT" vem antes do "RIGHT" no JSX) — e a
-     imagem circular com os selos passa a vir depois, mantendo o valor de
-     prova social sem atrasar a ação. */
-  .hero-right { width: 100%; max-width: 400px; margin-inline: auto; }
-
-  /* HISTÓRICO (não se aplica mais, mantido só de referência pro próximo
-     ajuste): tentamos (1) esconder os cartões de vez (usuário reportou
-     que sumiam), depois (2) uma grade estática de 2 colunas abaixo da
-     imagem (usuário reportou que "perdia a funcionalidade do hero" — o
-     efeito de flutuar sobre a foto), depois (3) só a 1ª linha flutuando
-     por cima da borda como meio-termo. Solução atual, pedida pelo
-     usuário: selo COMPACTO (só ícone + número, sem rótulo nem
-     subtítulo) — bem menor que o cartão completo do desktop, cabe
-     flutuando de verdade ao redor do círculo, igual ao desktop
-     (position:absolute), só que com offsets bem mais enxutos (não pode
-     vazar pra fora do frame — quase não sobra margem lateral numa tela
-     de ~360-400px, ao contrário do desktop). */
-  .hero-img-frame {
-    max-width: 360px;
-    aspect-ratio: 1;
-    margin-inline: auto;
-  }
-  .hero-float-card {
-    padding: 6px 10px;
-    gap: 6px;
-    border-radius: var(--r-full);
-    animation: none;
-    box-shadow: var(--shadow-lg);
-  }
-  .hero-float-card .fc-icon {
-    width: 26px; height: 26px;
-    font-size: .8rem;
-    border-radius: var(--r-md);
-  }
-  .hero-float-card .fc-text-main {
-    font-size: .8rem;
-    white-space: nowrap;
-  }
-  /* Rótulo da categoria ("Bovinos", "Máquinas"...) e a linha de
-     subtítulo ("anúncios disponíveis"...) saem — só sobra o número. Tanto
-     o AnimatedNumber quanto o rótulo são <span> sem classe própria (só o
-     :last-child distingue os dois) — .fc-text-main span sozinho
-     esconderia o NÚMERO também, já que o AnimatedNumber some vem
-     primeiro no DOM. */
-  .hero-float-card .fc-text-main span:last-child,
-  .hero-float-card .fc-text-sub {
-    display: none;
-  }
-  /* Cartão 2 (Verificado) é o único com a estrutura invertida: o NÚMERO
-     mora em .fc-text-sub (não em .fc-text-main, que aqui é só o texto
-     "Verificado ✓") — herdar as regras gerais acima esconderia o número
-     dele e deixaria "Verificado ✓" por extenso, bem mais largo que um
-     selo compacto "⭐ 282+". Inverte só pra este cartão. */
-  .hero-float-card--2 .fc-text-main { display: none; }
-  .hero-float-card--2 .fc-text-sub {
-    display: block;
-    font-size: .8rem;
-    white-space: nowrap;
-  }
-  .hero-float-card--2 .fc-text-sub span:last-child { display: none; }
-  /* BUG CORRIGIDO (achado ao vivo: cartão 2 virava uma cápsula gigante
-     esticada verticalmente): a regra do breakpoint de tablet (1024px,
-     acima) define bottom:15% pro cartão 2 — como esse breakpoint
-     continua valendo junto com este (max-width:900px é mais estreito,
-     não substitui o de 1024px sozinho), um elemento absolute com TOP e
-     BOTTOM definidos ao mesmo tempo estica a altura pra preencher o vão
-     entre os dois em vez de usar a altura natural do conteúdo. bottom:
-     auto reseta explicitamente pra cada cartão aqui, mesmo quando este
-     bloco só define `top` (senão o bottom antigo continua "vazando"). */
-  .hero-float-card--1 { top: 4%; left: 2%; bottom: auto; }
-  .hero-float-card--2 { top: 4%; right: 2%; bottom: auto; }
-  .hero-float-card--3 { top: 44%; left: -2%; bottom: auto; }
-  .hero-float-card--4 { top: 44%; right: -2%; bottom: auto; }
-  .hero-float-card--5 { bottom: 4%; left: 50%; top: auto; transform: translateX(-50%); }
+  /* DECISÃO DO USUÁRIO (depois de testar ao vivo esconder tudo, cartões
+     flutuando embaixo, meio-termo com sobreposição parcial, selos
+     compactos flutuando de verdade, e reordenar pra busca/CTA vir
+     primeiro): nenhuma das tentativas de manter a imagem+selos no mobile
+     agradou — a decisão final foi simplesmente ocultar a coluna toda.
+     .hero-left (headline, busca, CTA, mini-stats) fica sozinha ocupando
+     a única coluna do grid no mobile. */
+  .hero-right { display: none; }
   .hero-mini-stats { gap: var(--sp-5); }
 }
 
