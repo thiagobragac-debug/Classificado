@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { AdGallery } from '@/components/ads/AdGallery';
 import { AdSidebar } from '@/components/ads/AdSidebar';
-import { MobileMessageCtaButton } from '@/components/ads/MobileMessageCtaButton';
+import { StickyMobileCta } from '@/components/ads/StickyMobileCta';
 import { SimilarAds } from '@/components/ads/SimilarAds';
 import { ShareButton } from '@/components/ads/ShareButton';
 import { RecentViewTracker } from '@/components/ads/RecentViewTracker';
@@ -15,7 +15,6 @@ import { createAnonClient } from '@/lib/supabase-server';
 import { createAdminClient } from '@/lib/supabase-admin';
 import { getGeoParams } from '@/lib/listagem-utils';
 import { t as _t, type Lang } from '@/lib/constants';
-import { getCurrencySymbol, formatCurrencyAmount } from '@/lib/currency';
 import { escapeJsonLd } from '@/lib/json-ld';
 import '../../anuncio.css';
 
@@ -464,43 +463,19 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ slug
         </div>
       </div>
 
-      {/* STICKY CTA MOBILE */}
-      <div className="sticky-cta-mobile">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <span className="ad-mobile-cta-price-label">{tx.priceLabel}</span>
-            <strong className="ad-mobile-cta-price-value">
-              {ad.price
-                // BUG CORRIGIDO (validação do zero, rodada 6): símbolo de moeda
-                // via Intl.NumberFormat variava com o locale de exibição —
-                // es-AR não tem símbolo de BRL no CLDR (ver lib/currency.ts).
-                ? `${getCurrencySymbol(ad.currency)} ${formatCurrencyAmount(ad.price, lang === 'es' ? 'es' : 'pt')}`
-                : tx.priceOnRequest /* BUG CORRIGIDO (reteste, 2026-08-25): 2ª ocorrência do texto de preço nulo, diferente do painel lateral — unificado */}
-            </strong>
-          </div>
-          {hasWhatsapp ? (
-            <a
-              href={`/api/contact-seller?adId=${ad.id}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn btn--accent ad-mobile-cta-button"
-            >
-              {tx.talkToSeller}
-            </a>
-          ) : (
-            // BUG CORRIGIDO (varredura cruzada de cenários): CTA fixo mobile
-            // não checava hasWhatsapp antes de abrir o link (diferente do
-            // AdSidebar desktop, que já desabilita) — um vendedor sem
-            // WhatsApp cadastrado fazia esse botão abrir o JSON cru de erro
-            // de /api/contact-seller numa nova aba.
-            //
-            // BUG CORRIGIDO (varredura de usabilidade): virava um botão morto
-            // desabilitado, mesmo "Enviar Mensagem Interna" já existindo mais
-            // acima na mesma tela (AdSidebar) — agora rola/foca até lá.
-            <MobileMessageCtaButton label={tx.sendMessageCta} />
-          )}
-        </div>
-      </div>
+      {/* STICKY CTA MOBILE — some sozinho quando o painel real (AdSidebar)
+          já está visível na tela, ver StickyMobileCta.tsx */}
+      <StickyMobileCta
+        price={ad.price}
+        currency={ad.currency}
+        lang={lang === 'es' ? 'es' : 'pt'}
+        hasWhatsapp={hasWhatsapp}
+        adId={ad.id}
+        priceLabel={tx.priceLabel}
+        priceOnRequest={tx.priceOnRequest}
+        talkToSeller={tx.talkToSeller}
+        sendMessageCta={tx.sendMessageCta}
+      />
     </>
   );
 }

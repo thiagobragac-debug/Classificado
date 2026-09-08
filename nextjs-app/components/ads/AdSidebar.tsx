@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Share2, Heart, AlertTriangle, CheckCircle, ShieldCheck, Mail } from 'lucide-react';
 import { AdBanner } from '@/components/AdBanner';
@@ -139,6 +139,25 @@ export function AdSidebar({ ad, adTitle, catName, hasWhatsapp }: AdSidebarProps)
     window.addEventListener('ad:openmessageform', openMessageForm);
     return () => window.removeEventListener('ad:openmessageform', openMessageForm);
   }, []);
+
+  // BUG CORRIGIDO (usuário reportou duplicação ao vivo): a barra fixa mobile
+  // (components/ads/StickyMobileCta.tsx, fora da árvore deste componente)
+  // repete preço + ação de contato já mostrados aqui embaixo. Avisa quando
+  // este painel entra na tela pra ela se esconder — mesmo padrão de evento
+  // global já usado acima pra "ad:openmessageform".
+  const panelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = panelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        window.dispatchEvent(new CustomEvent('ad:sidebarvisible', { detail: { visible: entry.isIntersecting } }));
+      },
+      { threshold: 0 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
   // BUG CORRIGIDO (teste do plano Grátis, 2026-08-25): este componente tinha
   // sua própria implementação de "favoritar" que só gravava no localStorage
   // — nunca chamava a RPC toggle_favorite_atomic. O favorito parecia salvar
@@ -172,7 +191,7 @@ export function AdSidebar({ ad, adTitle, catName, hasWhatsapp }: AdSidebarProps)
   return (
     <div className="sidebar-fixed-container">
       <div className="sidebar-sticky-wrapper">
-        <div className="product-info-panel">
+        <div className="product-info-panel" ref={panelRef}>
           
           {/* Meta top */}
           <div className="product-meta-top" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.875rem' }}>
