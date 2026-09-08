@@ -712,7 +712,17 @@ html.is-logged-in .auth-wrapper a[href="login.html"]::after {
   padding: 6px 14px;
   background: var(--clr-primary-extra);
   border: 1px solid var(--clr-primary-soft);
-  border-radius: var(--r-full);
+  /* BUG CORRIGIDO (achado ao vivo pelo usuário em celular real): var(--r-
+     full) é 9999px — pensado pra um pill de UMA linha só, onde o raio
+     sempre estoura pra metade da altura da caixa e fecha a cápsula certa.
+     Em celulares estreitos o texto (país por país) quebra pra 2 linhas
+     (flex-wrap abaixo, de propósito, pra não vazar) e a caixa fica bem
+     mais alta — 9999px continua tentando arredondar igual, "comendo" a
+     segunda linha nos cantos. var(--r-2xl) (32px) já é maior que a metade
+     da altura de uma linha só (continua parecendo pill perfeito no
+     desktop, sem diferença visual), mas vira um retângulo arredondado
+     normal quando a caixa cresce pra 2 linhas — sem cortar texto nenhum. */
+  border-radius: var(--r-2xl);
   color: var(--clr-primary);
   font-size: var(--fs-xs); font-weight: 700;
   text-transform: uppercase; letter-spacing: 0.1em;
