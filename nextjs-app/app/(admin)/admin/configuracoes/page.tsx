@@ -16,6 +16,7 @@ const TABS = [
   { id: 'features', icon: '⚙️', label: 'Recursos Extras' },
   { id: 'gateways', icon: '💳', label: 'Gateways de Pagamento' },
   { id: 'email',    icon: '✉️', label: 'E-mail' },
+  { id: 'adsense',  icon: '📢', label: 'Publicidade (AdSense)' },
   { id: 'storage',  icon: '🗄️', label: 'Armazenamento' },
 ]
 
@@ -1059,6 +1060,86 @@ export default function AdminConfiguracoes() {
                       )}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* ══ ABA: PUBLICIDADE (ADSENSE) ═══════════════════════════ */}
+              {activeTab === 'adsense' && (
+                <div className="cfg-fields">
+                  <p className="cfg-section-title">📢 Google AdSense</p>
+                  <p className="cfg-hint" style={{ marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                    Preenche os espaços de "Anuncie Aqui" com anúncios do Google quando não existe
+                    nenhum banner direto cadastrado pra aquela posição/região — banner direto (
+                    <a href="/admin/banners" target="_blank" rel="noopener noreferrer">/admin/banners</a>
+                    ) sempre tem prioridade quando existir. Sem preencher aqui, tudo continua
+                    funcionando exatamente como hoje (banner direto ou o placeholder padrão).
+                  </p>
+
+                  <FieldGroup label="Client ID" hint="Painel AdSense → Conta → Informações da conta (formato ca-pub-XXXXXXXXXXXXXXXX)">
+                    <input
+                      type="text"
+                      className="adm-input"
+                      value={get('adsense_client_id')}
+                      onChange={e => set('adsense_client_id', e.target.value)}
+                      placeholder="ca-pub-XXXXXXXXXXXXXXXX"
+                    />
+                  </FieldGroup>
+
+                  <p className="cfg-section-title" style={{ marginTop: '1.5rem' }}>IDs de bloco de anúncio por posição</p>
+                  <p className="cfg-hint" style={{ marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                    Cada posição usa um bloco de anúncio próprio, criado no painel do AdSense.
+                    Deixe em branco as posições que não devem usar AdSense.
+                  </p>
+
+                  <FieldGroup label="Barra lateral do anúncio" hint="Página de detalhe de um anúncio (/anuncio/...)">
+                    <input
+                      type="text"
+                      className="adm-input"
+                      value={get('adsense_slot_anuncio_sidebar')}
+                      onChange={e => set('adsense_slot_anuncio_sidebar', e.target.value)}
+                      placeholder="0000000000"
+                    />
+                  </FieldGroup>
+
+                  <FieldGroup label="Barra lateral da listagem" hint="Página de busca/listagem (/listagem)">
+                    <input
+                      type="text"
+                      className="adm-input"
+                      value={get('adsense_slot_listagem_sidebar')}
+                      onChange={e => set('adsense_slot_listagem_sidebar', e.target.value)}
+                      placeholder="0000000000"
+                    />
+                  </FieldGroup>
+
+                  <FieldGroup label="Topo da Página Inicial">
+                    <input
+                      type="text"
+                      className="adm-input"
+                      value={get('adsense_slot_home_top')}
+                      onChange={e => set('adsense_slot_home_top', e.target.value)}
+                      placeholder="0000000000"
+                    />
+                  </FieldGroup>
+
+                  <FieldGroup label="Meio da Página Inicial">
+                    <input
+                      type="text"
+                      className="adm-input"
+                      value={get('adsense_slot_home_mid')}
+                      onChange={e => set('adsense_slot_home_mid', e.target.value)}
+                      placeholder="0000000000"
+                    />
+                  </FieldGroup>
+
+                  <FieldGroup label="Rodapé de leilão" hint="Página de leilão ao vivo (/leiloes)">
+                    <input
+                      type="text"
+                      className="adm-input"
+                      value={get('adsense_slot_leilao_footer')}
+                      onChange={e => set('adsense_slot_leilao_footer', e.target.value)}
+                      placeholder="0000000000"
+                    />
+                  </FieldGroup>
                 </div>
               )}
 

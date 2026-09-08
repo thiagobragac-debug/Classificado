@@ -120,6 +120,35 @@ const PAGARME_CONNECT = ['https://api.pagar.me'];
 // três precisam do host liberado.
 const GOOGLE_IDENTITY = ['https://accounts.google.com'];
 
+// AdSense (components/AdBanner.tsx) — só entra em ação quando o admin
+// configura Client ID + slot em /admin/configuracoes → Publicidade, mas o
+// CSP precisa liberar os domínios do Google Ads SEMPRE (não dá pra
+// condicionar a diretiva de CSP à configuração de um platform_setting,
+// que só é lido no cliente). Confirmado ao vivo, mesma classe de bug já
+// documentada acima pros outros gateways (Stripe/MP/Pagar.me): sem os
+// hosts liberados aqui, o próprio script principal do AdSense
+// (pagead2.googlesyndication.com/pagead/js/adsbygoogle.js) já é bloqueado
+// pelo CSP antes de sair, mesmo com Client ID/slot corretos — "Refused to
+// load the script... violates... script-src". doubleclick.net e
+// tpc.googlesyndication.com renderizam o creative do anúncio em si dentro
+// de um <iframe>; ep2.adtrafficquality.google é o script mais novo de
+// verificação antifraude que o próprio AdSense injeta.
+// BUG CORRIGIDO (achado ao vivo, 2ª rodada de teste): o script de
+// verificação antifraude do próprio AdSense chamou "ep1.adtrafficquality.
+// google" — subdomínio numerado diferente do que a documentação leva a
+// supor (só viram "ep2" nos exemplos). Usa curinga (*.adtrafficquality.
+// google) em vez de listar um número fixo — Google não documenta
+// publicamente quantos existem nem garante que o número usado é estável.
+const ADSENSE_SCRIPT = ['https://pagead2.googlesyndication.com', 'https://*.adtrafficquality.google'];
+const ADSENSE_FRAME = ['https://googleads.g.doubleclick.net', 'https://tpc.googlesyndication.com', 'https://www.google.com', 'https://*.adtrafficquality.google'];
+const ADSENSE_CONNECT = ['https://pagead2.googlesyndication.com', 'https://googleads.g.doubleclick.net', 'https://*.adtrafficquality.google'];
+const ADSENSE_IMG = ['https://pagead2.googlesyndication.com', 'https://googleads.g.doubleclick.net', 'https://www.google.com', 'https://*.adtrafficquality.google'];
+// csi.gstatic.com: telemetria de performance do próprio script do AdSense
+// (não afeta o anúncio em si aparecer, mas fica sujando o console sem
+// isto — mesmo domínio gstatic.com já confiável, usado por fonts.gstatic.
+// com em font-src).
+const ADSENSE_TELEMETRY = ['https://csi.gstatic.com'];
+
 // Rotas onde o CheckoutModal roda (Card Payment Brick da Mercado Pago) — a
 // única exceção à política de script-src baseada em nonce, ver comentário
 // em buildCsp() abaixo.
@@ -163,6 +192,7 @@ function buildCsp(nonce: string, pathname: string): string {
       ...STRIPE_SCRIPT,
       ...MP_SCRIPT,
       ...GOOGLE_IDENTITY,
+      ...ADSENSE_SCRIPT,
       // Turbopack / React Refresh precisam de eval apenas em desenvolvimento
       ...(isProd ? [] : [`'unsafe-eval'`]),
     ]),
@@ -186,6 +216,7 @@ function buildCsp(nonce: string, pathname: string): string {
       'https://*.stripe.com',
       'https://http2.mlstatic.com',
       ...MP_ANTIFRAUDE,
+      ...ADSENSE_IMG,
       // BUG CORRIGIDO (achado ao vivo testando o GA4 com Measurement ID
       // real pela 1ª vez — NEXT_PUBLIC_GA_MEASUREMENT_ID nunca tinha sido
       // configurado até agora, então este bloqueio nunca tinha aparecido).
@@ -210,6 +241,8 @@ function buildCsp(nonce: string, pathname: string): string {
       ...MP_CONNECT,
       ...PAGARME_CONNECT,
       ...GOOGLE_IDENTITY,
+      ...ADSENSE_CONNECT,
+      ...ADSENSE_TELEMETRY,
       // BUG CORRIGIDO (auditoria de SEO, 2ª rodada): GA4 (app/(public)/
       // layout.tsx, carregado só se NEXT_PUBLIC_GA_MEASUREMENT_ID existir)
       // usa nonce pra passar em script-src, mas o beacon de medição em si
@@ -222,7 +255,7 @@ function buildCsp(nonce: string, pathname: string): string {
       'https://www.googletagmanager.com',
     ]),
     // Frames: YouTube (leilões ao vivo) + iframes de cartão dos gateways
-    directive('frame-src', ['https://www.youtube.com', ...STRIPE_FRAME, ...MP_FRAME, ...GOOGLE_IDENTITY]),
+    directive('frame-src', ['https://www.youtube.com', ...STRIPE_FRAME, ...MP_FRAME, ...GOOGLE_IDENTITY, ...ADSENSE_FRAME]),
     `frame-ancestors 'none'`,
     // Bloquear plugins e object injection
     `object-src 'none'`,

@@ -1,23 +1,88 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import Script from 'next/script';
 import { useGeoLocation } from '@/lib/useGeoLocation';
 import { getBanners } from '@/lib/supabase';
 import { useLang } from '@/lib/lang-context';
 
 const FALLBACK_NAME = { pt: 'Anuncie Aqui', es: 'Anúnciese Aquí' } as const;
 
+// GAP FECHADO (pedido do usuário, achado ao vivo revisando /anuncio/[slug]):
+// a posição "Anuncie Aqui" tinha só 2 estados — banner real cadastrado
+// (segmentado por geolocalização, ver getBanners() em lib/supabase.ts) ou um
+// placeholder estático (placehold.co) apontando pra /planos. Nenhum dos dois
+// gera receita quando não existe anunciante direto pra aquela posição/
+// região. AdSense entra como um TERCEIRO nível, só quando os dois primeiros
+// não têm nada pra mostrar — nunca substitui banner direto vendido (que
+// paga mais, é relevante pro nicho) nem precisa de nenhuma configuração pra
+// continuar funcionando exatamente como hoje.
+function useAdsenseConfig(position: string) {
+  const [config, setConfig] = useState<{ clientId: string; slotId: string } | null>(null);
+  useEffect(() => {
+    // Mesmo mecanismo de tc_logo_url/social_instagram — Header.tsx já
+    // sincroniza toda chave não-secreta de platform_settings pro
+    // localStorage. adsense_client_id e os slots por posição NÃO são
+    // segredo: um client id/slot do AdSense é público por definição (sai
+    // no HTML da página pra qualquer visitante ver), diferente das chaves
+    // de gateway/e-mail.
+    const clientId = localStorage.getItem('adsense_client_id');
+    const slotId = localStorage.getItem(`adsense_slot_${position}`);
+    if (clientId && slotId) setConfig({ clientId, slotId });
+  }, [position]);
+  return config;
+}
+
+function AdSenseUnit({ clientId, slotId, heightStyle }: { clientId: string; slotId: string; heightStyle: string }) {
+  const insRef = useRef<HTMLModElement>(null);
+  const pushed = useRef(false);
+
+  useEffect(() => {
+    if (pushed.current || !insRef.current) return;
+    try {
+      // @ts-expect-error -- adsbygoogle é injetado pelo script do Google, sem tipos.
+      (window.adsbygoogle = window.adsbygoogle || []).push({});
+      pushed.current = true;
+    } catch {
+      // Script do Google ainda não carregou nesta renderização — o próprio
+      // <Script onLoad> mais abaixo cobre o carregamento inicial; nada mais
+      // a fazer aqui além de não travar a página se isso falhar.
+    }
+  }, []);
+
+  return (
+    <>
+      <Script
+        id="adsense-loader"
+        strategy="afterInteractive"
+        src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${clientId}`}
+        crossOrigin="anonymous"
+      />
+      <ins
+        ref={insRef}
+        className="adsbygoogle"
+        style={{ display: 'block', width: '100%', height: heightStyle }}
+        data-ad-client={clientId}
+        data-ad-slot={slotId}
+        data-ad-format="auto"
+        data-full-width-responsive="true"
+      />
+    </>
+  );
+}
+
 export function AdBanner({ position }: { position: string }) {
   const { lang } = useLang();
   const { geo, loading: geoLoading } = useGeoLocation();
   const [banner, setBanner] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const adsenseConfig = useAdsenseConfig(position);
 
   useEffect(() => {
     if (geoLoading) return; // Espera a geolocalização terminar
-    
+
     let isMounted = true;
-    
+
     getBanners(position, geo).then(banners => {
       if (!isMounted) return;
       if (banners && banners.length > 0) {
@@ -39,6 +104,18 @@ export function AdBanner({ position }: { position: string }) {
 
   if (loading || geoLoading) {
     return null; // Não renderiza nada enquanto carrega
+  }
+
+  // Sem banner direto (nem segmentado por geo, nem global) cadastrado pra
+  // esta posição, mas AdSense configurado pro admin: preenche o espaço com
+  // AdSense em vez do placeholder estático — banner direto sempre tem
+  // prioridade quando existe.
+  if (!banner && adsenseConfig) {
+    return (
+      <div className="promo-container" style={{ width: '100%', height: heightStyle, margin: '1.5rem 0' }}>
+        <AdSenseUnit clientId={adsenseConfig.clientId} slotId={adsenseConfig.slotId} heightStyle={heightStyle} />
+      </div>
+    );
   }
 
   // Se não houver banner ativo vindo do banco, usamos os fallbacks "Anuncie Aqui"
@@ -87,9 +164,9 @@ export function AdBanner({ position }: { position: string }) {
       boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
     }}>
       <a href={safeLink} target="_blank" rel="noopener sponsored" style={{ display: 'block', width: '100%', height: '100%', position: 'relative' }}>
-        <img 
-          src={imageUrl} 
-          alt={bannerName} 
+        <img
+          src={imageUrl}
+          alt={bannerName}
           style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.85, transition: 'opacity 0.3s' }}
           onMouseOver={(e) => (e.currentTarget.style.opacity = '1')}
           onMouseOut={(e) => (e.currentTarget.style.opacity = '0.85')}
