@@ -15,6 +15,7 @@ const TABS = [
   { id: 'home',     icon: '🏠', label: 'Página Inicial' },
   { id: 'features', icon: '⚙️', label: 'Recursos Extras' },
   { id: 'gateways', icon: '💳', label: 'Gateways de Pagamento' },
+  { id: 'email',    icon: '✉️', label: 'E-mail' },
   { id: 'storage',  icon: '🗄️', label: 'Armazenamento' },
 ]
 
@@ -132,6 +133,7 @@ export default function AdminConfiguracoes() {
   const [logoPreviewError, setLogoPreviewError] = useState(false)
   const [chavesSecretas, setChavesSecretas] = useState<Set<string>>(new Set())
   const [secretasPreenchidas, setSecretasPreenchidas] = useState<Set<string>>(new Set())
+  const [testandoEmail, setTestandoEmail] = useState(false)
 
   const isDirty = JSON.stringify(settings) !== JSON.stringify(initialSettings)
 
@@ -189,6 +191,22 @@ export default function AdminConfiguracoes() {
       showToast('Erro ao salvar: ' + (err as Error).message, 'error')
     }
     setSaving(false)
+  }
+
+  // Testa a config JÁ SALVA (não o que está no formulário e ainda não foi
+  // salvo) — evita reenviar um segredo pro navegador só pra popular um
+  // teste; se o admin mudou algo, precisa salvar antes de testar.
+  const handleTestEmail = async () => {
+    setTestandoEmail(true)
+    try {
+      const res = await fetch('/api/admin/settings/test-email', { method: 'POST' })
+      const payload = await res.json()
+      if (!res.ok) throw new Error(payload.error || 'Falha ao enviar e-mail de teste')
+      showToast('E-mail de teste enviado! Confira sua caixa de entrada.', 'success')
+    } catch (err) {
+      showToast('Erro: ' + (err as Error).message, 'error')
+    }
+    setTestandoEmail(false)
   }
 
   const set = useCallback((key: string, value: string) => {
@@ -832,6 +850,161 @@ export default function AdminConfiguracoes() {
                       placeholder=""
                     />
                   </div>
+                </div>
+              )}
+
+              {/* ══ ABA: E-MAIL ══════════════════════════════════════════ */}
+              {activeTab === 'email' && (
+                <div className="cfg-fields">
+                  <p className="cfg-section-title">✉️ Envio de E-mail</p>
+                  <p className="cfg-hint" style={{ marginTop: '-0.5rem', marginBottom: '0.5rem' }}>
+                    Usado para responder mensagens do "Fale Conosco" (/admin/mensagens-contato).
+                    Escolha o Resend (free até 3.000 e-mails/mês) ou qualquer conta de e-mail via
+                    SMTP — Outlook/Office365, Gmail, ou outro provedor, do mesmo jeito que se
+                    configura uma conta num cliente de e-mail comum.
+                  </p>
+
+                  <FieldGroup label="Provedor de Envio">
+                    <select
+                      className="adm-select"
+                      value={get('email_provider')}
+                      onChange={e => set('email_provider', e.target.value)}
+                    >
+                      <option value="">Não configurado</option>
+                      <option value="resend">Resend (API)</option>
+                      <option value="smtp">SMTP genérico (Outlook, Gmail, etc.)</option>
+                    </select>
+                  </FieldGroup>
+
+                  <div className="cfg-row-2col" style={{ display: 'flex', gap: '16px' }}>
+                    <div style={{ flex: 1 }}>
+                      <FieldGroup label="Nome do Remetente" hint="Ex: Tauze Class">
+                        <input
+                          type="text"
+                          className="adm-input"
+                          value={get('email_from_name')}
+                          onChange={e => set('email_from_name', e.target.value)}
+                          placeholder="Tauze Class"
+                        />
+                      </FieldGroup>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <FieldGroup label="E-mail do Remetente" hint="Precisa pertencer ao domínio verificado no provedor escolhido">
+                        <input
+                          type="email"
+                          className="adm-input"
+                          value={get('email_from_address')}
+                          onChange={e => set('email_from_address', e.target.value)}
+                          placeholder="contato@tauzeclass.com.br"
+                        />
+                      </FieldGroup>
+                    </div>
+                  </div>
+
+                  {get('email_provider') === 'resend' && (
+                    <div className="cfg-gateway-block">
+                      <div className="cfg-gateway-header">
+                        <span>Resend</span>
+                        <div style={{ flex: 1 }} />
+                        {estaPreenchido('resend_api_key') ? (
+                          <span className="cfg-gateway-status cfg-gateway-status--ok">🟢 Configurado</span>
+                        ) : (
+                          <span className="cfg-gateway-status cfg-gateway-status--missing">🔴 Não configurado</span>
+                        )}
+                      </div>
+                      <PasswordField
+                        label="API Key"
+                        hint="Painel Resend → API Keys"
+                        value={get('resend_api_key')}
+                        onChange={v => set('resend_api_key', v)}
+                        jaConfigurado={estaPreenchido('resend_api_key')}
+                        placeholder="re_..."
+                      />
+                    </div>
+                  )}
+
+                  {get('email_provider') === 'smtp' && (
+                    <div className="cfg-gateway-block">
+                      <div className="cfg-gateway-header">
+                        <span>SMTP</span>
+                        <div style={{ flex: 1 }} />
+                        {estaPreenchido('smtp_password') ? (
+                          <span className="cfg-gateway-status cfg-gateway-status--ok">🟢 Configurado</span>
+                        ) : (
+                          <span className="cfg-gateway-status cfg-gateway-status--missing">🔴 Não configurado</span>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '16px' }}>
+                        <div style={{ flex: 2 }}>
+                          <FieldGroup label="Servidor (Host)" hint="Ex: smtp.office365.com (Outlook), smtp.gmail.com (Gmail)">
+                            <input
+                              type="text"
+                              className="adm-input"
+                              value={get('smtp_host')}
+                              onChange={e => set('smtp_host', e.target.value)}
+                              placeholder="smtp.office365.com"
+                            />
+                          </FieldGroup>
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <FieldGroup label="Porta" hint="587 (TLS) ou 465 (SSL)">
+                            <input
+                              type="number"
+                              className="adm-input"
+                              value={get('smtp_port', '587')}
+                              onChange={e => set('smtp_port', e.target.value)}
+                              placeholder="587"
+                            />
+                          </FieldGroup>
+                        </div>
+                      </div>
+
+                      <Toggle
+                        checked={getBool('smtp_secure')}
+                        onChange={v => setBool('smtp_secure', v)}
+                        label="Conexão SSL direta"
+                        description="Ligado = porta 465 (SSL). Desligado = porta 587 (STARTTLS), o mais comum."
+                      />
+
+                      <FieldGroup label="Usuário" hint="Geralmente o próprio e-mail da conta">
+                        <input
+                          type="text"
+                          className="adm-input"
+                          value={get('smtp_user')}
+                          onChange={e => set('smtp_user', e.target.value)}
+                          placeholder="contato@tauzeclass.com.br"
+                        />
+                      </FieldGroup>
+
+                      <PasswordField
+                        label="Senha"
+                        hint="No Outlook/Gmail com verificação em duas etapas, use uma 'senha de aplicativo', não a senha normal da conta."
+                        value={get('smtp_password')}
+                        onChange={v => set('smtp_password', v)}
+                        jaConfigurado={estaPreenchido('smtp_password')}
+                      />
+                    </div>
+                  )}
+
+                  {get('email_provider') && (
+                    <div className="cfg-save-bar" style={{ marginTop: 0, paddingTop: 0, borderTop: 'none' }}>
+                      <button
+                        type="button"
+                        className="adm-btn adm-btn--outline"
+                        disabled={testandoEmail || isDirty}
+                        onClick={handleTestEmail}
+                        title={isDirty ? 'Salve as alterações antes de testar' : ''}
+                      >
+                        {testandoEmail ? 'Enviando...' : '✉️ Enviar e-mail de teste'}
+                      </button>
+                      {isDirty && (
+                        <span style={{ fontSize: '.75rem', color: 'var(--adm-text-muted)' }}>
+                          Salve as alterações antes de testar.
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 

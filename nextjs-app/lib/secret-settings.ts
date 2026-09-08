@@ -12,4 +12,6 @@ export const SECRET_SETTING_KEYS = [
   'pagarme_webhook_secret',
   'asaas_api_key',
   'asaas_webhook_token',
+  'resend_api_key',
+  'smtp_password',
 ] as const;

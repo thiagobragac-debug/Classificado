@@ -9,6 +9,8 @@ export default function AdminMensagensContato() {
   const [messages, setMessages] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({})
+  const [sendingReplyId, setSendingReplyId] = useState<string | null>(null)
 
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 15
@@ -98,6 +100,30 @@ export default function AdminMensagensContato() {
     }
   }
 
+  const handleSendReply = async (id: string) => {
+    const reply = (replyDrafts[id] || '').trim()
+    if (reply.length < 5) return showToast('Escreva uma resposta com pelo menos 5 caracteres.', 'error')
+
+    setSendingReplyId(id)
+    try {
+      const res = await fetch('/api/admin/contact-messages/reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, reply }),
+      })
+      const payload = await res.json()
+      if (!res.ok) throw new Error(payload.error || 'Falha ao enviar resposta')
+      if (payload.warning) showToast(payload.warning, 'error')
+      else showToast('Resposta enviada!', 'success')
+      setReplyDrafts(prev => { const next = { ...prev }; delete next[id]; return next })
+      loadMessages()
+      loadCounts()
+    } catch (err) {
+      showToast('Erro: ' + (err as Error).message, 'error')
+    }
+    setSendingReplyId(null)
+  }
+
   const totalPages = Math.ceil(totalFiltered / pageSize)
 
   return (
@@ -176,8 +202,42 @@ export default function AdminMensagensContato() {
                   </tr>
                   {expandedId === msg.id && (
                     <tr>
-                      <td colSpan={6} style={{ background: 'var(--adm-surface-2)', whiteSpace: 'pre-wrap', padding: '16px 20px' }}>
-                        {msg.message}
+                      <td colSpan={6} style={{ background: 'var(--adm-surface-2)', padding: '16px 20px' }} onClick={e => e.stopPropagation()}>
+                        <div style={{ whiteSpace: 'pre-wrap', marginBottom: '16px' }}>{msg.message}</div>
+
+                        {msg.admin_reply && (
+                          <div style={{ background: 'var(--adm-surface)', border: '1px solid var(--adm-border)', borderRadius: 'var(--adm-r-md)', padding: '12px 14px', marginBottom: '16px' }}>
+                            <div style={{ fontSize: '.75rem', fontWeight: 700, color: 'var(--adm-text-secondary)', marginBottom: '4px' }}>
+                              Sua resposta ({new Date(msg.replied_at).toLocaleString()}):
+                            </div>
+                            <div style={{ whiteSpace: 'pre-wrap' }}>{msg.admin_reply}</div>
+                          </div>
+                        )}
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxWidth: '640px' }}>
+                          <label className="cfg-label" style={{ fontSize: '.8rem', fontWeight: 600 }}>
+                            {msg.admin_reply ? 'Enviar nova resposta' : 'Responder por e-mail'}
+                          </label>
+                          <textarea
+                            className="adm-input"
+                            rows={4}
+                            style={{ resize: 'vertical' }}
+                            placeholder={`Escreva sua resposta para ${msg.name}...`}
+                            value={replyDrafts[msg.id] || ''}
+                            onChange={e => setReplyDrafts(prev => ({ ...prev, [msg.id]: e.target.value }))}
+                            maxLength={5000}
+                          />
+                          <div>
+                            <button
+                              type="button"
+                              className="adm-btn adm-btn--primary adm-btn--sm"
+                              disabled={sendingReplyId === msg.id}
+                              onClick={() => handleSendReply(msg.id)}
+                            >
+                              {sendingReplyId === msg.id ? 'Enviando...' : '✉️ Enviar resposta'}
+                            </button>
+                          </div>
+                        </div>
                       </td>
                     </tr>
                   )}
