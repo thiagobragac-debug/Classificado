@@ -730,11 +730,23 @@ html.is-logged-in .auth-wrapper a[href="login.html"]::after {
   /* BUG CORRIGIDO (mesma auditoria acima): width:fit-content deixava o
      badge crescer até o max-content do texto (~442px, mais largo que
      qualquer celular) sem nunca respeitar a largura disponível do pai.
-     max-width:100% + flex-wrap:wrap permitem o texto (uppercase, letter-
-     spacing 0.1em, vários países) quebrar linha dentro do próprio badge
-     em vez de vazar. */
+     max-width:100% permite o texto (uppercase, letter-spacing 0.1em,
+     vários países) quebrar linha em vez de vazar. */
   max-width: 100%;
-  flex-wrap: wrap;
+  /* BUG CORRIGIDO (achado ao vivo pelo usuário: bolinha verde quebrava
+     pra linha própria, sozinha, deixando uma "linha em branco" acima do
+     texto): flex-wrap:wrap deixava CADA FILHO (bolinha e texto) quebrar
+     pra sua própria linha independente — como os dois juntos não cabiam
+     na largura disponível, o flex empurrava o <span> do texto inteiro
+     pra 2ª linha, deixando só a bolinha sozinha na 1ª. flex-wrap:nowrap
+     (a bolinha e o texto nunca se separam em linhas diferentes) + min-
+     width:0 no <span> (permite ELE encolher e quebrar o PRÓPRIO texto
+     internamente, em vez de exigir a largura do texto inteiro numa linha
+     só) resolve sem perder a quebra de linha do texto comprido. */
+  flex-wrap: nowrap;
+}
+.hero-badge > span:last-child {
+  min-width: 0;
 }
 .hero-badge-dot {
   width: 6px; height: 6px;
@@ -1251,7 +1263,13 @@ html.is-logged-in .auth-wrapper a[href="login.html"]::after {
 }
 
 @media (max-width: 900px) {
-  .hero-grid { grid-template-columns: 1fr; gap: var(--sp-10); }
+  /* BUG CORRIGIDO (achado ao vivo pelo usuário: espaço vazio grande
+     acima do badge Mercosul): padding-block:clamp(...,6vh,...) foi
+     calibrado pensando na coluna da imagem (bem mais alta) ocupando o
+     grid ao lado — sozinho, com .hero-right oculto (ver abaixo), esse
+     respiro vertical de ~49px em cima E embaixo (mais os 32px/48px que
+     .hero já tem) sobra como espaço morto antes do conteúdo de texto. */
+  .hero-grid { grid-template-columns: 1fr; gap: var(--sp-10); padding-block: var(--sp-8); }
   /* DECISÃO DO USUÁRIO (depois de testar ao vivo esconder tudo, cartões
      flutuando embaixo, meio-termo com sobreposição parcial, selos
      compactos flutuando de verdade, e reordenar pra busca/CTA vir
