@@ -114,9 +114,9 @@ function piso(real: number, configurado: string | undefined): number {
 export const getServerPlatformStats = cache(async () => {
   const supabase = createAnonClient();
 
-  // All 5 count queries run in parallel
+  // All 6 count queries run in parallel
   const today = new Date().toISOString();
-  const [adsResult, usersResult, bovinosResult, maquinasResult, auctionsResult, settings] = await Promise.all([
+  const [adsResult, usersResult, bovinosResult, maquinasResult, auctionsResult, imoveisResult, settings] = await Promise.all([
     supabase.from('ads').select('*', { count: 'exact', head: true }).eq('status', 'active'),
     // select('id', ...): profiles.is_admin/is_blocked deixaram de ter grant
     // público (achado de segurança 2026-08-24) — select('*') quebra até num
@@ -129,6 +129,9 @@ export const getServerPlatformStats = cache(async () => {
     supabase.from('ads').select('*', { count: 'exact', head: true }).eq('status', 'active').eq('category_id', 'cat-bovinos'),
     supabase.from('ads').select('*', { count: 'exact', head: true }).eq('status', 'active').eq('category_id', 'cat-maquinas'),
     supabase.from('auction_events').select('*', { count: 'exact', head: true }).neq('status', 'draft').gte('date', today),
+    // 5º cartão flutuante do hero (Imóveis Rurais) — categories.id real é
+    // 'cat-imoveis', mesmo padrão de prefixo das duas linhas acima.
+    supabase.from('ads').select('*', { count: 'exact', head: true }).eq('status', 'active').eq('category_id', 'cat-imoveis'),
     getSettings(createAdminClient()),
   ]);
 
@@ -136,6 +139,7 @@ export const getServerPlatformStats = cache(async () => {
   const total_bovinos  = piso(bovinosResult.count  || 0, settings.tc_cnt_bovinos);
   const total_machines = piso(maquinasResult.count || 0, settings.tc_cnt_maquinas);
   const total_auctions = piso(auctionsResult.count || 0, settings.tc_cnt_auctions);
+  const total_imoveis  = piso(imoveisResult.count  || 0, settings.tc_cnt_imoveis);
 
   return {
     total_ads:      adsResult.count || 0,
@@ -143,6 +147,7 @@ export const getServerPlatformStats = cache(async () => {
     total_bovinos,
     total_machines,
     total_auctions,
+    total_imoveis,
     // tc_cnt_paises/tc_cnt_cidades existem no banco mas não são aplicados
     // aqui de propósito: país é uma contagem fechada (só os 4 do Mercosul
     // que o site atende), um "piso" ali mostraria algo sem sentido tipo

@@ -122,6 +122,16 @@ export async function HeroSection({ stats }: { stats: any }) {
                 </div>
               </div>
 
+              <div className="hero-float-card hero-float-card--5" aria-hidden="true">
+                <div className="fc-icon" style={{ color: '#92400E' }}>🏡</div>
+                <div>
+                  <div className="fc-text-main">
+                    <AnimatedNumber target={stats?.total_imoveis ?? 80} suffix={stats?.cnt_plus ? '+' : ''} /> <span>{t('fc_imoveis')}</span>
+                  </div>
+                  <div className="fc-text-sub">{t('fc_imoveis_sub')}</div>
+                </div>
+              </div>
+
               {/* Main image */}
               <div className="hero-img-wrap">
                 <Image 

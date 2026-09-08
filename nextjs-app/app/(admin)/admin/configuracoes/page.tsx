@@ -607,6 +607,17 @@ export default function AdminConfiguracoes() {
                     />
                   </FieldGroup>
 
+                  <FieldGroup label="Imóveis Rurais (anúncios ativos)">
+                    <input
+                      type="number"
+                      min={0}
+                      className="adm-input"
+                      value={get('tc_cnt_imoveis')}
+                      onChange={e => set('tc_cnt_imoveis', e.target.value)}
+                      placeholder="Ex: 1000"
+                    />
+                  </FieldGroup>
+
                   <Toggle
                     checked={getBool('tc_cnt_plus')}
                     onChange={v => setBool('tc_cnt_plus', v)}
