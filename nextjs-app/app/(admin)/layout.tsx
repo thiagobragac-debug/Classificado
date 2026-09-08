@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase-server'
 import { flattenOne } from '@/lib/supabase'
 import { ConfirmProvider } from '@/components/ui/ConfirmProvider'
 import AdminMobileMenuButton from '@/components/admin/AdminMobileMenuButton'
+import AdminTitleSync from '@/components/admin/AdminTitleSync'
 import './admin/admin-v2.css'
 
 export const metadata = {
@@ -80,6 +81,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       </head>
       <body className="antialiased" style={{ margin: 0, padding: 0 }}>
         <ConfirmProvider>
+          <AdminTitleSync />
           <div className="adm-layout">
             {/* Sidebar */}
           <aside className="adm-sidebar" id="adm-sidebar">

@@ -7,9 +7,19 @@ import { PLAN_META } from '@/lib/supabase';
 import PainelClient from './PainelClient';
 import type { Metadata } from 'next';
 
-export const metadata: Metadata = {
-  robots: { index: false, follow: false },
-};
+// BUG CORRIGIDO (auditoria de SEO, 2026-09-08): sem title próprio, a aba
+// caía no default herdado do layout raiz ("Tauze Class" — igual a todo
+// mundo). Sem efeito em ranking (já é noindex), só ajuda quem tem várias
+// abas abertas a achar a certa. generateMetadata (não um objeto estático)
+// pra usar o mesmo cookie tc_lang já lido no corpo da página.
+export async function generateMetadata(): Promise<Metadata> {
+  const cookieStore = await cookies();
+  const lang = cookieStore.get('tc_lang')?.value === 'es' ? 'es' : 'pt';
+  return {
+    title: lang === 'es' ? 'Mi Panel' : 'Meu Painel',
+    robots: { index: false, follow: false },
+  };
+}
 
 export default async function PainelPage() {
   // BUG CORRIGIDO (revalidação do zero da auditoria de i18n): fallback do

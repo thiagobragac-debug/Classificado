@@ -163,6 +163,11 @@ export function AdBanner({ position }: { position: string }) {
       background: 'var(--clr-surface-alt, #f1f5f9)',
       boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
     }}>
+      {/* <img> comum, não next/image: image_url é um campo de texto livre no
+          admin (banners), qualquer host — next/image derruba a página
+          inteira via error boundary quando o host não está em
+          next.config.ts remotePatterns. Mesmo padrão documentado em
+          components/home/TopSellersSection.tsx pro mesmo tipo de risco. */}
       <a href={safeLink} target="_blank" rel="noopener sponsored" style={{ display: 'block', width: '100%', height: '100%', position: 'relative' }}>
         <img
           src={imageUrl}

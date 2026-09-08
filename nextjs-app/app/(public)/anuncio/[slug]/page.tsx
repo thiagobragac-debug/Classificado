@@ -357,6 +357,12 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ slug
             price: ad.price,
             itemCondition,
             availability: ad.status === 'active' ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+            // BUG CORRIGIDO (auditoria de SEO): faltava priceValidUntil no
+            // Offer (recomendado pelo Google pra elegibilidade de rich
+            // result de preço). Usa ads.expires_at, que já existe e é real
+            // (data de expiração de verdade do anúncio) — omite o campo em
+            // vez de inventar uma data quando o anúncio não tem uma.
+            ...(ad.expires_at ? { priceValidUntil: new Date(ad.expires_at).toISOString().slice(0, 10) } : {}),
             seller: {
               '@type': 'Person',
               name: ad.profiles?.display_name || ad.profiles?.name || 'Vendedor',

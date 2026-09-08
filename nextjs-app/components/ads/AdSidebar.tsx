@@ -237,6 +237,11 @@ export function AdSidebar({ ad, adTitle, catName, hasWhatsapp }: AdSidebarProps)
               <>
                 <div className="seller-avatar-lg" style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--clr-primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', fontWeight: 700, overflow: 'hidden', flexShrink: 0 }}>
                   {ad.profiles?.avatar_url ? (
+                    // <img> comum, não next/image: avatar_url é livre (qualquer
+                    // host que o usuário tenha salvo) — next/image derruba a
+                    // página inteira via error boundary quando o host não está
+                    // em next.config.ts remotePatterns. Mesmo padrão documentado
+                    // em components/home/TopSellersSection.tsx.
                     <img src={ad.profiles.avatar_url} alt={sellerName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
                     sellerInitial

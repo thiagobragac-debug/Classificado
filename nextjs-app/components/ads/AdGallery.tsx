@@ -287,7 +287,12 @@ export function AdGallery({ images, videoUrl, title, lang = 'pt' }: AdGalleryPro
             {media[currentIdx].type === 'video' ? (
               <video src={media[currentIdx].url} controls style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
             ) : (
-              <img src={media[currentIdx].url} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+              // BUG CORRIGIDO (auditoria de SEO): <img> cru — diferente do
+              // resto desta galeria (linhas acima já usam next/image), sem
+              // motivo aqui: mesma origem (Supabase storage, já na allowlist
+              // de next.config.ts). alt="" é intencional (mesma foto já tem
+              // alt descritivo na miniatura/grade que abriu este zoom).
+              <Image src={media[currentIdx].url} alt="" fill style={{ objectFit: 'contain' }} sizes="100vw" />
             )}
           </div>
           
