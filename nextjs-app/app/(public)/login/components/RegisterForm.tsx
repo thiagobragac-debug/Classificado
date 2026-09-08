@@ -166,7 +166,14 @@ export function RegisterForm({ onSetAlert, onSuccess }: RegisterFormProps) {
             {...register('doc')}
           />
         </div>
-        <small id="reg-doc-hint" style={{ color: 'var(--clr-text-muted)', fontSize: '0.78rem', marginTop: '0.25rem', display: 'block' }}>{t('auth_doc_ph')}</small>
+        {/* BUG CORRIGIDO (usuário achou ao vivo, print do cadastro): este hint
+            repetia EXATAMENTE o mesmo texto do placeholder já visível dentro
+            do campo — redundância visual ("muito embolado"), ainda mais com
+            3 desses empilhados (doc/telefone/cep). sr-only preserva o valor
+            de acessibilidade (aria-describedby aponta pra cá; placeholder
+            some ao digitar e nem todo leitor de tela anuncia esse atributo)
+            sem duplicar o texto na tela pra quem enxerga. */}
+        <small id="reg-doc-hint" className="sr-only">{t('auth_doc_ph')}</small>
         {errors.doc && <span id="reg-doc-error" role="alert" style={{ color: '#dc2626', fontSize: '0.8rem', marginTop: '0.2rem', display: 'block' }}>{errors.doc.message}</span>}
       </div>
 
@@ -184,7 +191,7 @@ export function RegisterForm({ onSetAlert, onSuccess }: RegisterFormProps) {
             {...register('phone')}
           />
         </div>
-        <small id="reg-phone-hint" style={{ color: 'var(--clr-text-muted)', fontSize: '0.78rem', marginTop: '0.25rem', display: 'block' }}>{t('auth_phone_ph')}</small>
+        <small id="reg-phone-hint" className="sr-only">{t('auth_phone_ph')}</small>
         {errors.phone && <span id="reg-phone-error" role="alert" style={{ color: '#dc2626', fontSize: '0.8rem', marginTop: '0.2rem', display: 'block' }}>{errors.phone.message}</span>}
       </div>
 
@@ -202,7 +209,7 @@ export function RegisterForm({ onSetAlert, onSuccess }: RegisterFormProps) {
             {...register('cep')}
           />
         </div>
-        <small id="reg-cep-hint" style={{ color: 'var(--clr-text-muted)', fontSize: '0.78rem', marginTop: '0.25rem', display: 'block' }}>{t('auth_cep_ph')}</small>
+        <small id="reg-cep-hint" className="sr-only">{t('auth_cep_ph')}</small>
         {errors.cep && <span id="reg-cep-error" role="alert" style={{ color: '#dc2626', fontSize: '0.8rem', marginTop: '0.2rem', display: 'block' }}>{errors.cep.message}</span>}
       </div>
 
