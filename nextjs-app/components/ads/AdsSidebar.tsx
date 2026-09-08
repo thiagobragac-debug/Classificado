@@ -135,7 +135,14 @@ export default function AdsSidebar() {
         </div>
       </div>
 
-      <FilterGroup title={t.category} defaultOpen={true}>
+      {/* BUG CORRIGIDO (usuário pediu ao vivo, print da listagem): escolher
+          uma categoria deixava a lista inteira de categorias aberta, o
+          usuário precisava rolar pra descobrir a seção de subcategoria (que
+          já abre sozinha logo abaixo, ver key={`sub-${categoria}`}). key
+          muda a cada categoria escolhida — remonta o grupo já fechado
+          (defaultOpen segue a mesma regra: só fica aberto quando nada foi
+          escolhido ainda, "Todas as Categorias"). */}
+      <FilterGroup key={`cat-group-${categoria}`} title={t.category} defaultOpen={categoria === ''}>
         <label className="filter-option category-option">
           <input type="radio" name="category" value="" checked={categoria === ''} onChange={() => { setCategoria(''); applyFilters({ categoria: '', subcategoria: '', finalidade: '' }); }} />
           <span className="cat-icon-wrap" style={{ color: 'var(--clr-text-muted)', fontSize: '14px' }}>🗂️</span>

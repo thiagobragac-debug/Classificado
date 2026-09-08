@@ -71,6 +71,26 @@ const CATEGORY_COLLOQUIAL_TERMS: Partial<Record<string, { pt: string[]; es: stri
   'cat-servicos': { pt: ['veterinário', 'leilão'], es: ['veterinario', 'remate'] },
 };
 
+// BUG CORRIGIDO (usuário pediu ampliar cobertura, mas só na description —
+// o title mantém a lista curta acima por causa do limite de ~60-70
+// caracteres do Google). A description tem bem mais espaço (~155-160
+// caracteres) e não sofre o mesmo corte, então ganha 1 termo a mais por
+// categoria além dos já usados no title.
+const CATEGORY_COLLOQUIAL_TERMS_EXTRA: Partial<Record<string, { pt: string[]; es: string[] }>> = {
+  'cat-bovinos': { pt: ['bezerro'], es: ['ternero'] },
+  'cat-aves': { pt: ['peru'], es: ['pavo'] },
+  'cat-suinos': { pt: ['marrã'], es: ['marrana'] },
+  'caprinos': { pt: ['caprino'], es: ['caprino'] },
+  'cat-ovinos': { pt: ['borrego'], es: ['borrego'] },
+  'cat-aquicult': { pt: ['alevino'], es: ['alevín'] },
+  'cat-insumos': { pt: ['defensivo agrícola'], es: ['agroquímico'] },
+  'medicamentos': { pt: ['remédio veterinário'], es: ['medicamento veterinario'] },
+  'cat-genetica': { pt: ['inseminação artificial'], es: ['inseminación artificial'] },
+  'cat-imoveis': { pt: ['chácara'], es: ['chacra'] },
+  'cat-maquinas': { pt: ['implemento agrícola'], es: ['implemento agrícola'] },
+  'cat-servicos': { pt: ['transporte de animais'], es: ['transporte de animales'] },
+};
+
 // "boi, vaca e touro" (pt) / "buey, vaca y toro" (es) — junção natural sem
 // vírgula sobrando antes do último item.
 function joinNatural(items: string[], lang: Lang): string {
@@ -95,7 +115,8 @@ function buildCategoryTitle(categoryName: string, categoryId: string, lang: Lang
 function buildCategoryDescription(categoryName: string, categoryId: string, lang: Lang): string {
   const terms = CATEGORY_COLLOQUIAL_TERMS[categoryId]?.[lang];
   if (!terms) return METADATA_TRANSLATIONS[lang].description(categoryName);
-  const list = joinNatural(terms, lang);
+  const extra = CATEGORY_COLLOQUIAL_TERMS_EXTRA[categoryId]?.[lang] || [];
+  const list = joinNatural([...terms, ...extra], lang);
   return lang === 'es'
     ? `Compra y vende ${list} y más en Tauze Class. El clasificado agro más grande del Mercosur.`
     : `Compre e venda ${list} e mais na Tauze Class. O maior classificado agro do Mercosul.`;
