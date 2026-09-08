@@ -1240,7 +1240,16 @@ html.is-logged-in .auth-wrapper a[href="login.html"]::after {
 
 @media (max-width: 900px) {
   .hero-grid { grid-template-columns: 1fr; gap: var(--sp-10); }
-  .hero-right { order: -1; max-width: 400px; margin-inline: auto; }
+  /* BUG CORRIGIDO (achado ao vivo pelo usuário, imagem sumia no mobile):
+     margin-inline:auto num item de CSS Grid desliga o stretch padrão e
+     passa a dimensionar pelo conteúdo (fit-content) — como o único
+     conteúdo real aqui é uma <Image fill> (position:absolute, não conta
+     pra tamanho do pai) atrás de uma cadeia inteira de width:100%, não
+     sobra nenhum tamanho intrínseco pra herdar e o item colapsava pra
+     0x0. width:100% torna o tamanho explícito de novo — max-width:400px +
+     margin-inline:auto continuam centralizando normalmente acima de
+     400px de viewport. */
+  .hero-right { order: -1; width: 100%; max-width: 400px; margin-inline: auto; }
   .hero-img-frame { max-width: 360px; aspect-ratio: 1; }
   .hero-float-card { display: none; }
   .hero-mini-stats { gap: var(--sp-5); }
