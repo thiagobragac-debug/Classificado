@@ -42,6 +42,65 @@ const METADATA_TRANSLATIONS: Record<Lang, { description: (name: string) => strin
   }
 };
 
+// BUG CORRIGIDO (achado pelo usuário ao vivo): title/description usavam só o
+// nome técnico da categoria ("Bovinos", "Equinos") — quase ninguém busca no
+// Google com esse vocabulário; as pessoas digitam do jeito que falam no dia
+// a dia ("comprar boi", "vender vaca leiteira", "cavalo pra venda"). O nome
+// da categoria em si (navegação, filtros, H1 da listagem) NÃO muda — só o
+// texto usado pra indexação (title/description), pra casar com a busca real
+// sem inventar categoria nova nenhuma. 'cat-outros' fica de fora de
+// propósito: é o catch-all genérico, sem um conjunto natural de termos.
+const CATEGORY_COLLOQUIAL_TERMS: Partial<Record<string, { pt: string[]; es: string[] }>> = {
+  'cat-bovinos': { pt: ['boi', 'vaca', 'touro', 'novilha'], es: ['buey', 'vaca', 'toro', 'novilla'] },
+  'cat-equinos': { pt: ['cavalo', 'égua', 'garanhão', 'potro'], es: ['caballo', 'yegua', 'semental', 'potro'] },
+  'cat-suinos': { pt: ['porco', 'porca', 'leitão'], es: ['cerdo', 'chancho', 'lechón'] },
+  'caprinos': { pt: ['cabra', 'bode', 'cabrito'], es: ['cabra', 'chivo', 'cabrito'] },
+  'cat-ovinos': { pt: ['ovelha', 'carneiro', 'cordeiro'], es: ['oveja', 'carnero', 'cordero'] },
+  'cat-aves': { pt: ['galinha', 'frango', 'galo', 'poedeira'], es: ['gallina', 'pollo', 'gallo', 'ponedora'] },
+  'cat-aquicult': { pt: ['peixe', 'tilápia', 'camarão'], es: ['pez', 'tilapia', 'camarón'] },
+  'cat-insumos': { pt: ['ração', 'sementes', 'fertilizante'], es: ['ración', 'semillas', 'fertilizante'] },
+  // BUG CORRIGIDO (comprimento de title): os 4 abaixo com 3 termos (frases
+  // compostas, não palavras soltas como "boi") passavam de 80-100
+  // caracteres — o Google trunca o <title> no resultado de busca por volta
+  // de ~60-70, cortando literalmente "| Tauze Class" (ou pior, parte do
+  // termo). Reduzidos pra 2 termos cada, mantendo os mais buscados.
+  'medicamentos': { pt: ['vacina', 'antibiótico'], es: ['vacuna', 'antibiótico'] },
+  'cat-genetica': { pt: ['sêmen', 'embrião'], es: ['semen', 'embrión'] },
+  'cat-imoveis': { pt: ['fazenda', 'sítio'], es: ['finca', 'campo'] },
+  'cat-maquinas': { pt: ['trator', 'colheitadeira'], es: ['tractor', 'cosechadora'] },
+  'cat-servicos': { pt: ['veterinário', 'leilão'], es: ['veterinario', 'remate'] },
+};
+
+// "boi, vaca e touro" (pt) / "buey, vaca y toro" (es) — junção natural sem
+// vírgula sobrando antes do último item.
+function joinNatural(items: string[], lang: Lang): string {
+  if (items.length <= 1) return items[0] || '';
+  const conj = lang === 'es' ? 'y' : 'e';
+  return `${items.slice(0, -1).join(', ')} ${conj} ${items[items.length - 1]}`;
+}
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function buildCategoryTitle(categoryName: string, categoryId: string, lang: Lang): string {
+  const terms = CATEGORY_COLLOQUIAL_TERMS[categoryId]?.[lang];
+  if (!terms) return categoryName;
+  const list = capitalize(joinNatural(terms, lang));
+  return lang === 'es'
+    ? `${categoryName}: Compra y Venta de ${list}`
+    : `${categoryName}: Compre e Venda ${list}`;
+}
+
+function buildCategoryDescription(categoryName: string, categoryId: string, lang: Lang): string {
+  const terms = CATEGORY_COLLOQUIAL_TERMS[categoryId]?.[lang];
+  if (!terms) return METADATA_TRANSLATIONS[lang].description(categoryName);
+  const list = joinNatural(terms, lang);
+  return lang === 'es'
+    ? `Compra y vende ${list} y más en Tauze Class. El clasificado agro más grande del Mercosur.`
+    : `Compre e venda ${list} e mais na Tauze Class. O maior classificado agro do Mercosul.`;
+}
+
 type Props = {
   params: Promise<{ slug: string }> | { slug: string };
   searchParams: { [key: string]: string | string[] | undefined } | Promise<{ [key: string]: string | string[] | undefined }>;
@@ -88,7 +147,6 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const { slug } = await params;
   const rawParams = await Promise.resolve(searchParams);
   const lang: Lang = await getLocale();
-  const T = METADATA_TRANSLATIONS[lang];
 
   const ctx = await resolveCategoryContext(slug, rawParams);
   if (!ctx) notFound();
@@ -109,8 +167,8 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   // real e indexável (/categoria/suinos já existe e está no sitemap), então
   // apontar o canonical pra lá não introduz uma URL nova nem inventa conteúdo.
   const categoryName = categoryDisplayName(ctx.effectiveCategory, lang);
-  const title = categoryName;
-  const description = T.description(categoryName);
+  const title = buildCategoryTitle(categoryName, ctx.effectiveCategoriaId, lang);
+  const description = buildCategoryDescription(categoryName, ctx.effectiveCategoriaId, lang);
 
   // BUG CRÍTICO CORRIGIDO (migração de SEO): antes esta página declarava
   // pt-BR/es apontando pra essa MESMA URL, porque o idioma dependia só do
