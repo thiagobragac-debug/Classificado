@@ -17,6 +17,7 @@ import { createAdminClient } from '@/lib/supabase-admin';
 import { getGeoParams } from '@/lib/listagem-utils';
 import { t as _t, type Lang } from '@/lib/constants';
 import { escapeJsonLd } from '@/lib/json-ld';
+import { getCurrencySymbol, formatCurrencyAmount } from '@/lib/currency';
 import '../../anuncio.css';
 
 // Sem singleton de módulo — cliente criado por-request dentro das funções
@@ -44,6 +45,7 @@ const PAGE_TEXT: Record<Lang, {
   tagsTitle: string;
   priceOnRequest: string;
   priceLabel: string;
+  negotiable: string;
   talkToSeller: string;
   whatsappUnavailable: string;
   sendMessageCta: string;
@@ -59,6 +61,7 @@ const PAGE_TEXT: Record<Lang, {
     tagsTitle: 'Tags',
     priceOnRequest: 'Sob consulta',
     priceLabel: 'Valor sugerido',
+    negotiable: 'Negociável',
     talkToSeller: 'Falar com Vendedor',
     whatsappUnavailable: 'WhatsApp não disponível',
     sendMessageCta: 'Enviar Mensagem',
@@ -74,6 +77,7 @@ const PAGE_TEXT: Record<Lang, {
     tagsTitle: 'Etiquetas',
     priceOnRequest: 'A consultar',
     priceLabel: 'Valor sugerido',
+    negotiable: 'Negociable',
     talkToSeller: 'Hablar con el Vendedor',
     whatsappUnavailable: 'WhatsApp no disponible',
     sendMessageCta: 'Enviar Mensaje',
@@ -429,6 +433,45 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ slug
           {/* LEFT COLUMN */}
           <div className="product-gallery-area ad-gallery-col">
             <AdGallery images={ad.images} videoUrl={ad.video_url} title={adTitle} lang={lang} />
+
+            {/* RESUMO MOBILE — pedido do usuário (opinião dada ao vivo sobre
+                a nova ordem mobile): título/preço/local só apareciam depois
+                da descrição inteira, mas é a 1ª coisa que quem navega quer
+                ver. Só existe visualmente no mobile (globals.css); no
+                desktop o mesmo título/preço/local continua só dentro do
+                AdSidebar (.sidebar-title-price-location, oculto no mobile) —
+                nunca os dois ao mesmo tempo, pra não duplicar. */}
+            <div className="ad-mobile-summary">
+              <h1 className="product-title" style={{ fontSize: '1.5rem', fontWeight: 700, lineHeight: 1.2 }}>
+                {adTitle}
+              </h1>
+              <div className="product-price" style={{ marginTop: '0.5rem' }}>
+                {ad.price !== null ? (
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--clr-primary, #16A34A)' }}>
+                      {getCurrencySymbol(ad.currency)} {formatCurrencyAmount(ad.price, lang === 'es' ? 'es' : 'pt', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    </span>
+                    {(lang === 'es' && ad.price_unit_es ? ad.price_unit_es : ad.price_unit_pt) && (
+                      <span style={{ color: 'var(--clr-text-muted)', fontWeight: 500 }}>
+                        / {lang === 'es' && ad.price_unit_es ? ad.price_unit_es : ad.price_unit_pt}
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <span style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--clr-text-muted)' }}>{tx.priceOnRequest}</span>
+                )}
+                {ad.negotiable && (
+                  <span className="tag-negotiable" style={{ display: 'inline-block', marginTop: '0.5rem', background: '#dcfce7', color: '#166534', padding: '0.25rem 0.5rem', borderRadius: '0.5rem', fontSize: '0.75rem', fontWeight: 600 }}>
+                    {tx.negotiable}
+                  </span>
+                )}
+              </div>
+              {[ad.city, ad.state, ad.country].filter(Boolean).length > 0 && (
+                <div className="ad-location-line" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--clr-text-muted)', marginTop: '0.5rem' }}>
+                  📍 {[ad.city, ad.state, ad.country].filter(Boolean).join(', ')}
+                </div>
+              )}
+            </div>
 
             {safeDescription && (
               <div className="details-section ad-details-section" style={{ border: '1px solid var(--clr-border)', boxShadow: 'none', marginTop: '1.5rem' }}>

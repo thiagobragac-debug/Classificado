@@ -3089,6 +3089,16 @@ textarea.form-input { resize: vertical; min-height: 140px; }
   .ad-banner-col { grid-column: 1 / -1; grid-row: 3; margin-top: 1rem; }
 }
 
+/* Título/preço/local do anúncio: no mobile o usuário quer ver logo após a
+   galeria (.ad-mobile-summary, page.tsx), não só depois da descrição
+   inteira (dentro do AdSidebar). Só um dos dois blocos fica visível por vez
+   — nunca os dois juntos, senão duplica a mesma informação na tela. */
+.ad-mobile-summary { display: none; }
+@media (max-width: 992px) {
+  .ad-mobile-summary { display: block; margin-top: 1.5rem; }
+  .sidebar-title-price-location { display: none; }
+}
+
 /* Wrapper define o aspect-ratio, nao o img */
 .gallery-main-wrapper {
   position: relative !important;

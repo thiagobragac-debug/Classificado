@@ -185,38 +185,47 @@ export function AdSidebar({ ad, adTitle, catName, hasWhatsapp }: AdSidebarProps)
             </span>
           </div>
 
-          <h1 className="product-title" style={{ fontSize: '1.75rem', fontWeight: 700, lineHeight: 1.2 }}>
-            {adTitle}
-          </h1>
+          {/* BUG CORRIGIDO (opinião dada ao vivo, usuário pediu ajuste): no
+              mobile este título/preço/local só aparecia depois da descrição
+              inteira. Agora tem uma cópia compacta logo após a galeria
+              (app/(public)/anuncio/[slug]/page.tsx, .ad-mobile-summary) —
+              esta aqui vira exclusiva do desktop via
+              .sidebar-title-price-location (globals.css), pra nunca
+              duplicar as duas ao mesmo tempo. */}
+          <div className="sidebar-title-price-location">
+            <h1 className="product-title" style={{ fontSize: '1.75rem', fontWeight: 700, lineHeight: 1.2 }}>
+              {adTitle}
+            </h1>
 
-          {/* Price */}
-          <div className="product-price">
-            {ad.price !== null ? (
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '2.25rem', fontWeight: 800, color: 'var(--clr-primary, #16A34A)' }}>
-                  {/* BUG CORRIGIDO (validação do zero, rodada 6): símbolo de
-                      moeda via Intl.NumberFormat variava com o locale de
-                      exibição — es-AR não tem símbolo de BRL no CLDR,
-                      mostrava "BRL" cru em vez de "R$" (ver lib/currency.ts). */}
-                  {getCurrencySymbol(ad.currency)} {formatCurrencyAmount(ad.price, lang as 'pt' | 'es', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                </span>
-                {priceUnit && <span className="product-price-unit" style={{ color: 'var(--clr-text-muted)', fontWeight: 500 }}>/ {priceUnit}</span>}
-              </div>
-            ) : (
-              // BUG CORRIGIDO (teste completo do site, 2026-08-24): texto
-              // diferente de AdCard.tsx/SimilarAdsCarousel.tsx pro mesmo
-              // estado (preço nulo) — unificado em "Sob consulta".
-              <span style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--clr-text-muted)' }}>{tr.priceOnRequest}</span>
-            )}
-            {ad.negotiable && <span className="tag-negotiable" style={{ display: 'inline-block', marginTop: '0.5rem', background: '#dcfce7', color: '#166534', padding: '0.25rem 0.5rem', borderRadius: '0.5rem', fontSize: '0.75rem', fontWeight: 600 }}>{tr.negotiable}</span>}
-          </div>
-
-          {/* Location */}
-          {locationParts.length > 0 && (
-            <div className="ad-location-line" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--clr-text-muted)' }}>
-              📍 {locationParts.join(', ')}
+            {/* Price */}
+            <div className="product-price">
+              {ad.price !== null ? (
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '2.25rem', fontWeight: 800, color: 'var(--clr-primary, #16A34A)' }}>
+                    {/* BUG CORRIGIDO (validação do zero, rodada 6): símbolo de
+                        moeda via Intl.NumberFormat variava com o locale de
+                        exibição — es-AR não tem símbolo de BRL no CLDR,
+                        mostrava "BRL" cru em vez de "R$" (ver lib/currency.ts). */}
+                    {getCurrencySymbol(ad.currency)} {formatCurrencyAmount(ad.price, lang as 'pt' | 'es', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </span>
+                  {priceUnit && <span className="product-price-unit" style={{ color: 'var(--clr-text-muted)', fontWeight: 500 }}>/ {priceUnit}</span>}
+                </div>
+              ) : (
+                // BUG CORRIGIDO (teste completo do site, 2026-08-24): texto
+                // diferente de AdCard.tsx/SimilarAdsCarousel.tsx pro mesmo
+                // estado (preço nulo) — unificado em "Sob consulta".
+                <span style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--clr-text-muted)' }}>{tr.priceOnRequest}</span>
+              )}
+              {ad.negotiable && <span className="tag-negotiable" style={{ display: 'inline-block', marginTop: '0.5rem', background: '#dcfce7', color: '#166534', padding: '0.25rem 0.5rem', borderRadius: '0.5rem', fontSize: '0.75rem', fontWeight: 600 }}>{tr.negotiable}</span>}
             </div>
-          )}
+
+            {/* Location */}
+            {locationParts.length > 0 && (
+              <div className="ad-location-line" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--clr-text-muted)' }}>
+                📍 {locationParts.join(', ')}
+              </div>
+            )}
+          </div>
 
           {/* Seller card */}
           {/* BUG CORRIGIDO (varredura cruzada de cenários): ad.user_id é
