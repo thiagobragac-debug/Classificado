@@ -1261,7 +1261,16 @@ html.is-logged-in .auth-wrapper a[href="login.html"]::after {
      0x0. width:100% torna o tamanho explícito de novo — max-width:400px +
      margin-inline:auto continuam centralizando normalmente acima de
      400px de viewport. */
-  .hero-right { order: -1; width: 100%; max-width: 400px; margin-inline: auto; }
+  /* BUG CORRIGIDO (achado ao vivo pelo usuário, opinião profissional
+     pedida): order:-1 colocava a imagem decorativa ANTES do headline,
+     busca e botão "Anunciar Grátis" no mobile — a ação principal (buscar/
+     anunciar) ficava escondida atrás de uma foto bonita, exigindo rolar a
+     tela antes de conseguir agir. Removendo o order, .hero-left (que não
+     define order, fica 0 por padrão) volta a aparecer PRIMEIRO — mesma
+     ordem do próprio DOM (o "LEFT" vem antes do "RIGHT" no JSX) — e a
+     imagem circular com os selos passa a vir depois, mantendo o valor de
+     prova social sem atrasar a ação. */
+  .hero-right { width: 100%; max-width: 400px; margin-inline: auto; }
 
   /* HISTÓRICO (não se aplica mais, mantido só de referência pro próximo
      ajuste): tentamos (1) esconder os cartões de vez (usuário reportou
