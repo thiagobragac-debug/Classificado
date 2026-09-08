@@ -5,6 +5,29 @@ import Link from 'next/link'
 import { getSupabase } from '@/lib/supabase'
 import { showToast } from '@/lib/toast'
 
+const BUCKET_LABELS: Record<string, string> = {
+  'ad-images': 'Fotos de Anúncios',
+  'ad-videos': 'Vídeos de Anúncios',
+  'avatars': 'Avatares',
+  'profile-banners': 'Banners de Perfil',
+  'kyc-docs': 'Documentos KYC',
+  'site-assets': 'Assets do Site',
+}
+
+function formatBytes(bytes: number): string {
+  if (!bytes || bytes <= 0) return '0 MB'
+  const mb = bytes / (1024 * 1024)
+  if (mb < 1024) return `${mb.toFixed(mb < 10 ? 2 : 1)} MB`
+  return `${(mb / 1024).toFixed(2)} GB`
+}
+
+interface ResourceUsage {
+  dbTotalBytes: number
+  dbTables: { table_name: string; bytes: number }[]
+  storageTotalBytes: number
+  storageBuckets: { bucket_id: string; bytes: number; object_count: number }[]
+}
+
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
     adsCount: 0,
@@ -22,9 +45,29 @@ export default function AdminDashboard() {
   // `loading` (default true) já usado em anúncios/denúncias/mensagens.
   const [loading, setLoading] = useState(true)
 
+  const [usage, setUsage] = useState<ResourceUsage | null>(null)
+  const [usageLoading, setUsageLoading] = useState(true)
+  const [usageError, setUsageError] = useState('')
+  const [showDetails, setShowDetails] = useState(false)
+
   useEffect(() => {
     loadRealStats()
+    loadResourceUsage()
   }, [])
+
+  async function loadResourceUsage() {
+    setUsageLoading(true)
+    setUsageError('')
+    try {
+      const res = await fetch('/api/admin/resource-usage')
+      const payload = await res.json()
+      if (!res.ok) throw new Error(payload.error || 'Falha ao carregar uso de recursos')
+      setUsage(payload)
+    } catch (err) {
+      setUsageError((err as Error).message)
+    }
+    setUsageLoading(false)
+  }
 
   async function loadRealStats() {
     const supabase = getSupabase()
@@ -118,6 +161,79 @@ export default function AdminDashboard() {
           </div>
         </Link>
       </div>
+
+      {/* Uso de Recursos (Supabase) */}
+      <div className="adm-page-header" style={{ marginTop: '12px' }}>
+        <h2 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--adm-text)', margin: 0 }}>Uso de Recursos (Supabase)</h2>
+        <p className="adm-page-sub">Banco de dados e armazenamento de mídia — números reais, direto do Supabase.</p>
+      </div>
+
+      {usageError ? (
+        <div className="adm-card" style={{ padding: '16px 20px', color: 'var(--adm-red)', fontSize: '.875rem' }}>
+          {usageError}
+        </div>
+      ) : (
+        <>
+          <div className="adm-stats-grid" style={{ marginBottom: '12px' }}>
+            <div className="adm-stat-card">
+              <div>
+                {usageLoading ? <div className="adm-skel-val" /> : <div className="adm-stat-val">{formatBytes(usage?.dbTotalBytes || 0)}</div>}
+                <div className="adm-stat-lbl">Banco de Dados (Postgres)</div>
+              </div>
+            </div>
+            <div className="adm-stat-card">
+              <div>
+                {usageLoading ? <div className="adm-skel-val" /> : <div className="adm-stat-val">{formatBytes(usage?.storageTotalBytes || 0)}</div>}
+                <div className="adm-stat-lbl">Armazenamento (Fotos/Vídeos)</div>
+              </div>
+            </div>
+          </div>
+
+          {!usageLoading && usage && (
+            <div className="adm-card" style={{ padding: '16px 20px', marginBottom: '20px' }}>
+              <button
+                type="button"
+                onClick={() => setShowDetails(v => !v)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: '.8rem', fontWeight: 700, color: 'var(--adm-accent)' }}
+              >
+                {showDetails ? '▾ Ocultar detalhes' : '▸ Ver detalhes por bucket / tabela'}
+              </button>
+
+              {showDetails && (
+                <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap', marginTop: '16px' }}>
+                  <div style={{ flex: 1, minWidth: '260px' }}>
+                    <div style={{ fontSize: '.75rem', fontWeight: 700, color: 'var(--adm-text-secondary)', marginBottom: '8px' }}>
+                      Armazenamento por bucket
+                    </div>
+                    {usage.storageBuckets.length === 0 ? (
+                      <p style={{ fontSize: '.8rem', color: 'var(--adm-text-muted)' }}>Nenhum arquivo armazenado ainda.</p>
+                    ) : usage.storageBuckets.map(b => (
+                      <div key={b.bucket_id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.8rem', padding: '6px 0', borderBottom: '1px solid var(--adm-border)' }}>
+                        <span>{BUCKET_LABELS[b.bucket_id] || b.bucket_id}</span>
+                        <span style={{ color: 'var(--adm-text-secondary)' }}>{formatBytes(b.bytes)} · {b.object_count} arquivo{b.object_count === 1 ? '' : 's'}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ flex: 1, minWidth: '260px' }}>
+                    <div style={{ fontSize: '.75rem', fontWeight: 700, color: 'var(--adm-text-secondary)', marginBottom: '8px' }}>
+                      Maiores tabelas do banco
+                    </div>
+                    {usage.dbTables.length === 0 ? (
+                      <p style={{ fontSize: '.8rem', color: 'var(--adm-text-muted)' }}>Sem dados de tabelas.</p>
+                    ) : usage.dbTables.slice(0, 8).map(t => (
+                      <div key={t.table_name} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.8rem', padding: '6px 0', borderBottom: '1px solid var(--adm-border)' }}>
+                        <span>{t.table_name.replace(/^public\./, '')}</span>
+                        <span style={{ color: 'var(--adm-text-secondary)' }}>{formatBytes(t.bytes)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
 
       <style jsx>{`
         .adm-stat-card--link { text-decoration: none; color: inherit; cursor: pointer; }
