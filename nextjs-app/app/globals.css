@@ -3077,6 +3077,17 @@ textarea.form-input { resize: vertical; min-height: 140px; }
 /* Grid items nao expandem alem do fr alocado */
 .product-gallery-area  { min-width: 0 !important; overflow: hidden !important; }
 .sidebar-fixed-container { min-width: 0 !important; }
+.ad-similar-col, .ad-banner-col { min-width: 0; }
+
+/* Desktop: ad-gallery-col (linha 1) e ad-similar-col (linha 2) formam a
+   coluna esquerda; AdSidebar ocupa as duas linhas na direita (senão a altura
+   da linha 1 seria ditada só por ele, e sobra vazio embaixo da galeria antes
+   de "Anúncios Similares"). ad-banner-col fecha embaixo, largura toda. */
+@media (min-width: 993px) {
+  .sidebar-fixed-container { grid-row: 1 / 3; }
+  .ad-similar-col { grid-column: 1; grid-row: 2; }
+  .ad-banner-col { grid-column: 1 / -1; grid-row: 3; margin-top: 1rem; }
+}
 
 /* Wrapper define o aspect-ratio, nao o img */
 .gallery-main-wrapper {

@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Share2, Heart, AlertTriangle, CheckCircle, ShieldCheck, Mail } from 'lucide-react';
-import { AdBanner } from '@/components/AdBanner';
 import { AdMessageForm } from './AdMessageForm';
 import { AdReportModal } from './AdReportModal';
 import { useFavorites } from '@/lib/useFavorites';
@@ -310,10 +309,6 @@ export function AdSidebar({ ad, adTitle, catName, hasWhatsapp }: AdSidebarProps)
             <strong>🔒 {tr.securityTipTitle}</strong> {tr.securityTipBody}
           </div>
         </div>
-      </div>
-
-      <div style={{ marginTop: '1.5rem' }}>
-        <AdBanner position="anuncio_sidebar" />
       </div>
     </div>
   );

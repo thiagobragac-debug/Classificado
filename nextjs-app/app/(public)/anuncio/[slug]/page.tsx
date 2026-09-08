@@ -5,6 +5,7 @@ import { getLocale } from '@/lib/locale-server';
 import { localizedPath, buildHreflangAlternates, SITE_URL } from '@/lib/locale';
 import Link from 'next/link';
 import { sanitizeHtml } from '@/lib/sanitize';
+import { AdBanner } from '@/components/AdBanner';
 import { AdGallery } from '@/components/ads/AdGallery';
 import { AdSidebar } from '@/components/ads/AdSidebar';
 import { StickyMobileCta } from '@/components/ads/StickyMobileCta';
@@ -449,7 +450,21 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ slug
                 </div>
               </div>
             )}
+          </div>
 
+          {/* RIGHT COLUMN */}
+          <AdSidebar ad={adForSidebar} adTitle={adTitle} catName={catName} hasWhatsapp={hasWhatsapp} />
+
+          {/* BUG CORRIGIDO (usuário validou ao vivo, print mobile): SimilarAds
+              vivia dentro de ad-gallery-col, então no mobile (grid vira 1
+              coluna, empilha na ordem do DOM) aparecia ANTES do título/preço/
+              contato do próprio anúncio (que só vinha depois, dentro do
+              AdSidebar). Extraído pra itens próprios do grid — no desktop o
+              AdSidebar ganha grid-row:1/3 (globals.css) pra ocupar as 2
+              linhas que esses itens formam, senão a altura da 1ª linha seria
+              ditada só pelo AdSidebar e sobrava ~290px de vazio embaixo da
+              galeria (visto ao vivo antes desse ajuste). */}
+          <div className="ad-similar-col">
             <SimilarAds
               currentAdId={ad.id}
               categoryId={ad.category_id}
@@ -458,8 +473,9 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ slug
             />
           </div>
 
-          {/* RIGHT COLUMN */}
-          <AdSidebar ad={adForSidebar} adTitle={adTitle} catName={catName} hasWhatsapp={hasWhatsapp} />
+          <div className="ad-banner-col">
+            <AdBanner position="anuncio_sidebar" />
+          </div>
         </div>
       </div>
 
