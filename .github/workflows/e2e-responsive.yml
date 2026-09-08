@@ -1,0 +1,64 @@
+name: Teste de responsividade (E2E)
+
+# Roda o suite tests/e2e/responsive-smoke.spec.ts a cada push/PR na main —
+# é o mecanismo que faz o teste rodar de verdade, sem depender de alguém
+# lembrar de rodar `npm run test:e2e` na mão antes de subir. Nasceu depois
+# de vários bugs de layout mobile (imagem sumindo, cartão virando cápsula
+# gigante, badge cortando texto, busca prendendo o usuário) só terem sido
+# descobertos DEPOIS de já estarem em produção.
+#
+# Precisa destes Secrets configurados em
+# Settings → Secrets and variables → Actions (nunca são impressos em log):
+#   NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
+#   SUPABASE_SERVICE_ROLE_KEY
+# Sem eles a home/listagem não carregam dados reais e o job falha — de
+# propósito (fail-closed), pra nunca dar falso positivo de "passou" sem
+# ter testado nada de verdade.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'nextjs-app/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'nextjs-app/**'
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: nextjs-app
+
+jobs:
+  responsive-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: nextjs-app/package-lock.json
+
+      - name: Instala dependências
+        run: npm ci
+
+      - name: Instala navegador do Playwright (Chromium)
+        run: npx playwright install --with-deps chromium
+
+      - name: Roda o suite de responsividade
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npm run test:e2e
+
+      - name: Publica relatório (só quando falha)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: nextjs-app/playwright-report/
+          retention-days: 14
