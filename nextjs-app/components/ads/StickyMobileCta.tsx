@@ -4,17 +4,14 @@ import { useEffect, useState } from 'react';
 import { getCurrencySymbol, formatCurrencyAmount } from '@/lib/currency';
 import { MobileMessageCtaButton } from './MobileMessageCtaButton';
 
-// BUG CORRIGIDO (usuário reportou duplicação ao vivo, print mobile mostrando
-// preço + botão de contato repetidos na mesma tela): esta barra fixa mostra
-// exatamente a mesma informação (preço, ação de contato) que já existe no
-// topo do AdSidebar (components/ads/AdSidebar.tsx) — só que lá embaixo no
-// DOM, depois de galeria+descrição+anúncios similares. Antes ela ficava
-// visível o tempo todo, inclusive sobrepondo o próprio painel que duplica.
-// Agora escuta o evento "ad:sidebarvisible" (disparado pelo AdSidebar via
-// IntersectionObserver, mesmo padrão de comunicação entre árvores já usado
-// em "ad:openmessageform") e se esconde assim que o painel real entra na
-// tela — continua útil enquanto o usuário rola pela galeria/descrição, mas
-// para de duplicar quando a informação real já está visível.
+// BUG CORRIGIDO (usuário reportou duplicação ao vivo, 2 prints diferentes):
+// esta barra fixa mostra a mesma informação (preço, ação de contato) que já
+// existe no topo do AdSidebar (components/ads/AdSidebar.tsx) — só que lá
+// embaixo no DOM, depois de galeria+descrição+anúncios similares. Antes
+// ficava visível o tempo todo, sobrepondo tanto o painel que duplica quanto
+// (num 2º print) o rodapé do site quando o usuário rolava até o fim da
+// página. Observa os dois elementos direto (ambos únicos e sempre
+// presentes nesta página) e some quando qualquer um dos dois está visível.
 interface StickyMobileCtaProps {
   price: number | null;
   currency: string | null;
@@ -38,18 +35,35 @@ export function StickyMobileCta({
   talkToSeller,
   sendMessageCta,
 }: StickyMobileCtaProps) {
-  const [sidebarVisible, setSidebarVisible] = useState(false);
+  const [hidden, setHidden] = useState(false);
 
   useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent<{ visible: boolean }>).detail;
-      setSidebarVisible(!!detail?.visible);
-    };
-    window.addEventListener('ad:sidebarvisible', handler);
-    return () => window.removeEventListener('ad:sidebarvisible', handler);
+    // O rodapé (components/Footer.tsx) tem 2 variantes — "simplificado" (sem
+    // className, usado em /anuncio) e completa (.site-footer) — mas só uma
+    // delas existe no DOM por vez, então a tag sozinha já é um seletor único.
+    const targets = [
+      document.querySelector('.product-info-panel'),
+      document.querySelector('footer'),
+    ].filter((el): el is Element => el !== null);
+
+    if (targets.length === 0) return;
+
+    const visible = new Set<Element>();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) visible.add(entry.target);
+          else visible.delete(entry.target);
+        }
+        setHidden(visible.size > 0);
+      },
+      { threshold: 0 }
+    );
+    targets.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
   }, []);
 
-  if (sidebarVisible) return null;
+  if (hidden) return null;
 
   return (
     <div className="sticky-cta-mobile">
