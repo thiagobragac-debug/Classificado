@@ -9,6 +9,7 @@ import { useLang } from '@/lib/lang-context';
 import { useSearchParams } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase';
 import { getPurposeOptions } from '@/lib/purposeOptions';
+import type { GeoFallbackInfo } from '@/lib/geo-cascade';
 
 const TRANSLATIONS = {
   pt: {
@@ -17,6 +18,7 @@ const TRANSLATIONS = {
     clearAll: 'Limpar Todos',
     min: 'Min',
     max: 'Max',
+    fallbackAll: 'todo o Brasil',
   },
   es: {
     activeFilters: 'FILTROS ACTIVOS:',
@@ -24,10 +26,11 @@ const TRANSLATIONS = {
     clearAll: 'Limpiar Todos',
     min: 'Mín',
     max: 'Máx',
+    fallbackAll: 'todo el país',
   }
 };
 
-export default function ActiveFiltersList({ categories, initialGeo, disableAutoGeo }: { categories: Category[], initialGeo?: { pais: string | null; estado: string | null; cidade: string | null }, disableAutoGeo?: boolean }) {
+export default function ActiveFiltersList({ categories, initialGeo, disableAutoGeo, geoFallback }: { categories: Category[], initialGeo?: { pais: string | null; estado: string | null; cidade: string | null }, disableAutoGeo?: boolean, geoFallback?: GeoFallbackInfo | null }) {
   const { lang, t } = useLang();
   const T = TRANSLATIONS[lang as keyof typeof TRANSLATIONS] || TRANSLATIONS.pt;
   const searchParams = useSearchParams();
@@ -67,6 +70,20 @@ export default function ActiveFiltersList({ categories, initialGeo, disableAutoG
     return () => { isActive = false; };
   }, [subcategoria, lang]);
 
+  // BUG CORRIGIDO (usuário reportou ao vivo, print da listagem): quando a
+  // busca geográfica amplia sozinha (cidade sem anúncio → cai pro estado/
+  // país/tudo, ver getAdsListagemComFallbackGeografico), o chip continuava
+  // mostrando só o valor ORIGINAL escolhido ("Patos de Minas") — sugerindo
+  // que os resultados ainda são restritos a esse lugar, quando na prática a
+  // busca já foi ampliada bem além dele (os cards mostrados nem são de lá).
+  // O aviso abaixo dos chips (buildGeoFallbackMessage) já explica isso, mas
+  // o chip em si — mais visível, no topo — continuava enganoso. Acrescenta
+  // a transição de verdade ("Patos de Minas → Brasil") direto no chip.
+  const withGeoFallback = (label: string) => {
+    if (!geoFallback) return label;
+    return `${label} → ${geoFallback.toLabel || T.fallbackAll}`;
+  };
+
   const getActiveFilters = () => {
     const list = [];
     if (busca) list.push({ key: 'busca', label: `"${busca}"`, action: () => { setBusca(''); }});
@@ -84,7 +101,7 @@ export default function ActiveFiltersList({ categories, initialGeo, disableAutoG
     }
 
     if (geoLabel && (pais || estado || cidade)) {
-      list.push({ key: 'geoLabel', label: geoLabel, action: advanceGeoLevel, isGeo: true });
+      list.push({ key: 'geoLabel', label: withGeoFallback(geoLabel), action: advanceGeoLevel, isGeo: true });
     } else if (pais || estado || cidade) {
       // BUG CORRIGIDO (achado ao vivo pelo usuário): este ramo (localização
       // MANUAL — o usuário escolheu país/estado/cidade pelos selects, ou o
@@ -95,7 +112,7 @@ export default function ActiveFiltersList({ categories, initialGeo, disableAutoG
       // a cidade sobe pro estado, fechar o estado sobe pro país, fechar o
       // país é que aí sim limpa tudo.
       const manualLabel = cidade || estado || pais;
-      list.push({ key: 'manualGeo', label: manualLabel as string, action: () => {
+      list.push({ key: 'manualGeo', label: withGeoFallback(manualLabel as string), action: () => {
         // BUG CORRIGIDO (plano cascata+raio): fechar manualmente cidade/
         // estado precisa limpar lat/lng junto — senão a busca por raio
         // (que só faz sentido junto da cidade que a originou) continuaria
