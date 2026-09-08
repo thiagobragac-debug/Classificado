@@ -831,6 +831,17 @@ html.is-logged-in .auth-wrapper a[href="login.html"]::after {
   display: flex; align-items: center; gap: var(--sp-2);
   flex-wrap: nowrap; overflow: hidden; margin-bottom: var(--sp-8);
   white-space: nowrap;
+  /* BUG CORRIGIDO (achado pelo teste automatizado de responsividade,
+     tests/e2e/responsive-smoke.spec.ts — mesma classe de bug já corrigida
+     em .hero-grid/.hero-badge nesta sessão): filho de um flex container
+     (.hero-left) tem min-width:auto por padrão, ou seja, nunca encolhe
+     abaixo do tamanho do próprio conteúdo — como cada .tag-pill tem
+     flex-shrink:0, a "largura mínima de conteúdo" daqui é a SOMA de todos
+     os selos (bem mais larga que qualquer celular), estourando a página
+     inteira mesmo com overflow:hidden (que só esconde o VISUAL, não
+     reduz a largura calculada da caixa). min-width:0 permite encolher de
+     verdade; overflow:hidden continua cortando os selos que não cabem. */
+  min-width: 0;
 }
 .hero-popular-tags > span { font-size: var(--fs-xs); color: var(--clr-text-light); font-weight: 500; }
 .tag-pill {
@@ -1171,12 +1182,32 @@ html.is-logged-in .auth-wrapper a[href="login.html"]::after {
 
 /* ─── MERCOSUL ────────────────────────────── */
 .mercosul-section { background: var(--clr-bg-alt); }
+/* BUG CORRIGIDO (achado pelo teste automatizado de responsividade —
+   mesma classe de bug de .hero-grid/.hero-popular-tags): filho de grid
+   tem min-width:auto por padrão, ou seja, não encolhe abaixo da largura
+   do próprio conteúdo. .section-title usa clamp() com fonte grande — sem
+   min-width:0, o texto "Conectamos o Agronegócio de 4 países" recusava
+   quebrar linha no mobile (grid-template-columns:1fr, 1 coluna só) e
+   vazava ~10px da tela. */
 .mercosul-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-12); align-items: center; }
+.mercosul-grid > * { min-width: 0; }
 .country-cards { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); }
 .country-card {
+  /* BUG CORRIGIDO (mesma classe de bug, achada pelo mesmo teste
+     automatizado): "Argentina" é a palavra mais longa dos 4 países e,
+     sem min-width:0, o cartão dela (e o da coluna que ele compartilha,
+     já que é grid 1fr/1fr) recusava encolher — a coluna toda ficava
+     ~10px mais larga que a tela no mobile. */
+  min-width: 0;
   padding: var(--sp-5); background: white; border-radius: var(--r-xl);
   border: 1.5px solid var(--clr-border); transition: all var(--transition-base); cursor: pointer;
   box-shadow: var(--shadow-xs);
+}
+.country-card > div:last-child {
+  /* O wrapper do nome do país (flex child, sem classe própria em
+     MercosulSection.tsx) também precisa disso — é ele quem carrega o
+     texto que não encolhia. */
+  min-width: 0;
 }
 .country-card:hover { border-color: var(--clr-primary-soft); box-shadow: var(--shadow-md); transform: translateY(-2px); }
 .country-flag { font-size: 2rem; margin-bottom: var(--sp-2); }
@@ -1346,6 +1377,14 @@ html.is-logged-in .auth-wrapper a[href="login.html"]::after {
   .cta-actions { width: 100%; }
   .cta-actions .btn { width: 100%; justify-content: center; }
   .trust-grid { grid-template-columns: 1fr; }
+  /* BUG CORRIGIDO (achado pelo teste automatizado de responsividade, tela
+     de 320px): 2 colunas de ~136px cada não sobram espaço suficiente pro
+     nome do país (ex.: "Argentina", "Uruguai" — palavra única, sem onde
+     quebrar) ao lado do ícone da bandeira + "Cobertura Nacional" —
+     min-width:0 (acima) já deixa o cartão encolher certo, mas forçar
+     quebra de palavra (overflow-wrap) ficava feio ("Arg-enti-na"). 1
+     coluna só dá o dobro do espaço, sem precisar quebrar nome nenhum. */
+  .country-cards { grid-template-columns: 1fr; }
   /* BUG CORRIGIDO (achado ao vivo pelo usuário, viewport bem estreito):
      .header-inner não quebra linha — logo + "Anunciar Grátis" (texto sem
      quebra) + .hamburger (piso de 44px, WCAG 2.5.5) somados passavam da
