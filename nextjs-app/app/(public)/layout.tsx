@@ -12,6 +12,7 @@ import { ConfirmProvider } from '@/components/ui/ConfirmProvider';
 import { PwaPrompt } from '@/components/PwaPrompt';
 import { CommandPalette } from '@/components/CommandPalette';
 import { createClient, getServerCategories } from '@/lib/supabase-server';
+import { createAdminClient } from '@/lib/supabase-admin';
 import { CategoriesProvider } from '@/lib/categories-context';
 import { Inter, Sora } from 'next/font/google';
 
@@ -140,6 +141,26 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const isLogged = !!user;
   
   const serverCategories = await getServerCategories();
+
+  // GAP FECHADO (achado ao vivo pelo usuário, conta AdSense recém-criada
+  // pedindo verificação de propriedade do site): é um passo DIFERENTE de
+  // configurar onde os anúncios aparecem (aba Publicidade em /admin/
+  // configuracoes, ver AdBanner.tsx) — o Google precisa achar este script
+  // exato dentro de <head></head>, em toda página, ANTES de aprovar a
+  // conta, independente de existir algum <ins class="adsbygoogle"> na
+  // página ou não. Mesma chave platform_settings.adsense_client_id (não é
+  // segredo — client id do AdSense é público por definição, sai no HTML
+  // de qualquer jeito) alimenta os dois usos. RLS de platform_settings só
+  // libera SELECT pra sessão de admin (ver migration 20260830160000) —
+  // igual o resto do código que lê settings num Server Component (ex.:
+  // getServerPlatformStats), precisa do client admin (service_role,
+  // ignora RLS), não do anon.
+  const { data: adsenseSetting } = await createAdminClient()
+    .from('platform_settings')
+    .select('value')
+    .eq('key', 'adsense_client_id')
+    .maybeSingle();
+  const adsenseClientId = adsenseSetting?.value || '';
   
   let userInitials = '';
   if (user) {
@@ -160,6 +181,20 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Tauze Class" />
+        {/* Verificação de propriedade do site pro Google AdSense — script
+            literal pedido pelo painel deles (Snippet de código do AdSense),
+            precisa estar dentro de <head> em toda página pra aprovar a
+            conta. Script puro (não next/script) de propósito: o Google
+            verifica combinando o texto exato do HTML da página; o CSP já
+            libera este host por domínio (ver ADSENSE_SCRIPT em proxy.ts),
+            então não depende do nonce pra passar. */}
+        {adsenseClientId && (
+          <script
+            async
+            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseClientId}`}
+            crossOrigin="anonymous"
+          />
+        )}
       </head>
       <body className={`antialiased ${inter.variable} ${sora.variable}`}>
         <LangProvider initialLang={tcLang}>
