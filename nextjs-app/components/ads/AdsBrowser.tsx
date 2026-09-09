@@ -353,7 +353,7 @@ export default function AdsBrowser({
                 os anúncios de um vendedor sempre que o visitante estivesse
                 fora da cidade detectada dele, mesmo o vendedor tendo
                 anúncios ativos reais em outro lugar. */}
-            <ActiveFiltersList categories={categories} initialGeo={initialGeo} disableAutoGeo={!!sellerId} geoFallback={geoFallback} />
+            <ActiveFiltersList categories={categories} initialGeo={initialGeo} disableAutoGeo={!!sellerId} geoFallback={geoFallback} effectiveCategoria={displayCategoria} />
 
             {geoFallback && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', padding: 'var(--sp-3) var(--sp-4)', marginBottom: 'var(--sp-4)', background: 'var(--clr-primary-pale)', color: 'var(--clr-primary-mid)', borderRadius: 'var(--r-md)', fontSize: 'var(--fs-sm)', fontWeight: 600 }}>

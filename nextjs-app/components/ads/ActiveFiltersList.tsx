@@ -24,6 +24,7 @@ const TRANSLATIONS = {
     // anúncio ativo do Uruguai que entra nesse fallback) — "todo o Brasil"
     // é impreciso nesse caso.
     fallbackAll: 'todo o Mercosul',
+    unknownFilterLabel: 'este filtro',
   },
   es: {
     activeFilters: 'FILTROS ACTIVOS:',
@@ -32,10 +33,11 @@ const TRANSLATIONS = {
     min: 'Mín',
     max: 'Máx',
     fallbackAll: 'todo el Mercosur',
+    unknownFilterLabel: 'este filtro',
   }
 };
 
-export default function ActiveFiltersList({ categories, initialGeo, disableAutoGeo, geoFallback }: { categories: Category[], initialGeo?: { pais: string | null; estado: string | null; cidade: string | null }, disableAutoGeo?: boolean, geoFallback?: GeoFallbackInfo | null }) {
+export default function ActiveFiltersList({ categories, initialGeo, disableAutoGeo, geoFallback, effectiveCategoria }: { categories: Category[], initialGeo?: { pais: string | null; estado: string | null; cidade: string | null }, disableAutoGeo?: boolean, geoFallback?: GeoFallbackInfo | null, effectiveCategoria?: string }) {
   const { lang, t } = useLang();
   const T = TRANSLATIONS[lang as keyof typeof TRANSLATIONS] || TRANSLATIONS.pt;
   const searchParams = useSearchParams();
@@ -45,6 +47,16 @@ export default function ActiveFiltersList({ categories, initialGeo, disableAutoG
     precoMin, precoMax, destaque, negociavel,
     applyFilters, clearFilters, setCategoria, toggleSubcategoria, setFinalidade, setPais, setEstado, setCidade, setPrice, setDestaque, setNegociavel, setBusca
   } = useAdsFilters(initialGeo);
+
+  // BUG CORRIGIDO (varredura completa de filtros pedida pelo usuário): este
+  // componente lê `categoria` do próprio useAdsFilters() (query param real),
+  // igual ao AdsBrowser.tsx antes do fix de effectiveCategoria — em
+  // /categoria/[slug] isso nasce sempre '', então o chip "FILTROS ATIVOS"
+  // nunca mostrava a categoria da página (nem resolvia o nome de
+  // finalidade), mesmo com o AdsBrowser.tsx já corrigido (é uma instância
+  // separada do hook, não compartilha o context). Mesmo padrão: usa a
+  // categoria efetiva (slug ou override) só pra exibição/resolução de nome.
+  const displayCategoria = categoria || effectiveCategoria || '';
 
   const { geoLabel, advanceGeoLevel, suppressAutoGeo } = useAutoGeo(
     pais, setPais, estado, setEstado, cidade, setCidade, applyFilters, initialGeo, searchParams, disableAutoGeo, lang
@@ -98,8 +110,8 @@ export default function ActiveFiltersList({ categories, initialGeo, disableAutoG
   const getActiveFilters = () => {
     const list = [];
     if (busca) list.push({ key: 'busca', label: `"${busca}"`, action: () => { setBusca(''); }});
-    if (categoria) {
-      const catName = categories.find(c => c.id === categoria)?.[lang === 'es' ? 'name_es' : 'name_pt'] || categoria;
+    if (displayCategoria) {
+      const catName = categories.find(c => c.id === displayCategoria)?.[lang === 'es' ? 'name_es' : 'name_pt'] || displayCategoria;
       list.push({ key: 'categoria', label: catName, action: () => { setCategoria(''); }});
     }
     for (const id of selectedSubcategorias) {
@@ -107,7 +119,13 @@ export default function ActiveFiltersList({ categories, initialGeo, disableAutoG
       if (name) list.push({ key: `subcategoria-${id}`, label: name, action: () => toggleSubcategoria(id) });
     }
     if (finalidade) {
-      const purposeName = getPurposeOptions(categoria).find(p => p.value === finalidade)?.[lang === 'es' ? 'label_es' : 'label_pt'] || finalidade;
+      // BUG CORRIGIDO (varredura completa de filtros pedida pelo usuário):
+      // mesmo raciocínio do fallback genérico em AdsBrowser.tsx — quando
+      // `finalidade` não resolve nome nenhum (categoria diferente, valor
+      // inválido de URL manual), o fallback mostrava o valor cru direto no
+      // chip visível (ex.: "valor-que-nao-existe-no-banco"), não só no botão
+      // de sugestão do estado vazio.
+      const purposeName = getPurposeOptions(displayCategoria).find(p => p.value === finalidade)?.[lang === 'es' ? 'label_es' : 'label_pt'] || T.unknownFilterLabel;
       list.push({ key: 'finalidade', label: purposeName, action: () => { setFinalidade(''); }});
     }
 
