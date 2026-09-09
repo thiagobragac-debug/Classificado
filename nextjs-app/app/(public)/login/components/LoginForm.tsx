@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { loginWithEmail, loginWithGoogleIdToken, loginWithGoogle } from '@/lib/supabase'
 import { signInWithGooglePrompt, GoogleSignInCancelled, GoogleIdentityUnavailable } from '@/lib/google-identity'
 import { useLang } from '@/lib/lang-context'
+import { getSafeRedirect } from '@/lib/safe-redirect'
 import { Mail, Lock, Eye, EyeOff, Loader2 } from 'lucide-react'
 
 interface LoginFormProps {
@@ -32,22 +33,6 @@ const TRANSLATIONS = {
   },
 } as const
 
-// BUG CORRIGIDO (varredura cruzada de cenários, achado de segurança): a
-// checagem anterior só rejeitava valores começando com "//" — mas
-// "/\evil.com" também começa com uma única barra e o navegador resolve
-// isso como URL relativa-a-esquema (protocol-relative), mandando o usuário
-// pra um domínio externo logo após o login. new URL(...).origin compara a
-// origem de verdade, sem depender de heurística de prefixo de string.
-function getSafeRedirect(raw: string | null, fallback = '/painel'): string {
-  if (!raw) return fallback
-  try {
-    const url = new URL(raw, window.location.origin)
-    if (url.origin === window.location.origin) {
-      return url.pathname + url.search + url.hash
-    }
-  } catch { /* raw inválido, cai no fallback */ }
-  return fallback
-}
 
 export function LoginForm({ onSetAlert, onNavigateToForgot, initialEmail = '' }: LoginFormProps) {
   const router = useRouter()

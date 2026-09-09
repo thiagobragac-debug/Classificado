@@ -18,6 +18,19 @@
 	<string>$(PRODUCT_NAME)</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
+	<!-- Retorno do login com Google (ver nextjs-app/components/
+	     CapacitorAuthBridge.tsx) — sem isso, o iOS não sabe que
+	     br.com.tauzeclass.app://... deve abrir ESTE app depois que o
+	     navegador do sistema termina o login. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>br.com.tauzeclass.app</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleShortVersionString</key>
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>

@@ -37,28 +37,47 @@ Depois de qualquer mudança no `capacitor.config.ts` ou nos ícones/splash, roda
 npm run sync
 ```
 
-## Pontos que ainda faltam antes de publicar nas lojas
+## Login com Google — corrigido, falta 1 passo manual
 
-1. **Login com Google vai falhar dentro do app.** O Google bloqueia login
-   OAuth dentro de WebView embutida (regra de segurança deles, não é bug
-   nosso) — o botão "Continuar com Google" do site vai dar erro
-   `disallowed_useragent` rodando dentro do app. Login por e-mail/senha
-   funciona normal. Correção: abrir o fluxo do Google no navegador do
-   sistema (`@capacitor/browser`) em vez da WebView interna — não
-   implementado ainda, precisa de um ajuste pontual no código do site.
-2. **Links de e-mail (confirmar cadastro, redefinir senha) abrem no
+O Google bloqueia login OAuth dentro de WebView embutida (regra de
+segurança deles, não era bug nosso) — o botão "Continuar com Google"
+dava erro `disallowed_useragent` rodando dentro do app.
+
+Corrigido: dentro do app, o login com Google agora abre a tela de
+consentimento no **navegador do sistema** (não na WebView), e o retorno
+volta pro app através do esquema de URL próprio do app
+(`br.com.tauzeclass.app://auth-callback`) em vez de uma URL comum —
+código em `nextjs-app/lib/supabase.ts` (função `loginWithGoogle`) e
+`nextjs-app/components/CapacitorAuthBridge.tsx`. Login por e-mail/senha
+sempre funcionou normal, sem precisar de nada disso.
+
+**Falta 1 passo manual, único, no painel do Supabase** (não dá pra fazer
+por código): em Authentication → URL Configuration → Redirect URLs,
+adicionar:
+
+```
+br.com.tauzeclass.app://auth-callback
+```
+
+Sem isso, o Supabase recusa redirecionar pro app (só aceita voltar pra
+URLs que estão nessa lista, é assim que evita alguém sequestrar o retorno
+do login pra outro app/site).
+
+## Outros pontos que ainda faltam antes de publicar nas lojas
+
+1. **Links de e-mail (confirmar cadastro, redefinir senha) abrem no
    navegador do celular, não dentro do app.** Funciona (o link confirma
    normal), só não volta sozinho pro app depois — o usuário confirma no
    navegador e reabre o app manualmente. Dá pra melhorar depois com
    "deep links" (Universal Links/App Links), não é bloqueante.
-3. **Push notification** hoje só existe a versão web (chave VAPID). Pra
+2. **Push notification** hoje só existe a versão web (chave VAPID). Pra
    push nativo de verdade (ícone/som do sistema, funciona com o app
    fechado) precisaria integrar Firebase Cloud Messaging (Android) e Apple
    Push Notification service (iOS) — trabalho separado, não incluído
    ainda.
-4. **Ícone/splash** foram gerados automaticamente a partir do logo do site
+3. **Ícone/splash** foram gerados automaticamente a partir do logo do site
    (`assets/logo.png`) — dá pra ajustar o enquadramento/cores rodando
    `npx capacitor-assets generate` de novo com outro arquivo fonte.
-5. Antes de publicar de verdade: precisa de conta de desenvolvedor Google
+4. Antes de publicar de verdade: precisa de conta de desenvolvedor Google
    Play (US$ 25, pagamento único) e conta Apple Developer (US$ 99/ano) —
    nenhuma das duas está configurada ainda.

@@ -10,6 +10,7 @@ import Footer from '@/components/Footer';
 import { AuthProvider } from '@/components/AuthProvider';
 import { ConfirmProvider } from '@/components/ui/ConfirmProvider';
 import { PwaPrompt } from '@/components/PwaPrompt';
+import { CapacitorAuthBridge } from '@/components/CapacitorAuthBridge';
 import { CommandPalette } from '@/components/CommandPalette';
 import { createClient, getServerCategories } from '@/lib/supabase-server';
 import { createAdminClient } from '@/lib/supabase-admin';
@@ -218,6 +219,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <main id="main-content">{children}</main>
                 <Footer />
                 <PwaPrompt />
+                <CapacitorAuthBridge />
               </ConfirmProvider>
             </AuthProvider>
           </CategoriesProvider>

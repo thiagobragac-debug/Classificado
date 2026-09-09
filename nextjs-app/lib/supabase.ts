@@ -5,6 +5,8 @@
 // ============================================
 
 import { createBrowserClient } from '@supabase/ssr';
+import { Capacitor } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
 
 export const SUPABASE_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 export const SUPABASE_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -125,8 +127,36 @@ export async function loginWithGoogleIdToken(idToken: string, nonce: string) {
 // nunca quando o usuário só fechou o seletor sem escolher nada
 // (GoogleSignInCancelled) — nesse caso a intenção do usuário foi não
 // logar agora, não "tenta de outro jeito".
+// BUG CORRIGIDO (app Android/iOS, ver mobile/README.md): dentro do app
+// nativo (WebView do Capacitor), o Google BLOQUEIA o redirect padrão pra
+// tela de consentimento com o erro "disallowed_useragent" — é uma regra
+// de segurança do próprio Google contra phishing via WebView embutida,
+// não um bug daqui, e não tem como contornar mantendo o redirect dentro
+// da mesma WebView. A correção documentada pelo próprio Supabase pra apps
+// nativos: abrir a tela de consentimento no NAVEGADOR DO SISTEMA
+// (skipBrowserRedirect: true + Browser.open, em vez do redirect padrão
+// que navegaria a própria WebView), com o retorno indo pro esquema de URL
+// customizado do app (br.com.tauzeclass.app://auth-callback, registrado
+// nos dois projetos nativos em mobile/) em vez de uma URL https — só
+// assim o sistema operacional entrega o retorno de volta pro app, não pro
+// navegador. components/CapacitorAuthBridge.tsx (montado no layout raiz)
+// escuta esse retorno e troca o code pela sessão.
 export async function loginWithGoogle(redirectTo?: string) {
   const path = redirectTo || '/painel';
+
+  if (Capacitor.isNativePlatform()) {
+    const { data, error } = await getSupabase().auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `br.com.tauzeclass.app://auth-callback?next=${encodeURIComponent(path)}`,
+        skipBrowserRedirect: true,
+      },
+    });
+    if (error) throw error;
+    if (data.url) await Browser.open({ url: data.url });
+    return;
+  }
+
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const { error } = await getSupabase().auth.signInWithOAuth({
     provider: 'google',

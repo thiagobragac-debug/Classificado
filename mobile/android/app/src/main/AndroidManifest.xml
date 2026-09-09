@@ -18,6 +18,17 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Retorno do login com Google (ver nextjs-app/components/
+                 CapacitorAuthBridge.tsx) — sem isso, o Android não sabe que
+                 br.com.tauzeclass.app://... deve abrir ESTE app; a URL
+                 simplesmente não teria pra onde ir depois do navegador do
+                 sistema terminar o login. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="br.com.tauzeclass.app" />
+            </intent-filter>
         </activity>
 
         <provider
