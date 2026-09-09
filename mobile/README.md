@@ -20,12 +20,22 @@ na próxima vez que ele abrir, sem precisar gerar uma nova versão nas lojas.
 
 ## Pra rodar
 
-**Android** (precisa do Android Studio + SDK instalado):
+**Android — já testado e confirmado funcionando** (2026-09-09): Android
+Studio + SDK + emulador instalados nesta máquina, app compilado e
+instalado num emulador (`medium_phone`, Android 16), carregou a home real
+do site dentro do WebView do app. Único jeito de confirmar de verdade que
+o app funciona é ver rodando — não dá pra confiar só na configuração.
+
 ```
 npm run open:android
 ```
 Abre o projeto no Android Studio. De lá, roda num emulador ou celular
 conectado com o botão ▶ normal do Android Studio.
+
+Ou via linha de comando (o que foi usado pra testar): `android emulator
+start medium_phone` (emulador já criado) e depois `.\gradlew.bat
+assembleDebug` dentro de `android/` pra gerar o APK — ver "Problemas
+conhecidos" abaixo se a build falhar com erro de loopback/socket.
 
 **iOS** (precisa de um Mac com Xcode):
 ```
@@ -36,6 +46,26 @@ Depois de qualquer mudança no `capacitor.config.ts` ou nos ícones/splash, roda
 ```
 npm run sync
 ```
+
+### Problemas conhecidos ao compilar via linha de comando neste Windows
+
+Achados testando pela primeira vez nesta máquina — nenhum é bug do
+projeto, são só o ambiente local:
+
+1. **`java.io.IOException: Unable to establish loopback connection`** —
+   o Java (versão nova, JDK 25, vem junto com o Android Studio) usa
+   Unix Domain Socket internamente pro Gradle se comunicar consigo mesmo,
+   e isso quebra se o caminho da pasta temporária (`%TEMP%`) for grande
+   demais. Contornado rodando com `$env:TEMP="C:\t"` antes do build (só
+   nesta sessão de terminal, não precisa mudar nada permanente).
+2. **`Unsupported class file major version 69`** — Gradle 8.14.3 (deste
+   projeto) ainda não entende bytecode do JDK 25. Precisa apontar
+   `JAVA_HOME` pra um JDK mais antigo (testado com JDK 21) só pra
+   compilar — o app final não depende dessa versão, é só ferramenta de
+   build.
+3. **`SDK location not found`** — falta um `android/local.properties`
+   (não é versionado de propósito, é por máquina) com `sdk.dir=` apontando
+   pro SDK instalado.
 
 ## Login com Google — corrigido, falta 1 passo manual
 
