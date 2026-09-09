@@ -168,7 +168,16 @@ export default function AdsBrowser({
     pais, setPais, estado, setEstado, cidade, setCidade,
     lat, lng, raio, setRaio,
     precoMin, setPrecoMin, precoMax, setPrecoMax, setPrice,
-    destaque, setDestaque, negociavel, setNegociavel
+    destaque, setDestaque, negociavel, setNegociavel,
+    // BUG CORRIGIDO (usuário achou ao vivo, print da listagem): o chip
+    // "Filtros Ativos" já avisava quando a busca geográfica amplia sozinha
+    // (cidade sem anúncio → estado/país/tudo), mas a própria barra lateral
+    // (país/estado/cidade selecionados, raio em km destacado) continuava
+    // parecendo uma restrição real em vigor — nenhum dos dois refletia que
+    // a busca de verdade já tinha sido ampliada. AdsSidebar usa isso pra
+    // não destacar nenhum raio como "ativo" quando o nível alcançado já
+    // passou de radius_wide (estado/país/tudo).
+    geoFallback,
   };
 
   const currentCatName = categoria ? (categories.find(c => c.id === categoria)?.[lang === 'es' ? 'name_es' : 'name_pt'] || categoria) : '';

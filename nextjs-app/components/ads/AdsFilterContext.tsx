@@ -2,6 +2,7 @@
 
 import { createContext, useContext } from 'react';
 import { Category } from './AdCard';
+import type { GeoFallbackInfo } from '@/lib/geo-cascade';
 
 export interface AdsFilterContextType {
   lang: string;
@@ -51,6 +52,13 @@ export interface AdsFilterContextType {
   setDestaque: (v: boolean) => void;
   negociavel: boolean;
   setNegociavel: (v: boolean) => void;
+
+  // Presente só quando a busca geográfica ampliou sozinha (cidade sem
+  // anúncio → estado/país/tudo, ver getAdsListagemComFallbackGeografico em
+  // lib/services/ads.service.ts). AdsSidebar usa pra não mostrar país/
+  // estado/cidade/raio como uma restrição real em vigor quando na prática
+  // já foi superada.
+  geoFallback?: GeoFallbackInfo | null;
 }
 
 export const AdsFilterContext = createContext<AdsFilterContextType | null>(null);

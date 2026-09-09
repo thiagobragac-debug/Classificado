@@ -7,6 +7,7 @@ import { Category, COUNTRY_FLAGS } from './AdCard';
 import { useAdsFilter } from './AdsFilterContext';
 import { clearGeoCache } from '@/lib/useGeoLocation';
 import { getPurposeOptions, getSubcategoryLabels } from '@/lib/purposeOptions';
+import { RADIUS_CLOSE_KM, RADIUS_WIDE_KM, buildGeoFallbackMessage } from '@/lib/geo-cascade';
 
 const TRANSLATIONS = {
   pt: {
@@ -58,7 +59,8 @@ export default function AdsSidebar() {
     pais, setPais, estado, setEstado, cidade, setCidade,
     lat, lng, raio, setRaio,
     precoMin, precoMax, setPrice,
-    destaque, setDestaque, negociavel, setNegociavel
+    destaque, setDestaque, negociavel, setNegociavel,
+    geoFallback,
   } = useAdsFilter();
 
   const pathname = usePathname();
@@ -267,13 +269,22 @@ export default function AdsSidebar() {
             <span style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--clr-text-muted, #6b7280)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t.radiusLabel}</span>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
               {['50', '100', '200', '300'].map(km => {
-                // Sem escolha explícita (raio === ''), 100km é o degrau
-                // inicial de verdade da escada automática (ver
-                // RADIUS_CLOSE_KM em lib/geo-cascade.ts) — destaca ele
-                // como "selecionado" por padrão, não deixa os 4 botões
-                // parecendo todos desmarcados quando na verdade um já
-                // está em uso nos bastidores.
-                const isActive = raio ? raio === km : km === '100';
+                // BUG CORRIGIDO (usuário achou ao vivo, print da listagem):
+                // sem escolha explícita, este botão sempre destacava 100km
+                // (degrau inicial da escada) mesmo quando a busca de
+                // verdade já tinha superado QUALQUER raio (caiu pra
+                // estado/país/tudo — ver geoFallback, calculado em
+                // getAdsListagemComFallbackGeografico) — dava a entender
+                // que os resultados ainda estavam restritos a 100km de
+                // Belo Horizonte, quando na prática vinham do Brasil
+                // inteiro. Agora usa o nível que REALMENTE funcionou:
+                // radius_wide destaca 300km, estado/país/tudo não destaca
+                // nenhum (raio deixou de valer).
+                const nivelAlcancado = geoFallback?.level;
+                const raioQueFuncionou = nivelAlcancado === 'radius_wide' ? String(RADIUS_WIDE_KM)
+                  : (!nivelAlcancado || nivelAlcancado === 'radius_close') ? String(RADIUS_CLOSE_KM)
+                  : null; // 'state' | 'country' | 'all' | 'city' — raio não é mais o que está valendo
+                const isActive = raio ? raio === km : km === raioQueFuncionou;
                 return (
                   <button
                     key={km}
@@ -288,6 +299,15 @@ export default function AdsSidebar() {
                 );
               })}
             </div>
+            {/* Mesmo aviso do topo da listagem (ActiveFiltersList), repetido
+                aqui perto dos controles de localização/raio — é exatamente
+                a área que fica enganosa (país/estado/cidade selecionados +
+                nenhum raio destacado) sem essa explicação por perto. */}
+            {geoFallback && !raio && geoFallback.level !== 'radius_close' && geoFallback.level !== 'radius_wide' && (
+              <p style={{ fontSize: '0.78rem', color: 'var(--clr-text-muted)', marginTop: '8px', lineHeight: 1.4 }}>
+                {buildGeoFallbackMessage(geoFallback, lang as 'pt' | 'es')}
+              </p>
+            )}
           </div>
         )}
       </FilterGroup>
