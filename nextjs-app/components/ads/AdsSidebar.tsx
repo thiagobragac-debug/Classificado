@@ -213,7 +213,15 @@ export default function AdsSidebar() {
         </FilterGroup>
       )}
 
-      <FilterGroup title={t.location}>
+      {/* BUG CORRIGIDO (varredura completa de filtros pedida pelo usuário):
+          "Localização" começava sempre fechada (defaultOpen padrão = false
+          em FilterGroup) — a mensagem de fallback geográfico adicionada
+          logo abaixo (buildGeoFallbackMessage) ficava tecnicamente presente
+          no DOM, mas invisível até o usuário clicar pra abrir a seção, o
+          que ia direto contra o motivo de existir: avisar que a busca
+          ampliou sozinha. Auto-abre quando há geoFallback pra a explicação
+          aparecer sem esforço extra do usuário. */}
+      <FilterGroup key={`loc-group-${geoFallback?.level || 'none'}`} title={t.location} defaultOpen={!!geoFallback}>
         <div className="location-group">
           <div className="location-select-wrapper">
             <select className="filter-select-clean" aria-label={t.allCountries}
@@ -299,16 +307,20 @@ export default function AdsSidebar() {
                 );
               })}
             </div>
-            {/* Mesmo aviso do topo da listagem (ActiveFiltersList), repetido
-                aqui perto dos controles de localização/raio — é exatamente
-                a área que fica enganosa (país/estado/cidade selecionados +
-                nenhum raio destacado) sem essa explicação por perto. */}
-            {geoFallback && !raio && geoFallback.level !== 'radius_close' && geoFallback.level !== 'radius_wide' && (
-              <p style={{ fontSize: '0.78rem', color: 'var(--clr-text-muted)', marginTop: '8px', lineHeight: 1.4 }}>
-                {buildGeoFallbackMessage(geoFallback, lang as 'pt' | 'es')}
-              </p>
-            )}
           </div>
+        )}
+        {/* BUG CORRIGIDO (achado na varredura completa de filtros pedida pelo
+            usuário): o aviso de fallback geográfico só aparecia aqui na
+            sidebar quando havia lat/lng (fallback por raio) — o caminho MAIS
+            COMUM de fallback (cidade→estado→país escolhidos manualmente
+            pelos próprios selects acima, sem nenhuma coordenada) deixava a
+            sidebar muda, mesmo o topo/banner central avisando. Movido pra
+            fora do bloco `lat && lng`, então aparece em QUALQUER fallback
+            (com ou sem coordenada), não só o de raio. */}
+        {geoFallback && geoFallback.level !== 'radius_close' && geoFallback.level !== 'radius_wide' && (
+          <p style={{ fontSize: '0.78rem', color: 'var(--clr-text-muted)', marginTop: '12px', lineHeight: 1.4 }}>
+            {buildGeoFallbackMessage(geoFallback, lang as 'pt' | 'es')}
+          </p>
         )}
       </FilterGroup>
 

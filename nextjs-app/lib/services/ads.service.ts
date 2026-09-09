@@ -115,7 +115,7 @@ export type AdValidated = z.infer<typeof adSchema>;
 // idsFilter é de uso INTERNO (busca por raio, ver
 // getAdsListagemComFallbackGeografico abaixo) — nunca vem direto de query
 // param do usuário, por isso não faz parte de AdsSearchParams/zod.
-export async function getAdsListagem(params: AdsSearchParams, geoContext: any, idsFilter?: string[]) {
+export async function getAdsListagem(params: AdsSearchParams, geoContext: any, idsFilter?: string[]): Promise<{ ads: any[]; total: number; nextCursor: string | undefined }> {
   const sb = await createClient();
 
   let q = sb.from('ads')
@@ -215,6 +215,24 @@ export async function getAdsListagem(params: AdsSearchParams, geoContext: any, i
     // sem resultado. Reproduzido ao vivo navegando pra uma página além da
     // última com resultados.
     if (error.code === 'PGRST103') {
+      // BUG CORRIGIDO (varredura completa de filtros pedida pelo usuário):
+      // `count` desestruturado de uma resposta de ERRO do PostgREST vem
+      // null/undefined — `count ?? 0` sempre virava 0, perdendo o total
+      // REAL (ex.: 34 anúncios válidos nas páginas 1-2) e fazendo a página
+      // renderizar "0 encontrados" + sugerir remover um filtro que na
+      // verdade tem dezenas de resultados válidos, sem link nenhum pra
+      // voltar. Refaz a MESMA busca (mesmos filtros, reconstruídos do zero
+      // a partir de `params` pela própria recursão) forçando page=1 — que
+      // nunca dispara PGRST103 (offset 0 nunca fica "além" do total, mesmo
+      // com 0 linhas) — só pra extrair o `total` real; os `ads` dessa
+      // página 1 são descartados de propósito (ver AdsBrowser.tsx) pra não
+      // mostrar conteúdo da página 1 "disfarçado" de página 3 — a página
+      // pedida continua vazia (honesto), mas agora com total correto e
+      // navegação de volta funcionando via ListagemPagination.
+      if ((params.page ?? 1) !== 1) {
+        const { total: realTotal } = await getAdsListagem({ ...params, page: 1, cursor: undefined }, geoContext, idsFilter);
+        return { ads: [], total: realTotal, nextCursor: undefined };
+      }
       return { ads: [], total: count ?? 0, nextCursor: undefined };
     }
     logError(error, { context: 'getAdsListagem', params });

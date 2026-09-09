@@ -32,6 +32,8 @@ const TRANSLATIONS = {
     emptyBtnRemove: (label: string) => `Remover filtro de ${label}`,
     emptyBtnClearAll: 'Ou limpar todos os filtros',
     priceRangeLabel: 'faixa de preço',
+    emptyOverflowTitle: 'Página além do fim da lista',
+    emptyOverflowDesc: (total: number, totalPages: number) => `Só encontramos ${total} anúncio${total === 1 ? '' : 's'} pra estes filtros (${totalPages} página${totalPages === 1 ? '' : 's'}). Volte pra uma página válida abaixo.`,
   },
   es: {
     allAds: 'Todos los Anuncios',
@@ -49,6 +51,8 @@ const TRANSLATIONS = {
     emptyBtnRemove: (label: string) => `Quitar filtro de ${label}`,
     emptyBtnClearAll: 'O limpiar todos los filtros',
     priceRangeLabel: 'rango de precio',
+    emptyOverflowTitle: 'Página más allá del final de la lista',
+    emptyOverflowDesc: (total: number, totalPages: number) => `Solo encontramos ${total} anuncio${total === 1 ? '' : 's'} para estos filtros (${totalPages} página${totalPages === 1 ? '' : 's'}). Volvé a una página válida abajo.`,
   }
 };
 
@@ -159,6 +163,16 @@ export default function AdsBrowser({
   // "Página N", sem total nem forma de o usuário saber quantas páginas
   // faltam — reaproveita o mesmo PAGE_SIZE já usado acima pra `hasMore`.
   const totalPages = Math.max(1, Math.ceil(initialTotal / PAGE_SIZE));
+  // BUG CORRIGIDO (varredura completa de filtros pedida pelo usuário):
+  // navegar pra uma página além da última real (ex.: ?page=3 quando só
+  // existem 2) fazia getAdsListagem cair no catch de PGRST103 e devolver
+  // `ads: []` — só que sem paginação nenhuma na tela (abaixo, a paginação
+  // só aparecia quando initialAds.length > 0), o usuário ficava preso na
+  // tela vazia sem link de volta pras páginas que realmente têm resultado.
+  // `page` aqui já reflete a URL real (via useAdsFilters/useSearchParams),
+  // então dá pra distinguir esse caso de "nenhum anúncio pra estes filtros"
+  // de verdade (esse sim sem paginação, não faz sentido mostrá-la).
+  const isPageOverflow = initialAds.length === 0 && initialTotal > 0 && page > totalPages;
 
   const contextValue = {
     lang, categories, subcategories, subcategoryCounts,
@@ -311,7 +325,14 @@ export default function AdsBrowser({
             )}
 
             <div style={{ opacity: isPending ? 0.5 : 1, transition: 'opacity 0.2s', pointerEvents: isPending ? 'none' : 'auto' }}>
-              {initialAds.length === 0 ? (
+              {isPageOverflow ? (
+                <div style={{ textAlign: 'center', padding: 'var(--sp-20) var(--sp-8)', background: 'var(--clr-surface)', borderRadius: 'var(--r-2xl)', border: '1px dashed var(--clr-border)', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: 'var(--shadow-sm)' }}>
+                  <div style={{ width: '80px', height: '80px', background: 'var(--clr-primary-pale)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2.5rem', marginBottom: 'var(--sp-6)', color: 'var(--clr-primary)', boxShadow: '0 0 0 10px rgba(34,197,94,0.05)' }}>🔍</div>
+                  <h3 style={{ fontSize: 'var(--fs-xl)', fontWeight: 800, color: 'var(--clr-text)', marginBottom: 'var(--sp-2)', letterSpacing: '-0.02em' }}>{T.emptyOverflowTitle}</h3>
+                  <p style={{ color: 'var(--clr-text-muted)', fontSize: 'var(--fs-base)', maxWidth: '360px', marginBottom: 'var(--sp-8)', lineHeight: 1.6 }}>{T.emptyOverflowDesc(initialTotal, totalPages)}</p>
+                  <ListagemPagination hasMore={false} totalPages={totalPages} />
+                </div>
+              ) : initialAds.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: 'var(--sp-20) var(--sp-8)', background: 'var(--clr-surface)', borderRadius: 'var(--r-2xl)', border: '1px dashed var(--clr-border)', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: 'var(--shadow-sm)' }}>
                   <div style={{ width: '80px', height: '80px', background: 'var(--clr-primary-pale)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2.5rem', marginBottom: 'var(--sp-6)', color: 'var(--clr-primary)', boxShadow: '0 0 0 10px rgba(34,197,94,0.05)' }}>🔍</div>
                   <h3 style={{ fontSize: 'var(--fs-xl)', fontWeight: 800, color: 'var(--clr-text)', marginBottom: 'var(--sp-2)', letterSpacing: '-0.02em' }}>{T.emptyTitle}</h3>

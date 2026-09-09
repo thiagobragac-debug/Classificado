@@ -36,8 +36,16 @@ const MESSAGES: Record<Lang, {
   },
 };
 
+// BUG CORRIGIDO (varredura completa de filtros pedida pelo usuário): busca
+// por raio sem cidade (só estado, ex.: link/coordenada sem endereço) usa o
+// nome do ESTADO como rótulo de origem (ver getAdsListagemComFallbackGeografico
+// em ads.service.ts, `cidade || estado`) — quando o fallback também aterrissa
+// nesse mesmo estado, a frase ficava "Nenhum anúncio em Pará — exibindo
+// resultados de Pará" (mesma palavra nos dois lados, sem sentido pro
+// usuário). Nesse caso específico, usa a mensagem neutra (sem repetir nome
+// nenhum) em vez da que nomeia origem e destino.
 export function buildGeoFallbackMessage(info: GeoFallbackInfo, lang: Lang = 'pt'): string {
   const T = MESSAGES[lang] || MESSAGES.pt;
-  if (info.level === 'all' || !info.toLabel) return T.toAll(info.fromLabel);
+  if (info.level === 'all' || !info.toLabel || info.fromLabel === info.toLabel) return T.toAll(info.fromLabel);
   return T.toPlace(info.fromLabel, info.toLabel);
 }

@@ -18,7 +18,12 @@ const TRANSLATIONS = {
     clearAll: 'Limpar Todos',
     min: 'Min',
     max: 'Max',
-    fallbackAll: 'todo o Brasil',
+    // BUG CORRIGIDO (varredura completa de filtros pedida pelo usuário): o
+    // fallback mais amplo (nível 'all') pode incluir anúncios de FORA do
+    // Brasil — o site é Mercosul (confirmado ao vivo: existe pelo menos 1
+    // anúncio ativo do Uruguai que entra nesse fallback) — "todo o Brasil"
+    // é impreciso nesse caso.
+    fallbackAll: 'todo o Mercosul',
   },
   es: {
     activeFilters: 'FILTROS ACTIVOS:',
@@ -26,7 +31,7 @@ const TRANSLATIONS = {
     clearAll: 'Limpiar Todos',
     min: 'Mín',
     max: 'Máx',
-    fallbackAll: 'todo el país',
+    fallbackAll: 'todo el Mercosur',
   }
 };
 
@@ -81,6 +86,12 @@ export default function ActiveFiltersList({ categories, initialGeo, disableAutoG
   // a transição de verdade ("Patos de Minas → Brasil") direto no chip.
   const withGeoFallback = (label: string) => {
     if (!geoFallback) return label;
+    // BUG CORRIGIDO (varredura completa de filtros pedida pelo usuário):
+    // busca por raio sem cidade usa o nome do ESTADO como rótulo de origem
+    // (ver ads.service.ts) — quando o fallback aterrissa nesse mesmo
+    // estado, o chip ficava "Pará → Pará" (mesma palavra dos dois lados).
+    // Mesmo critério do buildGeoFallbackMessage: sem seta nesse caso.
+    if (geoFallback.toLabel === label) return label;
     return `${label} → ${geoFallback.toLabel || T.fallbackAll}`;
   };
 
