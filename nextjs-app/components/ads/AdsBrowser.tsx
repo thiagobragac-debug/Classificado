@@ -32,8 +32,10 @@ const TRANSLATIONS = {
     emptyBtnRemove: (label: string) => `Remover filtro de ${label}`,
     emptyBtnClearAll: 'Ou limpar todos os filtros',
     priceRangeLabel: 'faixa de preço',
+    unknownFilterLabel: 'este filtro',
     emptyOverflowTitle: 'Página além do fim da lista',
     emptyOverflowDesc: (total: number, totalPages: number) => `Só encontramos ${total} anúncio${total === 1 ? '' : 's'} pra estes filtros (${totalPages} página${totalPages === 1 ? '' : 's'}). Volte pra uma página válida abaixo.`,
+    emptyOverflowBackBtn: (totalPages: number) => `Voltar para a página ${totalPages}`,
   },
   es: {
     allAds: 'Todos los Anuncios',
@@ -51,8 +53,10 @@ const TRANSLATIONS = {
     emptyBtnRemove: (label: string) => `Quitar filtro de ${label}`,
     emptyBtnClearAll: 'O limpiar todos los filtros',
     priceRangeLabel: 'rango de precio',
+    unknownFilterLabel: 'este filtro',
     emptyOverflowTitle: 'Página más allá del final de la lista',
     emptyOverflowDesc: (total: number, totalPages: number) => `Solo encontramos ${total} anuncio${total === 1 ? '' : 's'} para estos filtros (${totalPages} página${totalPages === 1 ? '' : 's'}). Volvé a una página válida abajo.`,
+    emptyOverflowBackBtn: (totalPages: number) => `Volver a la página ${totalPages}`,
   }
 };
 
@@ -66,6 +70,7 @@ export default function AdsBrowser({
   hideHero,
   heroTitle,
   hideHeroBreadcrumb,
+  effectiveCategoria,
   children
 }: {
   initialAds?: Ad[],
@@ -83,6 +88,22 @@ export default function AdsBrowser({
   hideHero?: boolean,
   heroTitle?: string,
   hideHeroBreadcrumb?: boolean,
+  // BUG CORRIGIDO (varredura completa de filtros pedida pelo usuário): em
+  // /categoria/[slug], a categoria vem do SLUG da rota, não de `?categoria=`
+  // — `categoria` (lido só de useSearchParams, ver lib/useAdsFilters.ts)
+  // nascia sempre '' nessa rota, igual a "nenhuma categoria escolhida".
+  // Efeito em cascata: a sidebar mostrava "Todas as Categorias" marcado
+  // (enganoso, já que a página inteira é só Bovinos) E as seções
+  // Subcategoria/Finalidade sumiam por completo (gated por `categoria`
+  // truthy) — o usuário não conseguia filtrar por raça/finalidade numa
+  // página de categoria, só em /listagem?categoria=X. Mesmo padrão já usado
+  // por heroTitle/hideHeroBreadcrumb acima pra esse mesmo problema raiz,
+  // agora estendido pra sidebar: resolveCategoryContext (categoria/[slug]/
+  // page.tsx) calcula a categoria efetiva (slug OU override de
+  // ?categoria=) e repassa aqui só pra exibição/opções — nunca sobrescreve
+  // a categoria REAL controlada por useAdsFilters, que seguem sendo a
+  // fonte de verdade pra montar URLs (ver displayCategoria abaixo).
+  effectiveCategoria?: string,
   nextCursor?: string,
   children?: React.ReactNode
 }) {
@@ -111,7 +132,13 @@ export default function AdsBrowser({
     isPending
   } = filtersHook;
 
-  const { countries, states, cities } = useGeoCascading(pais, estado, categoria);
+  // BUG CORRIGIDO (varredura completa de filtros pedida pelo usuário): ver
+  // comentário de `effectiveCategoria` na assinatura acima. `categoria`
+  // (query param real) tem prioridade — só cai pro valor efetivo do slug
+  // quando não há override explícito na URL.
+  const displayCategoria = categoria || effectiveCategoria || '';
+
+  const { countries, states, cities } = useGeoCascading(pais, estado, displayCategoria);
 
   // Subcategorias dependem só da categoria escolhida no filtro — busca direto
   // na tabela normalizada (diferente de useGeoCascading, que deriva valores
@@ -122,7 +149,7 @@ export default function AdsBrowser({
   // no banco) e conta no cliente, mesmo padrão já usado em useGeoCascading.
   const [subcategoryCounts, setSubcategoryCounts] = useState<Record<string, number>>({});
   useEffect(() => {
-    if (!categoria) {
+    if (!displayCategoria) {
       setSubcategories([]);
       setSubcategoryCounts({});
       return;
@@ -131,7 +158,7 @@ export default function AdsBrowser({
     getSupabase()
       .from('subcategories')
       .select('id, name_pt, name_es')
-      .eq('category_id', categoria)
+      .eq('category_id', displayCategoria)
       .eq('active', true)
       .order('sort_order', { ascending: true })
       .then(({ data }: { data: any[] | null }) => {
@@ -140,7 +167,7 @@ export default function AdsBrowser({
     getSupabase()
       .from('ads')
       .select('subcategory_id')
-      .eq('category_id', categoria)
+      .eq('category_id', displayCategoria)
       .eq('status', 'active')
       .not('subcategory_id', 'is', null)
       .then(({ data }: { data: any[] | null }) => {
@@ -150,7 +177,7 @@ export default function AdsBrowser({
         setSubcategoryCounts(counts);
       });
     return () => { isActive = false; };
-  }, [categoria]);
+  }, [displayCategoria]);
 
   const PAGE_SIZE = 24;
   // BUG CORRIGIDO (varredura cruzada de cenários): comparar só o tamanho da
@@ -178,7 +205,7 @@ export default function AdsBrowser({
     lang, categories, subcategories, subcategoryCounts,
     countries, states: states.map(s => s.id), cities,
     hasFilters, clearFilters, applyFilters, handleSearch,
-    busca, categoria, setCategoria, subcategoria, setSubcategoria, toggleSubcategoria, finalidade, setFinalidade,
+    busca, categoria: displayCategoria, setCategoria, subcategoria, setSubcategoria, toggleSubcategoria, finalidade, setFinalidade,
     pais, setPais, estado, setEstado, cidade, setCidade,
     lat, lng, raio, setRaio,
     precoMin, setPrecoMin, precoMax, setPrecoMax, setPrice,
@@ -194,7 +221,7 @@ export default function AdsBrowser({
     geoFallback,
   };
 
-  const currentCatName = categoria ? (categories.find(c => c.id === categoria)?.[lang === 'es' ? 'name_es' : 'name_pt'] || categoria) : '';
+  const currentCatName = displayCategoria ? (categories.find(c => c.id === displayCategoria)?.[lang === 'es' ? 'name_es' : 'name_pt'] || displayCategoria) : '';
 
   // GAP CORRIGIDO (sugestão de usabilidade): "Limpar Filtros e Tentar
   // Novamente" apagava TUDO de uma vez, mesmo quando só o filtro mais
@@ -203,15 +230,26 @@ export default function AdsBrowser({
   // mais amplo — preservando o resto da busca já feita.
   function getNarrowestFilterRemoval(): { label: string; action: () => void } | null {
     if (finalidade) {
-      const label = getPurposeOptions(categoria).find(p => p.value === finalidade)?.[lang === 'es' ? 'label_es' : 'label_pt'] || finalidade;
+      // BUG CORRIGIDO (varredura completa de filtros pedida pelo usuário):
+      // quando `finalidade` pertence a uma categoria DIFERENTE da
+      // atualmente selecionada (ex.: URL editada manualmente, ou troca de
+      // categoria sem limpar finalidade), getPurposeOptions(categoria) não
+      // encontra o valor — o fallback mostrava o slug cru do banco (ex.:
+      // "reproducao") em vez de um rótulo traduzido, sem sentido pro
+      // usuário. Rótulo genérico em vez do valor bruto.
+      const label = getPurposeOptions(displayCategoria).find(p => p.value === finalidade)?.[lang === 'es' ? 'label_es' : 'label_pt'] || T.unknownFilterLabel;
       return { label, action: () => setFinalidade('') };
     }
     if (subcategoria) {
+      // Mesmo bug/fix do finalidade acima: `subcategories` só carrega as
+      // opções da categoria ATUAL — um id de subcategoria de outra
+      // categoria (mesmo cenário: URL manual, troca de categoria) não
+      // resolve nome nenhum, e o fallback mostrava o(s) UUID(s) cru(s).
       const names = subcategoria.split(',')
         .map(id => subcategories.find(s => s.id === id))
         .filter((s): s is { id: string; name_pt: string; name_es?: string | null } => !!s)
         .map(s => (lang === 'es' && s.name_es) ? s.name_es : s.name_pt);
-      return { label: names.join(' + ') || subcategoria, action: () => setSubcategoria('') };
+      return { label: names.join(' + ') || T.unknownFilterLabel, action: () => setSubcategoria('') };
     }
     if (precoMin || precoMax) {
       return { label: T.priceRangeLabel, action: () => setPrice('', '') };
@@ -246,7 +284,7 @@ export default function AdsBrowser({
         }
       };
     }
-    if (categoria) {
+    if (displayCategoria) {
       return { label: currentCatName, action: () => setCategoria('') };
     }
     if (busca) {
@@ -330,7 +368,18 @@ export default function AdsBrowser({
                   <div style={{ width: '80px', height: '80px', background: 'var(--clr-primary-pale)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2.5rem', marginBottom: 'var(--sp-6)', color: 'var(--clr-primary)', boxShadow: '0 0 0 10px rgba(34,197,94,0.05)' }}>🔍</div>
                   <h3 style={{ fontSize: 'var(--fs-xl)', fontWeight: 800, color: 'var(--clr-text)', marginBottom: 'var(--sp-2)', letterSpacing: '-0.02em' }}>{T.emptyOverflowTitle}</h3>
                   <p style={{ color: 'var(--clr-text-muted)', fontSize: 'var(--fs-base)', maxWidth: '360px', marginBottom: 'var(--sp-8)', lineHeight: 1.6 }}>{T.emptyOverflowDesc(initialTotal, totalPages)}</p>
-                  <ListagemPagination hasMore={false} totalPages={totalPages} />
+                  {/* GAP CORRIGIDO (revalidação independente pós-deploy):
+                      reaproveitar ListagemPagination aqui fazia "Anterior"
+                      sempre decrementar 1 (page-1) — em overflow extremo
+                      (ex.: ?page=99999 numa busca com só 51 páginas reais),
+                      page-1 (99998) continua tão inválida quanto a original,
+                      exigindo dezenas de milhares de cliques pra voltar a
+                      algo real. Link direto pra ÚLTIMA página válida
+                      (totalPages) resolve em 1 clique, em vez de decrementar
+                      de 1 em 1. */}
+                  <button onClick={() => setPage(totalPages)} className="btn btn--primary" style={{ padding: '12px 32px' }}>
+                    {T.emptyOverflowBackBtn(totalPages)}
+                  </button>
                 </div>
               ) : initialAds.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: 'var(--sp-20) var(--sp-8)', background: 'var(--clr-surface)', borderRadius: 'var(--r-2xl)', border: '1px dashed var(--clr-border)', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: 'var(--shadow-sm)' }}>

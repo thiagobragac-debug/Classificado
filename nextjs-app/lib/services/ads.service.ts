@@ -73,8 +73,16 @@ export const adsSearchParamsSchema = z.object({
   subcategoria: z.union([z.string(), z.array(z.string())]).transform(val => Array.isArray(val) ? val[0] : val).optional(),
   finalidade: z.union([z.string(), z.array(z.string())]).transform(val => Array.isArray(val) ? val[0] : val).optional(),
   seller_id: z.string().optional(),
-  preco_min: z.coerce.number().optional(),
-  preco_max: z.coerce.number().optional(),
+  // BUG CORRIGIDO (varredura completa de filtros pedida pelo usuário):
+  // diferente de `ordem`/`page` (que já têm `.catch()`), preco_min/max sem
+  // fallback fazia um valor não-numérico na URL (ex.: ?preco_min=abc,
+  // editado manualmente) estourar ZodError sem tratamento — a página
+  // inteira caía na tela de erro genérica (error.tsx) em vez de só
+  // ignorar o filtro inválido. Mesmo padrão de `.catch()` de `page` acima:
+  // input ausente OU inválido vira `undefined` (sem filtro de preço),
+  // nunca derruba a página.
+  preco_min: z.coerce.number().optional().catch(undefined),
+  preco_max: z.coerce.number().optional().catch(undefined),
   busca: z.union([z.string(), z.array(z.string())])
     .transform(val => Array.isArray(val) ? val[0] : val)
     .transform(val => val?.trim().slice(0, 200)) // máximo 200 chars — previne sobrecarga do parser FTS

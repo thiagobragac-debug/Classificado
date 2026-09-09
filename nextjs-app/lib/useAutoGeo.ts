@@ -71,7 +71,14 @@ export function useAutoGeo(
   const [geoLevel, setGeoLevel] = useState<'radius'|'city'|'state'|'country'|null>(null);
   const [geoReady, setGeoReady] = useState(false);
 
-  const hasSpecificManualLoc = !!(searchParams.get('pais') || searchParams.get('estado') || searchParams.get('cidade'));
+  // BUG CORRIGIDO (varredura completa de filtros pedida pelo usuário): um
+  // link compartilhado só com lat/lng/raio (ex.: alguém manda "olha esse
+  // raio de busca perto de X", sem país/estado/cidade explícitos na URL)
+  // não contava como localização manual — assim que `geo` (auto-detectada
+  // via IP/GPS de quem ABRE o link) resolvia, doGeoFill() sobrescrevia
+  // silenciosamente lat/lng/raio do link pela localização de quem clicou,
+  // sem o visitante perceber que a busca já tinha mudado de lugar.
+  const hasSpecificManualLoc = !!(searchParams.get('pais') || searchParams.get('estado') || searchParams.get('cidade') || searchParams.get('lat') || searchParams.get('lng') || searchParams.get('raio'));
 
   useEffect(() => {
     // Ex: página de um vendedor específico — a listagem já é escopada por

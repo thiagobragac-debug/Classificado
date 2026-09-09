@@ -112,8 +112,34 @@ export function useAdsFilters(initialGeo?: { pais: string | null; estado: string
     if (f.negociavel) params.set('negociavel', 'true');
     if (f.ordem && f.ordem !== 'recent') params.set('ordem', f.ordem);
     if (p > 1) params.set('page', p.toString());
-    
-    return `${pathname}${params.toString() ? '?' + params.toString() : ''}`;
+
+    // BUG CORRIGIDO (varredura completa de filtros pedida pelo usuário):
+    // em /categoria/[slug] (e /es/categoria/[slug]), "Todas as Categorias"
+    // chamava setCategoria('') que só limpava o QUERY PARAM `categoria` —
+    // mas a categoria dessa rota vem do SLUG na URL, não de um query param,
+    // e resolveCategoryContext (app/(public)/categoria/[slug]/page.tsx) cai
+    // de volta pro slug sempre que o override (`?categoria=`) vem vazio.
+    // Resultado: "Todas as Categorias" não fazia nada, ficava preso na
+    // mesma categoria. Trocar para OUTRA categoria específica já funciona
+    // (o override bate um id válido), só limpar pra vazio precisa sair da
+    // rota /categoria/[slug] de vez — vai pra /listagem (preservando /es).
+    //
+    // ATENÇÃO: checa se `categoria` foi passado EXPLICITAMENTE vazio em
+    // `overrides` (a intenção real de "limpar categoria" agora, nesta
+    // chamada) — NUNCA o valor mesclado `f.categoria`. Em /categoria/[slug]
+    // não existe `?categoria=` na URL (a categoria vem do slug), então
+    // `f.categoria` já nasce vazio em QUALQUER chamada nessa rota — inclusive
+    // o preenchimento automático de geolocalização (useAutoGeo.ts, que nem
+    // toca em `categoria`) ou trocar só o preço/ordenação. Usar `f.categoria`
+    // aqui redirecionava pra /listagem em toda interação da página de
+    // categoria, não só ao limpar — regressão pior que o bug original.
+    const isCategoriaSlugPage = pathname === '/categoria' || pathname.startsWith('/categoria/') || pathname === '/es/categoria' || pathname.startsWith('/es/categoria/');
+    const explicitlyClearedCategoria = 'categoria' in overrides && !overrides.categoria;
+    const basePath = (isCategoriaSlugPage && explicitlyClearedCategoria)
+      ? (pathname.startsWith('/es/') ? '/es/listagem' : '/listagem')
+      : pathname;
+
+    return `${basePath}${params.toString() ? '?' + params.toString() : ''}`;
   }, [pathname, buscaRaw]);
 
   const applyFilters = useCallback((overrides: Partial<AdsFilters> = {}) => {

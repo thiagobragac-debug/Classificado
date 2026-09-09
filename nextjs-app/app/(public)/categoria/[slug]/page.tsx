@@ -330,6 +330,7 @@ async function CategoriaContent({ parsedParams, geoContext, lang, categoryName, 
         categories={categories}
         heroTitle={categoryName}
         hideHeroBreadcrumb
+        effectiveCategoria={parsedParams.categoria}
       >
         <div className="container" style={{ paddingTop: 'var(--sp-4)' }}>
           <nav
