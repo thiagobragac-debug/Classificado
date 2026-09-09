@@ -551,6 +551,19 @@ export async function proxy(request: NextRequest) {
   const ip = resolverIpConfiavel(request.headers);
 
   // ─── Rate Limiting rotas críticas ────────────────────────────
+  // COMENTÁRIO CORRIGIDO (auditoria de segurança): este limite protege só o
+  // CARREGAMENTO DA PÁGINA /login e /auth (as requisições que passam por
+  // este middleware) — NÃO a chamada que de fato valida a senha
+  // (auth.signInWithPassword, em lib/supabase.ts), que sai do SDK do
+  // navegador DIRETO pro domínio do Supabase (createBrowserClient aponta
+  // pra NEXT_PUBLIC_SUPABASE_URL, uma origem externa), sem passar por este
+  // proxy Next.js em nenhum momento. Ou seja: NÃO é uma defesa efetiva
+  // contra força bruta de senha por si só — quem cobre isso hoje é o rate
+  // limit nativo do GoTrue (Supabase Auth), configurado fora deste
+  // repositório (painel Supabase → Authentication → Rate Limits). Manter
+  // este bloco mesmo assim: ele limita scraping/DoS na própria página, só
+  // não confundir com proteção de senha.
+  //
   // BUG CORRIGIDO (validação adversarial final): sem nenhum header confiável
   // de IP (dev local, ou produção atrás de proxy mal configurado), aplicar
   // o limite por um balde compartilhado (ip=null) trancaria o login de todo
@@ -560,7 +573,8 @@ export async function proxy(request: NextRequest) {
     // BUG CORRIGIDO (validação adversarial final): ipParaRateLimit trunca
     // IPv6 no prefixo /64 — um endereço IPv6 completo rotaciona fácil
     // demais (privacy extensions do próprio navegador, ou de propósito por
-    // um atacante) pra servir de chave de rate limit contra força bruta.
+    // um atacante) pra servir de chave de rate limit contra scraping desta
+    // página (ver nota acima: não cobre a verificação de senha em si).
     if (!(await dentroDoLimite(`login_${ipParaRateLimit(ip)}`))) {
       return applySecurityHeaders(
         new NextResponse('Too Many Requests', {

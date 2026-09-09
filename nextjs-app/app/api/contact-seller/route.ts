@@ -62,6 +62,27 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  // ─── E-mail verificado obrigatório (auditoria de segurança) ────
+  // GAP CORRIGIDO: até aqui, qualquer conta recém-criada (mesmo sem nunca
+  // confirmar o e-mail) já conseguia pedir o WhatsApp de vendedores — a
+  // única barreira era o rate limit de 10/min por conta. Como o cadastro é
+  // self-service e não tem CAPTCHA, isso permitia colher contato de vários
+  // vendedores criando contas descartáveis em série (cada uma dentro do
+  // próprio limite). Exigir e-mail confirmado encarece esse abuso sem
+  // afetar usuários reais: contas via Google OAuth já chegam com
+  // email_confirmed_at preenchido pelo provedor; é o mesmo campo já usado
+  // em app/(public)/painel/_components/ProfileTab.tsx pro badge
+  // Verificado/Pendente, não uma checagem nova inventada aqui.
+  if (!user.email_confirmed_at) {
+    return NextResponse.redirect(new URL('/painel', request.url), {
+      status: 302,
+      headers: {
+        'Cache-Control': 'no-store, no-cache, private',
+        'Pragma': 'no-cache',
+      },
+    });
+  }
+
   // ─── Rate limiting por user_id (não por IP — mais preciso) ───
   if (ratelimit) {
     const { success, limit, remaining } = await ratelimit.limit(`contact_user_${user.id}`);
