@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { App, type URLOpenListenerEvent } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
-import { getSupabase } from '@/lib/supabase';
+import { getSupabase, NATIVE_GOOGLE_NEXT_KEY } from '@/lib/supabase';
 import { getSafeRedirect } from '@/lib/safe-redirect';
 
 // BUG CORRIGIDO (app Android/iOS): metade do fix do login com Google
@@ -46,7 +46,17 @@ export function CapacitorAuthBridge() {
       if (url.hostname !== 'auth-callback' && url.pathname !== '/auth-callback') return;
 
       const code = url.searchParams.get('code');
-      const next = getSafeRedirect(url.searchParams.get('next'));
+      // BUG CORRIGIDO (validação da allow-list do Supabase — ver o
+      // comentário grande em lib/supabase.ts::loginWithGoogle): o destino
+      // pós-login nunca viaja mais na URL (nem como "?next="), pra
+      // redirectTo pedido ficar idêntico à entrada exata cadastrada na
+      // allow-list. Lido de volta do localStorage, escrito por
+      // loginWithGoogle() logo antes de abrir o navegador do sistema.
+      let next = '/painel';
+      try {
+        next = getSafeRedirect(localStorage.getItem(NATIVE_GOOGLE_NEXT_KEY));
+        localStorage.removeItem(NATIVE_GOOGLE_NEXT_KEY);
+      } catch { /* localStorage indisponível — fica no fallback /painel */ }
 
       try {
         await Browser.close();

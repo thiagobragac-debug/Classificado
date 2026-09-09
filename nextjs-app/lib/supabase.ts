@@ -127,6 +127,11 @@ export async function loginWithGoogleIdToken(idToken: string, nonce: string) {
 // nunca quando o usuário só fechou o seletor sem escolher nada
 // (GoogleSignInCancelled) — nesse caso a intenção do usuário foi não
 // logar agora, não "tenta de outro jeito".
+// Chave só usada nesta ponte nativa — guarda pra onde navegar DEPOIS do
+// login, sem depender de query string no redirectTo (ver comentário
+// abaixo do porquê). Lida de volta em components/CapacitorAuthBridge.tsx.
+export const NATIVE_GOOGLE_NEXT_KEY = 'tc_native_google_next';
+
 // BUG CORRIGIDO (app Android/iOS, ver mobile/README.md): dentro do app
 // nativo (WebView do Capacitor), o Google BLOQUEIA o redirect padrão pra
 // tela de consentimento com o erro "disallowed_useragent" — é uma regra
@@ -137,18 +142,41 @@ export async function loginWithGoogleIdToken(idToken: string, nonce: string) {
 // (skipBrowserRedirect: true + Browser.open, em vez do redirect padrão
 // que navegaria a própria WebView), com o retorno indo pro esquema de URL
 // customizado do app (br.com.tauzeclass.app://auth-callback, registrado
-// nos dois projetos nativos em mobile/) em vez de uma URL https — só
-// assim o sistema operacional entrega o retorno de volta pro app, não pro
-// navegador. components/CapacitorAuthBridge.tsx (montado no layout raiz)
-// escuta esse retorno e troca o code pela sessão.
+// nos dois projetos nativos em mobile/ E na allow-list de Redirect URLs
+// do painel do Supabase) em vez de uma URL https — só assim o sistema
+// operacional entrega o retorno de volta pro app, não pro navegador.
+// components/CapacitorAuthBridge.tsx (montado no layout raiz) escuta esse
+// retorno e troca o code pela sessão.
+//
+// BUG CORRIGIDO (validação ao vivo da allow-list, achado por leitura do
+// código-fonte do GoTrue): a allow-list do Supabase compara o redirectTo
+// pedido contra um glob pattern (gobwas/glob) — a entrada cadastrada
+// (br.com.tauzeclass.app://auth-callback) NÃO tem nenhum "*"/"**", então
+// é um match EXATO por definição da própria lib de glob. redirectTo com
+// "?next=..." colado (ideia original) arriscava não bater com essa
+// entrada exata, dependendo de o GoTrue descartar ou não a query string
+// antes de comparar — incerteza real, não documentada, que só apareceria
+// quebrada num teste ao vivo num dispositivo de verdade. Eliminado o
+// risco de vez: o `next` nunca viaja na URL do Google/Supabase, fica só
+// no localStorage DESTE app (setado logo abaixo, lido de volta na ponte)
+// — o redirectTo pedido fica idêntico, caractere por caractere, ao que
+// está cadastrado na allow-list. O único acréscimo de query string que
+// acontece depois é o "?code=..." que o PRÓPRIO GoTrue cola ao fim do
+// fluxo — esse sim é garantido funcionar com entrada exata (é o mesmo
+// mecanismo que todo app OAuth com PKCE depende pra funcionar, documentado
+// e usado assim pelo próprio Supabase em exemplos oficiais de app mobile).
 export async function loginWithGoogle(redirectTo?: string) {
   const path = redirectTo || '/painel';
 
   if (Capacitor.isNativePlatform()) {
+    try {
+      localStorage.setItem(NATIVE_GOOGLE_NEXT_KEY, path);
+    } catch { /* localStorage indisponível — CapacitorAuthBridge cai no fallback /painel */ }
+
     const { data, error } = await getSupabase().auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `br.com.tauzeclass.app://auth-callback?next=${encodeURIComponent(path)}`,
+        redirectTo: 'br.com.tauzeclass.app://auth-callback',
         skipBrowserRedirect: true,
       },
     });
