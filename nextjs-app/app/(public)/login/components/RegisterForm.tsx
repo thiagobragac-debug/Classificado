@@ -230,7 +230,16 @@ export function RegisterForm({ onSetAlert, onSuccess }: RegisterFormProps) {
         {errors.email && <span id="reg-email-error" role="alert" style={{ color: '#dc2626', fontSize: '0.8rem', marginTop: '0.2rem', display: 'block' }}>{errors.email.message}</span>}
       </div>
 
-      <div className="form-group" style={{ marginBottom: '2rem' }}>
+      {/* BUG CORRIGIDO (usuário achou ao vivo, print do cadastro): este grupo
+          e o de confirmar senha tinham marginBottom:2rem hardcoded — todo
+          resto do formulário (nome, cpf, telefone, cep, e-mail) usa 0
+          (confirmado ao vivo: bottom de um campo == top do próximo, sem
+          gap nenhum), então esses dois criavam um respiro bem maior e
+          inconsistente bem no meio do form. Removido; o botão "Criar Conta"
+          é que ganha a separação de verdade (ver marginTop nele abaixo),
+          já que ele é uma ação, não mais um campo — não precisa fingir
+          consistência com os campos. */}
+      <div className="form-group">
         <label htmlFor="reg-password" className="form-label">{t('auth_pass')}</label>
         <div className="input-with-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
@@ -262,7 +271,7 @@ export function RegisterForm({ onSetAlert, onSuccess }: RegisterFormProps) {
         {errors.password && <span id="reg-password-error" role="alert" style={{ color: '#dc2626', fontSize: '0.8rem', marginTop: '0.2rem', display: 'block' }}>{errors.password.message}</span>}
       </div>
 
-      <div className="form-group" style={{ marginBottom: '2rem' }}>
+      <div className="form-group">
         <label htmlFor="reg-confirm-password" className="form-label">{tr.confirmPassword}</label>
         <div className="input-with-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
@@ -279,7 +288,7 @@ export function RegisterForm({ onSetAlert, onSuccess }: RegisterFormProps) {
         {errors.confirmPassword && <span id="reg-confirm-password-error" role="alert" style={{ color: '#dc2626', fontSize: '0.8rem', marginTop: '0.2rem', display: 'block' }}>{errors.confirmPassword.message}</span>}
       </div>
 
-      <button type="submit" className="btn btn--primary btn--lg" style={{ width: '100%', justifyContent: 'center' }} disabled={loading}>
+      <button type="submit" className="btn btn--primary btn--lg" style={{ width: '100%', justifyContent: 'center', marginTop: '1.5rem' }} disabled={loading}>
         {loading ? t('auth_register_ing') : t('auth_register_btn')}
       </button>
     </form>
