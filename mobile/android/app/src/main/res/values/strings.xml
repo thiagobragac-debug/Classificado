@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Tauze Class</string>
+    <string name="title_activity_main">Tauze Class</string>
+    <string name="package_name">br.com.tauzeclass.app</string>
+    <string name="custom_url_scheme">br.com.tauzeclass.app</string>
+</resources>
