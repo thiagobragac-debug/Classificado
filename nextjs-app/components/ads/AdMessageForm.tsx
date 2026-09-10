@@ -86,16 +86,21 @@ export function AdMessageForm({ adId, receiverId }: AdMessageFormProps) {
       return;
     }
 
-    // GAP CORRIGIDO (revisão de regras de negócio, 2026-08-25): insert
-    // direto sem nenhum limite de taxa — mesmo padrão já usado em
-    // check_rate_limit (janela no Postgres, liberado pra authenticated).
-    const { data: dentroDoLimite } = await sb.rpc('check_rate_limit', { p_bucket: `message_user_${session.user.id}`, p_limit: 10, p_window_seconds: 60 })
-    if (dentroDoLimite === false) {
-      setMsgStatus({ type: 'error', text: tr.rateLimited });
-      setMsgSending(false);
-      return;
-    }
-
+    // BUG CORRIGIDO (achado do teste ao vivo do app Android, 2026-09-10):
+    // este componente chamava check_rate_limit direto do client antes do
+    // insert, mas a migration 20260830200000 revogou o EXECUTE dessa função
+    // de anon/authenticated (fechando OUTRA brecha, chamada forjada via
+    // PostgREST). A chamada aqui nunca funcionou desde então — sempre
+    // retorna 42501 (permission denied), e como `error` não era checado,
+    // `data` vinha null (não `false`), então o guard nunca bloqueava nada.
+    // Mesmo achado já investigado e REFUTADO em docs/CHECKLIST-PRODUCAO.md
+    // ("Rate limit de mensagens desligado = spam ilimitado"): o guard client-side
+    // é mesmo morto, mas existe o trigger enforce_message_rate_limit (BEFORE
+    // INSERT em messages, 20 msgs/hora por remetente) como rede de segurança
+    // real — nenhum client-side bypass alcança um trigger de banco. Remove a
+    // chamada morta em vez de trocá-la por uma rota de API (o limite mais
+    // apertado de 10/60s nunca esteve em produção; 20/hora já é a proteção
+    // real hoje) e trata o erro do trigger no catch do insert abaixo.
     const { error } = await sb.from('messages').insert({
       ad_id: adId,
       sender_id: session.user.id,
@@ -104,7 +109,11 @@ export function AdMessageForm({ adId, receiverId }: AdMessageFormProps) {
     });
 
     if (error) {
-      setMsgStatus({ type: 'error', text: tr.genericError });
+      // error.code é sempre P0001 (RAISE EXCEPTION genérico do Postgres) —
+      // não distingue este trigger de outros. Mesmo padrão de MyAdsTab.tsx
+      // (handleToggle/enforce_ad_quota): casa por trecho estável da mensagem.
+      const isRateLimited = error.message?.includes('Rate limit exceeded');
+      setMsgStatus({ type: 'error', text: isRateLimited ? tr.rateLimited : tr.genericError });
     } else {
       setMsgStatus({ type: 'success', text: tr.success });
       setMsgText('');
