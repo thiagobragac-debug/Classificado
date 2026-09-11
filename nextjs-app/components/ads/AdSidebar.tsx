@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Share2, Heart, AlertTriangle, CheckCircle, ShieldCheck, Mail } from 'lucide-react';
 import { AdMessageForm } from './AdMessageForm';
 import { AdReportModal } from './AdReportModal';
+import { AdBanner } from '@/components/AdBanner';
 import { useFavorites } from '@/lib/useFavorites';
 import { useLang } from '@/lib/lang-context';
 import { getCurrencySymbol, formatCurrencyAmount } from '@/lib/currency';
@@ -323,6 +324,20 @@ export function AdSidebar({ ad, adTitle, catName, hasWhatsapp }: AdSidebarProps)
             <strong>🔒 {tr.securityTipTitle}</strong> {tr.securityTipBody}
           </div>
         </div>
+      </div>
+
+      {/* BUG CORRIGIDO (achado ao vivo pelo usuário, layout desktop): o
+          banner "Anuncie Aqui" (position="anuncio_sidebar" — o próprio nome
+          já indicava a intenção original) tinha sido extraído pra uma linha
+          própria full-width no fim da página, abaixo de "Anúncios
+          Similares". O usuário pediu de volta "na mesma linha" (ao lado,
+          sem quebrar pra linha nova abaixo) — a classe .sidebar-banner-fixed
+          (sticky, já pronta em globals.css) existia sem nenhum elemento
+          usando, confirmando que o design original era o banner morar aqui
+          dentro do sidebar, acompanhando o scroll enquanto o usuário rola
+          pela descrição/Anúncios Similares na coluna esquerda. */}
+      <div className="sidebar-banner-fixed">
+        <AdBanner position="anuncio_sidebar" />
       </div>
     </div>
   );

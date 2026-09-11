@@ -3087,21 +3087,23 @@ textarea.form-input { resize: vertical; min-height: 140px; }
 /* Grid items nao expandem alem do fr alocado */
 .product-gallery-area  { min-width: 0 !important; overflow: hidden !important; }
 .sidebar-fixed-container { min-width: 0 !important; }
-.ad-similar-col, .ad-banner-col { min-width: 0; }
+.ad-similar-col { min-width: 0; }
 
 /* Desktop: ad-gallery-col (linha 1) e ad-similar-col (linha 2) formam a
    coluna esquerda; AdSidebar ocupa as duas linhas na direita (senão a altura
    da linha 1 seria ditada só por ele, e sobra vazio embaixo da galeria antes
-   de "Anúncios Similares"). ad-banner-col fecha embaixo, largura toda —
-   REVERTIDO (pedido explícito do usuário: esse full-width é o layout
-   original, já validado ao vivo antes; a reclamação anterior era sobre a
-   imagem do banner distorcendo/cortando via object-fit:cover, não sobre a
-   largura da coluna — ver AdBanner.tsx, corrigido separadamente pra
-   object-fit:contain). Não estreitar pra grid-column:1 de novo. */
+   de "Anúncios Similares").
+   BUG CORRIGIDO (achado ao vivo pelo usuário: banner "Anuncie Aqui" tinha
+   virado uma faixa própria — estreita, depois full-width, nenhuma das duas
+   era o que o usuário queria — abaixo de "Anúncios Similares"). O elemento
+   `.ad-banner-col` não existe mais: o banner (position="anuncio_sidebar")
+   voltou a morar DENTRO do AdSidebar (components/ads/AdSidebar.tsx, classe
+   .sidebar-banner-fixed, sticky) — "na mesma linha" de Anúncios Similares no
+   sentido de acompanhar o scroll na coluna direita, nunca quebrando pra uma
+   linha nova abaixo. */
 @media (min-width: 993px) {
   .sidebar-fixed-container { grid-row: 1 / 3; }
   .ad-similar-col { grid-column: 1; grid-row: 2; }
-  .ad-banner-col { grid-column: 1 / -1; grid-row: 3; margin-top: 1rem; }
 }
 
 /* Título/preço/local do anúncio: no mobile o usuário quer ver logo após a

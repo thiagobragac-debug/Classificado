@@ -5,7 +5,6 @@ import { getLocale } from '@/lib/locale-server';
 import { localizedPath, buildHreflangAlternates, SITE_URL } from '@/lib/locale';
 import Link from 'next/link';
 import { sanitizeHtml } from '@/lib/sanitize';
-import { AdBanner } from '@/components/AdBanner';
 import { AdGallery } from '@/components/ads/AdGallery';
 import { AdSidebar } from '@/components/ads/AdSidebar';
 import { StickyMobileCta } from '@/components/ads/StickyMobileCta';
@@ -528,10 +527,6 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ slug
               city={preferredCity}
               state={preferredState}
             />
-          </div>
-
-          <div className="ad-banner-col">
-            <AdBanner position="anuncio_sidebar" />
           </div>
         </div>
       </div>

@@ -174,14 +174,13 @@ export function AdBanner({ position }: { position: string }) {
           alt={bannerName}
           // BUG CORRIGIDO (achado ao vivo pelo usuário: banner "Anuncie Aqui"
           // gigante/cortado na página de anúncio): objectFit:'cover' presume
-          // que a imagem tem aspect-ratio parecido com o slot. Isso é
-          // verdade pra listagem_sidebar (coluna estreita, ~300px), mas
-          // anuncio_sidebar renderiza numa faixa full-width no fim da
-          // página (.ad-banner-col, grid-column:1/-1) — uma imagem quase
-          // quadrada (o placeholder ativo hoje é 300x250) cobria a faixa
-          // inteira ampliando e cortando o texto até ficar irreconhecível.
-          // 'contain' garante a imagem inteira sempre visível, sem distorcer/
-          // cortar, não importa o aspect-ratio do slot ou da arte cadastrada.
+          // que a imagem tem aspect-ratio parecido com o slot. Na época o
+          // anuncio_sidebar renderizava numa faixa full-width fora da
+          // sidebar — hoje voltou a morar dentro do AdSidebar
+          // (components/ads/AdSidebar.tsx, .sidebar-banner-fixed), mas
+          // 'contain' continua valendo pra qualquer posição/slot: garante a
+          // imagem inteira sempre visível, sem distorcer/cortar, não importa
+          // o aspect-ratio do slot ou da arte cadastrada.
           style={{ width: '100%', height: '100%', objectFit: 'contain', opacity: 0.85, transition: 'opacity 0.3s' }}
           onMouseOver={(e) => (e.currentTarget.style.opacity = '1')}
           onMouseOut={(e) => (e.currentTarget.style.opacity = '0.85')}
