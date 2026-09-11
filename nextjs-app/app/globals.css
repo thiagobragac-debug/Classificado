@@ -2850,14 +2850,24 @@ textarea.form-input { resize: vertical; min-height: 140px; }
 
 .gallery-main-wrapper {
   position: relative;
-  width: 100%;          /* CRÍTICO: anchor o cálculo do aspect-ratio */
-  aspect-ratio: 16 / 9;
+  width: 100%;
   border-radius: 1.5rem;
   overflow: hidden;
   background: #F1F5F9;
   margin-bottom: 1rem;
   box-shadow: 0 10px 30px rgba(0,0,0,0.05);
 }
+/* BUG CORRIGIDO (achado ao vivo pelo usuário no mobile: foto cortada, só um
+   filete visível dentro de uma caixa escura vazia): o `aspect-ratio: 16/9`
+   que existia aqui (e no override `!important` mais abaixo) foi desenhado
+   pra um markup antigo da galeria, onde o <img> tinha a classe .gallery-main
+   e preenchia o wrapper via position:absolute;inset:0 (ver regra abaixo,
+   hoje morta — grep confirma que nenhum componente usa mais .gallery-main).
+   O AdGallery.tsx atual renderiza um <div> flex com minHeight:400px e uma
+   <Image> centralizada por object-fit:contain — travar a altura do wrapper
+   em 16:9 (193px numa coluna de 343px) sozinho já ficava menor que os
+   400px reais do carrossel; com overflow:hidden, cortava a foto quase
+   inteira, sobrando só uma tira dela visível no fundo da caixa. */
 .gallery-main { position: absolute; inset: 0; width: 100%; height: 100%; aspect-ratio: auto; object-fit: cover; background: var(--clr-surface-alt); display: block; }
 .gallery-nav-btn {
   position: absolute; top: 50%; transform: translateY(-50%);
@@ -3099,11 +3109,14 @@ textarea.form-input { resize: vertical; min-height: 140px; }
   .sidebar-title-price-location { display: none; }
 }
 
-/* Wrapper define o aspect-ratio, nao o img */
+/* BUG CORRIGIDO: aspect-ratio 16/9 removido daqui — ver comentário completo
+   junto à 1ª definição de .gallery-main-wrapper, mais acima neste arquivo.
+   Essa era a declaração que de fato vencia a cascata (única com !important),
+   travando a altura do wrapper bem abaixo dos ~400px reais do carrossel
+   atual (AdGallery.tsx) e cortando a foto quase inteira no mobile. */
 .gallery-main-wrapper {
   position: relative !important;
   width: 100% !important;
-  aspect-ratio: 16 / 9 !important;
   overflow: hidden !important;
   border-radius: 1.5rem;
 }

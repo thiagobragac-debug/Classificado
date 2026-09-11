@@ -84,15 +84,29 @@
   transform: scale(1.02);
 }
 
+/* BUG CORRIGIDO (achado ao vivo testando o fix do gallery-main-wrapper):
+   sem !important aqui, essa regra nunca vencia o `style={{ display: 'flex'
+   }}` inline que o próprio elemento carrega em AdGallery.tsx — resultado:
+   em telas >768px, um anúncio com 5+ fotos mostrava o grid estilo Airbnb E
+   o carrossel mobile empilhados, duplicando a galeria inteira. O
+   `!important` do breakpoint abaixo já reconhecia essa necessidade (pra
+   fazer o oposto — reexibir no mobile); só faltava aqui, no estado base. */
 .gallery-mobile-carousel {
-  display: none;
+  display: none !important;
 }
 
 @media (max-width: 768px) {
   .gallery-airbnb-grid {
     display: none !important;
   }
+  /* BUG CORRIGIDO (achado ao vivo, mesma rodada): era "block" — como o
+     próprio elemento é flex (alignItems/justifyContent centralizam a
+     imagem via inline style em AdGallery.tsx), forçar "block" aqui
+     descartava esse layout inteiro e a foto caía pro canto superior
+     esquerdo em vez de centralizada, pra qualquer anúncio com 5+ fotos
+     visto no mobile (nenhum anúncio real tinha esse volume de fotos ainda,
+     por isso nunca tinha aparecido em produção). */
   .gallery-mobile-carousel {
-    display: block !important;
+    display: flex !important;
   }
 }
