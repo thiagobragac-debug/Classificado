@@ -5,6 +5,7 @@ import { getLocale } from '@/lib/locale-server';
 import { localizedPath, buildHreflangAlternates, SITE_URL } from '@/lib/locale';
 import Link from 'next/link';
 import { sanitizeHtml } from '@/lib/sanitize';
+import { AdBanner } from '@/components/AdBanner';
 import { AdGallery } from '@/components/ads/AdGallery';
 import { AdSidebar } from '@/components/ads/AdSidebar';
 import { StickyMobileCta } from '@/components/ads/StickyMobileCta';
@@ -527,6 +528,17 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ slug
               city={preferredCity}
               state={preferredState}
             />
+          </div>
+
+          {/* BUG CORRIGIDO (achado ao vivo pelo usuário: o banner sticky
+              dentro do AdSidebar — ver .sidebar-banner-fixed lá — também
+              alterou o mobile, que não devia mudar; lá o banner sempre
+              ficou ABAIXO de "Anúncios Similares". Esta cópia é exclusiva
+              do mobile (.ad-banner-mobile-only oculta em >=993px), mesmo
+              padrão já usado pra título/preço/local
+              (.ad-mobile-summary vs .sidebar-title-price-location). */}
+          <div className="ad-banner-mobile-only">
+            <AdBanner position="anuncio_sidebar" />
           </div>
         </div>
       </div>

@@ -2628,9 +2628,29 @@ textarea.form-input { resize: vertical; min-height: 140px; }
   flex-direction: column;
 }
 
+/* BUG CORRIGIDO (achado ao vivo pelo usuário: mudança pro sticky-na-sidebar
+   também alterou o mobile, que não devia mudar — lá o banner sempre ficou
+   ABAIXO de "Anúncios Similares", nunca dentro da sidebar). Esse banner
+   sticky é exclusivo do desktop; a versão mobile é outro elemento
+   (.ad-banner-mobile-only, page.tsx), mesmo padrão já usado pra título/
+   preço/local (.ad-mobile-summary vs .sidebar-title-price-location). */
 .sidebar-banner-fixed {
-  position: sticky;
-  top: calc(var(--header-h) + 2rem);
+  display: none;
+}
+@media (min-width: 993px) {
+  .sidebar-banner-fixed {
+    display: block;
+    position: sticky;
+    top: calc(var(--header-h) + 2rem);
+  }
+}
+.ad-banner-mobile-only {
+  margin-top: 1rem;
+}
+@media (min-width: 993px) {
+  .ad-banner-mobile-only {
+    display: none;
+  }
 }
 .sidebar-sticky-wrapper::-webkit-scrollbar {
   width: 6px;
