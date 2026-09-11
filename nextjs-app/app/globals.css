@@ -3089,14 +3089,23 @@ textarea.form-input { resize: vertical; min-height: 140px; }
 .sidebar-fixed-container { min-width: 0 !important; }
 .ad-similar-col, .ad-banner-col { min-width: 0; }
 
-/* Desktop: ad-gallery-col (linha 1) e ad-similar-col (linha 2) formam a
-   coluna esquerda; AdSidebar ocupa as duas linhas na direita (senão a altura
-   da linha 1 seria ditada só por ele, e sobra vazio embaixo da galeria antes
-   de "Anúncios Similares"). ad-banner-col fecha embaixo, largura toda. */
+/* Desktop: ad-gallery-col (linha 1), ad-similar-col (linha 2) e agora
+   ad-banner-col (linha 3) formam a MESMA coluna esquerda. AdSidebar
+   continua ocupando só as linhas 1-2 na direita (senão a altura da linha 1
+   seria ditada só por ele, e sobra vazio embaixo da galeria antes de
+   "Anúncios Similares") — a linha 3/coluna direita fica sem nenhum item de
+   grid, ou seja, sem caixa nenhuma ali, não é "vazio sobrando", é célula
+   inexistente.
+   BUG CORRIGIDO (achado ao vivo pelo usuário: banner "Anuncie Aqui"
+   esticando full-width, mais largo que "Anúncios Similares" logo acima —
+   grid-column:1/-1 fazia ele invadir a largura reservada pra coluna do
+   AdSidebar mesmo com o próprio AdSidebar já tendo terminado seu conteúdo
+   bem mais acima). Trocado pra grid-column:1, igual ao similar-col —
+   banner agora fecha alinhado, mesma largura da seção anterior. */
 @media (min-width: 993px) {
   .sidebar-fixed-container { grid-row: 1 / 3; }
   .ad-similar-col { grid-column: 1; grid-row: 2; }
-  .ad-banner-col { grid-column: 1 / -1; grid-row: 3; margin-top: 1rem; }
+  .ad-banner-col { grid-column: 1; grid-row: 3; margin-top: 1rem; }
 }
 
 /* Título/preço/local do anúncio: no mobile o usuário quer ver logo após a
