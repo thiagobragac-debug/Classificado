@@ -190,7 +190,15 @@ export function AdGallery({ images, videoUrl, title, lang = 'pt' }: AdGalleryPro
             alignItems: 'center',
             justifyContent: 'center',
             border: '1px solid var(--clr-border)',
-            minHeight: '400px',
+            // BUG CORRIGIDO (achado ao vivo pelo usuário logo após o fix do
+            // aspect-ratio travado do wrapper): um `minHeight: 400px` fixo
+            // aqui, com a foto centralizada por object-fit:contain, sobrava
+            // como faixa preta acima/abaixo de qualquer foto cuja altura
+            // renderizada (proporcional à largura real da coluna) fosse
+            // menor que 400px — o caso comum, já que a maioria das fotos é
+            // ~4:3 ou mais larga. Sem minHeight, a caixa acompanha a altura
+            // real da foto (que já tem width/height no <Image>, então o
+            // navegador reserva o espaço certo sem re-layout ao carregar).
             cursor: 'pointer'
           }}
           onClick={() => openLightbox(currentIdx)}
