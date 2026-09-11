@@ -186,19 +186,24 @@ export function AdGallery({ images, videoUrl, title, lang = 'pt' }: AdGalleryPro
             backgroundColor: '#1e293b',
             borderRadius: '1rem',
             overflow: 'hidden',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
             border: '1px solid var(--clr-border)',
-            // BUG CORRIGIDO (achado ao vivo pelo usuário logo após o fix do
-            // aspect-ratio travado do wrapper): um `minHeight: 400px` fixo
-            // aqui, com a foto centralizada por object-fit:contain, sobrava
-            // como faixa preta acima/abaixo de qualquer foto cuja altura
-            // renderizada (proporcional à largura real da coluna) fosse
-            // menor que 400px — o caso comum, já que a maioria das fotos é
-            // ~4:3 ou mais larga. Sem minHeight, a caixa acompanha a altura
-            // real da foto (que já tem width/height no <Image>, então o
-            // navegador reserva o espaço certo sem re-layout ao carregar).
+            // BUG CORRIGIDO (achado ao vivo pelo usuário, 2 rodadas seguidas):
+            // primeiro um `minHeight:400px` fixo sobrava como faixa preta
+            // acima/abaixo da foto no mobile; removido isso, sobrou faixa
+            // preta nas LATERAIS no desktop — `width:100%` + `height:auto` +
+            // `maxHeight:500px` juntos (no <Image> abaixo) forçavam uma caixa
+            // cuja proporção (ex.: 938x500 numa coluna larga) não batia com a
+            // foto real (~4:3), e object-fit:contain letterboxava o que
+            // sobrava. Causa raiz de fundo: a caixa nunca tinha uma proporção
+            // PRÓPRIA, só herdava altura do conteúdo (que varia com a
+            // largura da coluna) — sempre ia haver alguma combinação de
+            // largura/altura de coluna que não batesse com alguma foto.
+            // Fix definitivo: aspect-ratio fixo aqui + <Image fill
+            // objectFit:cover> abaixo (mesmo padrão já usado nos thumbnails
+            // do grid desktop, linhas acima) — a caixa nunca mais depende do
+            // formato da foto, nunca sobra vazio. Full view sem corte
+            // nenhum continua disponível no lightbox (clique na foto).
+            aspectRatio: '4 / 3',
             cursor: 'pointer'
           }}
           onClick={() => openLightbox(currentIdx)}
@@ -230,17 +235,16 @@ export function AdGallery({ images, videoUrl, title, lang = 'pt' }: AdGalleryPro
 
           {media[currentIdx].type === 'video' ? (
             <video
-              src={media[currentIdx].url} 
+              src={media[currentIdx].url}
               controls
-              style={{ width: '100%', height: 'auto', maxHeight: '500px', objectFit: 'contain' }}
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
             />
           ) : (
             <Image
               src={media[currentIdx].url}
               alt={`${title} - ${tt.imageAlt} ${currentIdx + 1}`}
-              width={1200}
-              height={900}
-              style={{ width: '100%', height: 'auto', maxHeight: '500px', objectFit: 'contain', display: 'block', margin: 'auto' }}
+              fill
+              style={{ objectFit: 'cover' }}
               priority
             />
           )}
