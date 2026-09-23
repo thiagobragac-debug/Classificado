@@ -1,0 +1,23 @@
+name: Daily maintenance cron
+
+on:
+  schedule:
+    - cron: '0 5 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  daily-jobs:
+    name: expire-stale-subscriptions + enforce-ad-quota-deadlines
+    runs-on: ubuntu-latest
+    steps:
+      - name: Expirar assinaturas pendentes travadas (cancela no gateway real)
+        run: |
+          curl -sf -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://tauze-class.onrender.com/api/internal/expire-stale-subscriptions
+
+      - name: Aplicar prazos de anuncios excedentes vencidos
+        run: |
+          curl -sf -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://tauze-class.onrender.com/api/internal/enforce-ad-quota-deadlines
