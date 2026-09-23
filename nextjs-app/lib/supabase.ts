@@ -391,29 +391,27 @@ export function safeFileExt(fileName: string, fallback = 'jpg'): string {
   return raw.toLowerCase().replace(/[^a-z0-9]/g, '') || fallback;
 }
 
+// Comprime no servidor (app/api/upload-ad-image, sharp -> WebP) em vez de
+// subir o arquivo cru pro Storage — ver comentário na rota pra detalhes e
+// números reais de redução. `folder` e o path final (uid/<folder>/arquivo)
+// são decididos ali, não aqui; esta função só entrega o arquivo autenticado.
 export async function uploadAdImage(file: File, folder = 'draft'): Promise<string | null> {
   const session = await getSession();
   if (!session) throw new Error('Not authenticated');
 
-  const ext = safeFileExt(file.name);
-  // uid como primeiro segmento do path: a policy de INSERT do bucket ad-images
-  // (supabase/migrations/20260826110000_validacao_zero_3a_rodada.sql) exige
-  // (auth.uid())::text = (storage.foldername(name))[1] — com pasta antes do
-  // uid, [1] nunca bate com auth.uid() e TODO upload cai em 403 (RLS), como o
-  // fluxo normal de anúncio (StepPhotos.tsx) e os uploads do admin
-  // (leilões/banners). Confirmado ao vivo: uid/pasta/arquivo passa, pasta/uid
-  // não passa. Mesma convenção já usada pelo upload de KYC.
-  const fileName = `${session.user.id}/${folder}/${Date.now()}_${Math.random().toString(36).substring(2)}.${ext}`;
-  
-  const { data, error } = await getSupabase().storage.from('ad-images').upload(fileName, file, {
-    cacheControl: '31536000',
-    upsert: false
-  });
-  
-  if (error) throw error;
-  
-  const { data: { publicUrl } } = getSupabase().storage.from('ad-images').getPublicUrl(fileName);
-  return publicUrl;
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('folder', folder);
+
+  const res = await fetch('/api/upload-ad-image', { method: 'POST', body: formData });
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('Not authenticated');
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || 'Upload failed');
+  }
+
+  const { url } = await res.json();
+  return url ?? null;
 }
 
 // BUG CORRIGIDO (achado em auditoria de imagens): remover uma foto no
