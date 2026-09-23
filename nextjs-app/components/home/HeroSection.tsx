@@ -134,10 +134,18 @@ export async function HeroSection({ stats }: { stats: any }) {
 
               {/* Main image */}
               <div className="hero-img-wrap">
-                <Image 
-                  src="/assets/hero_farm.webp" 
+                <Image
+                  src="/assets/hero_farm.webp"
                   alt={t('hero_img_alt')}
                   fill
+                  // BUG CORRIGIDO (achado ao vivo: consumo de Image
+                  // Optimization do Vercel bateu no limite do plano) — sem
+                  // `sizes`, fill pede a maior variante "por segurança" mesmo
+                  // em telas onde .hero-right vira display:none (globals.css,
+                  // <=992px) e essa imagem nunca aparece. .hero-right é 1fr de
+                  // um grid 1fr/1fr (.hero-grid) dentro do .container
+                  // (max-width:1280px) — ~50% do container quando visível.
+                  sizes="(max-width: 992px) 0px, (max-width: 1280px) 50vw, 620px"
                   priority
                   fetchPriority="high"
                   placeholder="blur"

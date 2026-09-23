@@ -39,10 +39,17 @@ export async function LoginBanner({ logoUrl }: LoginBannerProps) {
   return (
     <div className="login-banner">
       <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+        {/* BUG CORRIGIDO (achado ao vivo: consumo de Image Optimization do
+            Vercel bateu no limite do plano) — sem `sizes`, fill pede a maior
+            variante "por segurança" mesmo em telas onde .login-banner vira
+            display:none (globals.css, <=992px) e essa imagem nunca aparece.
+            Acima disso, .login-split é grid 1fr/1fr de VIEWPORT INTEIRO (sem
+            .container/max-width por cima) — 50vw sem teto. */}
         <Image
           src="/assets/hero_farm.webp"
           alt={tr.alt}
           fill
+          sizes="(max-width: 992px) 0px, 50vw"
           priority
           style={{ objectFit: 'cover' }}
         />

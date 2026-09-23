@@ -136,7 +136,17 @@ export function AdGallery({ images, videoUrl, title, lang = 'pt' }: AdGalleryPro
                   <Play className="w-16 h-16 text-white opacity-80" />
                 </div>
               ) : (
-                <Image src={media[0].url} alt={title} fill style={{ objectFit: 'cover' }} priority />
+                // BUG CORRIGIDO (achado ao vivo: consumo de Image Optimization do
+                // Vercel bateu no limite do plano, deixando o site fora do ar —
+                // fill sem `sizes` faz o navegador pedir a maior variante
+                // disponível "por segurança", multiplicando transformações sem
+                // necessidade. `sizes` aqui reflete a largura real: até 991px o
+                // grid vira 1 coluna (globals.css, .product-grid) e a galeria
+                // ocupa 100vw; de 992 a 1280px ela é ~50% da coluna esquerda
+                // (~61,5% do container) enquanto o container ainda escala com o
+                // viewport; acima de 1280px o container trava no max-width e a
+                // largura vira fixa em px.
+                <Image src={media[0].url} alt={title} fill sizes="(max-width: 991px) 100vw, (max-width: 1280px) 30vw, 384px" style={{ objectFit: 'cover' }} priority />
               )}
             </div>
 
@@ -157,7 +167,10 @@ export function AdGallery({ images, videoUrl, title, lang = 'pt' }: AdGalleryPro
                      <Play className="w-8 h-8 opacity-80" />
                    </div>
                 ) : (
-                  <Image src={item.url} alt={`${title} ${idx + 1}`} fill style={{ objectFit: 'cover' }} />
+                  // Mesma correção de `sizes` da imagem principal acima —
+                  // cada miniatura secundária ocupa ~1/4 da coluna esquerda
+                  // (1fr de 4fr no grid .gallery-airbnb-grid).
+                  <Image src={item.url} alt={`${title} ${idx + 1}`} fill sizes="(max-width: 768px) 50vw, (max-width: 1280px) 15vw, 192px" style={{ objectFit: 'cover' }} />
                 )}
               </div>
             ))}
@@ -240,10 +253,19 @@ export function AdGallery({ images, videoUrl, title, lang = 'pt' }: AdGalleryPro
               style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
             />
           ) : (
+            // BUG CORRIGIDO (achado ao vivo: consumo de Image Optimization do
+            // Vercel bateu no limite do plano) — este é o caminho usado por
+            // TODOS os anúncios hoje (nenhum tem 5+ fotos ainda, então o grid
+            // desktop acima nunca renderiza de verdade em produção); é a
+            // caixa de proporção fixa 4:3 da galeria (globals.css/AdGallery),
+            // ocupando a coluna esquerda do product-grid — mesmo raciocínio
+            // de breakpoints da imagem principal do grid acima, só que a
+            // 100% da coluna (não 50%).
             <Image
               src={media[currentIdx].url}
               alt={`${title} - ${tt.imageAlt} ${currentIdx + 1}`}
               fill
+              sizes="(max-width: 991px) 100vw, (max-width: 1280px) 60vw, 768px"
               style={{ objectFit: 'cover' }}
               priority
             />

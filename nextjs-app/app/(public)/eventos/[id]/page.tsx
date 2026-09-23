@@ -347,10 +347,16 @@ export default async function EventDetailPage({
       <div className="container" style={{ paddingTop: 'var(--sp-6)' }}>
         {event.cover && (
           <div style={{ position: 'relative', width: '100%', height: '400px', backgroundColor: '#f1f5f9', borderRadius: '1rem', overflow: 'hidden', marginBottom: '2rem' }}>
+            {/* BUG CORRIGIDO (achado ao vivo: consumo de Image Optimization do
+                Vercel bateu no limite do plano, tirando o site do ar) — sem
+                `sizes`, fill pede a maior variante disponível "por segurança".
+                Esta imagem ocupa 100% do .container (max-width:1280px,
+                globals.css), sem divisão de coluna. */}
             <Image
               src={imageUrl(event.cover)}
               alt={event.title}
               fill
+              sizes="(max-width: 1280px) 100vw, 1280px"
               style={{ objectFit: 'cover' }}
               priority
             />
