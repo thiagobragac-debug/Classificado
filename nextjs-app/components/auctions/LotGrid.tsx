@@ -1,7 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Image from 'next/image';
+// AppImage (não next/image direto) — ver components/AppImage.tsx: deixa o
+// Image Transformations do Supabase pronto pra ativar no futuro só com env
+// var + upgrade de plano, sem editar este arquivo de novo.
+import { AppImage as Image } from '@/components/AppImage';
 import { imageUrl } from '@/lib/storage';
 import { getSupabase } from '@/lib/supabase';
 import { useLang } from '@/lib/lang-context';

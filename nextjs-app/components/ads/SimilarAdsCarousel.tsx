@@ -2,7 +2,10 @@
 
 import { useRef } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+// AppImage (não next/image direto) — ver components/AppImage.tsx: deixa o
+// Image Transformations do Supabase pronto pra ativar no futuro só com env
+// var + upgrade de plano, sem editar este arquivo de novo.
+import { AppImage as Image } from '@/components/AppImage';
 import { ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
 import { imageUrl } from '@/lib/storage';
 import { useLang } from '@/lib/lang-context';

@@ -1,6 +1,9 @@
 import { notFound, permanentRedirect } from 'next/navigation'
 import { createAnonClient } from '@/lib/supabase-server'
-import Image from 'next/image'
+// AppImage (não next/image direto) — ver components/AppImage.tsx: deixa o
+// Image Transformations do Supabase pronto pra ativar no futuro só com env
+// var + upgrade de plano, sem editar este arquivo de novo.
+import { AppImage as Image } from '@/components/AppImage'
 import Link from 'next/link'
 import { isSafeExternalUrl } from '@/lib/sanitize'
 import type { Metadata } from 'next'

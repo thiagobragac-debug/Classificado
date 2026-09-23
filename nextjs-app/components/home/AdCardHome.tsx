@@ -1,7 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
+// AppImage (não next/image direto) — ver components/AppImage.tsx: deixa o
+// Image Transformations do Supabase pronto pra ativar no futuro só com env
+// var + upgrade de plano, sem editar este arquivo de novo.
+import { AppImage as Image } from '@/components/AppImage';
 import { m } from 'framer-motion';
 import { CAT_COLORS } from '@/lib/constants';
 import { useCategories } from '@/lib/categories-context';

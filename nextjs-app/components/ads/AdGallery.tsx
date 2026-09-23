@@ -2,7 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import Image from 'next/image';
+// AppImage (não next/image direto): todo uso aqui é de foto de anúncio, do
+// Storage do Supabase — trocar aqui e nos outros 9 arquivos que usam foto do
+// Supabase é o que deixa o Image Transformations do Supabase pronto pra
+// ativar no futuro só com uma env var + upgrade de plano, sem editar nenhum
+// desses arquivos de novo (ver componentes/AppImage.tsx pro raciocínio
+// completo).
+import { AppImage as Image } from '@/components/AppImage';
 import { ChevronLeft, ChevronRight, Play, X, Grid } from 'lucide-react';
 import { imageUrl } from '@/lib/storage';
 
