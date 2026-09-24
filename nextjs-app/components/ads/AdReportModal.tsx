@@ -137,15 +137,23 @@ export function AdReportModal({ adId, isOpen, onClose }: AdReportModalProps) {
 
     // GAP CORRIGIDO (revisão de regras de negócio, 2026-08-25): zero rate
     // limit aqui — um usuário (ou visitante anônimo) podia disparar
-    // denúncias falsas em loop contra o mesmo anúncio. check_rate_limit é
-    // o mesmo RPC (janela no Postgres) que /login já usa, liberado pra
-    // anon/authenticated de propósito. Sem sessão (denúncia anônima, ainda
-    // permitida por design), não tem como saber quem é de verdade —
-    // limita por anúncio em vez de por usuário, pra pelo menos travar
-    // flood contra um alvo só.
-    const bucket = session?.user?.id ? `report_user_${session.user.id}` : `report_ad_${adId}`
-    const { data: dentroDoLimite } = await sb.rpc('check_rate_limit', { p_bucket: bucket, p_limit: 5, p_window_seconds: 60 })
-    if (dentroDoLimite === false) {
+    // denúncias falsas em loop contra o mesmo anúncio. Sem sessão (denúncia
+    // anônima, ainda permitida por design), não tem como saber quem é de
+    // verdade — limita por anúncio em vez de por usuário, pra pelo menos
+    // travar flood contra um alvo só.
+    // BUG CORRIGIDO (achado ao vivo, varredura de segurança/performance,
+    // 2026-09-24): chamava check_rate_limit(p_bucket livre) direto, mas o
+    // EXECUTE dessa função foi revogado de anon/authenticated em
+    // 20260830200000 (fecha bypass de bucket livre) — a chamada sempre
+    // retornava erro de permissão, nunca tratado, então este guard nunca
+    // disparava de verdade. check_report_rate_limit(p_ad_id) (RPC nova —
+    // constrói o bucket internamente a partir de auth.uid() quando
+    // logado, ou do próprio p_ad_id quando anônimo, nunca de um bucket
+    // livre) restaura o pré-check sem reabrir o bypass original.
+    const { data: dentroDoLimite, error: rateLimitError } = await sb.rpc('check_report_rate_limit', { p_ad_id: adId })
+    if (rateLimitError) {
+      console.warn('[AdReportModal] check_report_rate_limit falhou, seguindo sem pré-check client-side (trigger no banco continua protegendo):', rateLimitError.message);
+    } else if (dentroDoLimite === false) {
       setErrorMsg(tr.rateLimited);
       setIsSending(false);
       return;

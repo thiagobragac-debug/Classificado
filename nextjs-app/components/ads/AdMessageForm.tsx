@@ -87,10 +87,19 @@ export function AdMessageForm({ adId, receiverId }: AdMessageFormProps) {
     }
 
     // GAP CORRIGIDO (revisão de regras de negócio, 2026-08-25): insert
-    // direto sem nenhum limite de taxa — mesmo padrão já usado em
-    // check_rate_limit (janela no Postgres, liberado pra authenticated).
-    const { data: dentroDoLimite } = await sb.rpc('check_rate_limit', { p_bucket: `message_user_${session.user.id}`, p_limit: 10, p_window_seconds: 60 })
-    if (dentroDoLimite === false) {
+    // direto sem nenhum limite de taxa.
+    // BUG CORRIGIDO (achado ao vivo, varredura de segurança/performance,
+    // 2026-09-24): chamava check_rate_limit() direto, mas o EXECUTE dessa
+    // função foi revogado de authenticated em 20260830200000 (fecha bypass
+    // de bucket livre) — a chamada sempre retornava erro de permissão, que
+    // nunca era tratado (só `data` era lido), então este guard nunca
+    // disparava de verdade. check_message_rate_limit() (RPC nova, sem
+    // parâmetro de bucket livre — amarra ao auth.uid() do próprio chamador
+    // internamente) restaura o pré-check sem reabrir o bypass original.
+    const { data: dentroDoLimite, error: rateLimitError } = await sb.rpc('check_message_rate_limit')
+    if (rateLimitError) {
+      console.warn('[AdMessageForm] check_message_rate_limit falhou, seguindo sem pré-check client-side (trigger no banco continua protegendo):', rateLimitError.message);
+    } else if (dentroDoLimite === false) {
       setMsgStatus({ type: 'error', text: tr.rateLimited });
       setMsgSending(false);
       return;
