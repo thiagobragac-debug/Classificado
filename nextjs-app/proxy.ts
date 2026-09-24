@@ -303,10 +303,17 @@ const EVENTO_AUCTION_REGEX = /^\/eventos\/([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-
 const PAISES_ES = new Set(['AR', 'PY', 'UY']);
 
 // Só usado quando NÃO existe cookie tc_lang ainda (visitante genuinamente
-// novo) — ver comentário em cima de `activeLocale` abaixo. x-vercel-ip-country
-// só existe na Vercel (produção); em dev local vem undefined e cai no
+// novo) — ver comentário em cima de `activeLocale` abaixo. cf-ipcountry só
+// existe atrás do Cloudflare (produção, tanto Render quanto o antigo
+// x-vercel-ip-country na Vercel); em dev local vem undefined e cai no
 // default 'pt' de qualquer forma, mesma limitação que app/(public)/page.tsx
 // já tem pra geolocalização de cidade/estado.
+// BUG CORRIGIDO (migração Vercel -> Render, achado ao vivo, 2026-09-24):
+// x-vercel-ip-country nunca é setado fora da Vercel — todo visitante novo
+// (sem cookie tc_lang ainda) vindo de AR/PY/UY estava caindo sempre em PT
+// por padrão desde a migração, silenciosamente. cf-ipcountry é o
+// equivalente do Cloudflare, que fica na frente de 100% do tráfego do
+// Render.
 function paisParaLocale(countryCode: string | null): 'pt' | 'es' {
   return countryCode && PAISES_ES.has(countryCode) ? 'es' : 'pt';
 }
@@ -489,7 +496,7 @@ export async function proxy(request: NextRequest) {
   const rawCookieLang = request.cookies.get('tc_lang')?.value;
   const cookieLang = rawCookieLang === 'es' ? 'es' : null;
   const hasStoredLang = rawCookieLang === 'pt' || rawCookieLang === 'es';
-  const geoLocale = hasStoredLang ? null : paisParaLocale(request.headers.get('x-vercel-ip-country'));
+  const geoLocale = hasStoredLang ? null : paisParaLocale(request.headers.get('cf-ipcountry'));
   const activeLocale: 'pt' | 'es' = urlLocale || cookieLang || geoLocale || 'pt';
 
   // BUG CORRIGIDO (migração de SEO): visitante com preferência ES definida

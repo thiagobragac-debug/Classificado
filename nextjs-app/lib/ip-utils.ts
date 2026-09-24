@@ -19,9 +19,22 @@ export interface HeaderLike {
  * que o proxy mais próximo realmente observou.
  *
  * Ordem de preferência:
- *   1. x-vercel-forwarded-for — a plataforma sobrescreve, o cliente não forja
- *   2. x-real-ip              — idem, quando há proxy que o defina
- *   3. último item do x-forwarded-for
+ *   1. cf-connecting-ip       — o Cloudflare sobrescreve na borda, o cliente não forja
+ *   2. x-vercel-forwarded-for — a plataforma sobrescreve, o cliente não forja
+ *   3. x-real-ip              — idem, quando há proxy que o defina
+ *   4. último item do x-forwarded-for
+ *
+ * BUG CORRIGIDO (migração Vercel -> Render, achado ao vivo, 2026-09-24):
+ * fora da Vercel, x-vercel-forwarded-for nunca vem preenchido. O fallback
+ * pro último item de x-forwarded-for então pegava o IP INTERNO do load
+ * balancer do Render (ex.: "186.x (cliente real), 172.x (Cloudflare),
+ * 10.31.x (LB interno, privado)" — o último item é o LB, não o cliente),
+ * isLocalIp() batia nesse IP privado, e a geolocalização resolvia sempre o
+ * egress do próprio servidor (Washington DC) em vez do visitante real.
+ * cf-connecting-ip tem a mesma garantia de plataforma que
+ * x-vercel-forwarded-for tinha — o Cloudflare que fica na frente de 100%
+ * do tráfego do Render sobrescreve esse header na borda a cada requisição.
+ * Confirmado ao vivo via endpoint de debug: chega correto em produção.
  *
  * BUG CORRIGIDO (validação adversarial final): retornava o literal
  * '127.0.0.1' quando nenhum header confiável existia. Usado como chave de
@@ -35,6 +48,9 @@ export interface HeaderLike {
  * inventar um identificador compartilhado.
  */
 export function resolverIpConfiavel(headers: HeaderLike): string | null {
+  const cf = headers.get('cf-connecting-ip')?.trim();
+  if (cf) return cf;
+
   const vercel = headers.get('x-vercel-forwarded-for')?.trim();
   if (vercel) return vercel.split(',').pop()!.trim();
 

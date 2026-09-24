@@ -45,8 +45,28 @@ import { resolverIpConfiavel, isValidIp, isLocalIp } from '@/lib/ip-utils';
  * "não dá pra saber o IP com confiança" é tratado pelo chamador via
  * fallback pra profiles.country, nunca como "assume nacional" ou
  * "assume internacional" às cegas).
+ *
+ * BUG CRÍTICO CORRIGIDO (migração Vercel -> Render, achado ao vivo,
+ * 2026-09-24): x-vercel-forwarded-for nunca é setado fora da Vercel — no
+ * Render este header chega sempre vazio, fazendo resolveCountryCode()
+ * devolver `null` SEMPRE, e o checkout cair pro fallback de
+ * profiles.country em TODA requisição (reabrindo silenciosamente o exploit
+ * de moeda/gateway documentado no topo deste arquivo). Confirmado ao vivo
+ * via endpoint de debug temporário: cf-connecting-ip chega com o IP real do
+ * cliente em toda requisição de produção. Tem a mesma garantia de
+ * plataforma que x-vercel-forwarded-for tinha — o Cloudflare que fica na
+ * frente de 100% do tráfego do Render sobrescreve esse header na borda a
+ * cada requisição, então o cliente não consegue forjá-lo (comportamento
+ * documentado do Cloudflare, não uma suposição). Mantém
+ * x-vercel-forwarded-for como alternativa secundária (redeploy futuro na
+ * Vercel, preview env) — continua sem cair pra x-real-ip/x-forwarded-for
+ * aqui, essa estrita ausência de fallback é o ponto central deste
+ * comentário desde a correção original.
  */
 function resolverIpAutoritativo(headers: Headers): string | null {
+  const cf = headers.get('cf-connecting-ip')?.trim();
+  if (cf) return cf;
+
   const vercel = headers.get('x-vercel-forwarded-for')?.trim();
   if (!vercel) return null;
   const ultimo = vercel.split(',').pop()?.trim();

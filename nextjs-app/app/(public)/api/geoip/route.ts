@@ -31,6 +31,7 @@ export async function GET(request: NextRequest) {
         'x-real-ip': request.headers.get('x-real-ip'),
         'x-forwarded-for': request.headers.get('x-forwarded-for'),
         'cf-connecting-ip': request.headers.get('cf-connecting-ip'),
+        'cf-ipcountry': request.headers.get('cf-ipcountry'),
         'true-client-ip': request.headers.get('true-client-ip'),
         'x-forwarded-host': request.headers.get('x-forwarded-host'),
       },
