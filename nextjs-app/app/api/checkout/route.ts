@@ -5,6 +5,7 @@ import { resolveCountryCode } from '@/lib/geoip'
 import { dentroDoLimiteFallback } from '@/lib/rate-limit-fallback'
 import {
   selectGateway,
+  gatewaySuportaTrocaNativa,
   stripeAdapter,
   mercadoPagoAdapter,
   pagarmeAdapter,
@@ -153,7 +154,7 @@ export async function POST(req: Request) {
     // Brasil setando country="US" no próprio perfil bastava pra ser cobrado
     // em USD (ou o oposto) — confirmado explorável, sem nenhuma corroboração
     // contra o IP real da requisição em lugar nenhum do fluxo de checkout.
-    // resolveCountryCode() (lib/geoip.ts, mesma cascata de 3 provedores já
+    // resolveCountryCode() (lib/geoip.ts, mesma cascata de 2 provedores já
     // usada pela pré-visualização pública de preços em /planos) agora é a
     // fonte AUTORITATIVA — profiles.country só entra como fallback se os 3
     // provedores de geoip falharem ao mesmo tempo (degradação, não normal),
@@ -475,7 +476,11 @@ export async function POST(req: Request) {
     // (!prorate). Upgrade nessas 3 gateways continua no fallback de
     // cancelar+recriar abaixo, que já cobra o preço cheio na hora (mesmo
     // comportamento de sempre, não piorou nem melhorou nesta rodada).
-    const gatewaySuportaTrocaNativa = gatewayName === 'stripe' || (!prorate && (gatewayName === 'mercadopago' || gatewayName === 'pagarme' || gatewayName === 'asaas'))
+    // BUG CORRIGIDO (achado ao vivo, varredura de segurança/performance/RLS,
+    // 2026-09-24): esta condição era reimplementada aqui como lista
+    // hardcoded própria, divergente de lib/gateways/index.ts (única fonte
+    // de verdade agora — ver comentário em gatewaySuportaTrocaNativa lá).
+    const gatewaySuportaTrocaNativaOk = gatewaySuportaTrocaNativa(gatewayName, prorate)
     // BUG CORRIGIDO (achado ao vivo, teste completo de pagamento, 2026-09-01):
     // uma assinatura Stripe (e o item de preço dela) fica travada na moeda da
     // 1ª cobrança — a API rejeita de verdade um items[0][price_data][currency]
@@ -493,7 +498,7 @@ export async function POST(req: Request) {
     // Product novos na moeda certa), então basta excluir esse caso da
     // elegibilidade nativa em vez de tentar e falhar.
     const mesmaMoeda = existingActiveSub?.currency === currency
-    if (isPlanSwitch && finalPrice > 0 && existingActiveSub!.gateway_subscription_id && existingActiveSub!.gateway === gatewayName && gatewaySuportaTrocaNativa && mesmaMoeda && adapter.updateSubscriptionPlan) {
+    if (isPlanSwitch && finalPrice > 0 && existingActiveSub!.gateway_subscription_id && existingActiveSub!.gateway === gatewayName && gatewaySuportaTrocaNativaOk && mesmaMoeda && adapter.updateSubscriptionPlan) {
       try {
         if (appliedCoupon) {
           const { data: success, error: rpcErr } = await supabase.rpc('try_apply_coupon', { p_coupon_id: appliedCoupon.id })
@@ -571,11 +576,33 @@ export async function POST(req: Request) {
             plan_expires_at: switchResult.currentPeriodEnd || existingActiveSub!.current_period_end || null,
           }).eq('id', user.id)
 
-          const { error: downgradeSecErr } = await supabase.from('user_secrets').update({
+          // BUG CORRIGIDO (achado ao vivo, varredura de segurança/performance/
+          // RLS, 2026-09-24): a cobrança no gateway já aconteceu (não dá pra
+          // reverter só porque esta escrita falhou, ao contrário do bypass de
+          // cupom 100% acima, onde nenhum dinheiro tinha se movido ainda) —
+          // por isso não vira 500 aqui. Mas user_secrets.plan/plan_id é a
+          // fonte real de entitlement lida em produção (StepPhotos.tsx,
+          // ProfileTab.tsx, PricingClientUI.tsx), então uma falha de escrita
+          // aqui deixa o cliente pagando o plano novo (mais barato) mas com
+          // acesso ao antigo (mais caro) até a próxima renovação — só um
+          // console.warn era fácil demais de passar despercebido. Tenta mais
+          // uma vez (a causa mais provável é um erro transitório de rede/DB) e,
+          // se persistir, escala pra error, mesmo padrão de "revisão manual
+          // necessária" já usado nos outros guards de escrita pós-gateway
+          // deste arquivo.
+          let { error: downgradeSecErr } = await supabase.from('user_secrets').update({
             plan: downgradePlanEnum,
             plan_id: plan.id,
           }).eq('id', user.id)
-          if (downgradeSecErr) console.warn('[Checkout] Falha ao sincronizar user_secrets no downgrade imediato (não crítico):', downgradeSecErr.message)
+          if (downgradeSecErr) {
+            ({ error: downgradeSecErr } = await supabase.from('user_secrets').update({
+              plan: downgradePlanEnum,
+              plan_id: plan.id,
+            }).eq('id', user.id))
+          }
+          if (downgradeSecErr) {
+            console.error(`[Checkout] Falha ao sincronizar user_secrets no downgrade imediato (2 tentativas) pra ${user.id} — cliente pagando o plano novo mas com entitlement do antigo até a próxima renovação, revisão manual necessária:`, downgradeSecErr.message)
+          }
 
           // GAP CORRIGIDO (achado ao vivo, 2026-09-01): downgrade nativo
           // entre dois planos pagos (ex.: Premium -> PRO) atualizava o

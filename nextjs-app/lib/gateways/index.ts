@@ -35,6 +35,23 @@ const GATEWAYS_COM_TROCA_NATIVA: GatewayName[] = (['stripe', 'mercadopago', 'pag
     return typeof adapter.updateSubscriptionPlan === 'function'
   })
 
+// BUG CORRIGIDO (achado ao vivo, varredura de segurança/performance/RLS,
+// 2026-09-24): app/api/checkout/route.ts reimplementava esta EXATA condição
+// como uma lista hardcoded própria (`gatewayName === 'stripe' || (!prorate
+// && (gatewayName === 'mercadopago' || ...))`), em vez de importar de
+// GATEWAYS_COM_TROCA_NATIVA — apesar do comentário acima já explicar
+// exatamente por que isso diverge em silêncio. Hoje as duas coincidem
+// (só é pego por um teste-espelho manual, lib/gateways/index.test.ts), mas
+// se um adapter ganhar updateSubscriptionPlan no futuro sem atualizar a
+// cópia duplicada, o downgrade cairia silenciosamente no fallback de
+// cancelar+recriar (cobrança cheia na hora) em vez de só mudar o valor da
+// próxima fatura. Extraído aqui como a ÚNICA fonte de verdade, usada tanto
+// por isNativePlanSwitchEligible (previsão) quanto diretamente por
+// checkout/route.ts (decisão real).
+export function gatewaySuportaTrocaNativa(gatewayName: GatewayName, prorate: boolean): boolean {
+  return gatewayName === 'stripe' || (!prorate && GATEWAYS_COM_TROCA_NATIVA.includes(gatewayName))
+}
+
 export function isNativePlanSwitchEligible(params: {
   existingSubGateway: string | null | undefined
   existingSubGatewayId: string | null | undefined
@@ -57,8 +74,7 @@ export function isNativePlanSwitchEligible(params: {
   if (existingSubCurrency !== targetCurrency) return false
   if (finalPrice <= 0) return false
   const prorate = finalPrice > Number(existingSubPrice ?? 0)
-  const gatewaySuportaTrocaNativa = targetGatewayName === 'stripe' || (!prorate && GATEWAYS_COM_TROCA_NATIVA.includes(targetGatewayName))
-  return gatewaySuportaTrocaNativa
+  return gatewaySuportaTrocaNativa(targetGatewayName, prorate)
 }
 
 // Return the correct gateway adapter name based on user country
