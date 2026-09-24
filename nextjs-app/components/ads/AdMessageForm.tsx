@@ -93,12 +93,16 @@ export function AdMessageForm({ adId, receiverId }: AdMessageFormProps) {
     // função foi revogado de authenticated em 20260830200000 (fecha bypass
     // de bucket livre) — a chamada sempre retornava erro de permissão, que
     // nunca era tratado (só `data` era lido), então este guard nunca
-    // disparava de verdade. check_message_rate_limit() (RPC nova, sem
+    // disparava de verdade. rpc_check_message_rate_limit() (RPC nova, sem
     // parâmetro de bucket livre — amarra ao auth.uid() do próprio chamador
     // internamente) restaura o pré-check sem reabrir o bypass original.
-    const { data: dentroDoLimite, error: rateLimitError } = await sb.rpc('check_message_rate_limit')
+    // Nome com prefixo rpc_ pra não colidir com a função de TRIGGER
+    // homônima já existente em produção (check_message_rate_limit(),
+    // returns trigger, BEFORE INSERT em messages — achado ao vivo tentando
+    // aplicar a 1ª versão desta migration).
+    const { data: dentroDoLimite, error: rateLimitError } = await sb.rpc('rpc_check_message_rate_limit')
     if (rateLimitError) {
-      console.warn('[AdMessageForm] check_message_rate_limit falhou, seguindo sem pré-check client-side (trigger no banco continua protegendo):', rateLimitError.message);
+      console.warn('[AdMessageForm] rpc_check_message_rate_limit falhou, seguindo sem pré-check client-side (trigger no banco continua protegendo):', rateLimitError.message);
     } else if (dentroDoLimite === false) {
       setMsgStatus({ type: 'error', text: tr.rateLimited });
       setMsgSending(false);

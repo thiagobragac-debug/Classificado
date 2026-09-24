@@ -22,6 +22,23 @@
 --  10 denúncias/hora, ambos de 20260831130000) — mas bem mais permissivo
 --  que os limites prometidos na UI (10 msgs/60s, 5 denúncias/60s).
 --
+--  BUG CORRIGIDO (achado ao vivo aplicando esta migration em produção,
+--  2026-09-24): a primeira versão desta migration chamava a função nova de
+--  `check_message_rate_limit()` — MAS esse nome já existia em produção
+--  como a função de TRIGGER (BEFORE INSERT em `messages`, `returns
+--  trigger`, criada em 20260831130000_correcoes_teste_estresse_31ago.sql,
+--  nunca rastreada como "já existe" nesta auditoria porque a varredura
+--  original só olhou pro código do app, não pro catálogo real do Postgres).
+--  `create or replace function` não permite mudar o tipo de retorno
+--  (`trigger` -> `boolean`) — Postgres exigiu DROP explícito primeiro.
+--  DROPAR a função de trigger não é opção (precisaria de CASCADE, que
+--  apagaria o trigger enforce_message_rate_limit junto, desligando a
+--  proteção real que já funciona). Renomeado com prefixo `rpc_` pra nunca
+--  colidir com as funções de trigger homônimas (message/report) — mesmo
+--  cuidado agora aplicado ao par report (check_report_rate_limit(), a de
+--  trigger, tem 0 parâmetros; a nova, 1 parâmetro — não colidiam de fato,
+--  mas o nome renomeado evita confusão entre as duas mesmo assim).
+--
 --  SOLUÇÃO
 --
 --  Mesmo padrão já usado neste repositório pra get_seller_phone (mesma
@@ -32,7 +49,7 @@
 --  seguro porque não existe mais texto livre pra explorar.
 -- ============================================================================
 
-create or replace function public.check_message_rate_limit()
+create or replace function public.rpc_check_message_rate_limit()
 returns boolean
 language plpgsql
 security definer
@@ -48,9 +65,9 @@ begin
 end;
 $function$;
 
-revoke all on function public.check_message_rate_limit() from public;
-revoke execute on function public.check_message_rate_limit() from anon;
-grant execute on function public.check_message_rate_limit() to authenticated;
+revoke all on function public.rpc_check_message_rate_limit() from public;
+revoke execute on function public.rpc_check_message_rate_limit() from anon;
+grant execute on function public.rpc_check_message_rate_limit() to authenticated;
 
 -- Denúncia anônima continua permitida por design (ver AdReportModal.tsx) —
 -- sem sessão não há auth.uid() pra amarrar o bucket, então usa p_ad_id
@@ -59,7 +76,7 @@ grant execute on function public.check_message_rate_limit() to authenticated;
 -- abuso é bem mais restrito que o bypass original: no máximo alguém
 -- pré-enche o balde de denúncias de UM anúncio específico por 60s, não o
 -- de login/checkout/contato de uma vítima escolhida livremente.
-create or replace function public.check_report_rate_limit(p_ad_id uuid)
+create or replace function public.rpc_check_report_rate_limit(p_ad_id uuid)
 returns boolean
 language plpgsql
 security definer
@@ -77,5 +94,5 @@ begin
 end;
 $function$;
 
-revoke all on function public.check_report_rate_limit(uuid) from public;
-grant execute on function public.check_report_rate_limit(uuid) to anon, authenticated;
+revoke all on function public.rpc_check_report_rate_limit(uuid) from public;
+grant execute on function public.rpc_check_report_rate_limit(uuid) to anon, authenticated;

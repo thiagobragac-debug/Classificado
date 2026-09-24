@@ -146,13 +146,18 @@ export function AdReportModal({ adId, isOpen, onClose }: AdReportModalProps) {
     // EXECUTE dessa função foi revogado de anon/authenticated em
     // 20260830200000 (fecha bypass de bucket livre) — a chamada sempre
     // retornava erro de permissão, nunca tratado, então este guard nunca
-    // disparava de verdade. check_report_rate_limit(p_ad_id) (RPC nova —
-    // constrói o bucket internamente a partir de auth.uid() quando
+    // disparava de verdade. rpc_check_report_rate_limit(p_ad_id) (RPC
+    // nova — constrói o bucket internamente a partir de auth.uid() quando
     // logado, ou do próprio p_ad_id quando anônimo, nunca de um bucket
-    // livre) restaura o pré-check sem reabrir o bypass original.
-    const { data: dentroDoLimite, error: rateLimitError } = await sb.rpc('check_report_rate_limit', { p_ad_id: adId })
+    // livre) restaura o pré-check sem reabrir o bypass original. Nome com
+    // prefixo rpc_ pra evitar confusão com check_report_rate_limit() (a
+    // função de TRIGGER homônima já existente, 0 parâmetros, returns
+    // trigger — não colidia de fato por assinatura diferente, mas o
+    // prefixo deixa a distinção clara depois do susto com
+    // check_message_rate_limit() na mesma migration).
+    const { data: dentroDoLimite, error: rateLimitError } = await sb.rpc('rpc_check_report_rate_limit', { p_ad_id: adId })
     if (rateLimitError) {
-      console.warn('[AdReportModal] check_report_rate_limit falhou, seguindo sem pré-check client-side (trigger no banco continua protegendo):', rateLimitError.message);
+      console.warn('[AdReportModal] rpc_check_report_rate_limit falhou, seguindo sem pré-check client-side (trigger no banco continua protegendo):', rateLimitError.message);
     } else if (dentroDoLimite === false) {
       setErrorMsg(tr.rateLimited);
       setIsSending(false);
