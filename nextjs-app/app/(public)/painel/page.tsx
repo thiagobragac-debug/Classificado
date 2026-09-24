@@ -159,9 +159,26 @@ export default async function PainelPage() {
     profile,
   };
 
-  // Buscar stats via RPC consolidador
-  const { data: statsData, error: statsError } = await supabase
-    .rpc('get_user_ad_stats', { p_user_id: user.id });
+  // BUG CORRIGIDO (achado ao vivo, varredura de segurança/performance/RLS,
+  // 2026-09-24): stats (RPC) e plans (select estático) não dependem uma da
+  // outra — rodavam em awaits sequenciais, um round-trip de rede evitável a
+  // mais em toda carga do painel. Mesmo padrão de Promise.all já usado
+  // acima pra profile+user_secrets.
+  const [statsResult, plansResult] = await Promise.all([
+    // Buscar stats via RPC consolidador
+    supabase.rpc('get_user_ad_stats', { p_user_id: user.id }),
+    // BUG CORRIGIDO (teste do plano Grátis, 2026-08-25): o painel usava
+    // PLAN_META, um objeto hardcoded em lib/supabase.ts desconectado da
+    // tabela `plans` — se o admin mudasse max_ads/highlight_count em
+    // /admin/planos, o contador do painel continuava com o valor antigo.
+    // Busca a mesma tabela que o trigger enforce_ad_quota usa como fonte de
+    // verdade, resolvendo a linha pelo mesmo critério já usado alhures no
+    // código (webhook de pagamento usa nome pra pro/premium; o trigger usa
+    // price=0 como fallback do plano grátis).
+    supabase.from('plans').select('name, description, max_ads, highlight_count').eq('is_active', true),
+  ]);
+  const { data: statsData, error: statsError } = statsResult;
+  const { data: plansData } = plansResult;
 
   let adStats = { total: 0, active: 0 };
   if (!statsError && statsData && statsData.length > 0) {
@@ -170,19 +187,6 @@ export default async function PainelPage() {
       active: statsData[0].active_ads || 0,
     };
   }
-
-  // BUG CORRIGIDO (teste do plano Grátis, 2026-08-25): o painel usava
-  // PLAN_META, um objeto hardcoded em lib/supabase.ts desconectado da
-  // tabela `plans` — se o admin mudasse max_ads/highlight_count em
-  // /admin/planos, o contador do painel continuava com o valor antigo.
-  // Busca a mesma tabela que o trigger enforce_ad_quota usa como fonte de
-  // verdade, resolvendo a linha pelo mesmo critério já usado alhures no
-  // código (webhook de pagamento usa nome pra pro/premium; o trigger usa
-  // price=0 como fallback do plano grátis).
-  const { data: plansData } = await supabase
-    .from('plans')
-    .select('name, description, max_ads, highlight_count')
-    .eq('is_active', true);
 
   const planRow =
     (profile.plan === 'premium' && plansData?.find(p => p.name.toLowerCase().includes('premium'))) ||

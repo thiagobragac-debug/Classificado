@@ -49,7 +49,7 @@ export function FeaturedAdsSection({ featuredAds }: { featuredAds: any[] }) {
               </div>
             ) : (
               featuredAds.slice(0, 4).map((ad: any, index: number) => (
-                <AdCardHome key={ad.id} ad={ad} lang={lang} favs={favs} toggleFav={toggleFav} priority={index === 0} />
+                <AdCardHome key={ad.id} ad={ad} lang={lang} isFav={!!favs[ad.id]} toggleFav={toggleFav} priority={index === 0} />
               ))
             )}
           </div>

@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import Link from 'next/link';
 // AppImage (não next/image direto) — ver components/AppImage.tsx: deixa o
 // Image Transformations do Supabase pronto pra ativar no futuro só com env
@@ -61,7 +62,15 @@ interface AdCardProps {
   priority?: boolean;
 }
 
-export default function AdCard({ ad, categories, lang, isFav, onToggleFav, priority = false }: AdCardProps) {
+// BUG CORRIGIDO (achado ao vivo, varredura de segurança/performance/RLS,
+// 2026-09-24): sem memo, favoritar UM card (mudança de state em AdsGrid)
+// forçava a re-renderização dos até 24 AdCard/AppImage da grade inteira —
+// comportamento padrão do React quando o componente filho não é memoizado,
+// independente de os props terem mudado. Combinado com a correção ao lado
+// (AdsGrid.tsx: onToggleFav agora é a mesma referência de função estável em
+// vez de uma closure nova por render), a comparação rasa do memo passa a
+// bloquear de verdade os cards que não mudaram.
+function AdCard({ ad, categories, lang, isFav, onToggleFav, priority = false }: AdCardProps) {
   const T = TRANSLATIONS[lang as keyof typeof TRANSLATIONS] || TRANSLATIONS.pt;
   const title = lang === 'es' ? (ad.title_es || ad.title_pt) : ad.title_pt;
   const priceUnit = lang === 'es' && ad.price_unit_es ? ad.price_unit_es : ad.price_unit_pt;
@@ -131,3 +140,5 @@ export default function AdCard({ ad, categories, lang, isFav, onToggleFav, prior
     </article>
   );
 }
+
+export default memo(AdCard);

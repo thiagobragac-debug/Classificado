@@ -145,8 +145,7 @@ export default function AdsBrowser({
   // distintos de `ads`; aqui a fonte é `subcategories`).
   const [subcategories, setSubcategories] = useState<{ id: string; name_pt: string; name_es?: string | null }[]>([]);
   // Contagem de anúncios ativos por subcategoria — evita o usuário escolher
-  // uma raça/tipo sem nenhum anúncio. Um único fetch dos ids (sem agregação
-  // no banco) e conta no cliente, mesmo padrão já usado em useGeoCascading.
+  // uma raça/tipo sem nenhum anúncio.
   const [subcategoryCounts, setSubcategoryCounts] = useState<Record<string, number>>({});
   useEffect(() => {
     if (!displayCategoria) {
@@ -164,16 +163,17 @@ export default function AdsBrowser({
       .then(({ data }: { data: any[] | null }) => {
         if (isActive && data) setSubcategories(data);
       });
+    // BUG CORRIGIDO (achado ao vivo, varredura de segurança/performance/RLS,
+    // 2026-09-24): buscava subcategory_id de TODOS os anúncios ativos da
+    // categoria (uma linha por anúncio) só pra contar no cliente — o
+    // volume transferido crescia linearmente com o total de anúncios, não
+    // com o número de subcategorias. RPC faz o GROUP BY no Postgres.
     getSupabase()
-      .from('ads')
-      .select('subcategory_id')
-      .eq('category_id', displayCategoria)
-      .eq('status', 'active')
-      .not('subcategory_id', 'is', null)
-      .then(({ data }: { data: any[] | null }) => {
+      .rpc('get_subcategory_counts', { p_category_id: displayCategoria })
+      .then(({ data }: { data: { subcategory_id: string; ad_count: number }[] | null }) => {
         if (!isActive || !data) return;
         const counts: Record<string, number> = {};
-        for (const row of data) counts[row.subcategory_id] = (counts[row.subcategory_id] || 0) + 1;
+        for (const row of data) counts[row.subcategory_id] = Number(row.ad_count);
         setSubcategoryCounts(counts);
       });
     return () => { isActive = false; };

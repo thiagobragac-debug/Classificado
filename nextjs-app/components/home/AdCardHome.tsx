@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import Link from 'next/link';
 // AppImage (não next/image direto) — ver components/AppImage.tsx: deixa o
 // Image Transformations do Supabase pronto pra ativar no futuro só com env
@@ -39,12 +40,20 @@ function formatPrice(price: number | null, currency = 'BRL', lang: string): stri
   return `${getCurrencySymbol(currency)} ${formatCurrencyAmount(price, langCode, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
-export function AdCardHome({ ad, lang, favs, toggleFav, priority = false }: { ad: any; lang: string; favs: Record<string, boolean>; toggleFav: (id: string) => void; priority?: boolean }) {
+// BUG CORRIGIDO (achado ao vivo, varredura de segurança/performance/RLS,
+// 2026-09-24): recebia o objeto `favs` INTEIRO como prop e computava
+// isFav internamente — como setFavs sempre retorna um objeto novo
+// (useFavorites.ts), a referência de `favs` muda a CADA toggle, então
+// nenhum React.memo bloquearia o re-render dos outros cards (a comparação
+// rasa sempre veria esse prop como "mudou", mesmo pra cards cujo isFav
+// individual não mudou). Agora recebe só o booleano já resolvido pelo
+// chamador (mesmo padrão já usado em AdsGrid.tsx/AdCard.tsx) — memo
+// consegue de fato bloquear os cards não afetados.
+function AdCardHomeImpl({ ad, lang, isFav, toggleFav, priority = false }: { ad: any; lang: string; isFav: boolean; toggleFav: (id: string) => void; priority?: boolean }) {
   const categories = useCategories();
   const cat = ad.category_id?.replace('cat-', '') || '';
   const colors = CAT_COLORS[cat] || { bg: '#F8FAFC', clr: '#475569' };
   const img = ad.images?.[0] ? imageUrl(ad.images[0], '') : '';
-  const isFav = !!favs[ad.id];
   const tt = TRANSLATIONS[lang === 'es' ? 'es' : 'pt'];
   const adTitle = lang === 'es' && ad.title_es ? ad.title_es : (ad.title_pt || tt.noTitle);
 
@@ -103,3 +112,5 @@ export function AdCardHome({ ad, lang, favs, toggleFav, priority = false }: { ad
     </m.div>
   );
 }
+
+export const AdCardHome = memo(AdCardHomeImpl);

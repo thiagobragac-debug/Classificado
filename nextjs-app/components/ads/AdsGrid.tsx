@@ -24,7 +24,14 @@ export default function AdsGrid({
           categories={categories}
           lang={lang as 'pt' | 'es'}
           isFav={!!favs[ad.id]}
-          onToggleFav={() => toggleFav(ad.id)}
+          // BUG CORRIGIDO (achado ao vivo, varredura de segurança/
+          // performance/RLS, 2026-09-24): `() => toggleFav(ad.id)` criava
+          // uma closure nova a cada render, o que quebraria qualquer
+          // React.memo em AdCard mesmo que existisse. toggleFav já recebe
+          // o id como parâmetro (useCallback estável em useFavorites.ts) e
+          // AdCard já chama onToggleFav(ad.id) internamente — passar a
+          // função direto elimina a closure sem mudar nenhum comportamento.
+          onToggleFav={toggleFav}
           priority={index === 0}
         />
       ))}

@@ -65,7 +65,7 @@ export function RecentAdsSection({
             <LazyMotion features={domAnimation}>
               <div className="ads-grid" style={{ marginBottom: '2.5rem' }}>
                 {recentViews.map((ad: any) => (
-                  <AdCardHome key={ad.id} ad={ad} lang={lang} favs={favs} toggleFav={toggleFav} />
+                  <AdCardHome key={ad.id} ad={ad} lang={lang} isFav={!!favs[ad.id]} toggleFav={toggleFav} />
                 ))}
               </div>
             </LazyMotion>
@@ -99,7 +99,7 @@ export function RecentAdsSection({
                 </div>
               ) : (
                 sortedRecentAds.map(ad => (
-                  <AdCardHome key={ad.id} ad={ad} lang={lang} favs={favs} toggleFav={toggleFav} />
+                  <AdCardHome key={ad.id} ad={ad} lang={lang} isFav={!!favs[ad.id]} toggleFav={toggleFav} />
                 ))
               )}
             </div>

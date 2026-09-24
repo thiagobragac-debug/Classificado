@@ -1,4 +1,5 @@
 import { notFound, permanentRedirect } from 'next/navigation';
+import { cache } from 'react';
 import { createHash } from 'crypto';
 import { headers } from 'next/headers';
 import { getLocale } from '@/lib/locale-server';
@@ -121,6 +122,29 @@ function stripHtmlForMeta(html: string, maxLen: number): string {
   return colapsado.length > maxLen ? colapsado.slice(0, maxLen - 1).trimEnd() + '…' : colapsado;
 }
 
+// BUG CORRIGIDO (achado ao vivo, varredura de segurança/performance/RLS,
+// 2026-09-24): generateMetadata e o corpo de AdDetailsPage faziam cada um
+// sua PRÓPRIA query separada em ads.eq('slug', ...), com sets de colunas
+// diferentes — 2 round-trips ao Postgres pro MESMO anúncio, na página de
+// conteúdo mais visitada do site. Mesmo padrão já usado em
+// vendedor/[slug]/page.tsx (resolveProfileBySlug, cache() do React dedupa
+// por request quando generateMetadata e o corpo chamam com o MESMO
+// argumento). Busca a lista COMPLETA de colunas que o corpo da página
+// precisa — generateMetadata só lê o subconjunto que usa dela. Sem filtro
+// explícito de status: RLS ("Active ads are viewable by everyone") já
+// restringe createAnonClient() (sempre role anon, nunca a sessão de um
+// dono logado) a status='active' e não-bloqueado, mesmo comportamento que
+// o corpo da página já dependia implicitamente antes desta unificação.
+const resolveAdBySlug = cache(async (slugParam: string) => {
+  const supabase = createAnonClient();
+  const { data } = await supabase
+    .from('ads')
+    .select('id, slug, title_pt, title_es, description, images, video_url, condition, category_id, price, currency, expires_at, status, price_unit_pt, price_unit_es, negotiable, city, state, country, tags_es, tags_pt, views_count, created_at, user_id, featured, profiles!inner(id, slug, name, display_name, avatar_url, verified, created_at, email_verified, phone_verified, kyc_status), categories!inner(name_pt, name_es, icon)')
+    .eq('slug', slugParam)
+    .maybeSingle();
+  return data as any;
+});
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug: slugParam } = await params;
 
@@ -135,12 +159,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const tx = PAGE_TEXT[lang];
 
   const supabase = createAnonClient();
-  const { data: ad } = await supabase
-    .from('ads')
-    .select('slug, title_pt, title_es, description, images, status')
-    .eq('slug', slugParam)
-    .eq('status', 'active')
-    .maybeSingle();
+  const ad = await resolveAdBySlug(slugParam);
 
   // BUG CORRIGIDO (teste completo do site, 2026-08-24): soft-404 — a página
   // sempre respondia HTTP 200 mesmo para um id inexistente (curl confirmou
@@ -223,41 +242,38 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ slug
   // ─── Cliente por-request (sem singleton de módulo) ──────────
   const supabase = createAnonClient();
 
-  const { data: adRow } = await supabase
-    .from('ads')
-    // BUG CORRIGIDO (teste completo do site, 2026-08-24): faltavam
-    // email_verified/phone_verified/kyc_status — AdSidebar.tsx usa esses 3
-    // campos pra decidir se mostra os selos de e-mail/telefone/identidade
-    // verificados, que por isso nunca apareciam mesmo com o vendedor
-    // realmente verificado no banco.
-    //
-    // BUG CRÍTICO CORRIGIDO (incidente ao vivo, 2026-08-29): phone_whatsapp
-    // foi removida daqui — supabase/migrations/20260829120000_revoke_anon_
-    // phone_whatsapp.sql revogou o SELECT dessa coluna pra `anon` (fix de
-    // segurança em paralelo, feito por outra sessão), e um GRANT/REVOKE de
-    // coluna faltando derruba a query INTEIRA com 42501, não só a coluna —
-    // toda página de anúncio virou 404 pra 100% dos visitantes (confirmado
-    // ao vivo contra o Postgrest de produção). O valor cru nunca era enviado
-    // ao cliente mesmo antes disso (ver desestruturação abaixo) — só o
-    // booleano hasWhatsapp precisa da coluna, buscado à parte via
-    // service_role logo abaixo, isolado desta query pública.
-    // BUG CORRIGIDO (achado ao vivo, auditoria de lentidão 2026-09-24):
-    // select('*') trazia colunas nunca usadas nesta página (ex.: a coluna
-    // de full-text search `fts`, potencialmente pesada) em toda visita —
-    // trocado por lista explícita. profiles.country também caiu (nunca lido
-    // aqui — só o `ads.country` top-level, coluna distinta, é usado). Lista
-    // levantada varrendo TODO o render path (página + AdGallery/AdSidebar/
-    // StickyMobileCta/ShareButton/RecentViewTracker/JSON-LD) — dado o
-    // histórico desta query já ter derrubado a página inteira 2x por coluna
-    // faltando (ver comentários acima), qualquer nova coluna usada aqui no
-    // futuro precisa ser adicionada nesta lista, não assumida como incluída.
-    // `!inner` (em vez do LEFT JOIN implícito) casa com o runtime real —
-    // essas relações sempre existem (confirmado ao vivo: 0 de 1225 ads com
-    // category_id/user_id nulo), mesmo padrão já usado em
-    // components/ads/SimilarAds.tsx (profiles!inner).
-    .select('id, slug, title_pt, title_es, description, images, video_url, condition, category_id, price, currency, expires_at, status, price_unit_pt, price_unit_es, negotiable, city, state, country, tags_es, tags_pt, views_count, created_at, user_id, featured, profiles!inner(id, slug, name, display_name, avatar_url, verified, created_at, email_verified, phone_verified, kyc_status), categories!inner(name_pt, name_es, icon)')
-    .eq('slug', slugParam)
-    .maybeSingle();
+  // BUG CORRIGIDO (teste completo do site, 2026-08-24): faltavam
+  // email_verified/phone_verified/kyc_status — AdSidebar.tsx usa esses 3
+  // campos pra decidir se mostra os selos de e-mail/telefone/identidade
+  // verificados, que por isso nunca apareciam mesmo com o vendedor
+  // realmente verificado no banco.
+  //
+  // BUG CRÍTICO CORRIGIDO (incidente ao vivo, 2026-08-29): phone_whatsapp
+  // foi removida daqui — supabase/migrations/20260829120000_revoke_anon_
+  // phone_whatsapp.sql revogou o SELECT dessa coluna pra `anon` (fix de
+  // segurança em paralelo, feito por outra sessão), e um GRANT/REVOKE de
+  // coluna faltando derruba a query INTEIRA com 42501, não só a coluna —
+  // toda página de anúncio virou 404 pra 100% dos visitantes (confirmado
+  // ao vivo contra o Postgrest de produção). O valor cru nunca era enviado
+  // ao cliente mesmo antes disso (ver desestruturação abaixo) — só o
+  // booleano hasWhatsapp precisa da coluna, buscado à parte via
+  // service_role logo abaixo, isolado desta query pública.
+  // BUG CORRIGIDO (achado ao vivo, auditoria de lentidão 2026-09-24):
+  // select('*') trazia colunas nunca usadas nesta página (ex.: a coluna
+  // de full-text search `fts`, potencialmente pesada) em toda visita —
+  // trocado por lista explícita. profiles.country também caiu (nunca lido
+  // aqui — só o `ads.country` top-level, coluna distinta, é usado). Lista
+  // levantada varrendo TODO o render path (página + AdGallery/AdSidebar/
+  // StickyMobileCta/ShareButton/RecentViewTracker/JSON-LD) — dado o
+  // histórico desta query já ter derrubado a página inteira 2x por coluna
+  // faltando (ver comentários acima), qualquer nova coluna usada aqui no
+  // futuro precisa ser adicionada em resolveAdBySlug (não aqui — a query
+  // agora vive lá, compartilhada com generateMetadata via cache()).
+  // `!inner` (em vez do LEFT JOIN implícito) casa com o runtime real —
+  // essas relações sempre existem (confirmado ao vivo: 0 de 1225 ads com
+  // category_id/user_id nulo), mesmo padrão já usado em
+  // components/ads/SimilarAds.tsx (profiles!inner).
+  const adRow = await resolveAdBySlug(slugParam);
 
   // BUG CORRIGIDO (achado ao vivo rodando `next build`, sem select('*')):
   // sem tipos gerados do banco (Database), o parser de tipos do postgrest-js

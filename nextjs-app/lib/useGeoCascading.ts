@@ -67,17 +67,19 @@ export function useGeoCascading(pais: string, estado: string, categoria?: string
 
   useEffect(() => {
     let isActive = true;
-    let q = sb.from('ads').select('country').neq('country', null);
-    if (categoria) q = q.eq('category_id', categoria);
-    
-    q.then(({ data }: { data: any[] | null }) => {
+    // BUG CORRIGIDO (achado ao vivo, varredura de segurança/performance/RLS,
+    // 2026-09-24): select('country') sem limit trazia uma linha por anúncio
+    // ativo só pra deduplicar no cliente — trocado por RPC que faz o
+    // DISTINCT no Postgres (get_distinct_ad_countries, mesma RLS de sempre).
+    sb.rpc('get_distinct_ad_countries', { p_category_id: categoria || null })
+      .then(({ data }: { data: { country: string }[] | null }) => {
         if (!isActive) return;
         if (data) {
           setCountries(dedupeCaseInsensitive(data.map(d => d.country)));
         }
       });
     return () => { isActive = false; };
-  }, [sb]);
+  }, [sb, categoria]);
 
   useEffect(() => {
     if (!pais) {
@@ -85,10 +87,11 @@ export function useGeoCascading(pais: string, estado: string, categoria?: string
       return;
     }
     let isActive = true;
-    let q = sb.from('ads').select('state').eq('country', pais);
-    if (categoria) q = q.eq('category_id', categoria);
-    
-    q.then(({ data }: { data: any[] | null }) => {
+    // BUG CORRIGIDO (achado ao vivo, varredura de segurança/performance/RLS,
+    // 2026-09-24): mesma troca de select('state') sem limit por RPC de
+    // DISTINCT no Postgres — ver get_distinct_ad_countries acima.
+    sb.rpc('get_distinct_ad_states', { p_country: pais, p_category_id: categoria || null })
+      .then(({ data }: { data: { state: string }[] | null }) => {
         if (!isActive) return;
         if (data) {
           // BUG CORRIGIDO (achado ao vivo testando o filtro de localização):
@@ -107,7 +110,7 @@ export function useGeoCascading(pais: string, estado: string, categoria?: string
         }
       });
     return () => { isActive = false; };
-  }, [pais, sb]);
+  }, [pais, sb, categoria]);
 
   useEffect(() => {
     if (!estado) {
@@ -123,17 +126,21 @@ export function useGeoCascading(pais: string, estado: string, categoria?: string
     // Mesma dupla checagem (nome completo OU sigla) já usada em
     // getAdsListagem (ads.service.ts) pro resultado da busca em si.
     const altState = BR_STATES[estado];
-    let q = sb.from('ads').select('city').eq('country', pais).in('state', altState ? [estado, altState] : [estado]);
-    if (categoria) q = q.eq('category_id', categoria);
-    
-    q.then(({ data }: { data: any[] | null }) => {
+    // BUG CORRIGIDO (achado ao vivo, varredura de segurança/performance/RLS,
+    // 2026-09-24): mesma troca de select('city') sem limit por RPC de
+    // DISTINCT no Postgres — ver get_distinct_ad_countries acima.
+    sb.rpc('get_distinct_ad_cities', {
+      p_country: pais,
+      p_states: altState ? [estado, altState] : [estado],
+      p_category_id: categoria || null,
+    }).then(({ data }: { data: { city: string }[] | null }) => {
         if (!isActive) return;
         if (data) {
           setCities(dedupeCaseInsensitive(data.map(d => d.city).filter(Boolean)));
         }
       });
     return () => { isActive = false; };
-  }, [estado, pais, sb]);
+  }, [estado, pais, sb, categoria]);
 
   return { countries, states, cities };
 }
