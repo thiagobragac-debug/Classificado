@@ -223,7 +223,7 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ slug
   // ─── Cliente por-request (sem singleton de módulo) ──────────
   const supabase = createAnonClient();
 
-  const { data: ad } = await supabase
+  const { data: adRow } = await supabase
     .from('ads')
     // BUG CORRIGIDO (teste completo do site, 2026-08-24): faltavam
     // email_verified/phone_verified/kyc_status — AdSidebar.tsx usa esses 3
@@ -241,9 +241,34 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ slug
     // ao cliente mesmo antes disso (ver desestruturação abaixo) — só o
     // booleano hasWhatsapp precisa da coluna, buscado à parte via
     // service_role logo abaixo, isolado desta query pública.
-    .select('*, profiles(id, slug, name, display_name, avatar_url, verified, country, created_at, email_verified, phone_verified, kyc_status), categories(name_pt, name_es, icon)')
+    // BUG CORRIGIDO (achado ao vivo, auditoria de lentidão 2026-09-24):
+    // select('*') trazia colunas nunca usadas nesta página (ex.: a coluna
+    // de full-text search `fts`, potencialmente pesada) em toda visita —
+    // trocado por lista explícita. profiles.country também caiu (nunca lido
+    // aqui — só o `ads.country` top-level, coluna distinta, é usado). Lista
+    // levantada varrendo TODO o render path (página + AdGallery/AdSidebar/
+    // StickyMobileCta/ShareButton/RecentViewTracker/JSON-LD) — dado o
+    // histórico desta query já ter derrubado a página inteira 2x por coluna
+    // faltando (ver comentários acima), qualquer nova coluna usada aqui no
+    // futuro precisa ser adicionada nesta lista, não assumida como incluída.
+    // `!inner` (em vez do LEFT JOIN implícito) casa com o runtime real —
+    // essas relações sempre existem (confirmado ao vivo: 0 de 1225 ads com
+    // category_id/user_id nulo), mesmo padrão já usado em
+    // components/ads/SimilarAds.tsx (profiles!inner).
+    .select('id, slug, title_pt, title_es, description, images, video_url, condition, category_id, price, currency, expires_at, status, price_unit_pt, price_unit_es, negotiable, city, state, country, tags_es, tags_pt, views_count, created_at, user_id, featured, profiles!inner(id, slug, name, display_name, avatar_url, verified, created_at, email_verified, phone_verified, kyc_status), categories!inner(name_pt, name_es, icon)')
     .eq('slug', slugParam)
     .maybeSingle();
+
+  // BUG CORRIGIDO (achado ao vivo rodando `next build`, sem select('*')):
+  // sem tipos gerados do banco (Database), o parser de tipos do postgrest-js
+  // não sabe a cardinalidade de um embed a partir só da string — infere
+  // `profiles`/`categories` como ARRAY mesmo com `!inner` (que só muda o
+  // JOIN em runtime, não a inferência de tipo sem schema). O `*` de antes
+  // mascarava isso (string ilegível pro parser, caía num tipo solto o
+  // bastante pra não conflitar com as interfaces locais Ad/Profile de
+  // AdSidebar.tsx). `as any` aqui é só apagamento de tipo — o formato real
+  // em runtime (objeto único, não array) é o mesmo de sempre, inalterado.
+  const ad = adRow as any;
 
   // MIGRAÇÃO UUID→SLUG: mesmo fallback de generateMetadata — ver comentário
   // lá. Aqui não filtra por status (comportamento pré-existente preservado),

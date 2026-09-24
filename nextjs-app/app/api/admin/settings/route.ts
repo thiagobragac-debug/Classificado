@@ -111,8 +111,15 @@ export async function POST(request: Request) {
 
   // Invalida getServerAdsenseClientId (lib/supabase-server.ts) — sem isso,
   // uma troca de adsense_client_id só apareceria pros visitantes depois de
-  // até 1h (o revalidate: 3600 do unstable_cache).
-  revalidateTag('platform-settings')
+  // até 1h (o revalidate: 3600 do unstable_cache). BUG CORRIGIDO (achado ao
+  // vivo rodando `next build` local, independente do cacheComponents):
+  // revalidateTag() nesta versão do Next (16.3.4) sempre exige um 2º
+  // argumento (perfil de cache) na assinatura de tipos — ver
+  // node_modules/next/dist/server/web/spec-extension/revalidate.d.ts.
+  // Chamada de 1 argumento só nunca quebrou o deploy porque nem CI
+  // (tsc --noEmit) nem o build local tinham sido rodados depois do commit
+  // que introduziu essa linha — só `next dev` (que não type-checa).
+  revalidateTag('platform-settings', 'max')
 
   // RESOLVIDO (confirmado ao vivo contra o painel real da Pagar.me,
   // 2026-09-02 — ver comentário em lib/gateways/pagarme.ts::validateWebhook):
