@@ -21,9 +21,17 @@
 --  o DISTINCT no Postgres e devolvem só os valores. GRANT pra
 --  anon/authenticated (mesma exposição que já existia via SELECT direto na
 --  tabela, só que agora sem trazer linha por anúncio).
+--
+--  BUG CORRIGIDO (achado ao vivo aplicando esta migration em produção,
+--  2026-09-24): p_category_id foi escrito como `uuid` por suposição — o
+--  schema real usa `text` pra category_id em TODA a base (confirmado em
+--  20260828150000_cria_subcategorias.sql:22, `category_id text NOT NULL
+--  REFERENCES public.categories(id)`, e nas 2 RPCs legadas que já
+--  retornam `category_id text`). Postgres não converte text/uuid
+--  implicitamente no operador `=`, erro 42883 na primeira tentativa.
 -- ============================================================================
 
-create or replace function public.get_distinct_ad_countries(p_category_id uuid default null)
+create or replace function public.get_distinct_ad_countries(p_category_id text default null)
 returns table (country text)
 language sql
 stable
@@ -36,10 +44,10 @@ as $function$
      and (p_category_id is null or ads.category_id = p_category_id);
 $function$;
 
-revoke all on function public.get_distinct_ad_countries(uuid) from public;
-grant execute on function public.get_distinct_ad_countries(uuid) to anon, authenticated;
+revoke all on function public.get_distinct_ad_countries(text) from public;
+grant execute on function public.get_distinct_ad_countries(text) to anon, authenticated;
 
-create or replace function public.get_distinct_ad_states(p_country text, p_category_id uuid default null)
+create or replace function public.get_distinct_ad_states(p_country text, p_category_id text default null)
 returns table (state text)
 language sql
 stable
@@ -53,10 +61,10 @@ as $function$
      and (p_category_id is null or ads.category_id = p_category_id);
 $function$;
 
-revoke all on function public.get_distinct_ad_states(text, uuid) from public;
-grant execute on function public.get_distinct_ad_states(text, uuid) to anon, authenticated;
+revoke all on function public.get_distinct_ad_states(text, text) from public;
+grant execute on function public.get_distinct_ad_states(text, text) to anon, authenticated;
 
-create or replace function public.get_distinct_ad_cities(p_country text, p_states text[], p_category_id uuid default null)
+create or replace function public.get_distinct_ad_cities(p_country text, p_states text[], p_category_id text default null)
 returns table (city text)
 language sql
 stable
@@ -71,5 +79,5 @@ as $function$
      and (p_category_id is null or ads.category_id = p_category_id);
 $function$;
 
-revoke all on function public.get_distinct_ad_cities(text, text[], uuid) from public;
-grant execute on function public.get_distinct_ad_cities(text, text[], uuid) to anon, authenticated;
+revoke all on function public.get_distinct_ad_cities(text, text[], text) from public;
+grant execute on function public.get_distinct_ad_cities(text, text[], text) to anon, authenticated;

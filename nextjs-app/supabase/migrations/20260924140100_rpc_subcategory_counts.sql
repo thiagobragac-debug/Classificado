@@ -17,10 +17,14 @@
 --
 --  Mesmo padrão de get_distinct_ad_countries/states/cities (20260924140000):
 --  SECURITY INVOKER, RLS de `ads` continua se aplicando normalmente.
+--
+--  BUG CORRIGIDO (mesmo achado de 20260924140000, aplicado aqui também):
+--  category_id/subcategory_id são `text` no schema real (ver
+--  20260828150000_cria_subcategorias.sql:22,31), não `uuid`.
 -- ============================================================================
 
-create or replace function public.get_subcategory_counts(p_category_id uuid)
-returns table (subcategory_id uuid, ad_count bigint)
+create or replace function public.get_subcategory_counts(p_category_id text)
+returns table (subcategory_id text, ad_count bigint)
 language sql
 stable
 security invoker
@@ -34,5 +38,5 @@ as $function$
    group by ads.subcategory_id;
 $function$;
 
-revoke all on function public.get_subcategory_counts(uuid) from public;
-grant execute on function public.get_subcategory_counts(uuid) to anon, authenticated;
+revoke all on function public.get_subcategory_counts(text) from public;
+grant execute on function public.get_subcategory_counts(text) to anon, authenticated;
