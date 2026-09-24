@@ -1,0 +1,32 @@
+-- ============================================================================
+--  HIGIENE: fecha INSERT/SELECT anônimos abertos em search_metrics (órfã)
+-- ============================================================================
+--
+--  PROBLEMA (achado via Supabase Security Advisor "RLS Policy Always True",
+--  investigado a fundo na revisão completa pedida pelo usuário, 2026-09-24)
+--
+--  public.search_metrics (id, term, lang, created_at) nunca teve nenhuma
+--  migration criando-a (mais um caso de drift) e tem duas policies
+--  completamente abertas: "Allow anonymous inserts" (WITH CHECK true) e
+--  "Allow anonymous selects" (USING true) — qualquer um, sem autenticação,
+--  pode inserir/ler qualquer linha.
+--
+--  Confirmado com grep no repo inteiro: NENHUM arquivo do app atual
+--  referencia "search_metrics" — nem insert, nem select. A tabela tem dados
+--  reais (mais antigos, ~julho/2026), então é infraestrutura de uma versão
+--  anterior do site, abandonada, não uma feature ativa.
+--
+--  SOLUÇÃO
+--
+--  Como nada no app atual depende de acesso público a esta tabela, a
+--  correção certa não é só apertar a policy — é remover o acesso aberto
+--  que não serve mais a nenhum propósito real. RLS continua habilitada;
+--  sem nenhuma policy, o acesso fica default-deny pra anon/authenticated
+--  (mesmo padrão que o próprio Security Advisor classifica como correto —
+--  "RLS Enabled No Policy" — em ads_archive/rate_limit_hits/webhook_events).
+--  Não dropa a tabela nem os dados — só fecha o acesso público que ninguém
+--  mais usa; reversível numa migration futura se a feature for retomada.
+-- ============================================================================
+
+drop policy if exists "Allow anonymous inserts" on public.search_metrics;
+drop policy if exists "Allow anonymous selects" on public.search_metrics;
