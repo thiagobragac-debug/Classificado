@@ -17,5 +17,24 @@ export async function GET(request: NextRequest) {
   // BUG CORRIGIDO (propagação de idioma na geolocalização): país agora respeita tc_lang.
   const lang = request.nextUrl.searchParams.get('lang') === 'es' ? 'es' : 'pt';
   const result = await resolveGeo(request.headers, lang);
+  // DEBUG TEMPORÁRIO (achado ao vivo, 2026-09-24): geoip resolvendo sempre
+  // pro egress do servidor (Washington DC) em vez do IP real do visitante
+  // desde a migração pro Render — precisa ver os headers crus que chegam de
+  // verdade atrás do Cloudflare do Render (topologia diferente da Vercel,
+  // que era o que lib/ip-utils.ts::resolverIpConfiavel() foi escrito pra
+  // ler). Remover assim que o fix certo for aplicado.
+  if (request.nextUrl.searchParams.get('debug') === '1') {
+    return NextResponse.json({
+      result,
+      headers: {
+        'x-vercel-forwarded-for': request.headers.get('x-vercel-forwarded-for'),
+        'x-real-ip': request.headers.get('x-real-ip'),
+        'x-forwarded-for': request.headers.get('x-forwarded-for'),
+        'cf-connecting-ip': request.headers.get('cf-connecting-ip'),
+        'true-client-ip': request.headers.get('true-client-ip'),
+        'x-forwarded-host': request.headers.get('x-forwarded-host'),
+      },
+    }, { headers: { 'Cache-Control': 'no-store' } });
+  }
   return NextResponse.json(result, { headers: { 'Cache-Control': 'private, max-age=3600' } });
 }
