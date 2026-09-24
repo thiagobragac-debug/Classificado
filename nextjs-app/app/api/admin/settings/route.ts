@@ -3,6 +3,7 @@ import { revalidateTag } from 'next/cache'
 import { createClient } from '@/lib/supabase-server'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { SECRET_SETTING_KEYS } from '@/lib/secret-settings'
+import { isForbiddenOrigin } from '@/lib/csrf-origin'
 
 // Leitura e escrita de platform_settings pelo painel administrativo.
 //
@@ -70,6 +71,14 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  // BUG CORRIGIDO (achado ao vivo, varredura de segurança/performance/RLS,
+  // 2026-09-24): ver comentário em lib/csrf-origin.ts — esta rota grava as
+  // chaves secretas dos gateways de pagamento, a mais privilegiada de
+  // todas as rotas admin.
+  if (isForbiddenOrigin(request)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
   const { erro } = await exigirAdmin()
   if (erro) return erro
 

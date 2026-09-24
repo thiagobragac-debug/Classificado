@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase-server'
+import { isForbiddenOrigin } from '@/lib/csrf-origin'
 
 // BUG CORRIGIDO (achado ao vivo tentando verificar a remoção de "Suporte VIP
 // 24/7" do plano Premium): admin/planos/page.tsx salva direto via
@@ -26,6 +27,15 @@ async function exigirAdmin() {
 }
 
 export async function POST(request: Request) {
+  // BUG CORRIGIDO (achado ao vivo, varredura de segurança/performance/RLS,
+  // 2026-09-24): ver comentário em lib/csrf-origin.ts. Não afeta o caminho
+  // do CRON_SECRET abaixo — um caller interno (curl/script) não manda
+  // header Origin, e a checagem só bloqueia quando o header EXISTE e não
+  // bate com a allowlist.
+  if (isForbiddenOrigin(request)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
   // Permite também um caller de confiança (script interno, futuro webhook de
   // conteúdo) autenticar com o mesmo CRON_SECRET já usado pelas rotas em
   // app/api/internal/* — mesmo padrão, mesmo motivo: existem cenários

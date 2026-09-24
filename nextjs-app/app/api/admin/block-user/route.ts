@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { createAdminClient } from '@/lib/supabase-admin'
+import { isForbiddenOrigin } from '@/lib/csrf-origin'
 
 // Bloqueia/desbloqueia usuários.
 //
@@ -17,6 +18,13 @@ import { createAdminClient } from '@/lib/supabase-admin'
 //     Revogamos as sessões para matar o refresh token na hora.
 
 export async function POST(request: Request) {
+  // BUG CORRIGIDO (achado ao vivo, varredura de segurança/performance/RLS,
+  // 2026-09-24): ver comentário em lib/csrf-origin.ts — rota admin mais
+  // privilegiada, sem checagem de Origin antes desta correção.
+  if (isForbiddenOrigin(request)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
   // ─── Quem está chamando é admin? ────────────────────────────────
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

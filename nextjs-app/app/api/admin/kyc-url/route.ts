@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { createAdminClient } from '@/lib/supabase-admin'
+import { isForbiddenOrigin } from '@/lib/csrf-origin'
 
 // Emite URLs assinadas e de vida curta para os documentos de uma solicitação
 // de verificação.
@@ -32,6 +33,13 @@ function extrairPath(valor: string | null): string | null {
 }
 
 export async function POST(request: Request) {
+  // BUG CORRIGIDO (achado ao vivo, varredura de segurança/performance/RLS,
+  // 2026-09-24): ver comentário em lib/csrf-origin.ts — rota que emite URLs
+  // assinadas pra documentos de identidade/selfie, alto risco.
+  if (isForbiddenOrigin(request)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })

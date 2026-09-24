@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { sendEmail, EmailNaoConfiguradoError } from '@/lib/send-email'
+import { isForbiddenOrigin } from '@/lib/csrf-origin'
 
 // Botão "Enviar resposta" em /admin/mensagens-contato — dispara um e-mail de
 // verdade pro remetente original (msg.email, nunca um endereço vindo do
@@ -25,6 +26,12 @@ async function exigirAdmin() {
 }
 
 export async function POST(request: Request) {
+  // BUG CORRIGIDO (achado ao vivo, varredura de segurança/performance/RLS,
+  // 2026-09-24): ver comentário em lib/csrf-origin.ts.
+  if (isForbiddenOrigin(request)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
   const { erro, userId } = await exigirAdmin()
   if (erro) return erro
 

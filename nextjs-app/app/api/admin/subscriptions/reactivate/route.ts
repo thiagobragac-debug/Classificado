@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { createAdminClient } from '@/lib/supabase-admin'
+import { isForbiddenOrigin } from '@/lib/csrf-origin'
 
 // BUG ALTO CORRIGIDO (reteste do site, 2026-08-25): o botão "Reativar" de
 // app/(admin)/admin/assinaturas/page.tsx escrevia profiles.subscription_status
@@ -32,6 +33,12 @@ async function exigirAdmin() {
 
 export async function POST(request: Request) {
   try {
+    // BUG CORRIGIDO (achado ao vivo, varredura de segurança/performance/
+    // RLS, 2026-09-24): ver comentário em lib/csrf-origin.ts.
+    if (isForbiddenOrigin(request)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const { erro } = await exigirAdmin()
     if (erro) return erro
 

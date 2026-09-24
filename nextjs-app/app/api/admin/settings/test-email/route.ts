@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { sendEmail, EmailNaoConfiguradoError } from '@/lib/send-email'
+import { isForbiddenOrigin } from '@/lib/csrf-origin'
 
 // Botão "Enviar e-mail de teste" da aba E-mail em /admin/configuracoes — lê a
 // config JÁ SALVA (não os campos ainda não salvos no formulário, pra nunca
@@ -21,7 +22,13 @@ async function exigirAdmin() {
   return { erro: null, user }
 }
 
-export async function POST() {
+export async function POST(request: Request) {
+  // BUG CORRIGIDO (achado ao vivo, varredura de segurança/performance/RLS,
+  // 2026-09-24): ver comentário em lib/csrf-origin.ts.
+  if (isForbiddenOrigin(request)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
   const { erro, user } = await exigirAdmin()
   if (erro) return erro
   if (!user!.email) return NextResponse.json({ error: 'Sua conta de admin não tem e-mail cadastrado.' }, { status: 400 })

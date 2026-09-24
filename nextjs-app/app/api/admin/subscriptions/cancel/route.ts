@@ -9,6 +9,7 @@ import {
   GatewayAdapter,
   GatewayName,
 } from '@/lib/gateways'
+import { isForbiddenOrigin } from '@/lib/csrf-origin'
 
 // BUG CRÍTICO CORRIGIDO (teste completo do site, 2026-08-24): o botão
 // "Cancelar" de app/(admin)/admin/assinaturas/page.tsx fazia só
@@ -39,6 +40,13 @@ async function exigirAdmin() {
 
 export async function POST(request: Request) {
   try {
+    // BUG CORRIGIDO (achado ao vivo, varredura de segurança/performance/
+    // RLS, 2026-09-24): ver comentário em lib/csrf-origin.ts — rota que
+    // cancela a assinatura de QUALQUER usuário chamando o gateway real.
+    if (isForbiddenOrigin(request)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const { erro } = await exigirAdmin()
     if (erro) return erro
 
