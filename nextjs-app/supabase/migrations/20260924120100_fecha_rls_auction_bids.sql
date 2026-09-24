@@ -1,0 +1,29 @@
+-- ============================================================================
+--  HIGIENE: auction_bids sem ENABLE ROW LEVEL SECURITY rastreado
+-- ============================================================================
+--
+--  PROBLEMA (achado ao vivo, varredura de segurança/performance/RLS pedida
+--  pelo usuário, 2026-09-24)
+--
+--  public.auction_bids nunca recebeu `alter table ... enable row level
+--  security` em nenhuma migration, diferente de TODAS as suas tabelas-irmãs
+--  (auctions, auction_lots, auction_lot_bids), que passaram pelo mesmo
+--  tratamento defensivo em 30/08 (20260830170000, 20260830180100).
+--
+--  Risco já mitigado por 2 camadas independentes, então isto é uma correção
+--  de rastreabilidade/reprodutibilidade, não uma exposição ativa hoje:
+--   1) INSERT/UPDATE/DELETE de anon/authenticated já foram revogados no
+--      nível de tabela (20260826100100_hardening_diversos.sql,
+--      20260826110000_validacao_zero_3a_rodada.sql) — checagem que o
+--      PostgREST aplica ANTES de avaliar RLS.
+--   2) 20260823140000_fix_bid_and_favorite_functions.sql documenta um teste
+--      ao vivo confirmando que a policy "Anyone can bid" (com
+--      with_check correto) já estava ativa em produção.
+--
+--  Reconstruir o banco do zero a partir de supabase/migrations/ hoje NÃO
+--  reproduziria esse estado (RLS ligada) — só o GRANT revogado. Idempotente,
+--  não muda comportamento nenhum se RLS já estiver ligada (mesmo padrão já
+--  usado nos 3 lotes "defensive_enable_rls").
+-- ============================================================================
+
+alter table public.auction_bids enable row level security;

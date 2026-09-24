@@ -816,8 +816,18 @@ export async function getMyAds({ status = 'all', page = 1, limit = 12 } = {}): P
   let q = getSupabase()
     .from('ads')
     .select('id, title_pt, title_es, price, currency, status, featured, images, category_id, city, state, country, created_at, views_count, expires_at', { count: 'exact' })
-    .eq('user_id', session.user.id);
-    
+    .eq('user_id', session.user.id)
+    // BUG CORRIGIDO (achado ao vivo, varredura de segurança/confiabilidade,
+    // 2026-09-24): sem este filtro, um anúncio excluído (status='deleted')
+    // aparecia na aba "Todos os Status" rotulado como "Pendente" (fallback
+    // de STATUS_LABELS) com o botão de pausar/reativar ativo — um clique
+    // acidental nele virava 'paused' e outro 'active', ressuscitando um
+    // anúncio que o usuário considerava excluído definitivamente. Mesmo
+    // filtro que lib/supabase-panel.ts já tinha (implementação irmã, não
+    // usada pela UI real) — unificado aqui, que é a função que MyAdsTab.tsx
+    // de fato importa.
+    .not('status', 'eq', 'deleted');
+
   if (status !== 'all') q = q.eq('status', status);
   
   const { data, count, error } = await q

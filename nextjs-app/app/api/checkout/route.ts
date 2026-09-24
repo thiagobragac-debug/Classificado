@@ -175,11 +175,22 @@ export async function POST(req: Request) {
 
     // --- Existing active subscription (read-only — a mutação real só
     // acontece depois do lock de idempotência, mais abaixo) ---
+    // BUG CORRIGIDO (achado ao vivo, varredura de seguranca/confiabilidade,
+    // 2026-09-24): só considerava status='active'. Uma assinatura
+    // 'past_due' (cartão recusado, mas ainda real e em retry automático no
+    // gateway) não era encontrada aqui — isPlanSwitch ficava false, o guard
+    // de 409 abaixo não disparava, e finalizarCancelamentoAntigo() nunca
+    // rodava (ver "if (!isPlanSwitch) return" mais abaixo), criando uma
+    // SEGUNDA assinatura paga nova sem cancelar a primeira. Se o retry
+    // automático do gateway (comum em Stripe/MP/Asaas) cobrar a antiga com
+    // sucesso depois, o cliente é cobrado duas vezes. app/api/subscriptions/
+    // cancel/route.ts já trata 'past_due' como assinatura real pelo mesmo
+    // motivo — só esta query tinha ficado pra trás.
     const { data: existingActiveSub } = await supabase
       .from('subscriptions')
-      .select('id, gateway, gateway_subscription_id, plan, price, currency, billing_cycle, current_period_end')
+      .select('id, status, gateway, gateway_subscription_id, plan, price, currency, billing_cycle, current_period_end')
       .eq('user_id', user.id)
-      .eq('status', 'active')
+      .in('status', ['active', 'past_due'])
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
@@ -498,13 +509,20 @@ export async function POST(req: Request) {
         const switchResult = await adapter.updateSubscriptionPlan(existingActiveSub!.gateway_subscription_id!, gatewayPlan, prorate, checkoutId)
 
         // BUG CORRIGIDO (validação do zero, rodada 6): condiciona o UPDATE ao
-        // status ainda ser 'active' no momento da escrita — fecha a mesma
-        // janela TOCTOU já corrigida em /api/subscriptions/cancel (um cancel
-        // concorrente rodando entre a leitura de existingActiveSub no topo
-        // desta requisição e este ponto). A chamada ao gateway já aconteceu
-        // (não dá pra desfazer de forma simples), então zero linhas afetadas
-        // aqui só vira um log — precisa de revisão manual, não bloqueia a
-        // resposta de sucesso pro usuário.
+        // status ainda ser o mesmo lido no topo desta requisição — fecha a
+        // mesma janela TOCTOU já corrigida em /api/subscriptions/cancel (um
+        // cancel concorrente rodando entre a leitura de existingActiveSub no
+        // topo desta requisição e este ponto). A chamada ao gateway já
+        // aconteceu (não dá pra desfazer de forma simples), então zero
+        // linhas afetadas aqui só vira um log — precisa de revisão manual,
+        // não bloqueia a resposta de sucesso pro usuário.
+        // BUG CORRIGIDO (achado ao vivo, varredura de segurança/
+        // confiabilidade, 2026-09-24): hardcoded pra 'active' — desde que
+        // existingActiveSub passou a incluir 'past_due' (mesma correção,
+        // ver comentário acima), esse guard sempre achava 0 linhas quando a
+        // assinatura original era 'past_due' (nunca virou 'active' antes),
+        // disparando o log de "revisão manual" numa condição normal, não
+        // numa corrida real. Usa o status realmente lido, não um literal.
         const { data: switchUpdateResult } = await supabase.from('subscriptions').update({
           plan: plan.name,
           price: finalPrice,
@@ -516,7 +534,7 @@ export async function POST(req: Request) {
           // CICLO (mensal↔anual), que a Stripe realinha de verdade.
           ...(switchResult.currentPeriodEnd ? { current_period_end: switchResult.currentPeriodEnd } : {}),
           updated_at: new Date().toISOString(),
-        }).eq('id', existingActiveSub!.id).eq('status', 'active').select('id')
+        }).eq('id', existingActiveSub!.id).eq('status', existingActiveSub!.status).select('id')
 
         // BUG CORRIGIDO (validação do zero, rodada 6, revisão adversarial): a
         // guarda abaixo detectava a corrida (0 linhas afetadas — outra
@@ -687,11 +705,17 @@ export async function POST(req: Request) {
         if (oldAdapterParaTrocaFallback) {
           await oldAdapterParaTrocaFallback.cancelSubscription(existingActiveSub!.gateway_subscription_id!)
         }
+        // BUG CORRIGIDO (achado ao vivo, varredura de segurança/
+        // confiabilidade, 2026-09-24): mesmo motivo do guard em
+        // updateSubscriptionPlan acima — usa o status realmente lido no
+        // topo da requisição, não o literal 'active', pra não confundir uma
+        // assinatura antiga 'past_due' (caso normal, agora suportado) com
+        // uma corrida real.
         const { data: cancelOldResult } = await supabase.from('subscriptions').update({
           status: 'cancelled',
           cancel_at_period_end: false,
           updated_at: new Date().toISOString(),
-        }).eq('id', existingActiveSub!.id).eq('status', 'active').select('id')
+        }).eq('id', existingActiveSub!.id).eq('status', existingActiveSub!.status).select('id')
         if (!cancelOldResult || cancelOldResult.length === 0) {
           console.error(`[Checkout] Assinatura nova criada, mas a antiga ${existingActiveSub!.id} não estava mais 'active' na hora de cancelar — revisão manual necessária.`)
         }
