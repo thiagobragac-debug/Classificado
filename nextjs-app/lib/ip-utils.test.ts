@@ -6,7 +6,15 @@ function headers(map: Record<string, string>) {
 }
 
 describe('resolverIpConfiavel', () => {
-  it('usa x-vercel-forwarded-for quando presente, mesmo com outros headers', () => {
+  it('usa cf-connecting-ip quando presente, mesmo com outros headers (topologia Render/Cloudflare)', () => {
+    expect(
+      resolverIpConfiavel(
+        headers({ 'cf-connecting-ip': '203.0.113.9', 'x-vercel-forwarded-for': '198.51.100.1', 'x-real-ip': '198.51.100.2' })
+      )
+    ).toBe('203.0.113.9');
+  });
+
+  it('usa x-vercel-forwarded-for quando presente e não há cf-connecting-ip', () => {
     expect(
       resolverIpConfiavel(headers({ 'x-vercel-forwarded-for': '203.0.113.9', 'x-real-ip': '198.51.100.1' }))
     ).toBe('203.0.113.9');
