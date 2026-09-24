@@ -2,6 +2,14 @@ import type { NextConfig } from 'next';
 import { SECURITY_HEADERS } from './lib/security-headers';
 
 const nextConfig: NextConfig = {
+  // BUG CORRIGIDO (achado ao vivo, auditoria de lentidão 2026-09-24): sem
+  // isso, `next start` no Render depende da árvore completa de
+  // node_modules pra subir — no self-hosted (diferente da Vercel, que já
+  // roda algo equivalente internamente), 'standalone' gera um server.js
+  // mínimo que inicializa mais rápido. Reduz diretamente a janela de
+  // cold-start (~50s+) a cada hibernação do Free Tier. Exige trocar o Start
+  // Command no Render pra `node .next/standalone/server.js`.
+  output: 'standalone',
   turbopack: {
     root: __dirname,
   },
@@ -17,13 +25,16 @@ const nextConfig: NextConfig = {
     globalNotFound: true,
   },
   images: {
-    // BUG CORRIGIDO (auditoria de SEO, 2ª rodada): sem `formats`, o Next só
-    // gera WebP — AVIF costuma ficar 20-30% menor que WebP no mesmo
-    // conteúdo (fotos de anúncio, JPEGs reais), o que ajuda LCP/CWV.
-    // Ordem importa: o Next serve o primeiro formato da lista que o
-    // navegador do visitante aceitar (Accept header), então AVIF primeiro
-    // com WebP como fallback pros navegadores mais antigos.
-    formats: ['image/avif', 'image/webp'],
+    // BUG CORRIGIDO (achado ao vivo, auditoria de lentidão 2026-09-24):
+    // AVIF tirado da lista. Na Vercel a otimização de imagem roda numa
+    // function separada da instância de SSR; aqui (Render self-hosted) o
+    // Next processa via sharp DENTRO do mesmo processo pequeno (Free Tier =
+    // CPU compartilhada) que atende todo o SSR — e AVIF é sensivelmente
+    // mais caro de codificar que WebP. Fica só WebP (ainda bem mais leve
+    // que JPEG/PNG cru, ver components/AppImage.tsx) até o processo de
+    // otimização sair do processo Node (Supabase Image Transformations, já
+    // preparado em AppImage.tsx, pendente de upgrade de plano do Storage).
+    formats: ['image/webp'],
     remotePatterns: [
       {
         protocol: 'https',

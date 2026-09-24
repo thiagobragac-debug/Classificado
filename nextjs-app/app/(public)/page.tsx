@@ -13,7 +13,6 @@ import { CtaSection } from '@/components/home/CtaSection';
 import { EventsAuctionsSection } from '@/components/home/EventsAuctionsSection';
 import { AdBanner } from '@/components/AdBanner';
 import dynamic from 'next/dynamic';
-import { headers } from 'next/headers';
 import { t } from '@/lib/constants';
 import { escapeJsonLd } from '@/lib/json-ld';
 import { getLocale } from '@/lib/locale-server';
@@ -126,11 +125,18 @@ function HeroSkeleton({ lang }: { lang: 'pt' | 'es' }) {
 // SectionSkeleton foi movido para o topo do arquivo
 
 export default async function Home() {
-  // Lê os headers geo UMA VEZ para todos os wrappers
-  const headersList = await headers();
-  const city    = headersList.get('x-vercel-ip-city')           || undefined;
-  const state   = headersList.get('x-vercel-ip-country-region') || undefined;
-  const country = headersList.get('x-vercel-ip-country')        || undefined;
+  // BUG CORRIGIDO (achado ao vivo, auditoria de lentidão 2026-09-24):
+  // x-vercel-ip-* só existe na infra da Vercel — o site está no Render desde
+  // a migração, e esses headers nunca chegam aqui (sempre undefined). Além
+  // de não personalizar mais nada, a chamada headers() em si força
+  // renderização dinâmica. Sem host atual expondo um equivalente confiável
+  // (Render usa Cloudflare como infra própria, não a do projeto — sem
+  // acesso a Cloudflare Geolocation), city/state/country ficam fixos em
+  // undefined; os wrappers abaixo já tratam isso como "sem prioridade
+  // geográfica" (RPCs de ranking nunca excluem, só reordenam).
+  const city: string | undefined = undefined;
+  const state: string | undefined = undefined;
+  const country: string | undefined = undefined;
 
   const lang = await getLocale();
 

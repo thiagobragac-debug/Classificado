@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { createClient } from '@/lib/supabase-server'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { SECRET_SETTING_KEYS } from '@/lib/secret-settings'
@@ -107,6 +108,11 @@ export async function POST(request: Request) {
   const admin = createAdminClient()
   const { error } = await admin.from('platform_settings').upsert(updates, { onConflict: 'key' })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Invalida getServerAdsenseClientId (lib/supabase-server.ts) — sem isso,
+  // uma troca de adsense_client_id só apareceria pros visitantes depois de
+  // até 1h (o revalidate: 3600 do unstable_cache).
+  revalidateTag('platform-settings')
 
   // RESOLVIDO (confirmado ao vivo contra o painel real da Pagar.me,
   // 2026-09-02 — ver comentário em lib/gateways/pagarme.ts::validateWebhook):

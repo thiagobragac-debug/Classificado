@@ -1,6 +1,8 @@
 import { createServerClient } from '@supabase/ssr';
+import { createClient as createJsClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { cache } from 'react';
+import { unstable_cache } from 'next/cache';
 import { SUPABASE_URL, SUPABASE_ANON } from './supabase';
 import { parseEventDate } from './event-date';
 import { createAdminClient, getSettings } from './supabase-admin';
@@ -14,6 +16,19 @@ export function createAnonClient() {
     global: {
       fetch: (url, options) => fetch(url, { ...options, next: { revalidate: 3600 } })
     }
+  });
+}
+
+// Cliente com contexto de usuário a partir de um JWT recebido via header
+// `Authorization: Bearer <token>` (apps nativos não têm cookie de sessão do
+// browser). Diferente de createAdminClient(): aqui o Postgrest recebe o JWT
+// do próprio usuário, então `auth.uid()` dentro de RLS/RPCs (ex.:
+// get_seller_phone) resolve pro usuário real — usar createAdminClient()
+// nesse caso quebraria silenciosamente (auth.uid() viraria null).
+export function createClientForToken(token: string) {
+  return createJsClient(SUPABASE_URL, SUPABASE_ANON, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+    auth: { persistSession: false, autoRefreshToken: false },
   });
 }
 
@@ -324,6 +339,26 @@ export async function getServerUpcomingEvents(city?: string, state?: string, cou
 
   return merged.slice(0, limit);
 }
+
+// BUG CORRIGIDO (achado ao vivo, auditoria de lentidão 2026-09-24): lido em
+// TODA página pública (app/(public)/layout.tsx, pro <script> de verificação
+// do AdSense no <head>) sem cache nenhum — um valor que praticamente nunca
+// muda gerava uma query real ao Postgres a cada request. Tag
+// 'platform-settings' é invalidada em app/api/admin/settings/route.ts
+// (POST) assim que o admin salva qualquer configuração, então uma troca real
+// do client ID propaga na hora em vez de esperar os 3600s do revalidate.
+export const getServerAdsenseClientId = unstable_cache(
+  async () => {
+    const { data } = await createAdminClient()
+      .from('platform_settings')
+      .select('value')
+      .eq('key', 'adsense_client_id')
+      .maybeSingle();
+    return data?.value || '';
+  },
+  ['adsense-client-id'],
+  { revalidate: 3600, tags: ['platform-settings'] }
+);
 
 export async function getServerCategories() {
   const supabase = createAnonClient();

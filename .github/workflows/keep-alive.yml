@@ -12,5 +12,9 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
+      # BUG CORRIGIDO (achado na 1a execucao real, run 35942424089): sem
+      # retry, o proprio cold-start que este workflow existe pra evitar
+      # derruba a run (Render devolve 502 rapido enquanto o container ainda
+      # esta subindo, curl -f falha na hora sem esperar o boot terminar).
       - name: Ping /api/health
-        run: curl -sf https://www.tauzeclass.com.br/api/health
+        run: curl -sf --retry 5 --retry-all-errors --retry-delay 8 --max-time 90 https://www.tauzeclass.com.br/api/health

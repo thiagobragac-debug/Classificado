@@ -7,7 +7,15 @@ import { useAuth } from '@/components/AuthProvider'
 import { useLang } from '@/lib/lang-context'
 import type { Lang } from '@/lib/constants'
 import { getCurrencySymbol as sharedGetCurrencySymbol, formatCurrencyAmount } from '@/lib/currency'
-import CheckoutModal from '@/components/ui/CheckoutModal'
+import dynamic from 'next/dynamic'
+// BUG CORRIGIDO (achado ao vivo, auditoria de lentidão 2026-09-24): import
+// estático antes trazia @stripe/stripe-js + @mercadopago/sdk-react pro
+// bundle inicial de /planos mesmo pra quem só compara planos sem clicar em
+// assinar — {selectedPlan && <CheckoutModal/>} só ESCONDE, não faz
+// code-splitting. dynamic(..., {ssr:false}) baixa o módulo (e os 2 SDKs de
+// pagamento) só quando o modal realmente abre, mesmo padrão já usado em
+// components/RichTextEditor.tsx pro react-quill-new.
+const CheckoutModal = dynamic(() => import('@/components/ui/CheckoutModal'), { ssr: false })
 import { useConfirm } from '@/components/ui/ConfirmProvider'
 import { escapeJsonLd } from '@/lib/json-ld'
 import styles from './page.module.css'

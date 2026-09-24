@@ -2,7 +2,12 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
+// BUG CORRIGIDO (achado ao vivo, auditoria de lentidão 2026-09-24): `motion`
+// completo (~30-50kb gzip) entra no bundle de TODA página do site via este
+// componente global no layout raiz, mesmo com a paleta fechada na imensa
+// maioria das visitas. LazyMotion+m é o mesmo padrão já usado em
+// components/home/RecentAdsSection.tsx/AdCardHome.tsx (~5-6kb gzip).
+import { m, LazyMotion, domAnimation, AnimatePresence } from 'framer-motion';
 import { useCategories } from '@/lib/categories-context';
 import { useLang } from '@/lib/lang-context';
 
@@ -120,6 +125,7 @@ export function CommandPalette() {
   };
 
   return (
+    <LazyMotion features={domAnimation}>
     <AnimatePresence>
       {open && (
         <div className="cmd-backdrop" onClick={() => setOpen(false)} style={{
@@ -128,7 +134,7 @@ export function CommandPalette() {
           display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
           paddingTop: '10vh'
         }}>
-          <motion.div 
+          <m.div
             ref={modalRef}
             initial={{ opacity: 0, scale: 0.95, y: -20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -222,9 +228,10 @@ export function CommandPalette() {
               <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><kbd style={{ background: 'white', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--clr-border)' }}>↑↓</kbd> {tt.navigate}</span>
               <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><kbd style={{ background: 'white', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--clr-border)' }}>Enter</kbd> {tt.select}</span>
             </div>
-          </motion.div>
+          </m.div>
         </div>
       )}
     </AnimatePresence>
+    </LazyMotion>
   );
 }

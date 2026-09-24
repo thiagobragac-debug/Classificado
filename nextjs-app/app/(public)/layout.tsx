@@ -12,8 +12,7 @@ import { ConfirmProvider } from '@/components/ui/ConfirmProvider';
 import { PwaPrompt } from '@/components/PwaPrompt';
 import { CapacitorAuthBridge } from '@/components/CapacitorAuthBridge';
 import { CommandPalette } from '@/components/CommandPalette';
-import { createClient, getServerCategories } from '@/lib/supabase-server';
-import { createAdminClient } from '@/lib/supabase-admin';
+import { createClient, getServerCategories, getServerAdsenseClientId } from '@/lib/supabase-server';
 import { CategoriesProvider } from '@/lib/categories-context';
 import { Inter, Sora } from 'next/font/google';
 
@@ -136,37 +135,44 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const headersList = await headers();
   const nonce = headersList.get('x-nonce') || '';
 
-  // Uma única chamada getUser() aproveitando a sessão já validada pelo proxy
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const isLogged = !!user;
-  
-  const serverCategories = await getServerCategories();
 
-  // GAP FECHADO (achado ao vivo pelo usuário, conta AdSense recém-criada
-  // pedindo verificação de propriedade do site): é um passo DIFERENTE de
-  // configurar onde os anúncios aparecem (aba Publicidade em /admin/
-  // configuracoes, ver AdBanner.tsx) — o Google precisa achar este script
-  // exato dentro de <head></head>, em toda página, ANTES de aprovar a
-  // conta, independente de existir algum <ins class="adsbygoogle"> na
-  // página ou não. Mesma chave platform_settings.adsense_client_id (não é
-  // segredo — client id do AdSense é público por definição, sai no HTML
-  // de qualquer jeito) alimenta os dois usos. RLS de platform_settings só
-  // libera SELECT pra sessão de admin (ver migration 20260830160000) —
-  // igual o resto do código que lê settings num Server Component (ex.:
-  // getServerPlatformStats), precisa do client admin (service_role,
-  // ignora RLS), não do anon.
-  const { data: adsenseSetting } = await createAdminClient()
-    .from('platform_settings')
-    .select('value')
-    .eq('key', 'adsense_client_id')
-    .maybeSingle();
-  const adsenseClientId = adsenseSetting?.value || '';
-  
+  // BUG CORRIGIDO (achado ao vivo, auditoria de lentidão 2026-09-24):
+  // getUser() sempre faz um round-trip de rede pro Supabase Auth pra
+  // revalidar o JWT — rodando em TODA página pública, pra todo visitante.
+  // O proxy.ts já validou a mesma sessão localmente via getClaims() (JWT
+  // ES256, sem ida de rede — ver proxy.ts:658-663), e este layout duplicava
+  // esse trabalho do zero. Troca pro mesmo padrão do proxy: getClaims() aqui
+  // também valida local. Junto disso, as 3 buscas independentes (sessão,
+  // categorias, config do AdSense) agora rodam em paralelo em vez de
+  // sequenciais — cada uma delas era um round-trip somado ao TTFB de toda
+  // página pública.
+  const [claimsResult, serverCategories, adsenseClientId] = await Promise.all([
+    supabase.auth.getClaims(),
+    getServerCategories(),
+    // GAP FECHADO (achado ao vivo pelo usuário, conta AdSense recém-criada
+    // pedindo verificação de propriedade do site): é um passo DIFERENTE de
+    // configurar onde os anúncios aparecem (aba Publicidade em /admin/
+    // configuracoes, ver AdBanner.tsx) — o Google precisa achar este script
+    // exato dentro de <head></head>, em toda página, ANTES de aprovar a
+    // conta, independente de existir algum <ins class="adsbygoogle"> na
+    // página ou não. Mesma chave platform_settings.adsense_client_id (não é
+    // segredo — client id do AdSense é público por definição, sai no HTML
+    // de qualquer jeito) alimenta os dois usos. Cacheada (ver
+    // getServerAdsenseClientId em lib/supabase-server.ts) — não precisa
+    // bater no banco a cada request pra um valor que quase nunca muda.
+    getServerAdsenseClientId(),
+  ]);
+
+  const claims = claimsResult.data?.claims as Record<string, any> | undefined;
+  const isLogged = !!claims?.sub;
+
   let userInitials = '';
-  if (user) {
-    const name = user.user_metadata?.name || user.user_metadata?.display_name || user.email?.split('@')[0] || 'U';
-    userInitials = name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
+  if (claims) {
+    const meta = (claims.user_metadata as Record<string, any> | undefined) || {};
+    const email = typeof claims.email === 'string' ? claims.email : undefined;
+    const name = meta.name || meta.display_name || email?.split('@')[0] || 'U';
+    userInitials = String(name).split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
   }
 
   return (
@@ -192,6 +198,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {adsenseClientId && (
           <script
             async
+            // BUG CORRIGIDO (achado ao vivo, auditoria de lentidão
+            // 2026-09-24): por estar em <head>, o preload scanner do
+            // browser priorizava este script cedo, competindo por banda
+            // com CSS/fonte/imagem do hero nos primeiros ms da navegação.
+            // fetchPriority="low" reduz a prioridade de rede sem deixar de
+            // satisfazer a exigência de presença literal em <head> pra
+            // verificação de propriedade do AdSense.
+            fetchPriority="low"
             src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseClientId}`}
             crossOrigin="anonymous"
           />

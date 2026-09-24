@@ -1,13 +1,20 @@
-import Link from 'next/link';
-import { cookies } from 'next/headers';
-import { CAT_COLORS, CAT_SVG_PATHS, t as _t } from '@/lib/constants';
-import { getServerCategories } from '@/lib/supabase-server';
+'use client';
 
-export async function CategoriesSection() {
-  const cookieStore = await cookies();
-  const lang = (cookieStore.get('tc_lang')?.value || 'pt') as 'pt' | 'es';
-  const t = (key: string) => _t(key, lang);
-  const categories = await getServerCategories();
+import Link from 'next/link';
+import { CAT_COLORS, CAT_SVG_PATHS } from '@/lib/constants';
+import { useCategories } from '@/lib/categories-context';
+import { useLang } from '@/lib/lang-context';
+
+// BUG CORRIGIDO (achado ao vivo, auditoria de lentidão 2026-09-24): esta
+// seção buscava categories() e lang (via cookies()) do zero num Server
+// Component sem <Suspense>, travando o streaming da home inteira — e
+// duplicava a MESMA query que app/(public)/layout.tsx já faz e repassa via
+// CategoriesProvider (linha 202 do layout). Virou client component lendo o
+// dado já em memória (useCategories/useLang), sem round-trip nenhum: mais
+// rápido que qualquer Suspense boundary conseguiria ser.
+export function CategoriesSection() {
+  const categories = useCategories();
+  const { lang, t } = useLang();
 
   return (
     <section className="section categories-section" id="categorias" aria-labelledby="cat-heading">
@@ -30,7 +37,7 @@ export async function CategoriesSection() {
             // Check if it's a known SVG icon name, otherwise treat as an emoji/text icon
             const isSvg = !!CAT_SVG_PATHS[cat.icon];
             const svgPath = isSvg ? CAT_SVG_PATHS[cat.icon] : null;
-            
+
             // Use custom color from DB, or fallback to constants, or a default gray
             let colors = { bg: '#F8FAFC', clr: '#475569' };
             if (cat.color) {

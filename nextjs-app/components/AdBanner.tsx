@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import Script from 'next/script';
 import { useGeoLocation } from '@/lib/useGeoLocation';
 import { getBanners } from '@/lib/supabase';
 import { useLang } from '@/lib/lang-context';
@@ -40,34 +39,33 @@ function AdSenseUnit({ clientId, slotId, heightStyle }: { clientId: string; slot
   useEffect(() => {
     if (pushed.current || !insRef.current) return;
     try {
+      // BUG CORRIGIDO (achado ao vivo, auditoria de lentidão 2026-09-24):
+      // esta função carregava adsbygoogle.js DE NOVO via <Script>, além do
+      // <script> global já injetado em app/(public)/layout.tsx:192-198
+      // (mesma platform_settings.adsense_client_id — se este componente
+      // está montado é porque o admin configurou AdSense, logo o layout
+      // já injetou o script global nesta mesma página). O padrão push({})
+      // na fila é desenhado pra funcionar independente de o script já ter
+      // terminado de carregar ou não — não precisa de onLoad/segunda tag.
       // @ts-expect-error -- adsbygoogle é injetado pelo script do Google, sem tipos.
       (window.adsbygoogle = window.adsbygoogle || []).push({});
       pushed.current = true;
     } catch {
-      // Script do Google ainda não carregou nesta renderização — o próprio
-      // <Script onLoad> mais abaixo cobre o carregamento inicial; nada mais
-      // a fazer aqui além de não travar a página se isso falhar.
+      // Fila ainda não disponível nesta renderização — inofensivo, o script
+      // global do layout processa a fila assim que carregar.
     }
   }, []);
 
   return (
-    <>
-      <Script
-        id="adsense-loader"
-        strategy="afterInteractive"
-        src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${clientId}`}
-        crossOrigin="anonymous"
-      />
-      <ins
-        ref={insRef}
-        className="adsbygoogle"
-        style={{ display: 'block', width: '100%', height: heightStyle }}
-        data-ad-client={clientId}
-        data-ad-slot={slotId}
-        data-ad-format="auto"
-        data-full-width-responsive="true"
-      />
-    </>
+    <ins
+      ref={insRef}
+      className="adsbygoogle"
+      style={{ display: 'block', width: '100%', height: heightStyle }}
+      data-ad-client={clientId}
+      data-ad-slot={slotId}
+      data-ad-format="auto"
+      data-full-width-responsive="true"
+    />
   );
 }
 

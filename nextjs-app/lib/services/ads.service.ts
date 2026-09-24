@@ -133,7 +133,15 @@ export async function getAdsListagem(params: AdsSearchParams, geoContext: any, i
     // em espanhol (mesmo padrão já usado pra title_es) — mas este select
     // explícito nunca as buscava, então a listagem sempre caía no fallback
     // _pt, mesmo pra anúncios com tradução real preenchida.
-    .select('id, slug, title_pt, title_es, price, currency, price_unit_pt, price_unit_es, negotiable, country, state, city, location_text, images, tags_pt, tags_es, status, featured, created_at, category_id', { count: 'exact' })
+    // BUG CORRIGIDO (achado ao vivo, auditoria de lentidão 2026-09-24):
+    // count:'exact' força o Postgres a contar TODAS as linhas que casam com
+    // o filtro completo em toda chamada — caro combinado com os filtros
+    // ILIKE não-sargáveis logo abaixo (viram Seq Scan). 'estimated' usa as
+    // estatísticas do planner (bem mais barato) quando o total é grande o
+    // bastante pra PostgREST decidir que vale a pena; cai pro exato quando
+    // a tabela é pequena. Total aproximado é aceitável numa listagem
+    // paginada (não é usado pra nenhuma decisão financeira/de negócio).
+    .select('id, slug, title_pt, title_es, price, currency, price_unit_pt, price_unit_es, negotiable, country, state, city, location_text, images, tags_pt, tags_es, status, featured, created_at, category_id', { count: 'estimated' })
     .eq('status', 'active');
 
   // Busca por raio em KM (ver getAdsListagemComFallbackGeografico) — os ids

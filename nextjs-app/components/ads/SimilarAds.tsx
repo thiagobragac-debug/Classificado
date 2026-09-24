@@ -39,31 +39,24 @@ export async function SimilarAds({ currentAdId, categoryId, city, state }: Simil
   const fields = 'id, slug, title_pt, title_es, price, currency, price_unit_pt, price_unit_es, images, city, state, featured, category_id, created_at, profiles!inner(id, name)';
 
   try {
-    // Nível 1: Mesma Categoria + Cidade
-    if (city) {
-      const { data } = await supabase.from('ads')
-        .select(fields)
-        .eq('status', 'active')
-        .neq('id', currentAdId)
-        .eq('category_id', categoryId)
-        .eq('city', city)
-        .limit(MAX_ADS);
-      
-      if (addAds(data)) throw new Error('FULL'); // Short-circuit
-    }
+    // Níveis 1 (cidade) e 2 (estado): BUG CORRIGIDO (achado ao vivo,
+    // auditoria de lentidão 2026-09-24) — eram 2 round-trips SEQUENCIAIS
+    // mesmo sendo consultas independentes uma da outra (nenhuma depende do
+    // resultado da outra pra montar a query). Promise.all roda as duas em
+    // paralelo; addAds() continua chamado na mesma ordem de prioridade
+    // (cidade primeiro, depois estado) então o merge final fica idêntico a
+    // antes — só a latência de rede que deixa de somar.
+    const [cityData, stateData] = await Promise.all([
+      city
+        ? supabase.from('ads').select(fields).eq('status', 'active').neq('id', currentAdId).eq('category_id', categoryId).eq('city', city).limit(MAX_ADS).then(r => r.data)
+        : Promise.resolve(null),
+      state
+        ? supabase.from('ads').select(fields).eq('status', 'active').neq('id', currentAdId).eq('category_id', categoryId).eq('state', state).limit(MAX_ADS).then(r => r.data)
+        : Promise.resolve(null),
+    ]);
 
-    // Nível 2: Mesma Categoria + Estado
-    if (state) {
-      const { data } = await supabase.from('ads')
-        .select(fields)
-        .eq('status', 'active')
-        .neq('id', currentAdId)
-        .eq('category_id', categoryId)
-        .eq('state', state)
-        .limit(MAX_ADS);
-      
-      if (addAds(data)) throw new Error('FULL');
-    }
+    if (addAds(cityData)) throw new Error('FULL'); // Short-circuit
+    if (addAds(stateData)) throw new Error('FULL');
 
     // Nível 3: Mesma Categoria global (País/Qualquer lugar)
     const { data: dataCountry } = await supabase.from('ads')
