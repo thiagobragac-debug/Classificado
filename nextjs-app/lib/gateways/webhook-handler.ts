@@ -659,7 +659,12 @@ export async function processPaymentWebhook(req: Request, forcedGateway?: Gatewa
       err.message?.includes('Invalid Pagar') ||
       err.message?.includes('not configured') ||
       err.message?.includes('outside tolerance') ||
-      (err.message?.includes('Missing') && err.message?.includes('signature'))
+      // BUG CORRIGIDO (achado ao vivo, varredura de segurança, 2026-09-24):
+      // cobria só "Missing ... signature" (Stripe/MP) — pagarme.ts lança
+      // 'Missing Pagar.me Authorization header' (sem a palavra "signature"),
+      // caindo no branch de 500 igual um bug de código real, mesmo sendo uma
+      // rejeição de auth esperada (webhook malformado/sem credencial).
+      (err.message?.includes('Missing') && (err.message?.includes('signature') || err.message?.includes('Authorization')))
     // BUG CORRIGIDO (validação do zero, rodada 6): o default anterior pra
     // erro NÃO reconhecido era 200 — que diz pro gateway "processei com
     // sucesso, não reenvie". Qualquer erro inesperado (bug de código, timeout

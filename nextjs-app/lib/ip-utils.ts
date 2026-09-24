@@ -67,7 +67,17 @@ export function resolverIpConfiavel(headers: HeaderLike): string | null {
 }
 
 const IPV4 = /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/;
-const IPV6 = /^[0-9a-fA-F:]{2,45}$/;
+// BUG CORRIGIDO (achado por revisão adversarial, varredura de segurança,
+// 2026-09-24): a versão anterior (/^[0-9a-fA-F:]{2,45}$/) aceitava qualquer
+// string hex de 2-45 caracteres MESMO SEM NENHUM ':' — "deadbeef" passava
+// como "IPv6 válido". Não abria injeção de path (a classe de caracteres já
+// excluía '/', '.', etc.) nem afetava a decisão de segurança do checkout —
+// isValidIp() nunca é o gate autoritativo, só decide se tenta consultar
+// https://ipwho.is/${ip} — mas isValidIp() é o nome/contrato público da
+// função, então "aceita lixo não-IP" era uma validação real, ainda que de
+// baixa severidade. Regex abaixo exige a estrutura real de IPv6 (grupos de
+// até 4 hex separados por ':', com suporte a '::' pra abreviar zeros).
+const IPV6 = /^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:))$/;
 
 /**
  * Confirma que a string é um IPv4 ou IPv6 sintaticamente válido.

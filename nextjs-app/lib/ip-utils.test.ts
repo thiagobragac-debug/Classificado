@@ -50,7 +50,10 @@ describe('resolverIpConfiavel', () => {
 });
 
 describe('isValidIp', () => {
-  it.each(['203.0.113.9', '0.0.0.0', '255.255.255.255', '::1', '2001:db8::1'])(
+  it.each([
+    '203.0.113.9', '0.0.0.0', '255.255.255.255', '::1', '2001:db8::1',
+    '2001:0db8:1234:5678:0000:0000:0000:0001', '::', 'fe80::1', '2001:db8::',
+  ])(
     'aceita %s',
     (ip) => expect(isValidIp(ip)).toBe(true)
   );
@@ -63,6 +66,10 @@ describe('isValidIp', () => {
     '1.2.3.4.5',
     '../../etc/passwd',
     '1.2.3.4/evil',
+    // BUG CORRIGIDO (achado por revisão adversarial): regex antigo aceitava
+    // qualquer hex sem ':' nenhum como "IPv6 válido".
+    'deadbeef',
+    'abc123',
   ])('rejeita %s', (ip) => expect(isValidIp(ip)).toBe(false));
 
   it('rejeita null (retorno de resolverIpConfiavel sem header confiável)', () => {

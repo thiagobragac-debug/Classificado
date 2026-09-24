@@ -193,6 +193,15 @@ function buildCsp(nonce: string, pathname: string): string {
       ...MP_SCRIPT,
       ...GOOGLE_IDENTITY,
       ...ADSENSE_SCRIPT,
+      // BUG CORRIGIDO (achado ao vivo, varredura de segurança/performance,
+      // 2026-09-24): img-src e connect-src já liberavam googletagmanager.com
+      // pro beacon/fetch do GA4 (ver comentários abaixo), mas faltava aqui —
+      // o próprio <script src="https://www.googletagmanager.com/gtag/js?...">
+      // é bloqueado por script-src, independente do nonce (nonce só cobre
+      // script inline, não o host de um script externo). Console mostrava
+      // "Refused to load the script... violates... script-src" e o GA4 nunca
+      // chegava a carregar.
+      'https://www.googletagmanager.com',
       // Turbopack / React Refresh precisam de eval apenas em desenvolvimento
       ...(isProd ? [] : [`'unsafe-eval'`]),
     ]),
