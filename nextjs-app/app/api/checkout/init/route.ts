@@ -85,7 +85,7 @@ export async function POST(req: Request) {
     // correção de app/api/checkout/route.ts — precisa ser EXATAMENTE a mesma
     // fonte de país que a cobrança real usa, senão esta pré-visualização
     // mostra um valor que /api/checkout não vai honrar. profiles.country
-    // (auto-editável) só entra como fallback se os 3 provedores de geoip
+    // (auto-editável) só entra como fallback se os 2 provedores de geoip
     // falharem juntos.
     const ipCountryCode = await resolveCountryCode(req.headers)
     const userCountry = ipCountryCode || profile?.country || undefined

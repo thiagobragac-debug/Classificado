@@ -1,5 +1,5 @@
 /**
- * Geolocalização por IP — 3 provedores em cascata. Extraído de
+ * Geolocalização por IP — 2 provedores HTTPS em cascata. Extraído de
  * app/(public)/api/geoip/route.ts (GAP CORRIGIDO: "burlar localização para
  * contratar assinatura em outra moeda", 2026-09-01) pra poder ser reusado
  * como fonte AUTORITATIVA de país no momento de cobrar (app/api/checkout/
@@ -114,11 +114,11 @@ export type GeoResult = {
 };
 
 /**
- * Cascata de 3 provedores pra um IP já resolvido (ver por que HTTP puro do
- * ip-api.com é o ÚLTIMO recurso, não o primeiro, no comentário de cada
- * provedor abaixo). Compartilhada entre resolveGeo() (exibição, IP via
- * resolverIpConfiavel — trust chain mais permissiva, falha aberta) e
- * resolveCountryCode() (cobrança, IP via resolverIpAutoritativo — só
+ * Cascata de 2 provedores HTTPS pra um IP já resolvido (havia um 3º, HTTP
+ * puro — ver comentário no fim da função, removido em 2026-09-24).
+ * Compartilhada entre resolveGeo() (exibição, IP via resolverIpConfiavel —
+ * trust chain mais permissiva, falha aberta) e resolveCountryCode()
+ * (cobrança, IP via resolverIpAutoritativo — só cf-connecting-ip/
  * x-vercel-forwarded-for, sem fallback).
  */
 async function lookupByIp(ip: string, local: boolean, lang: 'pt' | 'es'): Promise<GeoResult | null> {
@@ -164,28 +164,18 @@ async function lookupByIp(ip: string, local: boolean, lang: 'pt' | 'es'): Promis
     console.warn('[geoip] ipapi.co falhou:', e);
   }
 
-  try {
-    const ipParam = local ? '' : `/${ip}`;
-    const url = `http://ip-api.com/json${ipParam}?fields=status,city,regionName,regionCode,countryCode,lat,lon&lang=${lang}`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(2000) });
-    if (res.ok) {
-      const d = await res.json();
-      if (d?.status === 'success' && d.countryCode) {
-        return {
-          city: d.city ?? null,
-          state: d.regionName ?? null,
-          stateCode: d.regionCode ?? null,
-          country: normalizeCountry(d.countryCode, lang),
-          countryCode: d.countryCode.toUpperCase(),
-          lat: typeof d.lat === 'number' ? d.lat : null,
-          lng: typeof d.lon === 'number' ? d.lon : null,
-        };
-      }
-    }
-  } catch (e) {
-    console.warn('[geoip] ip-api.com falhou:', e);
-  }
-
+  // BUG CORRIGIDO (achado ao vivo, varredura de segurança/performance/RLS,
+  // 2026-09-24): havia um 3º provedor aqui (ip-api.com) em HTTP PURO — sem
+  // TLS, o IP do visitante ia em texto claro pra internet, e a resposta
+  // (usada até na decisão financeira via resolveCountryCode) não tinha
+  // nenhuma verificação de integridade contra adulteração on-path.
+  // Confirmado ao vivo que não dá pra só trocar pra https://: o tier
+  // gratuito do ip-api.com recusa HTTPS (`curl -s https://ip-api.com/...`
+  // devolve 403/"status":"fail" — HTTPS só no plano Pro pago deles).
+  // Removido em vez de mantido quebrado — os outros 2 provedores (ipwho.is,
+  // ipapi.co) já são HTTPS; perder o 3º só torna ligeiramente mais provável
+  // cair no fallback de profiles.country (resolveCountryCode) ou "sem
+  // localização" (resolveGeo), nunca um novo risco de segurança.
   console.warn('[geoip] todos os provedores falharam para IP:', ip);
   return null;
 }

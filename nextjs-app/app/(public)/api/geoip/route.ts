@@ -1,6 +1,6 @@
 /**
  * GET /api/geoip
- * Detecção de localização server-side — 3 provedores em cascata.
+ * Detecção de localização server-side — 2 provedores HTTPS em cascata.
  * Sem CORS, sem permissão de browser. Funciona em prod e dev.
  *
  * A lógica de geolocalização em si (cascata de provedores, mapa de países)
