@@ -2,6 +2,14 @@ import { NextResponse } from 'next/server'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { SUPABASE_URL, SUPABASE_ANON } from '@/lib/supabase'
+import { resolveTrustedOrigin } from '@/lib/csrf-origin'
+
+// BUG CORRIGIDO (achado ao vivo, 2026-09-24): o origin usado no redirect pós-
+// login vinha de `new URL(request.url).origin`, que atrás do proxy da Render
+// em produção resolvia pra `http://0.0.0.0:10000` (o host:porta interno em
+// que o processo Next escuta) em vez do domínio público — todo login (Google
+// OAuth, inclusive o do admin, quando cai no fallback signInWithOAuth)
+// terminava num redirect morto. Ver resolveTrustedOrigin em lib/csrf-origin.ts.
 
 // Restaurada (2026-09-02) como FALLBACK do login com Google — ver
 // lib/google-identity.ts. O fluxo principal agora é signInWithIdToken
@@ -29,9 +37,10 @@ function getSafeNext(raw: string | null): string {
 }
 
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url)
+  const { searchParams } = new URL(request.url)
   const code = searchParams.get('code')
   const next = getSafeNext(searchParams.get('next'))
+  const origin = resolveTrustedOrigin(request)
 
   if (code) {
     const cookieStore = await cookies()

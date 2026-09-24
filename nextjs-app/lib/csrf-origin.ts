@@ -32,3 +32,35 @@ export function isForbiddenOrigin(request: Request): boolean {
   const origin = request.headers.get('origin');
   return !!origin && !ALLOWED_ORIGINS.includes(origin);
 }
+
+const KNOWN_HOSTS = new Set(
+  ALLOWED_ORIGINS.map((o) => {
+    try {
+      return new URL(o).host;
+    } catch {
+      return null;
+    }
+  }).filter(Boolean) as string[]
+);
+
+/**
+ * BUG CORRIGIDO (achado ao vivo, 2026-09-24): rotas que redirecionavam pra
+ * `new URL(request.url).origin` mandavam o usuário pra `http://0.0.0.0:10000`
+ * em produção — esse é o host:porta interno em que o processo Next escuta
+ * atrás do proxy da Render, não o domínio público (login via Google OAuth e
+ * logout, os dois casos reais encontrados). `x-forwarded-host`/`x-forwarded-
+ * proto` são os headers que a Render de fato preenche com o domínio real que
+ * o usuário acessou (só o proxy deles alcança o container, não dá pra forjar
+ * de fora); validados contra os hosts conhecidos como defesa extra, com
+ * NEXT_PUBLIC_SITE_URL (mesma env var já usada em isForbiddenOrigin acima)
+ * como fallback seguro pros casos em que o header vem ausente/inesperado
+ * (dev local, por exemplo).
+ */
+export function resolveTrustedOrigin(request: Request): string {
+  const forwardedHost = request.headers.get('x-forwarded-host');
+  if (forwardedHost && KNOWN_HOSTS.has(forwardedHost)) {
+    const forwardedProto = request.headers.get('x-forwarded-proto') ?? 'https';
+    return `${forwardedProto}://${forwardedHost}`;
+  }
+  return process.env.NEXT_PUBLIC_SITE_URL || 'https://tauzeclass.com.br';
+}
