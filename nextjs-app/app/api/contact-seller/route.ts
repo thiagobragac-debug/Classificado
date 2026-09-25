@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase-server';
+import { createClient, createClientForToken } from '@/lib/supabase-server';
+import { createAdminClient } from '@/lib/supabase-admin';
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 import { dentroDoLimiteFallback } from '@/lib/rate-limit-fallback';
@@ -37,29 +38,55 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const adId = searchParams.get('adId');
 
-  // ─── Autenticação obrigatória ─────────────────────────────────
-  // O número de WhatsApp é dado pessoal — só usuários autenticados podem acessar.
+  // ─── Autenticação ───────────────────────────────────────────────
+  // O número de WhatsApp é dado pessoal — só usuários autenticados podem
+  // acessar. Dois caminhos:
+  // (a) Bearer token (`Authorization: Bearer <jwt>`) — apps nativos, que não
+  //     têm cookie de sessão de browser. Resposta é JSON, não redirect,
+  //     porque um cliente HTTP nativo trata redirect de forma diferente de
+  //     um <a target="_blank"> de browser.
+  // (b) Cookie de sessão — comportamento original do site, inalterado.
   // GAP CORRIGIDO (reteste do site, 2026-08-25): esta rota é aberta direto
   // pelo navegador (<a target="_blank">), não chamada via fetch/XHR — um
   // visitante deslogado clicando "Falar com Vendedor" no mobile abria uma
   // aba nova mostrando o JSON crú {"error":"Unauthorized",...} em vez de
   // uma tela reconhecível. Agora redireciona pro login com `next` de volta
   // pro anúncio, igual ao padrão já usado no resto do site.
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const authHeader = request.headers.get('Authorization');
+  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  const isNativeBearer = bearerToken !== null;
 
-  if (!user) {
-    const loginUrl = new URL('/login', request.url);
-    if (adId && UUID_REGEX.test(adId)) {
-      loginUrl.searchParams.set('next', `/anuncio/${adId}`);
+  let supabase;
+  let user;
+  if (isNativeBearer) {
+    // Validar o JWT com o client admin (mesmo padrão de app/api/checkout/route.ts)
+    // antes de usá-lo — nunca confiar cegamente num token vindo do header.
+    const { data, error } = await createAdminClient().auth.getUser(bearerToken);
+    if (error || !data.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    return NextResponse.redirect(loginUrl, {
-      status: 302,
-      headers: {
-        'Cache-Control': 'no-store, no-cache, private',
-        'Pragma': 'no-cache',
-      },
-    });
+    user = data.user;
+    // Client escopado no JWT do próprio usuário (não o service role) — é o
+    // que faz auth.uid() resolver corretamente dentro de get_seller_phone
+    // (SECURITY DEFINER que lê auth.uid() internamente).
+    supabase = createClientForToken(bearerToken);
+  } else {
+    supabase = await createClient();
+    const { data: { user: cookieUser } } = await supabase.auth.getUser();
+    if (!cookieUser) {
+      const loginUrl = new URL('/login', request.url);
+      if (adId && UUID_REGEX.test(adId)) {
+        loginUrl.searchParams.set('next', `/anuncio/${adId}`);
+      }
+      return NextResponse.redirect(loginUrl, {
+        status: 302,
+        headers: {
+          'Cache-Control': 'no-store, no-cache, private',
+          'Pragma': 'no-cache',
+        },
+      });
+    }
+    user = cookieUser;
   }
 
   // ─── E-mail verificado obrigatório (auditoria de segurança) ────
@@ -74,6 +101,9 @@ export async function GET(request: NextRequest) {
   // em app/(public)/painel/_components/ProfileTab.tsx pro badge
   // Verificado/Pendente, não uma checagem nova inventada aqui.
   if (!user.email_confirmed_at) {
+    if (isNativeBearer) {
+      return NextResponse.json({ error: 'Email not confirmed' }, { status: 403 });
+    }
     return NextResponse.redirect(new URL('/painel', request.url), {
       status: 302,
       headers: {
@@ -166,14 +196,18 @@ export async function GET(request: NextRequest) {
     const message = encodeURIComponent(`Olá! Tenho interesse no anúncio: ${title}`);
     const whatsappUrl = `https://wa.me/${cleanPhone}?text=${message}`;
 
-    // Cache-Control: private + no-store para evitar que CDNs cacheiem redirecionamentos pessoais
-    return NextResponse.redirect(whatsappUrl, {
-      status: 302,
-      headers: {
-        'Cache-Control': 'no-store, no-cache, private',
-        'Pragma': 'no-cache',
-      },
-    });
+    // Cache-Control: private + no-store para evitar que CDNs cacheiem a resposta/redirecionamento pessoal
+    const cacheHeaders = { 'Cache-Control': 'no-store, no-cache, private', 'Pragma': 'no-cache' };
+
+    // Apps nativos: JSON, o cliente HTTP nativo decide como abrir a URL
+    // (Intent.ACTION_VIEW / UIApplication.open) — um redirect 302 misturaria
+    // "sucesso" com "siga esta URL", que nem todo cliente HTTP nativo segue
+    // automaticamente do jeito que um browser segue.
+    if (isNativeBearer) {
+      return NextResponse.json({ whatsappUrl }, { headers: cacheHeaders });
+    }
+
+    return NextResponse.redirect(whatsappUrl, { status: 302, headers: cacheHeaders });
   } catch (err) {
     console.error('[contact-seller] Erro interno:', err);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

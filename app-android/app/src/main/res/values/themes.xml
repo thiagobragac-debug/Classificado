@@ -1,0 +1,21 @@
+<resources>
+    <!--
+      Tema da janela pré-Compose (fundo/status bar no instante da criação da
+      Activity). A cor/tipografia real do app é definida por TauzeClassTheme
+      (Compose), não por este XML.
+    -->
+    <!--
+      Precisa derivar de Theme.AppCompat (não android:Theme.Material) porque
+      MainActivity agora estende AppCompatActivity — exigido pelo
+      AppCompatDelegate.setApplicationLocales() pra funcionar de verdade na
+      API 33+ (confirmado ao vivo: sem AppCompatDelegate ativo registrado,
+      a chamada é um no-op silencioso, nunca persiste nada — decompilado
+      via javap no bytecode real do appcompat 1.8.0). AppCompatActivity
+      lança IllegalStateException em runtime se o tema não derivar de
+      Theme.AppCompat.
+    -->
+    <style name="Theme.TauzeClassMobile" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+</resources>

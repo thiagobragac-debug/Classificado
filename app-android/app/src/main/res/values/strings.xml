@@ -1,0 +1,581 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- ============================================================ -->
+    <!-- App                                                          -->
+    <!-- ============================================================ -->
+    <string name="app_name">Tauze Class</string>
+
+    <!-- ============================================================ -->
+    <!-- Common / shared                                              -->
+    <!-- ============================================================ -->
+    <string name="nav_home">Início</string>
+    <string name="nav_search">Buscar</string>
+    <string name="nav_post_ad">Anunciar</string>
+    <string name="nav_favorites">Favoritos</string>
+    <string name="nav_dashboard">Painel</string>
+
+    <string name="common_verified_badge">Verificado</string>
+    <string name="common_retry">Tentar novamente</string>
+    <string name="common_back">Voltar</string>
+    <string name="common_save_changes">Salvar Alterações</string>
+    <string name="common_cancel">Cancelar</string>
+    <string name="common_confirm">Confirmar</string>
+    <string name="common_sending">Enviando…</string>
+    <string name="common_previous">Anterior</string>
+    <string name="common_next">Próxima</string>
+    <string name="common_remove">Remover</string>
+    <string name="common_session_expired">Sessão expirada. Faça login novamente.</string>
+    <string name="common_session_not_found">Sessão não encontrada.</string>
+    <string name="common_no_session">Sem sessão.</string>
+    <string name="common_error_connection">Erro de conexão. Tente novamente.</string>
+    <string name="common_err_read_file">Não foi possível ler o arquivo selecionado.</string>
+
+    <string name="listagem_all_male">Todos</string>
+    <string name="listagem_all_female">Todas</string>
+    <string name="listagem_city">Cidade</string>
+    <string name="listagem_state">Estado</string>
+    <string name="listagem_country">País</string>
+
+    <string name="ads_negotiable">Negociável</string>
+    <string name="ads_badge_featured">DESTAQUE</string>
+    <!-- Also used as the AdDetail TopAppBar title (ads_detail_title) -->
+    <string name="messages_ad_fallback">Anúncio</string>
+
+    <string name="profile_field_zip">CEP</string>
+    <string name="profile_field_number">Número</string>
+    <string name="profile_field_neighborhood">Bairro</string>
+    <string name="profile_field_document">CPF/CNPJ</string>
+
+    <string name="auth_email_label">E-mail</string>
+
+    <!-- Countries -->
+    <string name="country_brasil">Brasil</string>
+    <string name="country_argentina">Argentina</string>
+    <string name="country_uruguai">Uruguai</string>
+    <string name="country_paraguai">Paraguai</string>
+    <string name="country_bolivia">Bolívia</string>
+
+    <!-- ============================================================ -->
+    <!-- feature/auth                                                 -->
+    <!-- ============================================================ -->
+    <string name="auth_hide_password">Ocultar senha</string>
+    <string name="auth_show_password">Mostrar senha</string>
+    <string name="auth_toggle_login">Entrar</string>
+    <!-- Also used as the Register screen submit button (auth_register_button) -->
+    <string name="auth_toggle_register">Criar Conta</string>
+    <string name="auth_badge_free">✓ Gratuito para anunciar</string>
+    <string name="auth_badge_mercosul">🌎 Mercosul completo</string>
+    <string name="auth_err_password_mismatch">As senhas não coincidem.</string>
+    <string name="auth_err_invalid_email">Digite um e-mail válido.</string>
+    <string name="auth_err_password_min">A senha deve ter pelo menos 8 caracteres.</string>
+    <string name="auth_err_name_min">Digite seu nome (pelo menos 3 caracteres).</string>
+    <string name="auth_label_name">Nome</string>
+    <string name="auctions_download_catalog">Baixar Catálogo</string>
+    <string name="auth_err_invalid_credentials">E-mail ou senha incorretos.</string>
+    <string name="auth_err_email_exists">Este e-mail já está cadastrado.</string>
+    <string name="auth_err_weak_password">Senha muito fraca. Escolha uma senha mais forte.</string>
+    <string name="auth_err_unexpected">Erro inesperado. Tente novamente.</string>
+    <string name="auth_google_err_credential_type">Tipo de credencial inesperado.</string>
+    <string name="auth_google_err_no_account">Nenhuma Conta Google disponível neste aparelho.</string>
+    <string name="auth_google_err_generic">Falha ao entrar com Google.</string>
+    <string name="auth_google_err_invalid_response">Resposta inválida do Google.</string>
+    <string name="auth_connecting">Conectando...</string>
+    <string name="auth_continue_google">Continuar com Google</string>
+    <string name="auth_or_email">ou continue com e-mail</string>
+    <string name="auth_email_placeholder">seu@email.com</string>
+    <string name="auth_password_label">Senha</string>
+    <string name="auth_logging_in">Entrando...</string>
+    <string name="auth_login_button">Entrar na Conta</string>
+    <string name="auth_no_account_register">Não tem conta? Criar Conta</string>
+    <string name="auth_password_hint_min">Mínimo de 8 caracteres</string>
+    <string name="auth_confirm_password_label">Confirmar Senha</string>
+    <string name="auth_creating_account">Criando conta...</string>
+    <string name="auth_have_account_login">Já tem conta? Entrar</string>
+    <!-- Canonical "Nome Completo": Register name field AND Checkout billing name (checkout_full_name) -->
+    <string name="auth_name">Nome Completo</string>
+
+    <!-- ============================================================ -->
+    <!-- feature/home                                                 -->
+    <!-- ============================================================ -->
+    <string name="home_greeting_named">Olá, %1$s! 👋</string>
+    <string name="home_greeting_anonymous">Olá! 👋</string>
+    <!-- Trailing space is significant (concatenated with home_tagline_highlight) -->
+    <string name="home_tagline_prefix">O marketplace do agro no\u0020</string>
+    <string name="home_tagline_highlight">Mercosul</string>
+    <string name="home_search_placeholder">Buscar bovinos, tratores, terras...</string>
+    <string name="home_tag_fat_cattle">Boi Gordo</string>
+    <string name="home_tag_tractor">Trator</string>
+    <string name="home_tag_land_lease">Terra p/ Arrendar</string>
+    <string name="home_tag_quarter_horse">Cavalo Quarto de Milha</string>
+    <string name="home_explore">Explorar</string>
+    <string name="home_stat_ads">Anúncios</string>
+    <string name="home_stat_sellers">Vendedores</string>
+    <string name="home_stat_countries">Países</string>
+    <string name="home_stat_cities">Cidades</string>
+    <string name="home_categories_header">Categorias</string>
+    <string name="home_section_live_auctions">Leilões ao vivo</string>
+    <string name="home_section_upcoming_events">Próximos Eventos</string>
+    <string name="home_section_featured">Em Destaque</string>
+    <string name="home_section_recent">Últimos Anúncios</string>
+    <string name="home_recent_empty">Nenhum anúncio recente encontrado.</string>
+    <string name="home_see_all">Ver todos</string>
+    <string name="home_error_load_ads">Não foi possível carregar os anúncios. Verifique sua conexão.</string>
+
+    <!-- ============================================================ -->
+    <!-- feature/ads                                                  -->
+    <!-- ============================================================ -->
+    <string name="ads_remove_favorite">Remover dos favoritos</string>
+    <string name="ads_add_favorite">Adicionar aos favoritos</string>
+    <string name="ads_price_on_request">Preço a combinar</string>
+    <string name="ads_posted_today">Hoje</string>
+    <string name="ads_posted_yesterday">Ontem</string>
+    <string name="ads_detail_not_found">Anúncio não encontrado ou não está mais ativo.</string>
+    <string name="ads_detail_seller_fallback">Vendedor(a)</string>
+    <string name="ads_detail_seller_label">Vendedor</string>
+    <string name="ads_detail_description">Descrição</string>
+    <string name="ads_detail_fetching_contact">Buscando contato...</string>
+    <string name="ads_detail_contact_seller">Falar com Vendedor</string>
+    <string name="ads_detail_send_message">Enviar Mensagem</string>
+    <string name="ads_error_load_detail">Não foi possível carregar o anúncio.</string>
+    <string name="ads_error_contact_seller">Não foi possível obter o contato do vendedor.</string>
+
+    <!-- Category name fallback map (prefer categories.name_es from the DB when available) -->
+    <string name="cat_bovinos">Bovinos</string>
+    <string name="cat_equinos">Equinos</string>
+    <string name="cat_suinos">Suínos</string>
+    <string name="cat_caprinos">Caprinos</string>
+    <string name="cat_ovinos">Ovinos</string>
+    <string name="cat_aves">Aves</string>
+    <string name="cat_aquicultura">Aquicultura</string>
+    <string name="cat_insumos">Insumos</string>
+    <string name="cat_medicamentos">Medicamentos</string>
+    <string name="cat_genetica">Genética</string>
+    <string name="cat_imoveis_rurais">Imóveis Rurais</string>
+    <string name="cat_maquinas">Máquinas</string>
+    <string name="cat_servicos">Serviços</string>
+    <string name="cat_outros">Outros</string>
+
+    <!-- ============================================================ -->
+    <!-- feature/listagem                                             -->
+    <!-- ============================================================ -->
+    <string name="purpose_corte">Corte</string>
+    <string name="purpose_leite">Leite</string>
+    <string name="purpose_dupla_aptidao">Dupla Aptidão</string>
+    <string name="purpose_reproducao">Reprodução</string>
+    <string name="purpose_esporte">Esporte</string>
+    <string name="purpose_trabalho">Trabalho</string>
+    <string name="purpose_lazer">Lazer</string>
+    <string name="purpose_terminacao">Terminação</string>
+    <string name="purpose_leitao">Leitão</string>
+    <string name="purpose_la">Lã</string>
+    <string name="purpose_venda">Venda</string>
+    <string name="purpose_arrendamento">Arrendamento</string>
+
+    <string name="listagem_search_placeholder">Buscar bovinos, equinos...</string>
+    <string name="listagem_filters">Filtros</string>
+    <string name="listagem_filters_count">Filtros (%1$d)</string>
+    <string name="listagem_empty">Nenhum anúncio encontrado com esses filtros.</string>
+    <string name="listagem_clear_filters">Limpar filtros</string>
+    <string name="listagem_pagination_summary">Página %1$d de %2$d (%3$d anúncios)</string>
+    <string name="listagem_sort_recent">Mais Recentes</string>
+    <string name="listagem_sort_price_asc">Menor Preço</string>
+    <string name="listagem_sort_price_desc">Maior Preço</string>
+    <string name="listagem_sort_featured">Destaques Primeiro</string>
+    <string name="listagem_fallback_showing_all">Exibindo todos os anúncios</string>
+    <string name="listagem_fallback_all">Nenhum anúncio em %1$s — exibindo todos os anúncios</string>
+    <string name="listagem_fallback_widened">Nenhum anúncio em %1$s — exibindo resultados de %2$s</string>
+    <string name="listagem_subcategory">Subcategoria</string>
+    <string name="listagem_purpose">Finalidade</string>
+    <string name="listagem_location">Localização</string>
+    <string name="listagem_price_range">Faixa de Preço</string>
+    <string name="listagem_price_min">Mín</string>
+    <string name="listagem_price_max">Máx</string>
+    <string name="listagem_only_featured">Apenas Destaques</string>
+    <string name="listagem_view_ads">Ver anúncios</string>
+    <string name="listagem_error_load">Não foi possível carregar os anúncios.</string>
+
+    <!-- ============================================================ -->
+    <!-- feature/anunciar                                             -->
+    <!-- ============================================================ -->
+    <string name="anunciar_error_load_form">Não foi possível carregar o formulário. Verifique sua conexão.</string>
+    <string name="anunciar_error_session_draft">Sessão expirada. Faça login novamente para continuar salvando o rascunho.</string>
+    <string name="anunciar_error_save_draft">Erro ao salvar o rascunho.</string>
+    <string name="anunciar_error_photo_limit">Seu plano permite até %1$d fotos. Faça upgrade para enviar mais.</string>
+    <string name="anunciar_error_upload_photo">Não foi possível enviar a foto. Tente novamente.</string>
+    <string name="anunciar_error_video_plan">Vídeo no anúncio não está incluído no seu plano. Faça upgrade para usar este recurso.</string>
+    <string name="anunciar_error_upload_video">Não foi possível enviar o vídeo. Tente novamente.</string>
+    <string name="anunciar_updated_pending_review">Anúncio atualizado! Aguardando nova análise.</string>
+    <string name="anunciar_submitted_for_review">Anúncio enviado para análise!</string>
+    <string name="anunciar_error_publish">Erro ao publicar o anúncio. Tente novamente.</string>
+    <string name="anunciar_step1_title">Dados do Anúncio</string>
+    <string name="anunciar_step2_title">Localização</string>
+    <string name="anunciar_step3_title">Fotos</string>
+    <string name="anunciar_title_edit">Editar Anúncio</string>
+    <string name="anunciar_step_progress">Passo %1$d de 3 — %2$s</string>
+    <string name="anunciar_next">Próximo</string>
+    <string name="anunciar_publish">Publicar Anúncio</string>
+    <string name="anunciar_saving_draft">Salvando rascunho…</string>
+    <string name="anunciar_draft_saved">Rascunho salvo</string>
+    <string name="anunciar_field_title">Título*</string>
+    <string name="anunciar_field_category">Categoria*</string>
+    <string name="anunciar_select_placeholder">Selecione</string>
+    <string name="anunciar_field_subcategory_required">Subcategoria*</string>
+    <string name="anunciar_field_subcategory">Subcategoria</string>
+    <string name="anunciar_field_description">Descrição*</string>
+    <string name="anunciar_field_currency">Moeda</string>
+    <string name="anunciar_field_price">Preço</string>
+    <string name="anunciar_accept_negotiate">Aceito negociar o preço</string>
+    <string name="anunciar_field_price_unit">Unidade de preço</string>
+    <string name="anunciar_unit_none">Sem unidade</string>
+    <string name="anunciar_field_condition">Condição</string>
+    <string name="anunciar_condition_none">Não informar</string>
+    <string name="anunciar_field_state_province">Estado/Província*</string>
+    <string name="anunciar_photos_count">Fotos (%1$d/%2$d)</string>
+    <string name="anunciar_add_photo">Adicionar foto</string>
+    <string name="anunciar_video_section">Vídeo</string>
+    <string name="anunciar_video_locked">Vídeo no anúncio está disponível a partir do plano PRO.</string>
+    <string name="anunciar_video_attached">Vídeo anexado</string>
+    <string name="anunciar_remove_video">Remover vídeo</string>
+    <string name="anunciar_add_video">Adicionar vídeo</string>
+    <string name="anunciar_unit_per_unit">Por unidade</string>
+    <string name="anunciar_unit_per_kg">Por kg</string>
+    <string name="anunciar_unit_per_sack">Por saca (60kg)</string>
+    <string name="anunciar_unit_per_arroba">Por arroba</string>
+    <string name="anunciar_unit_per_head">Por cabeça</string>
+    <string name="anunciar_unit_per_hectare">Por hectare</string>
+    <string name="anunciar_condition_new">Novo</string>
+    <string name="anunciar_condition_used">Usado</string>
+    <string name="anunciar_err_title_length">O título deve ter entre 5 e 100 caracteres.</string>
+    <string name="anunciar_err_category_required">Selecione uma categoria.</string>
+    <string name="anunciar_err_subcategory_required">Selecione uma subcategoria.</string>
+    <string name="anunciar_err_description_length">A descrição deve ter entre 10 e 5000 caracteres.</string>
+    <string name="anunciar_err_price_invalid">Preço inválido.</string>
+    <string name="anunciar_err_country_required">Selecione o país.</string>
+    <string name="anunciar_err_state_required">Selecione o estado.</string>
+    <string name="anunciar_err_city_required">Informe a cidade.</string>
+    <string name="anunciar_err_read_video">Falha ao ler o vídeo selecionado.</string>
+
+    <!-- ============================================================ -->
+    <!-- feature/profile                                              -->
+    <!-- ============================================================ -->
+    <string name="profile_avatar_cd">Avatar</string>
+    <string name="profile_change_photo">Trocar foto</string>
+    <string name="profile_banner_header">Banner de Perfil</string>
+    <string name="profile_banner_cd">Banner</string>
+    <string name="profile_add_banner">Adicionar banner</string>
+    <string name="profile_banner_locked">Banner de perfil disponível no plano Premium.</string>
+    <string name="profile_verifications_header">Verificações</string>
+    <string name="profile_whatsapp">WhatsApp</string>
+    <string name="profile_identity">Identidade</string>
+    <string name="profile_status_in_review">Em análise</string>
+    <string name="profile_status_pending">Pendente</string>
+    <string name="profile_personal_data">Dados Pessoais</string>
+    <string name="profile_field_name">Nome*</string>
+    <string name="profile_field_display_name">Nome de Exibição</string>
+    <string name="profile_address_header">Endereço</string>
+    <string name="profile_field_street">Logradouro</string>
+    <string name="profile_field_complement">Complemento</string>
+    <string name="profile_field_bio">Bio</string>
+    <string name="profile_menu_plans">Planos e Assinatura</string>
+    <string name="profile_menu_institutional">Institucional, Ajuda e Termos</string>
+    <string name="profile_logout">Sair da Conta</string>
+    <string name="profile_err_banner_plan">Seu plano não inclui banner de perfil.</string>
+    <string name="profile_error_load">Não foi possível carregar seu perfil. Verifique sua conexão.</string>
+    <string name="profile_err_name_min">O nome precisa ter pelo menos 2 caracteres.</string>
+    <string name="profile_save_success">Perfil atualizado com sucesso!</string>
+    <string name="profile_err_doc_exists">Este CPF/CNPJ já está cadastrado.</string>
+    <string name="profile_err_save">Não foi possível salvar. Tente novamente.</string>
+    <string name="profile_err_upload_banner">Não foi possível enviar o banner. Tente novamente.</string>
+
+    <!-- ============================================================ -->
+    <!-- feature/painel                                               -->
+    <!-- ============================================================ -->
+    <string name="painel_tab_profile">Perfil</string>
+    <string name="painel_tab_my_ads">Meus Anúncios</string>
+    <string name="painel_tab_messages">Mensagens</string>
+
+    <!-- ============================================================ -->
+    <!-- feature/myads                                                -->
+    <!-- ============================================================ -->
+    <!-- Also used as the auctions "Ativos" filter chip (auctions_filter_active) -->
+    <string name="myads_filter_active">Ativos</string>
+    <string name="myads_filter_pending">Em análise</string>
+    <string name="myads_filter_paused">Pausados</string>
+    <string name="myads_filter_expired">Expirados</string>
+    <string name="myads_status_active">Ativo</string>
+    <string name="myads_status_pending">Em análise</string>
+    <string name="myads_status_paused">Pausado</string>
+    <string name="myads_status_expired">Expirado</string>
+    <string name="myads_status_draft">Rascunho</string>
+    <string name="myads_status_deleted">Excluído</string>
+    <string name="myads_status_rejected">Rejeitado</string>
+    <string name="myads_empty_for_filter">Você ainda não tem anúncios nesta categoria.</string>
+    <string name="myads_delete_dialog_title">Excluir anúncio?</string>
+    <string name="myads_delete_dialog_body">Esta ação não pode ser desfeita. \"%1$s\" será removido dos seus anúncios.</string>
+    <string name="myads_delete">Excluir</string>
+    <string name="myads_edit">Editar</string>
+    <string name="myads_reactivate">Reativar</string>
+    <string name="myads_pause">Pausar</string>
+    <string name="myads_error_load">Não foi possível carregar seus anúncios. Verifique sua conexão.</string>
+    <string name="myads_toast_paused">Anúncio pausado.</string>
+    <string name="myads_toast_reactivated">Anúncio reativado.</string>
+    <string name="myads_error_plan_limit">Limite do seu plano atingido.</string>
+    <string name="myads_error_update">Não foi possível atualizar o anúncio.</string>
+    <string name="myads_toast_deleted">Anúncio excluído.</string>
+    <string name="myads_error_delete">Não foi possível excluir o anúncio.</string>
+
+    <!-- ============================================================ -->
+    <!-- feature/favorites                                            -->
+    <!-- ============================================================ -->
+    <string name="favorites_empty_title">Você ainda não favoritou nenhum anúncio.</string>
+    <string name="favorites_empty_desc">Toque no coração de um anúncio para salvá-lo aqui.</string>
+    <string name="favorites_explore">Explorar Anúncios</string>
+    <string name="favorites_error_load">Não foi possível carregar seus favoritos.</string>
+
+    <!-- ============================================================ -->
+    <!-- feature/messages                                             -->
+    <!-- ============================================================ -->
+    <string name="chat_title_fallback">Conversa</string>
+    <string name="chat_input_placeholder">Escreva uma mensagem...</string>
+    <string name="messages_user_fallback">Usuário</string>
+    <string name="chat_error_load">Não foi possível carregar a conversa.</string>
+    <string name="chat_error_rate_limit">Limite de mensagens atingido. Tente novamente mais tarde.</string>
+    <string name="chat_error_send">Não foi possível enviar a mensagem.</string>
+    <string name="chat_error_send_offline">Não foi possível enviar a mensagem. Verifique sua conexão.</string>
+    <string name="messages_empty">Você ainda não tem conversas.\nEnvie uma mensagem a partir de um anúncio.</string>
+    <string name="messages_error_load">Não foi possível carregar suas conversas.</string>
+
+    <!-- ============================================================ -->
+    <!-- feature/auctions                                             -->
+    <!-- ============================================================ -->
+    <string name="auctions_detail_title_fallback">Leilão</string>
+    <string name="auctions_starts_in">Início em:</string>
+    <string name="auctions_not_accepting_bids">Este leilão não está aceitando lances no momento.</string>
+    <string name="auctions_banner_cancelled">Este leilão foi cancelado.</string>
+    <string name="auctions_banner_closed">Este leilão já foi encerrado. Confira os resultados abaixo.</string>
+    <string name="auctions_lots_count">Lotes (%1$d)</string>
+    <string name="auctions_no_lots">Nenhum lote cadastrado ainda.</string>
+    <string name="auctions_winning_badge">Vencendo!</string>
+    <string name="auctions_lot_number">LOTE %1$d</string>
+    <string name="auctions_current_bid">LANCE ATUAL</string>
+    <string name="auctions_initial_bid">LANCE INICIAL</string>
+    <string name="auctions_lot_header">LOTE %1$d — %2$s</string>
+    <string name="auctions_confirm_bid_question">Confirmar lance de %1$s?</string>
+    <string name="auctions_cancelled_notice">Este leilão foi cancelado. Não é possível dar lances.</string>
+    <string name="auctions_closed_notice">Este leilão já foi encerrado. Não é mais possível dar lances.</string>
+    <string name="auctions_not_live_notice">Este leilão ainda não está ao vivo. Lances abrem quando a transmissão iniciar.</string>
+    <string name="auctions_quick_bids">Lances Rápidos</string>
+    <string name="auctions_quick_bid_increment">+ %1$s</string>
+    <string name="auctions_quick_bid_result">→ %1$s</string>
+    <string name="auctions_or_manual_bid">Ou dê um lance manual</string>
+    <string name="auctions_min_placeholder">Mínimo: %1$s</string>
+    <string name="auctions_place_bid">Dar Lance</string>
+    <string name="auctions_min_valid_bid">Lance mínimo válido: %1$s</string>
+    <string name="auctions_countdown_starting">Iniciando…</string>
+    <string name="auctions_error_load_detail">Não foi possível carregar o leilão.</string>
+    <string name="auctions_not_found">Leilão não encontrado.</string>
+    <string name="auctions_error_load_lots">Não foi possível carregar os lotes.</string>
+    <string name="auctions_toast_cancelled">Este leilão foi cancelado — não é possível dar lances.</string>
+    <string name="auctions_toast_not_live">Este leilão ainda não está ao vivo — lances abrem quando a transmissão iniciar.</string>
+    <string name="auctions_login_required">Você precisa estar logado para dar lances.</string>
+    <string name="auctions_err_bid_too_low">O lance deve ser de pelo menos %1$s.</string>
+    <string name="auctions_err_empty_bid">Informe um valor de lance.</string>
+    <string name="auctions_err_bid_network">Não foi possível enviar o lance. Verifique sua conexão.</string>
+    <string name="auctions_err_bid_generic">Erro ao registrar lance.</string>
+    <string name="auctions_badge_live">AO VIVO</string>
+    <string name="auctions_badge_scheduled">AGENDADO</string>
+    <string name="auctions_badge_closed">ENCERRADO</string>
+    <string name="auctions_badge_cancelled">CANCELADO</string>
+    <string name="auctions_cta_join">Participar</string>
+    <string name="auctions_cta_view_lots">Ver Lotes</string>
+    <string name="auctions_cta_results">Ver Resultados</string>
+    <string name="auctions_cta_cancelled">Cancelado</string>
+    <string name="auctions_filter_closed">Encerrados</string>
+    <string name="auctions_filter_cancelled">Cancelados</string>
+    <string name="auctions_list_title">Leilões</string>
+    <string name="auctions_search_placeholder">Buscar leilões...</string>
+    <string name="auctions_empty">Nenhum leilão encontrado.</string>
+    <string name="auctions_error_load_list">Não foi possível carregar os leilões.</string>
+
+    <!-- ============================================================ -->
+    <!-- feature/events                                               -->
+    <!-- ============================================================ -->
+    <string name="events_detail_title">Evento</string>
+    <string name="events_not_found">Evento não encontrado.</string>
+    <string name="events_organizer">Organização: %1$s</string>
+    <string name="events_official_site">Ver Site do Evento</string>
+    <string name="events_error_load_detail">Não foi possível carregar o evento.</string>
+    <string name="events_list_title">Eventos</string>
+    <string name="events_search_placeholder">Buscar por nome ou local...</string>
+    <string name="events_empty">Nenhum evento encontrado.</string>
+    <string name="events_error_load_list">Não foi possível carregar os eventos.</string>
+
+    <!-- ============================================================ -->
+    <!-- feature/kyc                                                  -->
+    <!-- ============================================================ -->
+    <string name="kyc_title">Verificação de Identidade</string>
+    <string name="kyc_subtitle">Obtenha o selo de confiança e feche negócios até 3x mais rápido na plataforma.</string>
+    <string name="kyc_verified_title">Sua identidade está verificada!</string>
+    <string name="kyc_verified_desc">O selo verde já está ativo no seu perfil e anúncios.</string>
+    <string name="kyc_govbr_title">Gov.br (em breve)</string>
+    <string name="kyc_govbr_desc">A verificação automática por conta Ouro ou Prata do Gov.br ainda está em desenvolvimento. Por enquanto, use o envio de documentos.</string>
+    <string name="kyc_govbr_button">Entrar com gov.br</string>
+    <string name="kyc_plan_badge_title">Selo via Plano Pro/Premium</string>
+    <string name="kyc_plan_badge_desc">Assinantes dos planos pagos com pagamento via Cartão de Crédito aprovado ganham o selo automaticamente.</string>
+    <string name="kyc_plan_badge_soon">Disponível em breve no app.</string>
+    <string name="kyc_manual_title">Envio Manual de Documentos</string>
+    <string name="kyc_manual_desc">Não quer usar o Gov.br? Envie fotos da sua CNH ou RG e uma Selfie. A análise demora até 2 dias úteis.</string>
+    <string name="kyc_collapse">Recolher</string>
+    <string name="kyc_attach">Anexar</string>
+    <string name="kyc_pending_review">⚠️ Seus documentos estão em análise pela nossa equipe.</string>
+    <string name="kyc_rejected">❌ Sua última verificação foi recusada. Verifique a legibilidade dos arquivos e tente novamente.</string>
+    <string name="kyc_doc_label">CPF ou CNPJ *</string>
+    <string name="kyc_doc_placeholder">000.000.000-00 ou 00.000.000/0001-00</string>
+    <string name="kyc_type_individual">👤 Pessoa Física (CPF)</string>
+    <string name="kyc_type_company">🏢 Pessoa Jurídica (CNPJ)</string>
+    <string name="kyc_type_detected">Tipo detectado: %1$s</string>
+    <string name="kyc_doc_front">Documento (Frente)</string>
+    <string name="kyc_doc_back">Documento (Verso)</string>
+    <string name="kyc_selfie_label">Selfie (Você segurando o documento)</string>
+    <string name="kyc_uploading">Enviando arquivos de forma segura...</string>
+    <string name="kyc_submit">Enviar para Análise Manual</string>
+    <string name="kyc_file_selected">Arquivo selecionado</string>
+    <string name="kyc_file_select">Selecionar</string>
+    <string name="kyc_error_load">Não foi possível carregar seus dados de verificação. Verifique sua conexão e tente novamente.</string>
+    <string name="kyc_govbr_toast">Integração com o Gov.br ainda não disponível. Use o envio de documentos abaixo.</string>
+    <string name="kyc_err_file_type">Envie um arquivo de imagem (JPEG, PNG ou WebP).</string>
+    <string name="kyc_err_file_size">Cada arquivo deve ter no máximo 10 MB.</string>
+    <string name="kyc_err_fill_document">Por favor, informe o CPF ou CNPJ.</string>
+    <string name="kyc_err_attach_3">Por favor, anexe os 3 arquivos.</string>
+    <string name="kyc_send_success">Documentos enviados com sucesso! Aguarde a análise.</string>
+    <string name="kyc_send_error">Erro ao enviar os documentos. Tente novamente em instantes.</string>
+
+    <!-- ============================================================ -->
+    <!-- feature/plans                                                -->
+    <!-- ============================================================ -->
+    <string name="plans_title">Planos</string>
+    <string name="plans_subtitle">Obtenha mais visibilidade e feche negócios mais rápido.</string>
+    <string name="plans_cycle_monthly">Mensal</string>
+    <string name="plans_cycle_annual">Anual (-20%)</string>
+    <string name="plans_badge_popular">MAIS POPULAR</string>
+    <string name="plans_free">Grátis</string>
+    <string name="plans_per_year">/ano</string>
+    <string name="plans_per_month">/mês</string>
+    <string name="plans_current_plan_badge">Plano Atual</string>
+    <string name="plans_coming_soon">Disponível em breve</string>
+    <string name="plans_subscribe">Assinar</string>
+    <string name="plans_error_load">Não foi possível carregar os planos. Verifique sua conexão.</string>
+
+    <!-- ============================================================ -->
+    <!-- feature/checkout                                             -->
+    <!-- ============================================================ -->
+    <string name="checkout_title">Pagamento Seguro</string>
+    <string name="checkout_unsupported_gateway">Este método de pagamento (%1$s) ainda não está disponível no app. Assine pelo site tauzeclass.com.br ou fale com o suporte.</string>
+    <string name="checkout_gateway_unknown">desconhecido</string>
+    <string name="checkout_badge_ssl">🔒 SSL</string>
+    <string name="checkout_badge_pci">🛡️ PCI-DSS</string>
+    <string name="checkout_badge_secure">✅ Compra Segura</string>
+    <string name="checkout_plan_summary">Plano %1$s</string>
+    <!-- Leading space is significant (appended after checkout_plan_summary) -->
+    <string name="checkout_annual_suffix">\u0020(Anual)</string>
+    <string name="checkout_confirm_switch_title">Confirmar Troca de Plano</string>
+    <string name="checkout_confirm_switch_desc">Sua forma de pagamento atual já está cadastrada — não é preciso informar cartão ou endereço de novo pra trocar de plano.</string>
+    <string name="checkout_processing">Processando...</string>
+    <string name="checkout_confirm_switch_button">Confirmar Troca</string>
+    <string name="checkout_billing_intro">Precisamos de alguns dados extras para emitir sua fatura.</string>
+    <string name="checkout_phone">Celular</string>
+    <string name="checkout_billing_address">Endereço de Cobrança</string>
+    <string name="checkout_street">Rua</string>
+    <string name="checkout_state_uf">Estado (UF)</string>
+    <string name="checkout_coupon_code">Código do cupom (opcional)</string>
+    <string name="checkout_continue_to_payment">Continuar para Pagamento</string>
+    <string name="checkout_card_section">💳 Cartão de Crédito</string>
+    <string name="checkout_card_holder">Nome no Cartão</string>
+    <string name="checkout_card_number">Número do Cartão</string>
+    <string name="checkout_card_exp_month">Mês (MM)</string>
+    <string name="checkout_card_exp_year">Ano (AAAA)</string>
+    <string name="checkout_card_cvv">CVV</string>
+    <string name="checkout_tokenizing_card">Processando cartão...</string>
+    <string name="checkout_pay_with_card">Pagar com Cartão →</string>
+    <string name="checkout_err_init">Erro ao iniciar o checkout.</string>
+    <string name="checkout_err_card_validate">Erro ao validar cartão.</string>
+    <string name="checkout_err_subscription">Falha ao processar assinatura.</string>
+    <string name="checkout_err_plan_not_found">Plano não encontrado.</string>
+    <string name="checkout_err_doc_invalid">CPF ou CNPJ inválido. Digite 11 ou 14 números.</string>
+    <string name="checkout_err_required_fields">Preencha todos os campos obrigatórios.</string>
+    <string name="checkout_err_card_incomplete">Preencha todos os dados do cartão.</string>
+    <string name="checkout_subscription_confirmed">Assinatura confirmada! Aguarde a confirmação do pagamento.</string>
+    <string name="checkout_switch_confirmed">Troca de plano confirmada!</string>
+
+    <!-- ============================================================ -->
+    <!-- feature/institucional                                        -->
+    <!-- ============================================================ -->
+    <string name="institucional_title">Institucional</string>
+    <string name="institucional_page_not_found">Página não encontrada.</string>
+    <string name="institucional_error_load">Não foi possível carregar o conteúdo. Verifique sua conexão.</string>
+    <string name="institucional_channel_general">Atendimento Geral</string>
+    <string name="institucional_channel_security">Segurança / Denúncias</string>
+    <string name="institucional_channel_privacy">Privacidade / LGPD</string>
+    <string name="institucional_channel_partnerships">Parcerias</string>
+    <string name="institucional_contact_heading">Envie uma mensagem</string>
+    <string name="institucional_field_name">Nome</string>
+    <string name="institucional_field_phone">Telefone (opcional)</string>
+    <string name="institucional_field_subject">Assunto</string>
+    <string name="institucional_field_message">Mensagem</string>
+    <string name="institucional_send_success">Mensagem enviada com sucesso!</string>
+    <string name="institucional_err_rate_limit">Você enviou muitas mensagens. Aguarde alguns minutos.</string>
+    <string name="institucional_err_send">Não foi possível enviar sua mensagem. Verifique os campos e tente novamente.</string>
+
+    <!-- ============================================================ -->
+    <!-- feature/seller                                               -->
+    <!-- ============================================================ -->
+    <string name="seller_anonymous">Vendedor(a) Anônimo(a)</string>
+    <string name="seller_share_profile">Compartilhar perfil</string>
+    <string name="seller_share">Compartilhar</string>
+    <string name="seller_not_found">Vendedor não encontrado.</string>
+    <string name="seller_no_active_ads">Nenhum anúncio ativo no momento.</string>
+    <string name="seller_stat_stars">Estrelas</string>
+    <string name="seller_stat_reviews">Avaliações</string>
+    <string name="seller_stat_years">Anos vendendo</string>
+    <string name="seller_no_reviews_yet">(Nenhuma avaliação ainda)</string>
+    <string name="seller_evaluate">Avaliar</string>
+    <string name="seller_review_modal_title">Avaliar Vendedor</string>
+    <string name="seller_review_comment">Comentário (opcional)</string>
+    <string name="seller_send_review">Enviar Avaliação</string>
+    <string name="seller_error_load">Não foi possível carregar o perfil do vendedor.</string>
+    <string name="seller_err_login_required">Você precisa estar logado para avaliar.</string>
+    <string name="seller_err_self_review">Você não pode avaliar a si mesmo.</string>
+    <string name="seller_err_already_reviewed">Você já avaliou este vendedor.</string>
+    <string name="seller_err_review_generic">Erro ao enviar avaliação.</string>
+
+    <!-- ============================================================ -->
+    <!-- feature/media                                                -->
+    <!-- ============================================================ -->
+    <string name="media_err_image_too_large">A imagem selecionada é muito grande (máx. 10MB).</string>
+    <string name="media_err_invalid_image">Arquivo não é uma imagem válida.</string>
+
+    <!-- ============================================================ -->
+    <!-- Plurals                                                      -->
+    <!-- ============================================================ -->
+    <plurals name="ads_days_ago">
+        <item quantity="one">há %1$d dia</item>
+        <item quantity="other">há %1$d dias</item>
+    </plurals>
+
+    <plurals name="favorites_count">
+        <item quantity="one">%1$d anúncio favoritado</item>
+        <item quantity="other">%1$d anúncios favoritados</item>
+    </plurals>
+
+    <plurals name="seller_reviews_count">
+        <item quantity="one">%1$d avaliação</item>
+        <item quantity="other">%1$d avaliações</item>
+    </plurals>
+
+    <plurals name="seller_star_rating_cd">
+        <item quantity="one">%1$d estrela</item>
+        <item quantity="other">%1$d estrelas</item>
+    </plurals>
+
+</resources>

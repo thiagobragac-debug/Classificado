@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:name=".TauzeClassApplication"
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.TauzeClassMobile">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:theme="@style/Theme.TauzeClassMobile">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- Deep link pra anúncio específico (br.com.tauzeclass.mobile://anuncio/{slug}) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="br.com.tauzeclass.mobile" android:host="anuncio" />
+            </intent-filter>
+            <!-- Deep link pra uma conversa (br.com.tauzeclass.mobile://chat/{adId}/{otherId}) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="br.com.tauzeclass.mobile" android:host="chat" />
+            </intent-filter>
+            <!-- Deep link pra um leilão específico (br.com.tauzeclass.mobile://leiloes/{slug}) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="br.com.tauzeclass.mobile" android:host="leiloes" />
+            </intent-filter>
+            <!-- Deep link pra um evento específico (br.com.tauzeclass.mobile://eventos/{id}) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="br.com.tauzeclass.mobile" android:host="eventos" />
+            </intent-filter>
+            <!-- Deep link pro perfil de um vendedor (br.com.tauzeclass.mobile://vendedor/{slug})
+                 BUG CORRIGIDO (auditoria ao vivo, 2026-09-25): a rota
+                 "vendedor/{slug}" já existia no NavHost (MainActivity.kt) com
+                 seu próprio navDeepLink, mas sem o intent-filter correspondente
+                 aqui o sistema nunca resolve o URI externo (link
+                 compartilhado, notificação) — o Compose Navigation só entra em
+                 cena depois que a Activity já foi aberta pelo sistema. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="br.com.tauzeclass.mobile" android:host="vendedor" />
+            </intent-filter>
+        </activity>
+
+        <!-- Expõe arquivos de cache (foto de selfie do KYC) pra câmera do sistema via content:// -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <!-- Guarda a preferência de idioma por app (PT/ES) entre reinícios, sem
+             precisar herdar de AppCompatActivity — funciona a partir do
+             minSdk 24 junto com AppCompatDelegate.setApplicationLocales(). -->
+        <service
+            android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
+            android:enabled="false"
+            android:exported="false">
+            <meta-data
+                android:name="autoStoreLocales"
+                android:value="true" />
+        </service>
+
+    </application>
+
+</manifest>

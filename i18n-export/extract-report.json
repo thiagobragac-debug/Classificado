@@ -1,0 +1,313 @@
+{
+  "generatedAt": "2026-09-25T19:45:09.557Z",
+  "skipped": [
+    {
+      "source": "components/ads/AdReportModal.tsx",
+      "reason": "eval falhou: REASON_DB_VALUE is not defined"
+    }
+  ],
+  "parityIssues": [],
+  "collisions": [],
+  "interpolationFlags": [
+    "painel.FavoritesTab.noResultsTitle",
+    "painel.MessagesTab.noResultsTitle",
+    "painel.MyAdsTab.noAdsStatus"
+  ],
+  "sources": [
+    {
+      "file": "lib/constants.ts",
+      "namespace": "(raiz, sem prefixo)",
+      "keys": 149
+    },
+    {
+      "file": "app/(public)/anunciar/AnunciarWizard.tsx",
+      "namespace": "anunciar.AnunciarWizard",
+      "keys": 16
+    },
+    {
+      "file": "app/(public)/anunciar/_components/StepData.tsx",
+      "namespace": "anunciar.StepData",
+      "keys": 38
+    },
+    {
+      "file": "app/(public)/anunciar/_components/StepLocation.tsx",
+      "namespace": "anunciar.StepLocation",
+      "keys": 17
+    },
+    {
+      "file": "app/(public)/anunciar/_components/StepPhotos.tsx",
+      "namespace": "anunciar.StepPhotos",
+      "keys": 31
+    },
+    {
+      "file": "app/(public)/cancelado/page.tsx",
+      "namespace": "cancelado.page",
+      "keys": 4
+    },
+    {
+      "file": "app/(public)/error.tsx",
+      "namespace": "error",
+      "keys": 4
+    },
+    {
+      "file": "app/(public)/eventos/[id]/page.tsx",
+      "namespace": "eventos.[id].page",
+      "keys": 9
+    },
+    {
+      "file": "app/(public)/institucional/ContactForm.tsx",
+      "namespace": "institucional.ContactForm",
+      "keys": 19
+    },
+    {
+      "file": "app/(public)/institucional/page.tsx",
+      "namespace": "institucional.page",
+      "keys": 9
+    },
+    {
+      "file": "app/(public)/leiloes/[slug]/page.tsx",
+      "namespace": "leiloes.[slug].page",
+      "keys": 15
+    },
+    {
+      "file": "app/(public)/login/components/AuthContainer.tsx",
+      "namespace": "login.AuthContainer",
+      "keys": 3
+    },
+    {
+      "file": "app/(public)/login/components/ForgotPasswordForm.tsx",
+      "namespace": "login.ForgotPasswordForm",
+      "keys": 2
+    },
+    {
+      "file": "app/(public)/login/components/LoginBanner.tsx",
+      "namespace": "login.LoginBanner",
+      "keys": 8
+    },
+    {
+      "file": "app/(public)/login/components/LoginForm.tsx",
+      "namespace": "login.LoginForm",
+      "keys": 4
+    },
+    {
+      "file": "app/(public)/login/components/RegisterForm.tsx",
+      "namespace": "login.RegisterForm",
+      "keys": 7
+    },
+    {
+      "file": "app/(public)/login/components/ResetPasswordForm.tsx",
+      "namespace": "login.ResetPasswordForm",
+      "keys": 2
+    },
+    {
+      "file": "app/(public)/not-found.tsx",
+      "namespace": "not-found",
+      "keys": 4
+    },
+    {
+      "file": "app/(public)/painel/PainelClient.tsx",
+      "namespace": "painel.PainelClient",
+      "keys": 12
+    },
+    {
+      "file": "app/(public)/painel/verificacao/VerificacaoClient.tsx",
+      "namespace": "painel.verificacao.VerificacaoClient",
+      "keys": 37
+    },
+    {
+      "file": "app/(public)/painel/_components/AdQuotaGraceBanner.tsx",
+      "namespace": "painel.AdQuotaGraceBanner",
+      "keys": 9
+    },
+    {
+      "file": "app/(public)/painel/_components/BillingTab.tsx",
+      "namespace": "painel.BillingTab",
+      "keys": 32
+    },
+    {
+      "file": "app/(public)/painel/_components/FavoritesTab.tsx",
+      "namespace": "painel.FavoritesTab",
+      "keys": 12
+    },
+    {
+      "file": "app/(public)/painel/_components/MessagesTab.tsx",
+      "namespace": "painel.MessagesTab",
+      "keys": 13
+    },
+    {
+      "file": "app/(public)/painel/_components/MyAdsTab.tsx",
+      "namespace": "painel.MyAdsTab",
+      "keys": 35
+    },
+    {
+      "file": "app/(public)/painel/_components/ProfileTab.tsx",
+      "namespace": "painel.ProfileTab",
+      "keys": 67
+    },
+    {
+      "file": "app/(public)/painel/_components/usePush.ts",
+      "namespace": "painel.usePush",
+      "keys": 5
+    },
+    {
+      "file": "app/(public)/planos/PricingClientUI.tsx",
+      "namespace": "planos.PricingClientUI",
+      "keys": 66
+    },
+    {
+      "file": "app/(public)/reset/page.tsx",
+      "namespace": "reset.page",
+      "keys": 3
+    },
+    {
+      "file": "app/(public)/sucesso/page.tsx",
+      "namespace": "sucesso.page",
+      "keys": 7
+    },
+    {
+      "file": "app/global-not-found.tsx",
+      "namespace": "global-not-found",
+      "keys": 4
+    },
+    {
+      "file": "components/ads/ActiveFiltersList.tsx",
+      "namespace": "ads.ActiveFiltersList",
+      "keys": 7
+    },
+    {
+      "file": "components/ads/AdCard.tsx",
+      "namespace": "ads.AdCard",
+      "keys": 8
+    },
+    {
+      "file": "components/ads/AdGallery.tsx",
+      "namespace": "ads.AdGallery",
+      "keys": 7
+    },
+    {
+      "file": "components/ads/AdMessageForm.tsx",
+      "namespace": "ads.AdMessageForm",
+      "keys": 8
+    },
+    {
+      "file": "components/ads/AdsBrowser.tsx",
+      "namespace": "ads.AdsBrowser",
+      "keys": 19
+    },
+    {
+      "file": "components/ads/AdSidebar.tsx",
+      "namespace": "ads.AdSidebar",
+      "keys": 22
+    },
+    {
+      "file": "components/ads/AdsSidebar.tsx",
+      "namespace": "ads.AdsSidebar",
+      "keys": 24
+    },
+    {
+      "file": "components/ads/ListagemPagination.tsx",
+      "namespace": "ads.ListagemPagination",
+      "keys": 1
+    },
+    {
+      "file": "components/ads/ShareButton.tsx",
+      "namespace": "ads.ShareButton",
+      "keys": 3
+    },
+    {
+      "file": "components/ads/SimilarAdsCarousel.tsx",
+      "namespace": "ads.SimilarAdsCarousel",
+      "keys": 6
+    },
+    {
+      "file": "components/auctions/AuctionsBrowser.tsx",
+      "namespace": "auctions.AuctionsBrowser",
+      "keys": 35
+    },
+    {
+      "file": "components/auctions/LotBiddingModal.tsx",
+      "namespace": "auctions.LotBiddingModal",
+      "keys": 30
+    },
+    {
+      "file": "components/auctions/LotGrid.tsx",
+      "namespace": "auctions.LotGrid",
+      "keys": 8
+    },
+    {
+      "file": "components/CommandPalette.tsx",
+      "namespace": "CommandPalette",
+      "keys": 10
+    },
+    {
+      "file": "components/Footer.tsx",
+      "namespace": "Footer",
+      "keys": 8
+    },
+    {
+      "file": "components/Header.tsx",
+      "namespace": "Header",
+      "keys": 17
+    },
+    {
+      "file": "components/home/AdCardHome.tsx",
+      "namespace": "home.AdCardHome",
+      "keys": 3
+    },
+    {
+      "file": "components/home/EventsAuctionsSection.tsx",
+      "namespace": "home.EventsAuctionsSection",
+      "keys": 4
+    },
+    {
+      "file": "components/home/FeaturedAdsSection.tsx",
+      "namespace": "home.FeaturedAdsSection",
+      "keys": 3
+    },
+    {
+      "file": "components/home/HeroSearchBar.tsx",
+      "namespace": "home.HeroSearchBar",
+      "keys": 10
+    },
+    {
+      "file": "components/home/MercosulSection.tsx",
+      "namespace": "home.MercosulSection",
+      "keys": 3
+    },
+    {
+      "file": "components/home/RecentAdsSection.tsx",
+      "namespace": "home.RecentAdsSection",
+      "keys": 5
+    },
+    {
+      "file": "components/home/TopSellersSection.tsx",
+      "namespace": "home.TopSellersSection",
+      "keys": 1
+    },
+    {
+      "file": "components/seller/ReviewModal.tsx",
+      "namespace": "seller.ReviewModal",
+      "keys": 15
+    },
+    {
+      "file": "components/seller/SellerProfileHeader.tsx",
+      "namespace": "seller.SellerProfileHeader",
+      "keys": 14
+    },
+    {
+      "file": "components/TurnstileWidget.tsx",
+      "namespace": "TurnstileWidget",
+      "keys": 5
+    },
+    {
+      "file": "components/ui/CheckoutModal.tsx",
+      "namespace": "ui.CheckoutModal",
+      "keys": 61
+    },
+    {
+      "file": "lib/useAutoGeo.ts",
+      "namespace": "useAutoGeo",
+      "keys": 3
+    }
+  ]
+}

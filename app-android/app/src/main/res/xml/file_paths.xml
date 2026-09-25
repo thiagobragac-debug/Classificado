@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Usado pelo FileProvider pra expor a foto da selfie de KYC (captura em resolução
+     total via TakePicture, salva em cache) como content:// pra câmera do sistema gravar nela. -->
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <cache-path name="kyc_captures" path="kyc/" />
+</paths>

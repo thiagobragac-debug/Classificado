@@ -1,0 +1,3858 @@
+{
+  "nav_home": {
+    "pt": "Início",
+    "es": "Inicio"
+  },
+  "nav_ads": {
+    "pt": "Anúncios",
+    "es": "Anuncios"
+  },
+  "nav_events": {
+    "pt": "Eventos",
+    "es": "Eventos"
+  },
+  "nav_categories": {
+    "pt": "Categorias",
+    "es": "Categorías"
+  },
+  "nav_auctions": {
+    "pt": "Leilões Ao Vivo",
+    "es": "Remates en Vivo"
+  },
+  "nav_plans": {
+    "pt": "Planos",
+    "es": "Planes"
+  },
+  "nav_about": {
+    "pt": "Sobre",
+    "es": "Nosotros"
+  },
+  "nav_login": {
+    "pt": "Entrar",
+    "es": "Ingresar"
+  },
+  "btn_post": {
+    "pt": "Anunciar Grátis",
+    "es": "Anunciar Gratis"
+  },
+  "btn_post_short": {
+    "pt": "Anunciar",
+    "es": "Anunciar"
+  },
+  "hero_badge": {
+    "pt": "Mercosul · Brasil · Argentina · Paraguai · Uruguai",
+    "es": "Mercosur · Brasil · Argentina · Paraguay · Uruguay"
+  },
+  "hero_title": {
+    "pt": "O maior classificado do",
+    "es": "El clasificado más grande del"
+  },
+  "hero_highlight": {
+    "pt": "Agronegócio",
+    "es": "Agronegocio"
+  },
+  "hero_title2": {
+    "pt": "do Mercosul",
+    "es": "del Mercosur"
+  },
+  "hero_sub": {
+    "pt": "Compre, venda e anuncie animais, máquinas e imóveis rurais no Mercosul.",
+    "es": "Compra, vende y publica animales, insumos, maquinaria y propiedades rurales con seguridad y facilidad."
+  },
+  "search_placeholder": {
+    "pt": "Buscar animais, insumos, máquinas...",
+    "es": "Buscar animales, insumos, máquinas..."
+  },
+  "search_btn": {
+    "pt": "Buscar",
+    "es": "Buscar"
+  },
+  "popular": {
+    "pt": "Popular:",
+    "es": "Popular:"
+  },
+  "btn_post_hero": {
+    "pt": "Anunciar Grátis",
+    "es": "Anunciar Gratis"
+  },
+  "btn_explore": {
+    "pt": "Explorar Anúncios",
+    "es": "Explorar Anuncios"
+  },
+  "stats_0": {
+    "pt": "Ativos",
+    "es": "Activos"
+  },
+  "stats_1": {
+    "pt": "Cidades",
+    "es": "Ciudades"
+  },
+  "stats_2": {
+    "pt": "Países",
+    "es": "Países"
+  },
+  "stats_3": {
+    "pt": "Verificados",
+    "es": "Verificados"
+  },
+  "section_cats": {
+    "pt": "Categorias",
+    "es": "Categorías"
+  },
+  "section_cats_title": {
+    "pt": "O que você está procurando?",
+    "es": "¿Qué estás buscando?"
+  },
+  "section_featured": {
+    "pt": "Em Destaque",
+    "es": "Destacados"
+  },
+  "section_featured_title": {
+    "pt": "Anúncios em Destaque",
+    "es": "Anuncios Destacados"
+  },
+  "section_recent": {
+    "pt": "Recentes",
+    "es": "Recientes"
+  },
+  "section_recent_title": {
+    "pt": "Últimos Anúncios",
+    "es": "Últimos Anuncios"
+  },
+  "view_all": {
+    "pt": "Ver todos",
+    "es": "Ver todos"
+  },
+  "trust_title": {
+    "pt": "Por que usar o Tauze Class?",
+    "es": "¿Por qué usar Tauze Class?"
+  },
+  "trust_label": {
+    "pt": "Por que escolher o Tauze Class",
+    "es": "Por qué elegir Tauze Class"
+  },
+  "trust_subtitle": {
+    "pt": "A plataforma mais confiável para negócios rurais no Mercosul.",
+    "es": "La plataforma más confiable para negocios rurales en el Mercosur."
+  },
+  "mercosul_label": {
+    "pt": "Cobertura Mercosul",
+    "es": "Cobertura Mercosur"
+  },
+  "mercosul_title": {
+    "pt": "Conectamos o Agronegócio de 4 países",
+    "es": "Conectamos el Agronegocio de 4 países"
+  },
+  "mercosul_sub": {
+    "pt": "Maior portal de classificados rurais do Mercosul. Vendedores e compradores em todo o Brasil, Argentina, Paraguai e Uruguai.",
+    "es": "Mayor portal de clasificados rurales del Mercosur. Vendedores y compradores en todo Brasil, Argentina, Paraguay y Uruguay."
+  },
+  "cta_title": {
+    "pt": "Seu anúncio para milhares de compradores",
+    "es": "Tu anuncio para miles de compradores"
+  },
+  "cta_sub": {
+    "pt": "Cadastre-se gratuitamente e publique seu anúncio em minutos. Alcance compradores em todo o Mercosul.",
+    "es": "Regístrate gratis y publica tu anuncio en minutos. Alcanza compradores en todo el Mercosur."
+  },
+  "btn_free": {
+    "pt": "Criar Conta Grátis",
+    "es": "Crear Cuenta Gratis"
+  },
+  "btn_know": {
+    "pt": "Saiba mais",
+    "es": "Saber más"
+  },
+  "footer_desc": {
+    "pt": "O maior portal de classificados do agronegócio do Mercosul.",
+    "es": "El mayor portal de clasificados del agronegocio del Mercosur."
+  },
+  "footer_ads": {
+    "pt": "Anúncios",
+    "es": "Anuncios"
+  },
+  "footer_help": {
+    "pt": "Ajuda",
+    "es": "Ayuda"
+  },
+  "footer_company": {
+    "pt": "Empresa",
+    "es": "Empresa"
+  },
+  "footer_copy": {
+    "pt": "© 2026 Tauze Class. Todos os direitos reservados.",
+    "es": "© 2026 Tauze Class. Todos los derechos reservados."
+  },
+  "negociable": {
+    "pt": "Negociável",
+    "es": "Negociable"
+  },
+  "verified": {
+    "pt": "Verificado",
+    "es": "Verificado"
+  },
+  "see_ad": {
+    "pt": "Ver Anúncio",
+    "es": "Ver Anuncio"
+  },
+  "fc_bovinos": {
+    "pt": "Bovinos",
+    "es": "Bovinos"
+  },
+  "fc_ads_available": {
+    "pt": "anúncios disponíveis",
+    "es": "anuncios disponibles"
+  },
+  "fc_verified": {
+    "pt": "Verificado ✓",
+    "es": "Verificado ✓"
+  },
+  "fc_sellers": {
+    "pt": "vendedores",
+    "es": "vendedores"
+  },
+  "fc_auctions": {
+    "pt": "Leilões",
+    "es": "Remates"
+  },
+  "fc_scheduled": {
+    "pt": "agendados esta semana",
+    "es": "programados esta semana"
+  },
+  "fc_machines": {
+    "pt": "Máquinas",
+    "es": "Maquinaria"
+  },
+  "fc_machines_sub": {
+    "pt": "prontas para trabalho",
+    "es": "lista para trabajar"
+  },
+  "fc_imoveis": {
+    "pt": "Imóveis Rurais",
+    "es": "Inmuebles Rurales"
+  },
+  "fc_imoveis_sub": {
+    "pt": "fazendas e sítios",
+    "es": "estancias y chacras"
+  },
+  "filter_featured": {
+    "pt": "Destaque",
+    "es": "Destacado"
+  },
+  "filter_cat": {
+    "pt": "Categoria",
+    "es": "Categoría"
+  },
+  "recently_viewed": {
+    "pt": "Vistos Recentemente",
+    "es": "Vistos Recientemente"
+  },
+  "top_sellers_label": {
+    "pt": "Lojas de Destaque",
+    "es": "Tiendas Destacadas"
+  },
+  "top_sellers": {
+    "pt": "Top Vendedores",
+    "es": "Top Vendedores"
+  },
+  "top_sellers_empty": {
+    "pt": "Nenhum vendedor em destaque ainda.",
+    "es": "Ningún vendedor destacado todavía."
+  },
+  "testimonials_label": {
+    "pt": "Provas Sociais",
+    "es": "Pruebas Sociales"
+  },
+  "testimonials": {
+    "pt": "Casos de Sucesso",
+    "es": "Casos de Éxito"
+  },
+  "auth_email": {
+    "pt": "E-mail",
+    "es": "Correo Electrónico"
+  },
+  "auth_email_ph": {
+    "pt": "seu@email.com",
+    "es": "tu@email.com"
+  },
+  "auth_pass": {
+    "pt": "Senha",
+    "es": "Contraseña"
+  },
+  "auth_pass_ph": {
+    "pt": "••••••••",
+    "es": "••••••••"
+  },
+  "auth_forgot": {
+    "pt": "Esqueceu a senha?",
+    "es": "¿Olvidaste tu contraseña?"
+  },
+  "auth_login_btn": {
+    "pt": "Entrar na Conta",
+    "es": "Iniciar Sesión"
+  },
+  "auth_login_ing": {
+    "pt": "Entrando...",
+    "es": "Iniciando..."
+  },
+  "auth_google": {
+    "pt": "Continuar com Google",
+    "es": "Continuar con Google"
+  },
+  "auth_or_email": {
+    "pt": "ou continue com e-mail",
+    "es": "o continuar con correo"
+  },
+  "auth_register_btn": {
+    "pt": "Criar Conta",
+    "es": "Crear Cuenta"
+  },
+  "auth_register_ing": {
+    "pt": "Criando conta...",
+    "es": "Creando cuenta..."
+  },
+  "auth_name": {
+    "pt": "Nome Completo",
+    "es": "Nombre Completo"
+  },
+  "auth_name_ph": {
+    "pt": "João da Silva",
+    "es": "Juan Pérez"
+  },
+  "auth_display": {
+    "pt": "Nome de Exibição / Fazenda",
+    "es": "Nombre Público / Estancia"
+  },
+  "auth_display_ph": {
+    "pt": "Ex: Fazenda São João",
+    "es": "Ej: Estancia San Juan"
+  },
+  "auth_doc": {
+    "pt": "CPF / CNPJ",
+    "es": "Documento de Identidad"
+  },
+  "auth_doc_ph": {
+    "pt": "000.000.000-00 ou 00.000.000/0001-00",
+    "es": "Número de documento"
+  },
+  "auth_phone": {
+    "pt": "WhatsApp / Telefone",
+    "es": "WhatsApp / Teléfono"
+  },
+  "auth_phone_ph": {
+    "pt": "+55 (99) 9 9999-9999",
+    "es": "+00 (00) 0000-0000"
+  },
+  "auth_cep": {
+    "pt": "CEP",
+    "es": "Código Postal"
+  },
+  "auth_cep_ph": {
+    "pt": "00000-000",
+    "es": "0000"
+  },
+  "auth_forgot_title": {
+    "pt": "Recuperar Senha",
+    "es": "Recuperar Contraseña"
+  },
+  "auth_forgot_desc": {
+    "pt": "Digite o e-mail associado à sua conta e enviaremos um link para redefinir sua senha.",
+    "es": "Ingresa el correo asociado a tu cuenta y te enviaremos un enlace para restablecer tu contraseña."
+  },
+  "auth_forgot_btn": {
+    "pt": "Enviar link de recuperação",
+    "es": "Enviar enlace de recuperación"
+  },
+  "auth_forgot_ing": {
+    "pt": "Enviando...",
+    "es": "Enviando..."
+  },
+  "auth_back_login": {
+    "pt": "Voltar para o login",
+    "es": "Volver al inicio de sesión"
+  },
+  "auth_reset_title": {
+    "pt": "Defina sua Nova Senha",
+    "es": "Define tu Nueva Contraseña"
+  },
+  "auth_reset_desc": {
+    "pt": "Escolha uma nova senha para sua conta.",
+    "es": "Elige una nueva contraseña para tu cuenta."
+  },
+  "auth_new_pass": {
+    "pt": "Nova Senha",
+    "es": "Nueva Contraseña"
+  },
+  "auth_new_pass_ph": {
+    "pt": "••••••••",
+    "es": "••••••••"
+  },
+  "auth_confirm_pass": {
+    "pt": "Confirmar Nova Senha",
+    "es": "Confirmar Nueva Contraseña"
+  },
+  "auth_confirm_pass_ph": {
+    "pt": "••••••••",
+    "es": "••••••••"
+  },
+  "auth_reset_btn": {
+    "pt": "Salvar Nova Senha",
+    "es": "Guardar Nueva Contraseña"
+  },
+  "auth_reset_ing": {
+    "pt": "Salvando...",
+    "es": "Guardando..."
+  },
+  "auth_reset_success": {
+    "pt": "Senha redefinida com sucesso! Você já pode fazer login.",
+    "es": "¡Contraseña restablecida con éxito! Ya puedes iniciar sesión."
+  },
+  "auth_reset_error": {
+    "pt": "Erro ao redefinir a senha. O link pode ter expirado — solicite um novo.",
+    "es": "Error al restablecer la contraseña. El enlace puede haber expirado — solicita uno nuevo."
+  },
+  "auth_reset_error_same_password": {
+    "pt": "A nova senha deve ser diferente da senha atual.",
+    "es": "La nueva contraseña debe ser diferente de la contraseña actual."
+  },
+  "err_email": {
+    "pt": "Digite um e-mail válido.",
+    "es": "Ingresa un correo electrónico válido."
+  },
+  "err_pass_req": {
+    "pt": "A senha é obrigatória.",
+    "es": "La contraseña es obligatoria."
+  },
+  "err_pass_min": {
+    "pt": "A senha deve ter pelo menos 8 caracteres.",
+    "es": "La contraseña debe tener al menos 8 caracteres."
+  },
+  "err_pass_mismatch": {
+    "pt": "As senhas não coincidem.",
+    "es": "Las contraseñas no coinciden."
+  },
+  "err_name": {
+    "pt": "O nome deve ter no mínimo 3 caracteres.",
+    "es": "El nombre debe tener al menos 3 caracteres."
+  },
+  "err_display": {
+    "pt": "O nome de exibição é obrigatório.",
+    "es": "El nombre público es obligatorio."
+  },
+  "err_doc": {
+    "pt": "Documento inválido.",
+    "es": "Documento inválido."
+  },
+  "err_phone": {
+    "pt": "Telefone inválido.",
+    "es": "Teléfono inválido."
+  },
+  "err_cep": {
+    "pt": "CEP inválido.",
+    "es": "Código postal inválido."
+  },
+  "events_title": {
+    "pt": "Agenda de Eventos",
+    "es": "Agenda de Eventos"
+  },
+  "events_subtitle": {
+    "pt": "Descubra as maiores feiras, exposições e congressos do Agronegócio.",
+    "es": "Descubre las mayores ferias, exposiciones y congresos del Agronegocio."
+  },
+  "events_highlights": {
+    "pt": "Grandes Destaques Nacionais",
+    "es": "Grandes Destacados Nacionales"
+  },
+  "events_date_tbd": {
+    "pt": "A definir",
+    "es": "A definir"
+  },
+  "events_featured_badge": {
+    "pt": "Destaque Oficial",
+    "es": "Destacado Oficial"
+  },
+  "events_live": {
+    "pt": "Ao Vivo",
+    "es": "En Vivo"
+  },
+  "events_no_location": {
+    "pt": "Local a definir",
+    "es": "Ubicación a definir"
+  },
+  "events_empty": {
+    "pt": "Nenhum evento encontrado",
+    "es": "Ningún evento encontrado"
+  },
+  "events_empty_for": {
+    "pt": "para",
+    "es": "para"
+  },
+  "events_load_error": {
+    "pt": "Erro ao carregar eventos. Tente novamente em instantes.",
+    "es": "Error al cargar los eventos. Intentá de nuevo en unos instantes."
+  },
+  "events_clear_search": {
+    "pt": "Limpar busca e ver todos",
+    "es": "Limpiar búsqueda y ver todos"
+  },
+  "events_search_placeholder": {
+    "pt": "Digite sua cidade...",
+    "es": "Ingresa tu ciudad..."
+  },
+  "events_locating": {
+    "pt": "Localizando...",
+    "es": "Localizando..."
+  },
+  "events_search_btn": {
+    "pt": "Buscar",
+    "es": "Buscar"
+  },
+  "events_use_gps": {
+    "pt": "Usar GPS",
+    "es": "Usar GPS"
+  },
+  "events_location_success": {
+    "pt": "Localização detectada com sucesso!",
+    "es": "¡Ubicación detectada con éxito!"
+  },
+  "events_location_error": {
+    "pt": "Não foi possível detectar a localização (GPS negado ou IP falhou).",
+    "es": "No fue posible detectar la ubicación (GPS denegado o IP falló)."
+  },
+  "err_invalid_credentials": {
+    "pt": "E-mail ou senha incorretos.",
+    "es": "Correo o contraseña incorrectos."
+  },
+  "pagination_prev": {
+    "pt": "Anterior",
+    "es": "Anterior"
+  },
+  "pagination_next": {
+    "pt": "Próxima",
+    "es": "Siguiente"
+  },
+  "pagination_page": {
+    "pt": "Página",
+    "es": "Página"
+  },
+  "hero_stats_aria": {
+    "pt": "Estatísticas",
+    "es": "Estadísticas"
+  },
+  "hero_img_alt": {
+    "pt": "Fazenda no agronegócio do Mercosul — paisagem verde com gado",
+    "es": "Granja del agronegocio del Mercosur — paisaje verde con ganado"
+  },
+  "view_all_aria": {
+    "pt": "Ver todos os anúncios",
+    "es": "Ver todos los anuncios"
+  },
+  "cat_grid_aria": {
+    "pt": "Categorias de anúncios",
+    "es": "Categorías de anuncios"
+  },
+  "hero_loading": {
+    "pt": "Carregando portal...",
+    "es": "Cargando portal..."
+  },
+  "search_locations": {
+    "pt": "Locais",
+    "es": "Ubicaciones"
+  },
+  "search_suggestions": {
+    "pt": "Sugestões",
+    "es": "Sugerencias"
+  },
+  "search_popular": {
+    "pt": "Populares",
+    "es": "Populares"
+  },
+  "selectLanguage": {
+    "pt": "Selecionar idioma",
+    "es": "Seleccionar idioma"
+  },
+  "listagem_loading": {
+    "pt": "Carregando anúncios...",
+    "es": "Cargando anuncios..."
+  },
+  "listagem_skeleton_aria": {
+    "pt": "Carregando listagem...",
+    "es": "Cargando listado..."
+  },
+  "listagem_error_title": {
+    "pt": "Algo deu errado ao carregar os anúncios!",
+    "es": "¡Algo salió mal al cargar los anuncios!"
+  },
+  "listagem_error_desc": {
+    "pt": "Pode ter havido uma falha na conexão ou os filtros aplicados geraram um erro inesperado. Tente redefinir os filtros ou recarregar a página.",
+    "es": "Puede haber ocurrido un fallo de conexión o los filtros aplicados generaron un error inesperado. Intenta restablecer los filtros o recargar la página."
+  },
+  "listagem_error_retry": {
+    "pt": "Tentar novamente",
+    "es": "Intentar de nuevo"
+  },
+  "listagem_error_clear": {
+    "pt": "Limpar Filtros e Voltar",
+    "es": "Limpiar Filtros y Volver"
+  },
+  "anunciar.AnunciarWizard.breadcrumbCreate": {
+    "pt": "Novo Anúncio",
+    "es": "Nuevo Anuncio"
+  },
+  "anunciar.AnunciarWizard.titleEdit": {
+    "pt": "Editar Anúncio",
+    "es": "Editar Anuncio"
+  },
+  "anunciar.AnunciarWizard.titleCreate": {
+    "pt": "Criar Anúncio",
+    "es": "Crear Anuncio"
+  },
+  "anunciar.AnunciarWizard.subtitle": {
+    "pt": "Preencha os dados abaixo e alcance milhares de compradores no agronegócio.",
+    "es": "Completa los datos a continuación y llega a miles de compradores del agronegocio."
+  },
+  "anunciar.AnunciarWizard.progressAria": {
+    "pt": "Progresso do formulário",
+    "es": "Progreso del formulario"
+  },
+  "anunciar.AnunciarWizard.step1": {
+    "pt": "Dados do Anúncio",
+    "es": "Datos del Anuncio"
+  },
+  "anunciar.AnunciarWizard.step2": {
+    "pt": "Localização",
+    "es": "Ubicación"
+  },
+  "anunciar.AnunciarWizard.step3": {
+    "pt": "Fotos",
+    "es": "Fotos"
+  },
+  "anunciar.AnunciarWizard.savingDraft": {
+    "pt": "Salvando rascunho...",
+    "es": "Guardando borrador..."
+  },
+  "anunciar.AnunciarWizard.draftSaved": {
+    "pt": "Rascunho salvo",
+    "es": "Borrador guardado"
+  },
+  "anunciar.AnunciarWizard.saveError": {
+    "pt": "Não foi possível salvar agora. Suas informações continuam preenchidas — tente novamente em instantes.",
+    "es": "No se pudo guardar ahora. Tu información sigue completa — inténtalo de nuevo en unos instantes."
+  },
+  "anunciar.AnunciarWizard.draftRestored": {
+    "pt": "Rascunho recuperado. Você pode continuar de onde parou.",
+    "es": "Borrador recuperado. Puedes continuar donde lo dejaste."
+  },
+  "anunciar.AnunciarWizard.draftPermError": {
+    "pt": "Erro de permissão no rascunho. Reiniciando novo.",
+    "es": "Error de permiso en el borrador. Reiniciando uno nuevo."
+  },
+  "anunciar.AnunciarWizard.almostThere": {
+    "pt": "Quase lá! Faça login ou cadastre-se para publicar seu anúncio.",
+    "es": "¡Ya casi! Inicia sesión o regístrate para publicar tu anuncio."
+  },
+  "anunciar.AnunciarWizard.submitSuccess": {
+    "pt": "Anúncio enviado com sucesso!",
+    "es": "¡Anuncio publicado con éxito!"
+  },
+  "anunciar.AnunciarWizard.submitError": {
+    "pt": "Erro ao publicar o anúncio. Tente novamente.",
+    "es": "Error al publicar el anuncio. Inténtalo de nuevo."
+  },
+  "anunciar.StepData.header": {
+    "pt": "Dados do Anúncio",
+    "es": "Datos del Anuncio"
+  },
+  "anunciar.StepData.headerDesc": {
+    "pt": "Informações principais sobre o que você está anunciando",
+    "es": "Información principal sobre lo que estás anunciando"
+  },
+  "anunciar.StepData.titleLabel": {
+    "pt": "Título do Anúncio",
+    "es": "Título del Anuncio"
+  },
+  "anunciar.StepData.titlePh": {
+    "pt": "Ex: Trator Massey Ferguson 2018",
+    "es": "Ej: Tractor Massey Ferguson 2018"
+  },
+  "anunciar.StepData.categoryLabel": {
+    "pt": "Categoria",
+    "es": "Categoría"
+  },
+  "anunciar.StepData.purposeLabel": {
+    "pt": "Finalidade",
+    "es": "Finalidad"
+  },
+  "anunciar.StepData.purposeNone": {
+    "pt": "Não informar",
+    "es": "No informar"
+  },
+  "anunciar.StepData.selectPlaceholder": {
+    "pt": "Selecione...",
+    "es": "Seleccionar..."
+  },
+  "anunciar.StepData.selectCategoryFirst": {
+    "pt": "Selecione a categoria primeiro",
+    "es": "Selecciona la categoría primero"
+  },
+  "anunciar.StepData.categoriesError": {
+    "pt": "Não foi possível carregar as categorias.",
+    "es": "No se pudieron cargar las categorías."
+  },
+  "anunciar.StepData.categoriesRetry": {
+    "pt": "Tentar novamente",
+    "es": "Intentar de nuevo"
+  },
+  "anunciar.StepData.subcategoriesError": {
+    "pt": "Não foi possível carregar as subcategorias.",
+    "es": "No se pudieron cargar las subcategorías."
+  },
+  "anunciar.StepData.subcategoriesRetry": {
+    "pt": "Tentar novamente",
+    "es": "Intentar de nuevo"
+  },
+  "anunciar.StepData.subcategoriesEmpty": {
+    "pt": "Esta categoria ainda não tem subcategorias cadastradas.",
+    "es": "Esta categoría todavía no tiene subcategorías registradas."
+  },
+  "anunciar.StepData.descLabel": {
+    "pt": "Descrição",
+    "es": "Descripción"
+  },
+  "anunciar.StepData.descPh": {
+    "pt": "Descreva detalhes importantes...",
+    "es": "Describe detalles importantes..."
+  },
+  "anunciar.StepData.valuesHeader": {
+    "pt": "Valores e Condições",
+    "es": "Valores y Condiciones"
+  },
+  "anunciar.StepData.currencyLabel": {
+    "pt": "Moeda",
+    "es": "Moneda"
+  },
+  "anunciar.StepData.currencyBRL": {
+    "pt": "BRL — Real Brasileiro",
+    "es": "BRL — Real Brasileño"
+  },
+  "anunciar.StepData.currencyARS": {
+    "pt": "ARS — Peso Argentino",
+    "es": "ARS — Peso Argentino"
+  },
+  "anunciar.StepData.currencyUYU": {
+    "pt": "UYU — Peso Uruguaio",
+    "es": "UYU — Peso Uruguayo"
+  },
+  "anunciar.StepData.currencyPYG": {
+    "pt": "PYG — Guarani Paraguaio",
+    "es": "PYG — Guaraní Paraguayo"
+  },
+  "anunciar.StepData.priceLabel": {
+    "pt": "Preço",
+    "es": "Precio"
+  },
+  "anunciar.StepData.negotiate": {
+    "pt": "A negociar",
+    "es": "A negociar"
+  },
+  "anunciar.StepData.negotiateAria": {
+    "pt": "Preço a negociar",
+    "es": "Precio a negociar"
+  },
+  "anunciar.StepData.unitLabel": {
+    "pt": "Unidade (opc)",
+    "es": "Unidad (opc)"
+  },
+  "anunciar.StepData.unitNone": {
+    "pt": "Nenhuma / Valor total",
+    "es": "Ninguna / Valor total"
+  },
+  "anunciar.StepData.unitPerUnit": {
+    "pt": "por unidade",
+    "es": "por unidad"
+  },
+  "anunciar.StepData.unitPerKg": {
+    "pt": "por kg",
+    "es": "por kg"
+  },
+  "anunciar.StepData.unitPerSack": {
+    "pt": "por saca (60kg)",
+    "es": "por saco (60kg)"
+  },
+  "anunciar.StepData.unitPerArroba": {
+    "pt": "por arroba",
+    "es": "por arroba"
+  },
+  "anunciar.StepData.unitPerHead": {
+    "pt": "por cabeça",
+    "es": "por cabeza"
+  },
+  "anunciar.StepData.unitPerHectare": {
+    "pt": "por hectare",
+    "es": "por hectárea"
+  },
+  "anunciar.StepData.conditionLabel": {
+    "pt": "Condição",
+    "es": "Condición"
+  },
+  "anunciar.StepData.conditionNA": {
+    "pt": "Não aplicável",
+    "es": "No aplicable"
+  },
+  "anunciar.StepData.conditionNew": {
+    "pt": "Novo",
+    "es": "Nuevo"
+  },
+  "anunciar.StepData.conditionUsed": {
+    "pt": "Usado",
+    "es": "Usado"
+  },
+  "anunciar.StepData.nextStep": {
+    "pt": "Próximo Passo",
+    "es": "Siguiente Paso"
+  },
+  "anunciar.StepLocation.header": {
+    "pt": "Localização",
+    "es": "Ubicación"
+  },
+  "anunciar.StepLocation.headerDesc": {
+    "pt": "Onde está o produto ou serviço anunciado?",
+    "es": "¿Dónde está el producto o servicio anunciado?"
+  },
+  "anunciar.StepLocation.locating": {
+    "pt": "Buscando...",
+    "es": "Buscando..."
+  },
+  "anunciar.StepLocation.useLocation": {
+    "pt": "Usar minha localização",
+    "es": "Usar mi ubicación"
+  },
+  "anunciar.StepLocation.countryLabel": {
+    "pt": "País",
+    "es": "País"
+  },
+  "anunciar.StepLocation.selectPlaceholder": {
+    "pt": "Selecione...",
+    "es": "Seleccionar..."
+  },
+  "anunciar.StepLocation.brasil": {
+    "pt": "Brasil",
+    "es": "Brasil"
+  },
+  "anunciar.StepLocation.argentina": {
+    "pt": "Argentina",
+    "es": "Argentina"
+  },
+  "anunciar.StepLocation.uruguai": {
+    "pt": "Uruguai",
+    "es": "Uruguay"
+  },
+  "anunciar.StepLocation.paraguai": {
+    "pt": "Paraguai",
+    "es": "Paraguay"
+  },
+  "anunciar.StepLocation.stateLabel": {
+    "pt": "Estado",
+    "es": "Estado / Provincia"
+  },
+  "anunciar.StepLocation.selectCountryFirst": {
+    "pt": "Selecione o país primeiro",
+    "es": "Selecciona el país primero"
+  },
+  "anunciar.StepLocation.cityLabel": {
+    "pt": "Cidade",
+    "es": "Ciudad"
+  },
+  "anunciar.StepLocation.cityPh": {
+    "pt": "Ex: Campo Grande",
+    "es": "Ej: Campo Grande"
+  },
+  "anunciar.StepLocation.back": {
+    "pt": "Voltar",
+    "es": "Volver"
+  },
+  "anunciar.StepLocation.nextStep": {
+    "pt": "Próximo Passo",
+    "es": "Siguiente Paso"
+  },
+  "anunciar.StepLocation.locationError": {
+    "pt": "Não foi possível detectar sua localização automaticamente. Preencha os campos manualmente.",
+    "es": "No se pudo detectar tu ubicación automáticamente. Completa los campos manualmente."
+  },
+  "anunciar.StepPhotos.header": {
+    "pt": "Fotos do Anúncio",
+    "es": "Fotos del Anuncio"
+  },
+  "anunciar.StepPhotos.headerDesc": {},
+  "anunciar.StepPhotos.dropZoneAria": {
+    "pt": "Clique ou arraste fotos aqui",
+    "es": "Haz clic o arrastra fotos aquí"
+  },
+  "anunciar.StepPhotos.uploadingPhotos": {},
+  "anunciar.StepPhotos.clickToSelect": {
+    "pt": "Clique para selecionar",
+    "es": "Haz clic para seleccionar"
+  },
+  "anunciar.StepPhotos.orDrag": {
+    "pt": "ou arraste fotos aqui",
+    "es": "o arrastra fotos aquí"
+  },
+  "anunciar.StepPhotos.formatsInfo": {},
+  "anunciar.StepPhotos.addedCount": {},
+  "anunciar.StepPhotos.cover": {
+    "pt": "CAPA",
+    "es": "PORTADA"
+  },
+  "anunciar.StepPhotos.makeCover": {
+    "pt": "Tornar Capa",
+    "es": "Hacer Portada"
+  },
+  "anunciar.StepPhotos.removePhotoAria": {
+    "pt": "Remover foto",
+    "es": "Eliminar foto"
+  },
+  "anunciar.StepPhotos.previewAlt": {
+    "pt": "Prévia",
+    "es": "Vista previa"
+  },
+  "anunciar.StepPhotos.videoSection": {
+    "pt": "Vídeo do anúncio (opcional)",
+    "es": "Video del anuncio (opcional)"
+  },
+  "anunciar.StepPhotos.videoLocked": {
+    "pt": "Vídeo no anúncio é um recurso dos planos PRO e Premium.",
+    "es": "El video en el anuncio es una función de los planes PRO y Premium."
+  },
+  "anunciar.StepPhotos.upgrade": {
+    "pt": "Fazer upgrade",
+    "es": "Mejorar plan"
+  },
+  "anunciar.StepPhotos.removeVideo": {
+    "pt": "Remover vídeo",
+    "es": "Eliminar video"
+  },
+  "anunciar.StepPhotos.chooseVideoAria": {
+    "pt": "Clique para escolher um vídeo",
+    "es": "Haz clic para elegir un video"
+  },
+  "anunciar.StepPhotos.uploadingVideo": {
+    "pt": "Enviando vídeo...",
+    "es": "Subiendo video..."
+  },
+  "anunciar.StepPhotos.clickChooseVideo": {
+    "pt": "Clique para escolher um vídeo",
+    "es": "Haz clic para elegir un video"
+  },
+  "anunciar.StepPhotos.videoFormats": {
+    "pt": "MP4 ou WebM, máximo 50 MB",
+    "es": "MP4 o WebM, máximo 50 MB"
+  },
+  "anunciar.StepPhotos.reviewNote": {
+    "pt": "Seu anúncio ficará disponível após revisão em até 24h.",
+    "es": "Tu anuncio estará disponible después de la revisión en hasta 24h."
+  },
+  "anunciar.StepPhotos.back": {
+    "pt": "Voltar",
+    "es": "Volver"
+  },
+  "anunciar.StepPhotos.publishing": {
+    "pt": "Publicando...",
+    "es": "Publicando..."
+  },
+  "anunciar.StepPhotos.publish": {
+    "pt": "Publicar Anúncio",
+    "es": "Publicar Anuncio"
+  },
+  "anunciar.StepPhotos.videoTypeError": {
+    "pt": "Envie um arquivo de vídeo (mp4 ou webm).",
+    "es": "Envía un archivo de video (mp4 o webm)."
+  },
+  "anunciar.StepPhotos.videoSizeError": {
+    "pt": "O vídeo deve ter no máximo 50 MB.",
+    "es": "El video debe tener un máximo de 50 MB."
+  },
+  "anunciar.StepPhotos.photoSizeError": {},
+  "anunciar.StepPhotos.loginRequiredForMedia": {
+    "pt": "Você precisa estar logado para enviar fotos ou vídeo. Faça login e continue de onde parou.",
+    "es": "Necesitas iniciar sesión para subir fotos o video. Inicia sesión y continúa donde lo dejaste."
+  },
+  "anunciar.StepPhotos.photoUploadError": {},
+  "anunciar.StepPhotos.videoUploadError": {
+    "pt": "Erro ao fazer upload do vídeo. Tente novamente.",
+    "es": "Error al subir el video. Inténtalo de nuevo."
+  },
+  "anunciar.StepPhotos.planLimitsWarning": {
+    "pt": "Não foi possível confirmar os limites do seu plano agora. Os valores exibidos podem estar incorretos — recarregue a página.",
+    "es": "No fue posible confirmar los límites de tu plan ahora. Los valores mostrados pueden ser incorrectos — recarga la página."
+  },
+  "cancelado.page.title": {
+    "pt": "Pagamento Cancelado",
+    "es": "Pago Cancelado"
+  },
+  "cancelado.page.message": {
+    "pt": "Houve um problema ao processar seu pagamento ou você cancelou a operação. Nenhuma cobrança foi efetuada.",
+    "es": "Hubo un problema al procesar tu pago o cancelaste la operación. No se realizó ningún cobro."
+  },
+  "cancelado.page.retry": {
+    "pt": "Tentar Novamente",
+    "es": "Intentar de Nuevo"
+  },
+  "cancelado.page.seePlans": {
+    "pt": "Ver Planos",
+    "es": "Ver Planes"
+  },
+  "error.title": {
+    "pt": "Ops! Algo não saiu como esperado.",
+    "es": "¡Ups! Algo no salió como esperado."
+  },
+  "error.body": {
+    "pt": "Tivemos um pequeno problema ao carregar esta página. Nossa equipe técnica já foi notificada.",
+    "es": "Tuvimos un pequeño problema al cargar esta página. Nuestro equipo técnico ya fue notificado."
+  },
+  "error.retry": {
+    "pt": "Tentar Novamente",
+    "es": "Intentar de Nuevo"
+  },
+  "error.home": {
+    "pt": "Voltar ao Início",
+    "es": "Volver al Inicio"
+  },
+  "eventos.[id].page.notFound": {
+    "pt": "Evento não encontrado",
+    "es": "Evento no encontrado"
+  },
+  "eventos.[id].page.eventOn": {
+    "pt": "Evento em",
+    "es": "Evento el"
+  },
+  "eventos.[id].page.breadcrumbDetails": {
+    "pt": "Detalhes",
+    "es": "Detalles"
+  },
+  "eventos.[id].page.eventInfo": {
+    "pt": "Informações do Evento",
+    "es": "Información del Evento"
+  },
+  "eventos.[id].page.date": {
+    "pt": "Data:",
+    "es": "Fecha:"
+  },
+  "eventos.[id].page.location": {
+    "pt": "Local:",
+    "es": "Lugar:"
+  },
+  "eventos.[id].page.online": {
+    "pt": "Online",
+    "es": "Online"
+  },
+  "eventos.[id].page.organization": {
+    "pt": "Organização:",
+    "es": "Organización:"
+  },
+  "eventos.[id].page.officialSite": {
+    "pt": "Site oficial do evento →",
+    "es": "Sitio oficial del evento →"
+  },
+  "institucional.ContactForm.heading": {
+    "pt": "Envie sua Mensagem",
+    "es": "Envía tu Mensaje"
+  },
+  "institucional.ContactForm.nameLabel": {
+    "pt": "Nome completo *",
+    "es": "Nombre completo *"
+  },
+  "institucional.ContactForm.namePh": {
+    "pt": "Seu nome",
+    "es": "Tu nombre"
+  },
+  "institucional.ContactForm.emailLabel": {
+    "pt": "E-mail *",
+    "es": "Correo electrónico *"
+  },
+  "institucional.ContactForm.emailPh": {
+    "pt": "seu@email.com",
+    "es": "tu@email.com"
+  },
+  "institucional.ContactForm.phoneLabel": {
+    "pt": "Telefone / WhatsApp",
+    "es": "Teléfono / WhatsApp"
+  },
+  "institucional.ContactForm.phonePh": {
+    "pt": "(00) 00000-0000",
+    "es": "(00) 00000-0000"
+  },
+  "institucional.ContactForm.subjectLabel": {
+    "pt": "Assunto *",
+    "es": "Asunto *"
+  },
+  "institucional.ContactForm.subjectPlaceholder": {
+    "pt": "Selecione...",
+    "es": "Seleccioná..."
+  },
+  "institucional.ContactForm.subjects": {
+    "pt": [
+      "Dúvida sobre anúncio",
+      "Problemas com conta",
+      "Reportar fraude ou golpe",
+      "Parceria comercial",
+      "Privacidade / LGPD",
+      "Imprensa",
+      "Outro"
+    ],
+    "es": [
+      "Duda sobre un anuncio",
+      "Problemas con la cuenta",
+      "Reportar fraude o estafa",
+      "Alianza comercial",
+      "Privacidad / LGPD",
+      "Prensa",
+      "Otro"
+    ]
+  },
+  "institucional.ContactForm.messageLabel": {
+    "pt": "Mensagem *",
+    "es": "Mensaje *"
+  },
+  "institucional.ContactForm.messagePh": {
+    "pt": "Descreva sua solicitação com o máximo de detalhes possível...",
+    "es": "Describí tu solicitud con el mayor detalle posible..."
+  },
+  "institucional.ContactForm.submit": {
+    "pt": "Enviar Mensagem",
+    "es": "Enviar Mensaje"
+  },
+  "institucional.ContactForm.sending": {
+    "pt": "Enviando…",
+    "es": "Enviando…"
+  },
+  "institucional.ContactForm.success": {
+    "pt": "✅ Mensagem enviada! Vamos responder o quanto antes.",
+    "es": "✅ ¡Mensaje enviado! Vamos a responder lo antes posible."
+  },
+  "institucional.ContactForm.errorGeneric": {
+    "pt": "Erro ao enviar. Tente novamente em instantes.",
+    "es": "Error al enviar. Intentá de nuevo en unos instantes."
+  },
+  "institucional.ContactForm.errorRateLimit": {
+    "pt": "Muitas mensagens em pouco tempo. Aguarde alguns minutos.",
+    "es": "Demasiados mensajes en poco tiempo. Esperá unos minutos."
+  },
+  "institucional.ContactForm.noteLabel": {
+    "pt": "Importante:",
+    "es": "Importante:"
+  },
+  "institucional.ContactForm.note": {
+    "pt": "Este formulário é para atendimento geral. Em casos de fraude ou crime, registre imediatamente um Boletim de Ocorrência junto às autoridades competentes, independentemente do contato conosco.",
+    "es": "Este formulario es para atención general. En casos de fraude o delito, registrá de inmediato una denuncia policial ante las autoridades competentes, independientemente del contacto con nosotros."
+  },
+  "institucional.page.breadcrumbInstitutional": {
+    "pt": "Institucional",
+    "es": "Institucional"
+  },
+  "institucional.page.emptyPages": {
+    "pt": "Nenhuma página institucional configurada.",
+    "es": "No hay ninguna página institucional configurada."
+  },
+  "institucional.page.emptyContent": {
+    "pt": "Nenhum conteúdo disponível para esta página.",
+    "es": "No hay contenido disponible para esta página."
+  },
+  "institucional.page.fallbackTitle": {
+    "pt": "Institucional",
+    "es": "Institucional"
+  },
+  "institucional.page.fallbackDescription": {
+    "pt": "Termos de uso, política de privacidade, cookies e demais informações institucionais do Tauze Class — o maior classificado do agronegócio do Mercosul.",
+    "es": "Términos de uso, política de privacidad, cookies y demás información institucional de Tauze Class — el clasificado más grande del agronegocio del Mercosur."
+  },
+  "institucional.page.siteSuffix": {
+    "pt": "Tauze Class, o maior classificado do agronegócio do Mercosul.",
+    "es": "Tauze Class, el clasificado más grande del agronegocio del Mercosur."
+  },
+  "institucional.page.loadError": {
+    "pt": "Erro ao carregar as páginas institucionais. Tente novamente em instantes.",
+    "es": "Error al cargar las páginas institucionales. Intentá de nuevo en unos instantes."
+  },
+  "institucional.page.retry": {
+    "pt": "Tentar novamente",
+    "es": "Intentar de nuevo"
+  },
+  "institucional.page.backHome": {
+    "pt": "Voltar para o início",
+    "es": "Volver al inicio"
+  },
+  "leiloes.[slug].page.notFound": {
+    "pt": "Leilão não encontrado",
+    "es": "Remate no encontrado"
+  },
+  "leiloes.[slug].page.liveBadge": {
+    "pt": "LEILÃO AO VIVO",
+    "es": "REMATE EN VIVO"
+  },
+  "leiloes.[slug].page.scheduledBadge": {
+    "pt": "AGENDADO",
+    "es": "PROGRAMADO"
+  },
+  "leiloes.[slug].page.cancelledBadge": {
+    "pt": "LEILÃO CANCELADO",
+    "es": "REMATE CANCELADO"
+  },
+  "leiloes.[slug].page.closedBadge": {
+    "pt": "ENCERRADO",
+    "es": "FINALIZADO"
+  },
+  "leiloes.[slug].page.downloadCatalog": {
+    "pt": "Baixar Catálogo",
+    "es": "Descargar Catálogo"
+  },
+  "leiloes.[slug].page.startsIn": {
+    "pt": "INICIA EM",
+    "es": "COMIENZA EN"
+  },
+  "leiloes.[slug].page.comingSoon": {
+    "pt": "Em Breve",
+    "es": "Próximamente"
+  },
+  "leiloes.[slug].page.lotsCatalog": {
+    "pt": "Catálogo de Lotes",
+    "es": "Catálogo de Lotes"
+  },
+  "leiloes.[slug].page.sponsorAuction": {
+    "pt": "Patrocine o Leilão",
+    "es": "Patrociná el Remate"
+  },
+  "leiloes.[slug].page.dateTimeConnector": {
+    "pt": "às",
+    "es": "a las"
+  },
+  "leiloes.[slug].page.liveVideoTitle": {},
+  "leiloes.[slug].page.coverAlt": {},
+  "leiloes.[slug].page.descriptionText": {},
+  "leiloes.[slug].page.liveOgPrefix": {},
+  "login.AuthContainer.accountBlocked": {
+    "pt": "Sua conta foi suspensa temporariamente. Entre em contato com o suporte para mais informações.",
+    "es": "Tu cuenta fue suspendida temporalmente. Contacta al soporte para más información."
+  },
+  "login.AuthContainer.recoverySessionBlocked": {
+    "pt": "Este link é só para redefinir sua senha. Faça login normalmente para acessar sua conta.",
+    "es": "Este enlace es solo para restablecer tu contraseña. Inicia sesión normalmente para acceder a tu cuenta."
+  },
+  "login.AuthContainer.recoveryLinkFailed": {
+    "pt": "Não foi possível validar este link. Abra-o no mesmo navegador em que você pediu a redefinição de senha, ou solicite um novo link.",
+    "es": "No fue posible validar este enlace. Ábrelo en el mismo navegador en el que pediste el restablecimiento de contraseña, o solicita uno nuevo."
+  },
+  "login.ForgotPasswordForm.successSent": {
+    "pt": "E-mail de redefinição enviado com sucesso. Verifique sua caixa de entrada.",
+    "es": "Correo de restablecimiento enviado con éxito. Revisa tu bandeja de entrada."
+  },
+  "login.ForgotPasswordForm.sendError": {
+    "pt": "Erro ao enviar e-mail de redefinição.",
+    "es": "Error al enviar el correo de restablecimiento."
+  },
+  "login.LoginBanner.alt": {
+    "pt": "Fundo rural agro",
+    "es": "Fondo rural agro"
+  },
+  "login.LoginBanner.titleLine1": {
+    "pt": "O agronegócio do",
+    "es": "El agronegocio de"
+  },
+  "login.LoginBanner.titleHighlight": {
+    "pt": "Brasil",
+    "es": "Brasil"
+  },
+  "login.LoginBanner.titleLine2": {
+    "pt": "em um só lugar.",
+    "es": "en un solo lugar."
+  },
+  "login.LoginBanner.subtitle": {
+    "pt": "Anuncie gratuitamente para milhares de compradores no Brasil, Argentina, Paraguai e Uruguai.",
+    "es": "Publica gratis para miles de compradores en Brasil, Argentina, Paraguay y Uruguay."
+  },
+  "login.LoginBanner.badgeFree": {
+    "pt": "Gratuito para anunciar",
+    "es": "Gratis para publicar"
+  },
+  "login.LoginBanner.badgeMercosul": {
+    "pt": "Mercosul completo",
+    "es": "Mercosur completo"
+  },
+  "login.LoginBanner.badgeAds": {
+    "pt": "62.000+ anúncios",
+    "es": "62.000+ anuncios"
+  },
+  "login.LoginForm.loginError": {
+    "pt": "Erro ao fazer login.",
+    "es": "Error al iniciar sesión."
+  },
+  "login.LoginForm.googleError": {
+    "pt": "Erro ao conectar com Google.",
+    "es": "Error al conectar con Google."
+  },
+  "login.LoginForm.hidePassword": {
+    "pt": "Ocultar senha",
+    "es": "Ocultar contraseña"
+  },
+  "login.LoginForm.showPassword": {
+    "pt": "Mostrar senha",
+    "es": "Mostrar contraseña"
+  },
+  "login.RegisterForm.successCreated": {
+    "pt": "Conta criada com sucesso! Você já pode fazer login.",
+    "es": "¡Cuenta creada con éxito! Ya puedes iniciar sesión."
+  },
+  "login.RegisterForm.createError": {
+    "pt": "Não foi possível criar a conta. Verifique os dados e tente novamente.",
+    "es": "No fue posible crear la cuenta. Verifica los datos e intenta de nuevo."
+  },
+  "login.RegisterForm.docExists": {
+    "pt": "Este CPF/CNPJ já está cadastrado em outra conta. Sua conta foi criada — já pode fazer login e completar o CPF/CNPJ depois, no seu perfil.",
+    "es": "Este documento ya está registrado en otra cuenta. Tu cuenta fue creada — ya puedes iniciar sesión y completar el documento después, en tu perfil."
+  },
+  "login.RegisterForm.hidePassword": {
+    "pt": "Ocultar senha",
+    "es": "Ocultar contraseña"
+  },
+  "login.RegisterForm.showPassword": {
+    "pt": "Mostrar senha",
+    "es": "Mostrar contraseña"
+  },
+  "login.RegisterForm.confirmPassword": {
+    "pt": "Confirmar Senha",
+    "es": "Confirmar Contraseña"
+  },
+  "login.RegisterForm.confirmPasswordPh": {
+    "pt": "••••••••",
+    "es": "••••••••"
+  },
+  "login.ResetPasswordForm.hidePassword": {
+    "pt": "Ocultar senha",
+    "es": "Ocultar contraseña"
+  },
+  "login.ResetPasswordForm.showPassword": {
+    "pt": "Mostrar senha",
+    "es": "Mostrar contraseña"
+  },
+  "not-found.title": {
+    "pt": "Página não encontrada",
+    "es": "Página no encontrada"
+  },
+  "not-found.body": {
+    "pt": "Desculpe, não conseguimos encontrar a página que você está procurando. Ela pode ter sido movida ou não existe mais.",
+    "es": "Lo sentimos, no pudimos encontrar la página que buscas. Puede haber sido movida o ya no existe."
+  },
+  "not-found.home": {
+    "pt": "Voltar ao Início",
+    "es": "Volver al Inicio"
+  },
+  "not-found.explore": {
+    "pt": "Explorar Anúncios",
+    "es": "Explorar Anuncios"
+  },
+  "painel.PainelClient.myAds": {
+    "pt": "Meus Anúncios",
+    "es": "Mis Anuncios"
+  },
+  "painel.PainelClient.messages": {
+    "pt": "Mensagens",
+    "es": "Mensajes"
+  },
+  "painel.PainelClient.favorites": {
+    "pt": "Favoritos",
+    "es": "Favoritos"
+  },
+  "painel.PainelClient.myProfile": {
+    "pt": "Meu Perfil",
+    "es": "Mi Perfil"
+  },
+  "painel.PainelClient.billing": {
+    "pt": "Assinatura e Faturas",
+    "es": "Suscripción y Facturas"
+  },
+  "painel.PainelClient.logout": {
+    "pt": "Sair",
+    "es": "Salir"
+  },
+  "painel.PainelClient.adsUsed": {
+    "pt": "Anúncios usados",
+    "es": "Anuncios usados"
+  },
+  "painel.PainelClient.unlimited": {
+    "pt": "Ilimitado",
+    "es": "Ilimitado"
+  },
+  "painel.PainelClient.sections": {
+    "pt": "Seções do painel",
+    "es": "Secciones del panel"
+  },
+  "painel.PainelClient.cancelledBanner": {
+    "pt": "Assinatura não concluída. Você pode tentar novamente em Assinatura e Faturas.",
+    "es": "Suscripción no completada. Puedes intentarlo de nuevo en Suscripción y Facturas."
+  },
+  "painel.PainelClient.successBanner": {
+    "pt": "Assinatura ativada com sucesso! Seu plano já está ativo.",
+    "es": "¡Suscripción activada con éxito! Tu plan ya está activo."
+  },
+  "painel.PainelClient.close": {
+    "pt": "Fechar",
+    "es": "Cerrar"
+  },
+  "painel.verificacao.VerificacaoClient.title": {
+    "pt": "Verificação de Identidade",
+    "es": "Verificación de Identidad"
+  },
+  "painel.verificacao.VerificacaoClient.subtitle": {
+    "pt": "Obtenha o selo de confiança e feche negócios até 3x mais rápido na plataforma.",
+    "es": "Obtén el sello de confianza y cierra negocios hasta 3 veces más rápido en la plataforma."
+  },
+  "painel.verificacao.VerificacaoClient.loadingData": {
+    "pt": "Carregando dados de identidade...",
+    "es": "Cargando datos de identidad..."
+  },
+  "painel.verificacao.VerificacaoClient.verifiedTitle": {
+    "pt": "Sua identidade está verificada!",
+    "es": "¡Tu identidad está verificada!"
+  },
+  "painel.verificacao.VerificacaoClient.verifiedDesc": {
+    "pt": "O selo verde já está ativo no seu perfil e anúncios.",
+    "es": "El sello verde ya está activo en tu perfil y anuncios."
+  },
+  "painel.verificacao.VerificacaoClient.govbrSoon": {
+    "pt": "(em breve)",
+    "es": "(próximamente)"
+  },
+  "painel.verificacao.VerificacaoClient.govbrDesc": {
+    "pt": "A verificação automática por conta Ouro ou Prata do Gov.br ainda está em desenvolvimento. Por enquanto, use o envio de documentos.",
+    "es": "La verificación automática por cuenta Oro o Plata de Gov.br todavía está en desarrollo. Por ahora, usa el envío de documentos."
+  },
+  "painel.verificacao.VerificacaoClient.govbrBtn": {
+    "pt": "Entrar com gov.br",
+    "es": "Ingresar con gov.br"
+  },
+  "painel.verificacao.VerificacaoClient.planBadgeTitle": {
+    "pt": "Selo via Plano Pro/Premium",
+    "es": "Sello vía Plan Pro/Premium"
+  },
+  "painel.verificacao.VerificacaoClient.planBadgeDesc": {
+    "pt": "Assinantes dos planos pagos com pagamento via Cartão de Crédito aprovado ganham o selo automaticamente.",
+    "es": "Los suscriptores de planes pagos con pago aprobado por Tarjeta de Crédito obtienen el sello automáticamente."
+  },
+  "painel.verificacao.VerificacaoClient.seePlans": {
+    "pt": "Ver Planos",
+    "es": "Ver Planes"
+  },
+  "painel.verificacao.VerificacaoClient.manualTitle": {
+    "pt": "Envio Manual de Documentos",
+    "es": "Envío Manual de Documentos"
+  },
+  "painel.verificacao.VerificacaoClient.manualDesc": {
+    "pt": "Não quer usar o Gov.br? Envie fotos da sua CNH ou RG e uma Selfie. A análise demora até 2 dias úteis.",
+    "es": "¿No quieres usar Gov.br? Envía fotos de tu documento de identidad y una selfie. El análisis demora hasta 2 días hábiles."
+  },
+  "painel.verificacao.VerificacaoClient.collapse": {
+    "pt": "Recolher",
+    "es": "Contraer"
+  },
+  "painel.verificacao.VerificacaoClient.attach": {
+    "pt": "Anexar Documentos",
+    "es": "Adjuntar Documentos"
+  },
+  "painel.verificacao.VerificacaoClient.pendingReview": {
+    "pt": "⚠️ Seus documentos estão em análise pela nossa equipe.",
+    "es": "⚠️ Tus documentos están en análisis por nuestro equipo."
+  },
+  "painel.verificacao.VerificacaoClient.rejected": {
+    "pt": "❌ Sua última verificação foi recusada. Verifique a legibilidade dos arquivos e tente novamente.",
+    "es": "❌ Tu última verificación fue rechazada. Verifica la legibilidad de los archivos e intenta de nuevo."
+  },
+  "painel.verificacao.VerificacaoClient.docLabel": {
+    "pt": "CPF ou CNPJ",
+    "es": "Documento de Identidad"
+  },
+  "painel.verificacao.VerificacaoClient.docPh": {
+    "pt": "000.000.000-00 ou 00.000.000/0001-00",
+    "es": "Número de documento"
+  },
+  "painel.verificacao.VerificacaoClient.typeDetected": {
+    "pt": "Tipo detectado: ",
+    "es": "Tipo detectado: "
+  },
+  "painel.verificacao.VerificacaoClient.pessoaFisica": {
+    "pt": "👤 Pessoa Física (CPF)",
+    "es": "👤 Persona Física"
+  },
+  "painel.verificacao.VerificacaoClient.pessoaJuridica": {
+    "pt": "🏢 Pessoa Jurídica (CNPJ)",
+    "es": "🏢 Persona Jurídica"
+  },
+  "painel.verificacao.VerificacaoClient.docFront": {
+    "pt": "Documento (Frente)",
+    "es": "Documento (Frente)"
+  },
+  "painel.verificacao.VerificacaoClient.docBack": {
+    "pt": "Documento (Verso)",
+    "es": "Documento (Dorso)"
+  },
+  "painel.verificacao.VerificacaoClient.selfieLabel": {
+    "pt": "Selfie (Você segurando o documento)",
+    "es": "Selfie (Sosteniendo el documento)"
+  },
+  "painel.verificacao.VerificacaoClient.sending": {
+    "pt": "Enviando arquivos de forma segura...",
+    "es": "Enviando archivos de forma segura..."
+  },
+  "painel.verificacao.VerificacaoClient.submit": {
+    "pt": "Enviar para Análise Manual",
+    "es": "Enviar para Análisis Manual"
+  },
+  "painel.verificacao.VerificacaoClient.govbrToast": {
+    "pt": "Integração com o Gov.br ainda não disponível. Use o envio de documentos abaixo.",
+    "es": "La integración con Gov.br aún no está disponible. Usa el envío de documentos a continuación."
+  },
+  "painel.verificacao.VerificacaoClient.fillDocument": {
+    "pt": "Por favor, informe o CPF ou CNPJ.",
+    "es": "Por favor, indica tu documento de identidad."
+  },
+  "painel.verificacao.VerificacaoClient.attach3Files": {
+    "pt": "Por favor, anexe os 3 arquivos.",
+    "es": "Por favor, adjunta los 3 archivos."
+  },
+  "painel.verificacao.VerificacaoClient.sendSuccess": {
+    "pt": "Documentos enviados com sucesso! Aguarde a análise.",
+    "es": "¡Documentos enviados con éxito! Espera el análisis."
+  },
+  "painel.verificacao.VerificacaoClient.sendError": {
+    "pt": "Erro ao enviar os documentos. Tente novamente em instantes.",
+    "es": "Error al enviar los documentos. Intentá de nuevo en unos instantes."
+  },
+  "painel.verificacao.VerificacaoClient.notAuthenticated": {
+    "pt": "Não autenticado",
+    "es": "No autenticado"
+  },
+  "painel.verificacao.VerificacaoClient.fileTypeError": {
+    "pt": "Envie um arquivo de imagem (JPEG, PNG ou WebP).",
+    "es": "Envía un archivo de imagen (JPEG, PNG o WebP)."
+  },
+  "painel.verificacao.VerificacaoClient.fileSizeError": {
+    "pt": "Cada arquivo deve ter no máximo 10 MB.",
+    "es": "Cada archivo debe tener un máximo de 10 MB."
+  },
+  "painel.verificacao.VerificacaoClient.loadError": {
+    "pt": "Não foi possível carregar seus dados de verificação. Verifique sua conexão e tente novamente.",
+    "es": "No pudimos cargar tus datos de verificación. Verifica tu conexión e intenta de nuevo."
+  },
+  "painel.verificacao.VerificacaoClient.retry": {
+    "pt": "Tentar novamente",
+    "es": "Intentar de nuevo"
+  },
+  "painel.AdQuotaGraceBanner.title": {},
+  "painel.AdQuotaGraceBanner.body": {},
+  "painel.AdQuotaGraceBanner.selectedCount": {},
+  "painel.AdQuotaGraceBanner.confirm": {
+    "pt": "Confirmar seleção",
+    "es": "Confirmar selección"
+  },
+  "painel.AdQuotaGraceBanner.confirming": {
+    "pt": "Salvando...",
+    "es": "Guardando..."
+  },
+  "painel.AdQuotaGraceBanner.autoNotice": {
+    "pt": "Se você não escolher a tempo, pausamos os anúncios mais antigos primeiro e mantemos os mais recentes ativos.",
+    "es": "Si no eliges a tiempo, pausamos primero los anuncios más antiguos y mantenemos activos los más recientes."
+  },
+  "painel.AdQuotaGraceBanner.success": {
+    "pt": "Seleção salva! Os anúncios fora da escolha foram pausados.",
+    "es": "¡Selección guardada! Los anuncios fuera de la elección fueron pausados."
+  },
+  "painel.AdQuotaGraceBanner.error": {
+    "pt": "Erro ao salvar sua seleção.",
+    "es": "Error al guardar tu selección."
+  },
+  "painel.AdQuotaGraceBanner.tooMany": {},
+  "painel.BillingTab.title": {
+    "pt": "Assinatura e Faturas",
+    "es": "Suscripción y Facturas"
+  },
+  "painel.BillingTab.subtitle": {
+    "pt": "Gerencie seu plano e histórico financeiro.",
+    "es": "Gestiona tu plan e historial financiero."
+  },
+  "painel.BillingTab.paymentPending": {
+    "pt": "Seu pagamento está sendo processado. Você receberá uma confirmação por e-mail.",
+    "es": "Tu pago se está procesando. Recibirás una confirmación por correo electrónico."
+  },
+  "painel.BillingTab.plan": {
+    "pt": "Plano",
+    "es": "Plan"
+  },
+  "painel.BillingTab.current": {
+    "pt": "ATUAL",
+    "es": "ACTUAL"
+  },
+  "painel.BillingTab.cancelling": {
+    "pt": "Cancelando...",
+    "es": "Cancelando..."
+  },
+  "painel.BillingTab.cancelSubscription": {
+    "pt": "Cancelar Assinatura",
+    "es": "Cancelar Suscripción"
+  },
+  "painel.BillingTab.upgrade": {
+    "pt": "Fazer Upgrade",
+    "es": "Hacer Upgrade"
+  },
+  "painel.BillingTab.confirmTitle": {
+    "pt": "Confirmação",
+    "es": "Confirmación"
+  },
+  "painel.BillingTab.invoiceHistory": {
+    "pt": "Histórico de Assinaturas",
+    "es": "Historial de Suscripciones"
+  },
+  "painel.BillingTab.allInvoices": {
+    "pt": "Todas",
+    "es": "Todas"
+  },
+  "painel.BillingTab.approved": {
+    "pt": "Ativas",
+    "es": "Activas"
+  },
+  "painel.BillingTab.pending": {
+    "pt": "Pendentes",
+    "es": "Pendientes"
+  },
+  "painel.BillingTab.noInvoices": {
+    "pt": "Nenhuma assinatura encontrada.",
+    "es": "Ninguna suscripción encontrada."
+  },
+  "painel.BillingTab.subscription": {
+    "pt": "Assinatura",
+    "es": "Suscripción"
+  },
+  "painel.BillingTab.statusApproved": {
+    "pt": "Ativa",
+    "es": "Activa"
+  },
+  "painel.BillingTab.statusPending": {
+    "pt": "Pendente",
+    "es": "Pendiente"
+  },
+  "painel.BillingTab.statusFailed": {
+    "pt": "Inativa",
+    "es": "Inactiva"
+  },
+  "painel.BillingTab.statusPastDue": {
+    "pt": "Pagamento atrasado",
+    "es": "Pago atrasado"
+  },
+  "painel.BillingTab.statusCancelling": {
+    "pt": "Cancela ao fim do período",
+    "es": "Cancela al final del período"
+  },
+  "painel.BillingTab.cycleMonthly": {
+    "pt": "Mensal",
+    "es": "Mensual"
+  },
+  "painel.BillingTab.cycleAnnual": {
+    "pt": "Anual",
+    "es": "Anual"
+  },
+  "painel.BillingTab.nextBilling": {
+    "pt": "Próxima cobrança",
+    "es": "Próximo cobro"
+  },
+  "painel.BillingTab.periodEnd": {
+    "pt": "Válida até",
+    "es": "Válida hasta"
+  },
+  "painel.BillingTab.continueCheckout": {
+    "pt": "Continuar pagamento",
+    "es": "Continuar pago"
+  },
+  "painel.BillingTab.prev": {
+    "pt": "Anterior",
+    "es": "Anterior"
+  },
+  "painel.BillingTab.next": {
+    "pt": "Próxima",
+    "es": "Siguiente"
+  },
+  "painel.BillingTab.confirmCancel": {
+    "pt": "Tem certeza que deseja cancelar sua assinatura? Seu plano continuará ativo até o fim do período já pago.",
+    "es": "¿Estás seguro de que deseas cancelar tu suscripción? Tu plan seguirá activo hasta el final del período ya pagado."
+  },
+  "painel.BillingTab.sessionExpired": {
+    "pt": "Sessão expirada. Faça login novamente.",
+    "es": "Sesión expirada. Inicia sesión nuevamente."
+  },
+  "painel.BillingTab.cancelError": {
+    "pt": "Erro ao cancelar assinatura",
+    "es": "Error al cancelar la suscripción"
+  },
+  "painel.BillingTab.cancelSuccess": {
+    "pt": "Assinatura cancelada com sucesso.",
+    "es": "Suscripción cancelada con éxito."
+  },
+  "painel.BillingTab.unexpectedError": {
+    "pt": "Erro inesperado",
+    "es": "Error inesperado"
+  },
+  "painel.FavoritesTab.title": {
+    "pt": "Favoritos",
+    "es": "Favoritos"
+  },
+  "painel.FavoritesTab.subtitle": {
+    "pt": "Anúncios que você salvou",
+    "es": "Anuncios que guardaste"
+  },
+  "painel.FavoritesTab.search": {
+    "pt": "Buscar favoritos...",
+    "es": "Buscar favoritos..."
+  },
+  "painel.FavoritesTab.emptyTitle": {
+    "pt": "Nenhum favorito salvo",
+    "es": "Ningún favorito guardado"
+  },
+  "painel.FavoritesTab.emptyDesc": {
+    "pt": "Navegue pelos anúncios e clique no ícone de coração para salvar os que mais te interessarem.",
+    "es": "Navega por los anuncios y haz clic en el ícono de corazón para guardar los que más te interesen."
+  },
+  "painel.FavoritesTab.explore": {
+    "pt": "Explorar Anúncios",
+    "es": "Explorar Anuncios"
+  },
+  "painel.FavoritesTab.removeFav": {
+    "pt": "Remover dos favoritos",
+    "es": "Quitar de favoritos"
+  },
+  "painel.FavoritesTab.seeAd": {
+    "pt": "Ver anúncio →",
+    "es": "Ver anuncio →"
+  },
+  "painel.FavoritesTab.removeError": {
+    "pt": "Ocorreu um erro ao remover o favorito.",
+    "es": "Ocurrió un error al quitar el favorito."
+  },
+  "painel.FavoritesTab.loadError": {
+    "pt": "Erro ao carregar seus favoritos.",
+    "es": "Error al cargar tus favoritos."
+  },
+  "painel.FavoritesTab.noResultsTitle": {
+    "pt": "Nenhum resultado para \"{search}\"",
+    "es": "Ningún resultado para \"{search}\""
+  },
+  "painel.FavoritesTab.clearSearch": {
+    "pt": "Limpar busca",
+    "es": "Limpiar búsqueda"
+  },
+  "painel.MessagesTab.title": {
+    "pt": "Mensagens",
+    "es": "Mensajes"
+  },
+  "painel.MessagesTab.subtitle": {
+    "pt": "Conversas sobre seus anúncios",
+    "es": "Conversaciones sobre tus anuncios"
+  },
+  "painel.MessagesTab.search": {
+    "pt": "Buscar conversas...",
+    "es": "Buscar conversaciones..."
+  },
+  "painel.MessagesTab.user": {
+    "pt": "Usuário",
+    "es": "Usuario"
+  },
+  "painel.MessagesTab.ad": {
+    "pt": "Anúncio",
+    "es": "Anuncio"
+  },
+  "painel.MessagesTab.typeMessage": {
+    "pt": "Digite sua mensagem…",
+    "es": "Escribe tu mensaje…"
+  },
+  "painel.MessagesTab.sendError": {
+    "pt": "Erro ao enviar mensagem.",
+    "es": "Error al enviar el mensaje."
+  },
+  "painel.MessagesTab.noMessages": {
+    "pt": "Nenhuma mensagem",
+    "es": "Ningún mensaje"
+  },
+  "painel.MessagesTab.noConversations": {
+    "pt": "Você ainda não tem conversas.",
+    "es": "Todavía no tienes conversaciones."
+  },
+  "painel.MessagesTab.back": {
+    "pt": "Voltar",
+    "es": "Volver"
+  },
+  "painel.MessagesTab.loadError": {
+    "pt": "Erro ao carregar suas mensagens.",
+    "es": "Error al cargar tus mensajes."
+  },
+  "painel.MessagesTab.noResultsTitle": {
+    "pt": "Nenhum resultado para \"{search}\"",
+    "es": "Ningún resultado para \"{search}\""
+  },
+  "painel.MessagesTab.clearSearch": {
+    "pt": "Limpar busca",
+    "es": "Limpiar búsqueda"
+  },
+  "painel.MyAdsTab.title": {
+    "pt": "Meus Anúncios",
+    "es": "Mis Anuncios"
+  },
+  "painel.MyAdsTab.notify": {
+    "pt": "🔔 Ativar Notificações",
+    "es": "🔔 Activar Notificaciones"
+  },
+  "painel.MyAdsTab.activating": {
+    "pt": "Ativando...",
+    "es": "Activando..."
+  },
+  "painel.MyAdsTab.loading": {
+    "pt": "Carregando...",
+    "es": "Cargando..."
+  },
+  "painel.MyAdsTab.noAds": {
+    "pt": "Nenhum anúncio encontrado",
+    "es": "Ningún anuncio encontrado"
+  },
+  "painel.MyAdsTab.ad": {
+    "pt": "anúncio",
+    "es": "anuncio"
+  },
+  "painel.MyAdsTab.ads": {
+    "pt": "anúncios",
+    "es": "anuncios"
+  },
+  "painel.MyAdsTab.allStatus": {
+    "pt": "Todos os Status",
+    "es": "Todos los Estados"
+  },
+  "painel.MyAdsTab.active": {
+    "pt": "Ativos",
+    "es": "Activos"
+  },
+  "painel.MyAdsTab.pending": {
+    "pt": "Pendentes",
+    "es": "Pendientes"
+  },
+  "painel.MyAdsTab.paused": {
+    "pt": "Pausados",
+    "es": "Pausados"
+  },
+  "painel.MyAdsTab.expired": {
+    "pt": "Expirados",
+    "es": "Expirados"
+  },
+  "painel.MyAdsTab.loadError": {
+    "pt": "Erro ao carregar anúncios.",
+    "es": "Error al cargar los anuncios."
+  },
+  "painel.MyAdsTab.emptyTitle": {
+    "pt": "Crie seu primeiro anúncio",
+    "es": "Crea tu primer anuncio"
+  },
+  "painel.MyAdsTab.emptyDesc": {
+    "pt": "Alcance milhares de compradores em todo o Mercosul. Venda bovinos, máquinas e propriedades rurais com a melhor vitrine do agronegócio.",
+    "es": "Llega a miles de compradores en todo el Mercosur. Vende bovinos, máquinas y propiedades rurales con la mejor vitrina del agronegocio."
+  },
+  "painel.MyAdsTab.publishNow": {
+    "pt": "Publicar Anúncio Agora",
+    "es": "Publicar Anuncio Ahora"
+  },
+  "painel.MyAdsTab.featured": {
+    "pt": "⭐ Destaque",
+    "es": "⭐ Destacado"
+  },
+  "painel.MyAdsTab.waitingSlot": {
+    "pt": "Aguardando vaga — você atingiu o limite de anúncios ativos do seu plano",
+    "es": "Esperando lugar — alcanzaste el límite de anuncios activos de tu plan"
+  },
+  "painel.MyAdsTab.views": {
+    "pt": "visualizações",
+    "es": "visualizaciones"
+  },
+  "painel.MyAdsTab.edit": {
+    "pt": "Editar",
+    "es": "Editar"
+  },
+  "painel.MyAdsTab.reactivate": {
+    "pt": "Reativar",
+    "es": "Reactivar"
+  },
+  "painel.MyAdsTab.pause": {
+    "pt": "Pausar",
+    "es": "Pausar"
+  },
+  "painel.MyAdsTab.delete": {
+    "pt": "Excluir",
+    "es": "Eliminar"
+  },
+  "painel.MyAdsTab.confirmDelete": {
+    "pt": "Tem certeza que deseja excluir este anúncio?",
+    "es": "¿Estás seguro de que deseas eliminar este anuncio?"
+  },
+  "painel.MyAdsTab.confirmTitle": {
+    "pt": "Confirmação",
+    "es": "Confirmación"
+  },
+  "painel.MyAdsTab.deleteError": {
+    "pt": "Erro ao excluir.",
+    "es": "Error al eliminar."
+  },
+  "painel.MyAdsTab.toggleError": {
+    "pt": "Erro ao alterar status.",
+    "es": "Error al cambiar el estado."
+  },
+  "painel.MyAdsTab.quotaError": {
+    "pt": "Você atingiu o limite de anúncios ativos do seu plano. Pause outro anúncio ou faça upgrade.",
+    "es": "Alcanzaste el límite de anuncios activos de tu plan. Pausa otro anuncio o mejora tu plan."
+  },
+  "painel.MyAdsTab.prev": {
+    "pt": "← Anterior",
+    "es": "← Anterior"
+  },
+  "painel.MyAdsTab.next": {
+    "pt": "Próxima →",
+    "es": "Siguiente →"
+  },
+  "painel.MyAdsTab.statusActive": {
+    "pt": "Ativo",
+    "es": "Activo"
+  },
+  "painel.MyAdsTab.statusPending": {
+    "pt": "Pendente",
+    "es": "Pendiente"
+  },
+  "painel.MyAdsTab.statusPaused": {
+    "pt": "Pausado",
+    "es": "Pausado"
+  },
+  "painel.MyAdsTab.statusExpired": {
+    "pt": "Expirado",
+    "es": "Expirado"
+  },
+  "painel.MyAdsTab.noAdsStatus": {
+    "pt": "Nenhum anúncio {status} no momento",
+    "es": "Ningún anuncio {status} en este momento"
+  },
+  "painel.ProfileTab.title": {
+    "pt": "Meu Perfil",
+    "es": "Mi Perfil"
+  },
+  "painel.ProfileTab.subtitle": {
+    "pt": "Informações da sua conta",
+    "es": "Información de tu cuenta"
+  },
+  "painel.ProfileTab.profileAvatar": {
+    "pt": "Foto de Perfil",
+    "es": "Foto de Perfil"
+  },
+  "painel.ProfileTab.changeAvatar": {
+    "pt": "Trocar foto",
+    "es": "Cambiar foto"
+  },
+  "painel.ProfileTab.sendAvatar": {
+    "pt": "Enviar foto",
+    "es": "Enviar foto"
+  },
+  "painel.ProfileTab.avatarUpdated": {
+    "pt": "Foto de perfil atualizada!",
+    "es": "¡Foto de perfil actualizada!"
+  },
+  "painel.ProfileTab.avatarError": {
+    "pt": "Erro ao enviar foto. Tente novamente.",
+    "es": "Error al enviar la foto. Inténtalo de nuevo."
+  },
+  "painel.ProfileTab.profileBanner": {
+    "pt": "Banner de Perfil",
+    "es": "Banner de Perfil"
+  },
+  "painel.ProfileTab.bannerLocked": {
+    "pt": "Banner de perfil é um recurso do plano Premium.",
+    "es": "El banner de perfil es una función del plan Premium."
+  },
+  "painel.ProfileTab.upgrade": {
+    "pt": "Fazer upgrade",
+    "es": "Hacer upgrade"
+  },
+  "painel.ProfileTab.sending": {
+    "pt": "Enviando...",
+    "es": "Enviando..."
+  },
+  "painel.ProfileTab.changeBanner": {
+    "pt": "Trocar banner",
+    "es": "Cambiar banner"
+  },
+  "painel.ProfileTab.sendBanner": {
+    "pt": "Enviar banner",
+    "es": "Enviar banner"
+  },
+  "painel.ProfileTab.personalData": {
+    "pt": "Dados Pessoais",
+    "es": "Datos Personales"
+  },
+  "painel.ProfileTab.fullName": {
+    "pt": "Nome completo",
+    "es": "Nombre completo"
+  },
+  "painel.ProfileTab.namePh": {
+    "pt": "Seu nome",
+    "es": "Tu nombre"
+  },
+  "painel.ProfileTab.displayName": {
+    "pt": "Nome de Exibição / Fazenda",
+    "es": "Nombre Público / Estancia"
+  },
+  "painel.ProfileTab.displayNamePh": {
+    "pt": "Ex: Fazenda São João",
+    "es": "Ej: Estancia San Juan"
+  },
+  "painel.ProfileTab.document": {
+    "pt": "CPF / CNPJ",
+    "es": "Documento de Identidad"
+  },
+  "painel.ProfileTab.documentPh": {
+    "pt": "000.000.000-00",
+    "es": "Número de documento"
+  },
+  "painel.ProfileTab.whatsapp": {
+    "pt": "WhatsApp / Telefone",
+    "es": "WhatsApp / Teléfono"
+  },
+  "painel.ProfileTab.whatsappPh": {
+    "pt": "+55 (99) 9 9999-9999",
+    "es": "+00 (00) 0000-0000"
+  },
+  "painel.ProfileTab.zip": {
+    "pt": "CEP",
+    "es": "Código Postal"
+  },
+  "painel.ProfileTab.zipOther": {
+    "pt": "Código Postal",
+    "es": "Código Postal"
+  },
+  "painel.ProfileTab.zipPh": {
+    "pt": "00000-000",
+    "es": "0000"
+  },
+  "painel.ProfileTab.street": {
+    "pt": "Endereço (Rua/Av)",
+    "es": "Dirección (Calle/Av)"
+  },
+  "painel.ProfileTab.streetPh": {
+    "pt": "Ex: Av. Brasil",
+    "es": "Ej: Av. Brasil"
+  },
+  "painel.ProfileTab.number": {
+    "pt": "Número",
+    "es": "Número"
+  },
+  "painel.ProfileTab.numberPh": {
+    "pt": "Ex: 1000",
+    "es": "Ej: 1000"
+  },
+  "painel.ProfileTab.complement": {
+    "pt": "Complemento",
+    "es": "Complemento"
+  },
+  "painel.ProfileTab.complementPh": {
+    "pt": "Apto, Sala, Bloco...",
+    "es": "Depto, Piso, Bloque..."
+  },
+  "painel.ProfileTab.neighborhood": {
+    "pt": "Bairro",
+    "es": "Barrio"
+  },
+  "painel.ProfileTab.neighborhoodPh": {
+    "pt": "Seu bairro",
+    "es": "Tu barrio"
+  },
+  "painel.ProfileTab.city": {
+    "pt": "Cidade",
+    "es": "Ciudad"
+  },
+  "painel.ProfileTab.cityPh": {
+    "pt": "Sua cidade",
+    "es": "Tu ciudad"
+  },
+  "painel.ProfileTab.state": {
+    "pt": "Estado (UF)",
+    "es": "Estado (UF)"
+  },
+  "painel.ProfileTab.province": {
+    "pt": "Província",
+    "es": "Provincia"
+  },
+  "painel.ProfileTab.statePh": {
+    "pt": "Ex: SP, MT...",
+    "es": ""
+  },
+  "painel.ProfileTab.country": {
+    "pt": "País",
+    "es": "País"
+  },
+  "painel.ProfileTab.countries": {
+    "pt": {
+      "BR": "🇧🇷 Brasil",
+      "AR": "🇦🇷 Argentina",
+      "PY": "🇵🇾 Paraguai",
+      "UY": "🇺🇾 Uruguai",
+      "BO": "🇧🇴 Bolívia"
+    },
+    "es": {
+      "BR": "🇧🇷 Brasil",
+      "AR": "🇦🇷 Argentina",
+      "PY": "🇵🇾 Paraguay",
+      "UY": "🇺🇾 Uruguay",
+      "BO": "🇧🇴 Bolivia"
+    }
+  },
+  "painel.ProfileTab.bio": {
+    "pt": "Bio / Apresentação",
+    "es": "Bio / Presentación"
+  },
+  "painel.ProfileTab.bioPh": {
+    "pt": "Conte sobre você ou sua propriedade…",
+    "es": "Cuéntanos sobre ti o tu propiedad…"
+  },
+  "painel.ProfileTab.saving": {
+    "pt": "Salvando...",
+    "es": "Guardando..."
+  },
+  "painel.ProfileTab.save": {
+    "pt": "Salvar Perfil",
+    "es": "Guardar Perfil"
+  },
+  "painel.ProfileTab.kycTitle": {
+    "pt": "Verificação KYC",
+    "es": "Verificación KYC"
+  },
+  "painel.ProfileTab.kycDesc": {
+    "pt": "Complete as verificações abaixo para ganhar o selo de Vendedor Ouro e aumentar suas vendas.",
+    "es": "Completa las verificaciones a continuación para ganar el sello de Vendedor Oro y aumentar tus ventas."
+  },
+  "painel.ProfileTab.email": {
+    "pt": "E-mail",
+    "es": "Correo Electrónico"
+  },
+  "painel.ProfileTab.verified": {
+    "pt": "Verificado",
+    "es": "Verificado"
+  },
+  "painel.ProfileTab.pending": {
+    "pt": "Pendente",
+    "es": "Pendiente"
+  },
+  "painel.ProfileTab.emailDesc": {
+    "pt": "Verifique seu e-mail para receber notificações.",
+    "es": "Verifica tu correo electrónico para recibir notificaciones."
+  },
+  "painel.ProfileTab.resendEmail": {
+    "pt": "Reenviar e-mail",
+    "es": "Reenviar correo"
+  },
+  "painel.ProfileTab.whatsappTitle": {
+    "pt": "WhatsApp",
+    "es": "WhatsApp"
+  },
+  "painel.ProfileTab.identity": {
+    "pt": "Identidade",
+    "es": "Identidad"
+  },
+  "painel.ProfileTab.approved": {
+    "pt": "Aprovado",
+    "es": "Aprobado"
+  },
+  "painel.ProfileTab.inReview": {
+    "pt": "Em Análise",
+    "es": "En Revisión"
+  },
+  "painel.ProfileTab.notSent": {
+    "pt": "Não Enviado",
+    "es": "No Enviado"
+  },
+  "painel.ProfileTab.identityDesc": {
+    "pt": "Envie RG/CNH e selfie.",
+    "es": "Envía tu documento de identidad y una selfie."
+  },
+  "painel.ProfileTab.sendDocs": {
+    "pt": "Enviar Documentos",
+    "es": "Enviar Documentos"
+  },
+  "painel.ProfileTab.imageError": {
+    "pt": "Envie uma imagem (PNG, JPEG ou WebP).",
+    "es": "Envía una imagen (PNG, JPEG o WebP)."
+  },
+  "painel.ProfileTab.bannerUpdated": {
+    "pt": "Banner de perfil atualizado!",
+    "es": "¡Banner de perfil actualizado!"
+  },
+  "painel.ProfileTab.bannerError": {
+    "pt": "Erro ao enviar banner. Tente novamente.",
+    "es": "Error al enviar el banner. Inténtalo de nuevo."
+  },
+  "painel.ProfileTab.docExists": {
+    "pt": "Este CPF/CNPJ já está cadastrado em outra conta.",
+    "es": "Este documento ya está registrado en otra cuenta."
+  },
+  "painel.ProfileTab.saveError": {
+    "pt": "Erro ao salvar perfil.",
+    "es": "Error al guardar el perfil."
+  },
+  "painel.ProfileTab.saveSuccess": {
+    "pt": "Perfil salvo com sucesso!",
+    "es": "¡Perfil guardado con éxito!"
+  },
+  "painel.ProfileTab.resendSuccess": {
+    "pt": "E-mail de confirmação reenviado!",
+    "es": "¡Correo de confirmación reenviado!"
+  },
+  "painel.ProfileTab.resendError": {
+    "pt": "Erro ao reenviar e-mail.",
+    "es": "Error al reenviar el correo."
+  },
+  "painel.ProfileTab.nameTooShort": {
+    "pt": "Nome muito curto",
+    "es": "Nombre muy corto"
+  },
+  "painel.usePush.unsupported": {
+    "pt": "Push Notifications não são suportadas neste navegador.",
+    "es": "Las Notificaciones Push no son compatibles con este navegador."
+  },
+  "painel.usePush.blocked": {
+    "pt": "Você bloqueou as notificações.",
+    "es": "Bloqueaste las notificaciones."
+  },
+  "painel.usePush.saveError": {
+    "pt": "Erro ao salvar inscrição no banco.",
+    "es": "Error al guardar la inscripción en la base de datos."
+  },
+  "painel.usePush.success": {
+    "pt": "Notificações ativadas com sucesso!",
+    "es": "¡Notificaciones activadas con éxito!"
+  },
+  "painel.usePush.fail": {
+    "pt": "Falha ao registrar Push.",
+    "es": "Error al registrar el Push."
+  },
+  "planos.PricingClientUI.heroTitlePre": {
+    "pt": "Escolha seu",
+    "es": "Elige tu"
+  },
+  "planos.PricingClientUI.heroTitleSpan": {
+    "pt": "Plano",
+    "es": "Plan"
+  },
+  "planos.PricingClientUI.heroSubtitle": {
+    "pt": "Venda mais no maior classificado agro do Mercosul. Cancele quando quiser.",
+    "es": "Vende más en el mayor clasificado agro del Mercosur. Cancela cuando quieras."
+  },
+  "planos.PricingClientUI.badgeNoFidelity": {
+    "pt": "Sem fidelidade",
+    "es": "Sin permanencia"
+  },
+  "planos.PricingClientUI.badgeCancelAnytime": {
+    "pt": "Cancele a qualquer momento",
+    "es": "Cancela en cualquier momento"
+  },
+  "planos.PricingClientUI.badgeSecurePayment": {
+    "pt": "Pagamento 100% Seguro",
+    "es": "Pago 100% Seguro"
+  },
+  "planos.PricingClientUI.billingMonthly": {
+    "pt": "Mensal",
+    "es": "Mensual"
+  },
+  "planos.PricingClientUI.billingAnnual": {
+    "pt": "Anual",
+    "es": "Anual"
+  },
+  "planos.PricingClientUI.billingToggleAria": {
+    "pt": "Alternar faturamento anual com desconto",
+    "es": "Alternar facturación anual con descuento"
+  },
+  "planos.PricingClientUI.annualNote": {
+    "pt": "Faturado anualmente (20% OFF)",
+    "es": "Facturado anualmente (20% OFF)"
+  },
+  "planos.PricingClientUI.free": {
+    "pt": "Grátis",
+    "es": "Gratis"
+  },
+  "planos.PricingClientUI.perMonth": {
+    "pt": "/mês",
+    "es": "/mes"
+  },
+  "planos.PricingClientUI.unlimitedAds": {
+    "pt": "Anúncios Ilimitados",
+    "es": "Anuncios Ilimitados"
+  },
+  "planos.PricingClientUI.activeAds": {},
+  "planos.PricingClientUI.upToPhotos": {},
+  "planos.PricingClientUI.highlightsMonth": {},
+  "planos.PricingClientUI.popularBadge": {
+    "pt": "⭐ Mais Popular",
+    "es": "⭐ Más Popular"
+  },
+  "planos.PricingClientUI.currentBadge": {
+    "pt": "✓ Plano Atual",
+    "es": "✓ Plan Actual"
+  },
+  "planos.PricingClientUI.currentPlanBtn": {
+    "pt": "Plano Atual",
+    "es": "Plan Actual"
+  },
+  "planos.PricingClientUI.processing": {
+    "pt": "Processando...",
+    "es": "Procesando..."
+  },
+  "planos.PricingClientUI.downgradeBtn": {
+    "pt": "Fazer Downgrade",
+    "es": "Bajar de Plan"
+  },
+  "planos.PricingClientUI.startFreeBtn": {
+    "pt": "Começar Grátis",
+    "es": "Comenzar Gratis"
+  },
+  "planos.PricingClientUI.subscribeBtn": {
+    "pt": "Assinar",
+    "es": "Suscribirse"
+  },
+  "planos.PricingClientUI.compareTitle": {
+    "pt": "Comparação Completa",
+    "es": "Comparación Completa"
+  },
+  "planos.PricingClientUI.compareSub": {
+    "pt": "Tudo que cada plano inclui, sem surpresas.",
+    "es": "Todo lo que incluye cada plan, sin sorpresas."
+  },
+  "planos.PricingClientUI.colFeature": {
+    "pt": "Recurso",
+    "es": "Función"
+  },
+  "planos.PricingClientUI.colFree": {
+    "pt": "Grátis",
+    "es": "Gratis"
+  },
+  "planos.PricingClientUI.colPro": {
+    "pt": "PRO",
+    "es": "PRO"
+  },
+  "planos.PricingClientUI.colPremium": {
+    "pt": "Premium",
+    "es": "Premium"
+  },
+  "planos.PricingClientUI.rowActiveAds": {
+    "pt": "Anúncios ativos",
+    "es": "Anuncios activos"
+  },
+  "planos.PricingClientUI.rowPhotos": {
+    "pt": "Fotos por anúncio",
+    "es": "Fotos por anuncio"
+  },
+  "planos.PricingClientUI.rowVideo": {
+    "pt": "Vídeo no anúncio",
+    "es": "Video en el anuncio"
+  },
+  "planos.PricingClientUI.rowVideoDesc": {
+    "pt": "Upload de vídeo demonstração",
+    "es": "Carga de video de demostración"
+  },
+  "planos.PricingClientUI.rowSelo": {
+    "pt": "Selo Verificado",
+    "es": "Sello Verificado"
+  },
+  "planos.PricingClientUI.rowSeloDesc": {
+    "pt": "Aumenta a confiança do comprador",
+    "es": "Aumenta la confianza del comprador"
+  },
+  "planos.PricingClientUI.rowHighlights": {
+    "pt": "Destaques na Home",
+    "es": "Destacados en el Inicio"
+  },
+  "planos.PricingClientUI.rowHighlightsDesc": {
+    "pt": "Anúncios em posição privilegiada",
+    "es": "Anuncios en posición privilegiada"
+  },
+  "planos.PricingClientUI.rowBanner": {
+    "pt": "Banner de perfil",
+    "es": "Banner de perfil"
+  },
+  "planos.PricingClientUI.rowBannerDesc": {
+    "pt": "Sua marca em destaque no perfil",
+    "es": "Tu marca destacada en el perfil"
+  },
+  "planos.PricingClientUI.rowSupport": {
+    "pt": "Suporte",
+    "es": "Soporte"
+  },
+  "planos.PricingClientUI.rowAnalytics": {
+    "pt": "Análise de desempenho",
+    "es": "Análisis de rendimiento"
+  },
+  "planos.PricingClientUI.rowAnalyticsDesc": {
+    "pt": "Visualizações, cliques, conversões",
+    "es": "Visualizaciones, clics, conversiones"
+  },
+  "planos.PricingClientUI.basic": {
+    "pt": "Básica",
+    "es": "Básico"
+  },
+  "planos.PricingClientUI.advanced": {
+    "pt": "Avançada",
+    "es": "Avanzado"
+  },
+  "planos.PricingClientUI.rowAuction": {
+    "pt": "Participação em Leilões",
+    "es": "Participación en Remates"
+  },
+  "planos.PricingClientUI.rowPrice": {
+    "pt": "Preço",
+    "es": "Precio"
+  },
+  "planos.PricingClientUI.unlimited": {
+    "pt": "Ilimitado",
+    "es": "Ilimitado"
+  },
+  "planos.PricingClientUI.perMonthTable": {
+    "pt": "/mês",
+    "es": "/mes"
+  },
+  "planos.PricingClientUI.supportEmail": {
+    "pt": "Email",
+    "es": "Email"
+  },
+  "planos.PricingClientUI.plansLoadError": {
+    "pt": "Não foi possível carregar os planos agora. Tente novamente em instantes.",
+    "es": "No fue posible cargar los planes ahora. Intentá de nuevo en unos instantes."
+  },
+  "planos.PricingClientUI.plansEmpty": {
+    "pt": "Nenhum plano disponível no momento.",
+    "es": "Ningún plan disponible en este momento."
+  },
+  "planos.PricingClientUI.faqTitle": {
+    "pt": "Perguntas Frequentes",
+    "es": "Preguntas Frecuentes"
+  },
+  "planos.PricingClientUI.faqCancelQ": {
+    "pt": "Como faço para cancelar minha assinatura?",
+    "es": "¿Cómo hago para cancelar mi suscripción?"
+  },
+  "planos.PricingClientUI.faqCancelA": {
+    "pt": "Você pode cancelar a qualquer momento pelo seu painel, na aba 'Assinatura'. O acesso ao plano continua até o fim do período pago. Não há multa ou fidelidade.",
+    "es": "Puedes cancelar en cualquier momento desde tu panel, en la pestaña 'Suscripción'. El acceso al plan continúa hasta el final del período ya pagado. No hay multa ni permanencia."
+  },
+  "planos.PricingClientUI.faqChangeQ": {
+    "pt": "Posso mudar de plano no meio do mês?",
+    "es": "¿Puedo cambiar de plan a mitad de mes?"
+  },
+  "planos.PricingClientUI.faqChangeA": {
+    "pt": "Sim! Você pode fazer upgrade ou downgrade a qualquer momento — a troca é aplicada imediatamente. No upgrade, a cobrança do plano novo pode ser proporcional aos dias restantes (dependendo do seu método de pagamento) e a diferença aparece no seu histórico de faturas. No downgrade, nada é cobrado agora — o preço novo só vale a partir da próxima renovação.",
+    "es": "¡Sí! Puedes hacer upgrade o downgrade en cualquier momento — el cambio se aplica de inmediato. En el upgrade, el cobro del plan nuevo puede ser proporcional a los días restantes (según tu método de pago) y la diferencia aparece en tu historial de facturas. En el downgrade, no se cobra nada ahora — el precio nuevo solo vale a partir de la próxima renovación."
+  },
+  "planos.PricingClientUI.faqPaymentQ": {
+    "pt": "Quais formas de pagamento são aceitas?",
+    "es": "¿Qué formas de pago se aceptan?"
+  },
+  "planos.PricingClientUI.faqPaymentA": {
+    "pt": "Aceitamos cartão de crédito e débito.",
+    "es": "Aceptamos tarjeta de crédito y débito."
+  },
+  "planos.PricingClientUI.faqAdsQ": {
+    "pt": "Meus anúncios somem se eu cancelar?",
+    "es": "¿Mis anuncios desaparecen si cancelo?"
+  },
+  "planos.PricingClientUI.faqAdsA": {
+    "pt": "Não. Seus anúncios continuam visíveis, mas voltam ao limite do plano Grátis (3 ativos). Os demais ficam pausados automaticamente.",
+    "es": "No. Tus anuncios siguen visibles, pero vuelven al límite del plan Gratis (3 activos). Los demás quedan pausados automáticamente."
+  },
+  "planos.PricingClientUI.confirmTitle": {
+    "pt": "Confirmação",
+    "es": "Confirmación"
+  },
+  "planos.PricingClientUI.confirmDowngradeMsg": {
+    "pt": "Tem certeza que deseja voltar para o plano Grátis? Você continua com acesso ao plano atual até o fim do período já pago.",
+    "es": "¿Estás seguro de que deseas volver al plan Gratis? Seguirás con acceso a tu plan actual hasta el final del período ya pagado."
+  },
+  "planos.PricingClientUI.sessionExpired": {
+    "pt": "Sessão expirada. Faça login novamente.",
+    "es": "Sesión expirada. Inicia sesión nuevamente."
+  },
+  "planos.PricingClientUI.downgradeErrorGeneric": {
+    "pt": "Erro ao processar downgrade",
+    "es": "Error al procesar el cambio de plan"
+  },
+  "planos.PricingClientUI.downgradeSuccessDefault": {
+    "pt": "Downgrade agendado — seu plano volta pro Grátis no fim do período já pago.",
+    "es": "Cambio de plan programado — tu plan vuelve a Gratis al final del período ya pagado."
+  },
+  "planos.PricingClientUI.downgradeErrorUnexpected": {
+    "pt": "Erro inesperado ao processar downgrade",
+    "es": "Error inesperado al procesar el cambio de plan"
+  },
+  "reset.page.clearing": {
+    "pt": "Limpando cache e redirecionando...",
+    "es": "Limpiando caché y redirigiendo..."
+  },
+  "reset.page.explanation": {
+    "pt": "Esta página não redefine senha de conta — ela apenas limpa dados salvos localmente no seu navegador. Você será redirecionado para a página inicial em instantes.",
+    "es": "Esta página no restablece la contraseña de tu cuenta — solo limpia datos guardados localmente en tu navegador. Serás redirigido a la página de inicio en instantes."
+  },
+  "reset.page.goHome": {
+    "pt": "Ir para a página inicial agora",
+    "es": "Ir a la página de inicio ahora"
+  },
+  "sucesso.page.title": {
+    "pt": "Pagamento recebido!",
+    "es": "¡Pago recibido!"
+  },
+  "sucesso.page.message": {
+    "pt": "Estamos confirmando sua assinatura — isso leva só alguns instantes. Se os novos limites não aparecerem no seu painel em pouco tempo, contate o suporte.",
+    "es": "Estamos confirmando tu suscripción — esto toma solo unos instantes. Si los nuevos límites no aparecen en tu panel en poco tiempo, contacta al soporte."
+  },
+  "sucesso.page.planPrefix": {
+    "pt": "Plano",
+    "es": "Plan"
+  },
+  "sucesso.page.confirming": {
+    "pt": "confirmando",
+    "es": "confirmando"
+  },
+  "sucesso.page.createFirstListing": {
+    "pt": "Criar meu primeiro Anúncio",
+    "es": "Crear mi primer Anuncio"
+  },
+  "sucesso.page.goToDashboard": {
+    "pt": "Ir para o Painel",
+    "es": "Ir al Panel"
+  },
+  "sucesso.page.loading": {
+    "pt": "Carregando...",
+    "es": "Cargando..."
+  },
+  "global-not-found.title": {
+    "pt": "Página não encontrada",
+    "es": "Página no encontrada"
+  },
+  "global-not-found.body": {
+    "pt": "Desculpe, não conseguimos encontrar a página que você está procurando. Ela pode ter sido movida ou não existe mais.",
+    "es": "Lo sentimos, no pudimos encontrar la página que buscas. Puede haber sido movida o ya no existe."
+  },
+  "global-not-found.home": {
+    "pt": "Voltar ao Início",
+    "es": "Volver al Inicio"
+  },
+  "global-not-found.explore": {
+    "pt": "Explorar Anúncios",
+    "es": "Explorar Anuncios"
+  },
+  "ads.ActiveFiltersList.activeFilters": {
+    "pt": "FILTROS ATIVOS:",
+    "es": "FILTROS ACTIVOS:"
+  },
+  "ads.ActiveFiltersList.removeFilter": {},
+  "ads.ActiveFiltersList.clearAll": {
+    "pt": "Limpar Todos",
+    "es": "Limpiar Todos"
+  },
+  "ads.ActiveFiltersList.min": {
+    "pt": "Min",
+    "es": "Mín"
+  },
+  "ads.ActiveFiltersList.max": {
+    "pt": "Max",
+    "es": "Máx"
+  },
+  "ads.ActiveFiltersList.fallbackAll": {
+    "pt": "todo o Mercosul",
+    "es": "todo el Mercosur"
+  },
+  "ads.ActiveFiltersList.unknownFilterLabel": {
+    "pt": "este filtro",
+    "es": "este filtro"
+  },
+  "ads.AdCard.today": {
+    "pt": "Hoje",
+    "es": "Hoy"
+  },
+  "ads.AdCard.yesterday": {
+    "pt": "Ontem",
+    "es": "Ayer"
+  },
+  "ads.AdCard.daysAgo": {},
+  "ads.AdCard.priceOnRequest": {
+    "pt": "Sob consulta",
+    "es": "A consultar"
+  },
+  "ads.AdCard.viewAd": {},
+  "ads.AdCard.removeFav": {
+    "pt": "Remover dos favoritos",
+    "es": "Quitar de favoritos"
+  },
+  "ads.AdCard.addFav": {
+    "pt": "Adicionar aos favoritos",
+    "es": "Agregar a favoritos"
+  },
+  "ads.AdCard.negotiable": {
+    "pt": "Negociável",
+    "es": "Negociable"
+  },
+  "ads.AdGallery.seeAllPhotos": {},
+  "ads.AdGallery.prevAria": {
+    "pt": "Imagem anterior",
+    "es": "Imagen anterior"
+  },
+  "ads.AdGallery.nextAria": {
+    "pt": "Próxima imagem",
+    "es": "Imagen siguiente"
+  },
+  "ads.AdGallery.imageAlt": {
+    "pt": "Imagem",
+    "es": "Imagen"
+  },
+  "ads.AdGallery.closeAria": {
+    "pt": "Fechar",
+    "es": "Cerrar"
+  },
+  "ads.AdGallery.expandAria": {
+    "pt": "Ampliar imagem",
+    "es": "Ampliar imagen"
+  },
+  "ads.AdGallery.dialogAria": {
+    "pt": "Galeria de imagens em tela cheia",
+    "es": "Galería de imágenes en pantalla completa"
+  },
+  "ads.AdMessageForm.placeholder": {
+    "pt": "Olá! Tenho interesse neste anúncio e gostaria de mais informações...",
+    "es": "¡Hola! Estoy interesado en este anuncio y me gustaría más información..."
+  },
+  "ads.AdMessageForm.needLogin": {
+    "pt": "Você precisa estar logado para enviar mensagens.",
+    "es": "Debes iniciar sesión para enviar mensajes."
+  },
+  "ads.AdMessageForm.loginCta": {
+    "pt": "Fazer login",
+    "es": "Iniciar sesión"
+  },
+  "ads.AdMessageForm.rateLimited": {
+    "pt": "Muitas mensagens em pouco tempo. Aguarde um momento.",
+    "es": "Demasiados mensajes en poco tiempo. Espera un momento."
+  },
+  "ads.AdMessageForm.genericError": {
+    "pt": "Erro ao enviar. Tente novamente.",
+    "es": "Error al enviar. Inténtalo de nuevo."
+  },
+  "ads.AdMessageForm.success": {
+    "pt": "✓ Mensagem enviada com sucesso!",
+    "es": "✓ ¡Mensaje enviado con éxito!"
+  },
+  "ads.AdMessageForm.sending": {
+    "pt": "Enviando…",
+    "es": "Enviando…"
+  },
+  "ads.AdMessageForm.send": {
+    "pt": "Enviar Mensagem",
+    "es": "Enviar Mensaje"
+  },
+  "ads.AdsBrowser.allAds": {
+    "pt": "Todos os Anúncios",
+    "es": "Todos los Anuncios"
+  },
+  "ads.AdsBrowser.sortGroupAria": {
+    "pt": "Ordenação",
+    "es": "Ordenar"
+  },
+  "ads.AdsBrowser.sortLabel": {
+    "pt": "Ordenar:",
+    "es": "Ordenar:"
+  },
+  "ads.AdsBrowser.sortAria": {
+    "pt": "Ordenar por",
+    "es": "Ordenar por"
+  },
+  "ads.AdsBrowser.sortRecent": {
+    "pt": "Mais Recentes",
+    "es": "Más Recientes"
+  },
+  "ads.AdsBrowser.sortPriceAsc": {
+    "pt": "Menor Preço",
+    "es": "Menor Precio"
+  },
+  "ads.AdsBrowser.sortPriceDesc": {
+    "pt": "Maior Preço",
+    "es": "Mayor Precio"
+  },
+  "ads.AdsBrowser.sortFeatured": {
+    "pt": "Destaques Primeiro",
+    "es": "Destacados Primero"
+  },
+  "ads.AdsBrowser.found": {
+    "pt": "encontrados",
+    "es": "encontrados"
+  },
+  "ads.AdsBrowser.emptyTitle": {
+    "pt": "Nenhum anúncio encontrado",
+    "es": "Ningún anuncio encontrado"
+  },
+  "ads.AdsBrowser.emptyDesc": {
+    "pt": "Não encontramos resultados exatos para estes filtros. Que tal ajustar as categorias ou remover o filtro de localização?",
+    "es": "No encontramos resultados exactos para estos filtros. ¿Qué tal ajustar las categorías o quitar el filtro de ubicación?"
+  },
+  "ads.AdsBrowser.emptyBtn": {
+    "pt": "Limpar Filtros e Tentar Novamente",
+    "es": "Limpiar Filtros e Intentar de Nuevo"
+  },
+  "ads.AdsBrowser.emptyBtnRemove": {},
+  "ads.AdsBrowser.emptyBtnClearAll": {
+    "pt": "Ou limpar todos os filtros",
+    "es": "O limpiar todos los filtros"
+  },
+  "ads.AdsBrowser.priceRangeLabel": {
+    "pt": "faixa de preço",
+    "es": "rango de precio"
+  },
+  "ads.AdsBrowser.unknownFilterLabel": {
+    "pt": "este filtro",
+    "es": "este filtro"
+  },
+  "ads.AdsBrowser.emptyOverflowTitle": {
+    "pt": "Página além do fim da lista",
+    "es": "Página más allá del final de la lista"
+  },
+  "ads.AdsBrowser.emptyOverflowDesc": {},
+  "ads.AdsBrowser.emptyOverflowBackBtn": {},
+  "ads.AdSidebar.priceOnRequest": {
+    "pt": "Sob consulta",
+    "es": "A consultar"
+  },
+  "ads.AdSidebar.negotiable": {
+    "pt": "Negociável",
+    "es": "Negociable"
+  },
+  "ads.AdSidebar.emailVerified": {
+    "pt": "E-mail verificado",
+    "es": "Correo verificado"
+  },
+  "ads.AdSidebar.phoneVerified": {
+    "pt": "Telefone verificado",
+    "es": "Teléfono verificado"
+  },
+  "ads.AdSidebar.identityConfirmed": {
+    "pt": "Identidade confirmada",
+    "es": "Identidad confirmada"
+  },
+  "ads.AdSidebar.memberSince": {
+    "pt": "Membro desde",
+    "es": "Miembro desde"
+  },
+  "ads.AdSidebar.whatsappCta": {
+    "pt": "Falar pelo WhatsApp",
+    "es": "Hablar por WhatsApp"
+  },
+  "ads.AdSidebar.whatsappUnavailable": {
+    "pt": "WhatsApp não disponível",
+    "es": "WhatsApp no disponible"
+  },
+  "ads.AdSidebar.sendMessage": {
+    "pt": "Enviar Mensagem Interna",
+    "es": "Enviar Mensaje Interno"
+  },
+  "ads.AdSidebar.closeMessage": {
+    "pt": "Fechar Mensagem",
+    "es": "Cerrar Mensaje"
+  },
+  "ads.AdSidebar.share": {
+    "pt": "Compartilhar",
+    "es": "Compartir"
+  },
+  "ads.AdSidebar.copied": {
+    "pt": "Copiado!",
+    "es": "¡Copiado!"
+  },
+  "ads.AdSidebar.save": {
+    "pt": "Salvar",
+    "es": "Guardar"
+  },
+  "ads.AdSidebar.saved": {
+    "pt": "Salvo",
+    "es": "Guardado"
+  },
+  "ads.AdSidebar.report": {
+    "pt": "Denunciar",
+    "es": "Denunciar"
+  },
+  "ads.AdSidebar.securityTipTitle": {
+    "pt": "Dica de Segurança:",
+    "es": "Consejo de Seguridad:"
+  },
+  "ads.AdSidebar.securityTipBody": {
+    "pt": "Nunca faça depósitos antecipados sem ver o produto pessoalmente. Desconfie de preços muito abaixo do mercado.",
+    "es": "Nunca hagas depósitos por adelantado sin ver el producto en persona. Desconfía de precios muy por debajo del mercado."
+  },
+  "ads.AdSidebar.defaultSeller": {
+    "pt": "Vendedor",
+    "es": "Vendedor"
+  },
+  "ads.AdSidebar.justNow": {
+    "pt": "agora",
+    "es": "ahora"
+  },
+  "ads.AdSidebar.minAgo": {},
+  "ads.AdSidebar.hoursAgo": {},
+  "ads.AdSidebar.daysAgo": {},
+  "ads.AdsSidebar.filters": {
+    "pt": "Filtros",
+    "es": "Filtros"
+  },
+  "ads.AdsSidebar.clear": {
+    "pt": "Limpar",
+    "es": "Limpiar"
+  },
+  "ads.AdsSidebar.search": {
+    "pt": "Buscar anúncios...",
+    "es": "Buscar anuncios..."
+  },
+  "ads.AdsSidebar.category": {
+    "pt": "Categoria",
+    "es": "Categoría"
+  },
+  "ads.AdsSidebar.allCats": {
+    "pt": "Todas as Categorias",
+    "es": "Todas las Categorías"
+  },
+  "ads.AdsSidebar.purpose": {
+    "pt": "Finalidade",
+    "es": "Finalidad"
+  },
+  "ads.AdsSidebar.allPurposes": {
+    "pt": "Todas as Finalidades",
+    "es": "Todas las Finalidades"
+  },
+  "ads.AdsSidebar.clearSelection": {
+    "pt": "Limpar seleção",
+    "es": "Limpiar selección"
+  },
+  "ads.AdsSidebar.location": {
+    "pt": "Localização",
+    "es": "Ubicación"
+  },
+  "ads.AdsSidebar.allCountries": {
+    "pt": "Todos os Países",
+    "es": "Todos los Países"
+  },
+  "ads.AdsSidebar.allStates": {
+    "pt": "Todos os Estados",
+    "es": "Todos los Estados"
+  },
+  "ads.AdsSidebar.allCities": {
+    "pt": "Todas as Cidades",
+    "es": "Todas las Ciudades"
+  },
+  "ads.AdsSidebar.radiusLabel": {
+    "pt": "Raio de busca",
+    "es": "Radio de búsqueda"
+  },
+  "ads.AdsSidebar.radiusAria": {
+    "pt": "Raio de busca em quilômetros",
+    "es": "Radio de búsqueda en kilómetros"
+  },
+  "ads.AdsSidebar.priceRange": {
+    "pt": "Faixa de Preço",
+    "es": "Rango de Precio"
+  },
+  "ads.AdsSidebar.min": {
+    "pt": "Mínimo",
+    "es": "Mínimo"
+  },
+  "ads.AdsSidebar.max": {
+    "pt": "Máximo",
+    "es": "Máximo"
+  },
+  "ads.AdsSidebar.upTo": {
+    "pt": "Até",
+    "es": "Hasta"
+  },
+  "ads.AdsSidebar.offerType": {
+    "pt": "Tipo de Oferta",
+    "es": "Tipo de Oferta"
+  },
+  "ads.AdsSidebar.onlyFeatured": {
+    "pt": "Apenas Destaques",
+    "es": "Solo Destacados"
+  },
+  "ads.AdsSidebar.negotiable": {
+    "pt": "Negociável",
+    "es": "Negociable"
+  },
+  "ads.AdsSidebar.closeFilters": {
+    "pt": "Fechar filtros",
+    "es": "Cerrar filtros"
+  },
+  "ads.AdsSidebar.searchPlaceholder": {
+    "pt": "Buscar raça, marca...",
+    "es": "Buscar raza, marca..."
+  },
+  "ads.AdsSidebar.priceShortcutsAria": {
+    "pt": "Atalhos de preço",
+    "es": "Atajos de precio"
+  },
+  "ads.ListagemPagination.pageOf": {},
+  "ads.ShareButton.share": {
+    "pt": "Compartilhar anúncio",
+    "es": "Compartir anuncio"
+  },
+  "ads.ShareButton.shareLabel": {
+    "pt": "Compartilhar",
+    "es": "Compartir"
+  },
+  "ads.ShareButton.copied": {
+    "pt": "Copiado!",
+    "es": "¡Copiado!"
+  },
+  "ads.SimilarAdsCarousel.similarAds": {
+    "pt": "Anúncios Similares",
+    "es": "Anuncios Similares"
+  },
+  "ads.SimilarAdsCarousel.scrollLeft": {
+    "pt": "Rolar para esquerda",
+    "es": "Desplazar a la izquierda"
+  },
+  "ads.SimilarAdsCarousel.scrollRight": {
+    "pt": "Rolar para direita",
+    "es": "Desplazar a la derecha"
+  },
+  "ads.SimilarAdsCarousel.noTitle": {
+    "pt": "Sem título",
+    "es": "Sin título"
+  },
+  "ads.SimilarAdsCarousel.priceOnRequest": {
+    "pt": "Sob consulta",
+    "es": "A consultar"
+  },
+  "ads.SimilarAdsCarousel.featured": {
+    "pt": "Destaque",
+    "es": "Destacado"
+  },
+  "auctions.AuctionsBrowser.liveNow": {
+    "pt": "Transmissão Ao Vivo",
+    "es": "Transmisión En Vivo"
+  },
+  "auctions.AuctionsBrowser.scheduledEvent": {
+    "pt": "Evento Agendado",
+    "es": "Evento Programado"
+  },
+  "auctions.AuctionsBrowser.heroDesc": {
+    "pt": "Acompanhe os melhores lotes e dê seu lance em tempo real.",
+    "es": "Seguí los mejores lotes y ofertá en tiempo real."
+  },
+  "auctions.AuctionsBrowser.accessAuction": {
+    "pt": "Acessar Leilão Completo",
+    "es": "Acceder al Remate Completo"
+  },
+  "auctions.AuctionsBrowser.downloadCatalog": {
+    "pt": "Baixar Catálogo",
+    "es": "Descargar Catálogo"
+  },
+  "auctions.AuctionsBrowser.happeningNow": {
+    "pt": "O leilão está acontecendo agora!",
+    "es": "¡El remate está sucediendo ahora!"
+  },
+  "auctions.AuctionsBrowser.timeLeft": {
+    "pt": "Tempo restante:",
+    "es": "Tiempo restante:"
+  },
+  "auctions.AuctionsBrowser.upcomingAuctions": {
+    "pt": "Próximos Leilões",
+    "es": "Próximos Remates"
+  },
+  "auctions.AuctionsBrowser.subtitle": {
+    "pt": "Confira o calendário completo de eventos e remates.",
+    "es": "Descubrí el calendario completo de eventos y remates."
+  },
+  "auctions.AuctionsBrowser.searchAuctions": {
+    "pt": "Buscar leilões",
+    "es": "Buscar remates"
+  },
+  "auctions.AuctionsBrowser.searchPlaceholder": {
+    "pt": "Buscar por raça, fazenda, nome...",
+    "es": "Buscar por raza, establecimiento, nombre..."
+  },
+  "auctions.AuctionsBrowser.filterDate": {
+    "pt": "Filtrar por data",
+    "es": "Filtrar por fecha"
+  },
+  "auctions.AuctionsBrowser.filterStatus": {
+    "pt": "Filtrar por status",
+    "es": "Filtrar por estado"
+  },
+  "auctions.AuctionsBrowser.statusActive": {
+    "pt": "Ativos",
+    "es": "Activos"
+  },
+  "auctions.AuctionsBrowser.statusAll": {
+    "pt": "Todos os status",
+    "es": "Todos los estados"
+  },
+  "auctions.AuctionsBrowser.statusClosed": {
+    "pt": "Encerrados",
+    "es": "Finalizados"
+  },
+  "auctions.AuctionsBrowser.statusCancelled": {
+    "pt": "Cancelados",
+    "es": "Cancelados"
+  },
+  "auctions.AuctionsBrowser.empty": {
+    "pt": "Nenhum leilão encontrado para os filtros selecionados.",
+    "es": "No se encontraron remates para los filtros seleccionados."
+  },
+  "auctions.AuctionsBrowser.loadError": {
+    "pt": "Erro ao carregar leilões. Tente novamente em instantes.",
+    "es": "Error al cargar los remates. Intenta nuevamente en unos instantes."
+  },
+  "auctions.AuctionsBrowser.badgeScheduled": {
+    "pt": "AGENDADO",
+    "es": "PROGRAMADO"
+  },
+  "auctions.AuctionsBrowser.badgeLive": {
+    "pt": "AO VIVO",
+    "es": "EN VIVO"
+  },
+  "auctions.AuctionsBrowser.badgeClosed": {
+    "pt": "ENCERRADO",
+    "es": "FINALIZADO"
+  },
+  "auctions.AuctionsBrowser.badgeCancelled": {
+    "pt": "CANCELADO",
+    "es": "CANCELADO"
+  },
+  "auctions.AuctionsBrowser.actionCancelled": {
+    "pt": "Cancelado",
+    "es": "Cancelado"
+  },
+  "auctions.AuctionsBrowser.actionResults": {
+    "pt": "Ver Resultados",
+    "es": "Ver Resultados"
+  },
+  "auctions.AuctionsBrowser.actionJoin": {
+    "pt": "Participar",
+    "es": "Participar"
+  },
+  "auctions.AuctionsBrowser.actionViewLots": {
+    "pt": "Ver Lotes",
+    "es": "Ver Lotes"
+  },
+  "auctions.AuctionsBrowser.remindMe": {
+    "pt": "Lembrar-me",
+    "es": "Recordarme"
+  },
+  "auctions.AuctionsBrowser.reminderOn": {
+    "pt": "Lembrete ativado!",
+    "es": "¡Recordatorio activado!"
+  },
+  "auctions.AuctionsBrowser.reminderDenied": {
+    "pt": "Permissão de notificação negada.",
+    "es": "Permiso de notificación denegado."
+  },
+  "auctions.AuctionsBrowser.reminderAlreadyOn": {
+    "pt": "Lembrete já está ativado para este evento!",
+    "es": "¡El recordatorio ya está activado para este evento!"
+  },
+  "auctions.AuctionsBrowser.reminderBlocked": {
+    "pt": "Você bloqueou as notificações. Habilite nas configurações do navegador.",
+    "es": "Bloqueaste las notificaciones. Habilitalas en la configuración del navegador."
+  },
+  "auctions.AuctionsBrowser.activeFilters": {
+    "pt": "FILTROS ATIVOS:",
+    "es": "FILTROS ACTIVOS:"
+  },
+  "auctions.AuctionsBrowser.removeFilter": {},
+  "auctions.AuctionsBrowser.clearAll": {
+    "pt": "Limpar Todos",
+    "es": "Limpiar Todos"
+  },
+  "auctions.LotBiddingModal.closeModal": {
+    "pt": "Fechar modal",
+    "es": "Cerrar modal"
+  },
+  "auctions.LotBiddingModal.noMedia": {
+    "pt": "Sem mídia",
+    "es": "Sin contenido multimedia"
+  },
+  "auctions.LotBiddingModal.currentBid": {
+    "pt": "LANCE ATUAL",
+    "es": "PUJA ACTUAL"
+  },
+  "auctions.LotBiddingModal.winning": {
+    "pt": "Você está vencendo!",
+    "es": "¡Estás ganando!"
+  },
+  "auctions.LotBiddingModal.notInformed": {
+    "pt": "Não informado",
+    "es": "No informado"
+  },
+  "auctions.LotBiddingModal.confirmBidQuestion": {},
+  "auctions.LotBiddingModal.sending": {
+    "pt": "Enviando…",
+    "es": "Enviando…"
+  },
+  "auctions.LotBiddingModal.confirm": {
+    "pt": "Confirmar",
+    "es": "Confirmar"
+  },
+  "auctions.LotBiddingModal.cancel": {
+    "pt": "Cancelar",
+    "es": "Cancelar"
+  },
+  "auctions.LotBiddingModal.cancelledNotice": {
+    "pt": "Este leilão foi cancelado. Não é possível dar lances.",
+    "es": "Este remate fue cancelado. No es posible pujar."
+  },
+  "auctions.LotBiddingModal.notLiveNotice": {
+    "pt": "Este leilão ainda não está ao vivo. Lances abrem quando a transmissão iniciar.",
+    "es": "Este remate todavía no está en vivo. Las pujas abren cuando comience la transmisión."
+  },
+  "auctions.LotBiddingModal.closedNotice": {
+    "pt": "Este leilão já foi encerrado. Não é mais possível dar lances.",
+    "es": "Este remate ya fue finalizado. Ya no es posible pujar."
+  },
+  "auctions.LotBiddingModal.quickBids": {
+    "pt": "Lances Rápidos",
+    "es": "Pujas Rápidas"
+  },
+  "auctions.LotBiddingModal.orManualBid": {
+    "pt": "Ou dê um lance manual",
+    "es": "O hacé una puja manual"
+  },
+  "auctions.LotBiddingModal.manualBidLabel": {
+    "pt": "Valor do lance manual",
+    "es": "Valor de la puja manual"
+  },
+  "auctions.LotBiddingModal.minLabel": {},
+  "auctions.LotBiddingModal.placeBid": {
+    "pt": "Dar Lance",
+    "es": "Pujar"
+  },
+  "auctions.LotBiddingModal.minValidBid": {},
+  "auctions.LotBiddingModal.lotTitle": {},
+  "auctions.LotBiddingModal.lotVideoTitle": {},
+  "auctions.LotBiddingModal.lotPhotoAlt": {},
+  "auctions.LotBiddingModal.sire": {
+    "pt": "Pai",
+    "es": "Padre"
+  },
+  "auctions.LotBiddingModal.dam": {
+    "pt": "Mãe",
+    "es": "Madre"
+  },
+  "auctions.LotBiddingModal.cancelledToast": {
+    "pt": "Este leilão foi cancelado — não é possível dar lances.",
+    "es": "Este remate fue cancelado — no es posible pujar."
+  },
+  "auctions.LotBiddingModal.notLiveToast": {
+    "pt": "Este leilão ainda não está ao vivo — lances abrem quando a transmissão iniciar.",
+    "es": "Este remate todavía no está en vivo — las pujas abren cuando comience la transmisión."
+  },
+  "auctions.LotBiddingModal.loginRequired": {
+    "pt": "Você precisa estar logado para dar lances.",
+    "es": "Necesitás iniciar sesión para pujar."
+  },
+  "auctions.LotBiddingModal.minBidToast": {},
+  "auctions.LotBiddingModal.emptyBid": {
+    "pt": "Informe um valor de lance.",
+    "es": "Ingresá un valor de puja."
+  },
+  "auctions.LotBiddingModal.bidSuccess": {},
+  "auctions.LotBiddingModal.bidGenericError": {
+    "pt": "Erro ao registrar lance.",
+    "es": "Error al registrar la puja."
+  },
+  "auctions.LotGrid.empty": {
+    "pt": "Nenhum lote cadastrado para este leilão.",
+    "es": "Ningún lote registrado para este remate."
+  },
+  "auctions.LotGrid.lot": {
+    "pt": "LOTE",
+    "es": "LOTE"
+  },
+  "auctions.LotGrid.winning": {
+    "pt": "Você está vencendo!",
+    "es": "¡Estás ganando!"
+  },
+  "auctions.LotGrid.currentBid": {
+    "pt": "LANCE ATUAL",
+    "es": "PUJA ACTUAL"
+  },
+  "auctions.LotGrid.initialBid": {
+    "pt": "LANCE INICIAL",
+    "es": "PUJA INICIAL"
+  },
+  "auctions.LotGrid.placeBid": {
+    "pt": "Dar Lance",
+    "es": "Pujar"
+  },
+  "auctions.LotGrid.viewLot": {
+    "pt": "Ver Lote",
+    "es": "Ver Lote"
+  },
+  "auctions.LotGrid.lotPhotoAlt": {},
+  "CommandPalette.searchPlaceholder": {
+    "pt": "Buscar anúncios, categorias...",
+    "es": "Buscar anuncios, categorías..."
+  },
+  "CommandPalette.searchFor": {
+    "pt": "Buscar por",
+    "es": "Buscar por"
+  },
+  "CommandPalette.viewAllResults": {
+    "pt": "Ver todos os resultados",
+    "es": "Ver todos los resultados"
+  },
+  "CommandPalette.categoriesFound": {
+    "pt": "Categorias Encontradas",
+    "es": "Categorías Encontradas"
+  },
+  "CommandPalette.categoriesPopular": {
+    "pt": "Categorias Populares",
+    "es": "Categorías Populares"
+  },
+  "CommandPalette.quickAccess": {
+    "pt": "Acesso Rápido",
+    "es": "Acceso Rápido"
+  },
+  "CommandPalette.myPanel": {
+    "pt": "Meu Painel",
+    "es": "Mi Panel"
+  },
+  "CommandPalette.createAd": {
+    "pt": "Criar Anúncio",
+    "es": "Crear Anuncio"
+  },
+  "CommandPalette.navigate": {
+    "pt": "Navegar",
+    "es": "Navegar"
+  },
+  "CommandPalette.select": {
+    "pt": "Selecionar",
+    "es": "Seleccionar"
+  },
+  "Footer.tagline": {
+    "pt": "Classificados Agro",
+    "es": "Clasificados Agro"
+  },
+  "Footer.allRightsReserved": {
+    "pt": "Todos os direitos reservados.",
+    "es": "Todos los derechos reservados."
+  },
+  "Footer.home": {
+    "pt": "Início",
+    "es": "Inicio"
+  },
+  "Footer.support": {
+    "pt": "Suporte",
+    "es": "Soporte"
+  },
+  "Footer.termsOfUse": {
+    "pt": "Termos de Uso",
+    "es": "Términos de Uso"
+  },
+  "Footer.privacy": {
+    "pt": "Privacidade",
+    "es": "Privacidad"
+  },
+  "Footer.terms": {
+    "pt": "Termos",
+    "es": "Términos"
+  },
+  "Footer.cookies": {
+    "pt": "Cookies",
+    "es": "Cookies"
+  },
+  "Header.tagline": {
+    "pt": "Classificados Agro",
+    "es": "Clasificados Agro"
+  },
+  "Header.homeAria": {
+    "pt": "Tauze Class — Início",
+    "es": "Tauze Class — Inicio"
+  },
+  "Header.navAria": {
+    "pt": "Menu principal",
+    "es": "Menú principal"
+  },
+  "Header.mobileNavAria": {
+    "pt": "Menu mobile",
+    "es": "Menú móvil"
+  },
+  "Header.myMessages": {
+    "pt": "Minhas Mensagens",
+    "es": "Mis Mensajes"
+  },
+  "Header.myAccountAria": {
+    "pt": "Minha conta",
+    "es": "Mi cuenta"
+  },
+  "Header.myPanel": {
+    "pt": "Meu Painel",
+    "es": "Mi Panel"
+  },
+  "Header.myAds": {
+    "pt": "Meus Anúncios",
+    "es": "Mis Anuncios"
+  },
+  "Header.mySubscription": {
+    "pt": "Minha Assinatura",
+    "es": "Mi Suscripción"
+  },
+  "Header.signOut": {
+    "pt": "Sair da Conta",
+    "es": "Cerrar Sesión"
+  },
+  "Header.user": {
+    "pt": "Usuário",
+    "es": "Usuario"
+  },
+  "Header.premiumUser": {
+    "pt": "Usuário Premium",
+    "es": "Usuario Premium"
+  },
+  "Header.langGroupAria": {
+    "pt": "Selecionar idioma",
+    "es": "Seleccionar idioma"
+  },
+  "Header.closeMenu": {
+    "pt": "Fechar menu",
+    "es": "Cerrar menú"
+  },
+  "Header.openMenu": {
+    "pt": "Abrir menu",
+    "es": "Abrir menú"
+  },
+  "Header.myAccountMobile": {
+    "pt": "Minha Conta",
+    "es": "Mi Cuenta"
+  },
+  "Header.registerSuffix": {
+    "pt": "Cadastrar",
+    "es": "Registrarse"
+  },
+  "home.AdCardHome.now": {
+    "pt": "agora",
+    "es": "ahora"
+  },
+  "home.AdCardHome.favorite": {
+    "pt": "Favoritar",
+    "es": "Marcar como favorito"
+  },
+  "home.AdCardHome.noTitle": {
+    "pt": "Sem título",
+    "es": "Sin título"
+  },
+  "home.EventsAuctionsSection.title": {
+    "pt": "Próximos Eventos & Leilões",
+    "es": "Próximos Eventos y Remates"
+  },
+  "home.EventsAuctionsSection.subtitle": {
+    "pt": "Acompanhe as principais feiras e remates do agronegócio",
+    "es": "Acompaña las principales ferias y remates del agronegocio"
+  },
+  "home.EventsAuctionsSection.fullAgenda": {
+    "pt": "Ver agenda completa",
+    "es": "Ver agenda completa"
+  },
+  "home.EventsAuctionsSection.loadMore": {
+    "pt": "Carregar mais",
+    "es": "Cargar más"
+  },
+  "home.FeaturedAdsSection.gridAria": {
+    "pt": "Anúncios em destaque",
+    "es": "Anuncios destacados"
+  },
+  "home.FeaturedAdsSection.empty": {
+    "pt": "Nenhum anúncio destacado encontrado no momento.",
+    "es": "Ningún anuncio destacado encontrado por el momento."
+  },
+  "home.FeaturedAdsSection.emptyCta": {
+    "pt": "Anuncie e ganhe destaque!",
+    "es": "¡Publica y gana destaque!"
+  },
+  "home.HeroSearchBar.searchAria": {
+    "pt": "Busca principal",
+    "es": "Búsqueda principal"
+  },
+  "home.HeroSearchBar.categoryAria": {
+    "pt": "Categoria",
+    "es": "Categoría"
+  },
+  "home.HeroSearchBar.allCats": {
+    "pt": "Todos",
+    "es": "Todos"
+  },
+  "home.HeroSearchBar.termAria": {
+    "pt": "Termo de busca",
+    "es": "Término de búsqueda"
+  },
+  "home.HeroSearchBar.searchBtnAria": {
+    "pt": "Buscar",
+    "es": "Buscar"
+  },
+  "home.HeroSearchBar.locations": {
+    "pt": "Locais",
+    "es": "Ubicaciones"
+  },
+  "home.HeroSearchBar.categories": {
+    "pt": "Categorias",
+    "es": "Categorías"
+  },
+  "home.HeroSearchBar.suggestions": {
+    "pt": "Sugestões",
+    "es": "Sugerencias"
+  },
+  "home.HeroSearchBar.popularHeading": {
+    "pt": "Populares",
+    "es": "Populares"
+  },
+  "home.HeroSearchBar.popularTagsAria": {
+    "pt": "Buscas populares",
+    "es": "Búsquedas populares"
+  },
+  "home.MercosulSection.nationalCoverage": {
+    "pt": "Cobertura Nacional",
+    "es": "Cobertura Nacional"
+  },
+  "home.MercosulSection.countriesAria": {
+    "pt": "Países cobertos",
+    "es": "Países cubiertos"
+  },
+  "home.MercosulSection.countries": {
+    "pt": [
+      {
+        "name": "Brasil",
+        "flag": "/assets/flags/br.svg"
+      },
+      {
+        "name": "Argentina",
+        "flag": "/assets/flags/ar.svg"
+      },
+      {
+        "name": "Paraguai",
+        "flag": "/assets/flags/py.svg"
+      },
+      {
+        "name": "Uruguai",
+        "flag": "/assets/flags/uy.svg"
+      }
+    ],
+    "es": [
+      {
+        "name": "Brasil",
+        "flag": "/assets/flags/br.svg"
+      },
+      {
+        "name": "Argentina",
+        "flag": "/assets/flags/ar.svg"
+      },
+      {
+        "name": "Paraguay",
+        "flag": "/assets/flags/py.svg"
+      },
+      {
+        "name": "Uruguay",
+        "flag": "/assets/flags/uy.svg"
+      }
+    ]
+  },
+  "home.RecentAdsSection.forYouLabel": {
+    "pt": "Para Você",
+    "es": "Para ti"
+  },
+  "home.RecentAdsSection.forYouTitle": {
+    "pt": "Recomendados para Você",
+    "es": "Recomendados para ti"
+  },
+  "home.RecentAdsSection.recentGridAria": {
+    "pt": "Últimos anúncios publicados",
+    "es": "Últimos anuncios publicados"
+  },
+  "home.RecentAdsSection.empty": {
+    "pt": "Nenhum anúncio recente encontrado.",
+    "es": "Ningún anuncio reciente encontrado."
+  },
+  "home.RecentAdsSection.emptyCta": {
+    "pt": "Seja o primeiro a anunciar!",
+    "es": "¡Sé el primero en publicar!"
+  },
+  "home.TopSellersSection.activeAds": {
+    "pt": "anúncios ativos",
+    "es": "anuncios activos"
+  },
+  "seller.ReviewModal.selectStar": {
+    "pt": "Selecione pelo menos 1 estrela.",
+    "es": "Selecciona al menos 1 estrella."
+  },
+  "seller.ReviewModal.maxComment": {
+    "pt": "O comentário deve ter no máximo 500 caracteres.",
+    "es": "El comentario debe tener como máximo 500 caracteres."
+  },
+  "seller.ReviewModal.mustBeLoggedIn": {
+    "pt": "Você precisa estar logado para avaliar.",
+    "es": "Debes iniciar sesión para valorar."
+  },
+  "seller.ReviewModal.alreadyReviewed": {
+    "pt": "Você já avaliou este vendedor.",
+    "es": "Ya valoraste a este vendedor."
+  },
+  "seller.ReviewModal.cannotReviewSelf": {
+    "pt": "Você não pode avaliar a si mesmo.",
+    "es": "No puedes valorarte a ti mismo."
+  },
+  "seller.ReviewModal.genericError": {
+    "pt": "Erro ao enviar avaliação",
+    "es": "Error al enviar la valoración"
+  },
+  "seller.ReviewModal.reviewSent": {
+    "pt": "Avaliação enviada com sucesso! Obrigado.",
+    "es": "¡Valoración enviada con éxito! Gracias."
+  },
+  "seller.ReviewModal.closeModal": {
+    "pt": "Fechar modal de avaliação",
+    "es": "Cerrar modal de valoración"
+  },
+  "seller.ReviewModal.title": {
+    "pt": "Avaliar Vendedor",
+    "es": "Valorar Vendedor"
+  },
+  "seller.ReviewModal.subtitle": {
+    "pt": "Sua avaliação ajuda a construir um ambiente seguro para todos.",
+    "es": "Tu valoración ayuda a construir un ambiente seguro para todos."
+  },
+  "seller.ReviewModal.selectRating": {
+    "pt": "Selecione uma avaliação",
+    "es": "Selecciona una valoración"
+  },
+  "seller.ReviewModal.starLabel": {},
+  "seller.ReviewModal.commentPlaceholder": {
+    "pt": "Deixe um comentário curto (opcional)",
+    "es": "Deja un comentario corto (opcional)"
+  },
+  "seller.ReviewModal.sending": {
+    "pt": "Enviando...",
+    "es": "Enviando..."
+  },
+  "seller.ReviewModal.sendReview": {
+    "pt": "Enviar Avaliação",
+    "es": "Enviar Valoración"
+  },
+  "seller.SellerProfileHeader.stars": {
+    "pt": "Estrelas",
+    "es": "Estrellas"
+  },
+  "seller.SellerProfileHeader.reviews": {
+    "pt": "Avaliações",
+    "es": "Valoraciones"
+  },
+  "seller.SellerProfileHeader.yearsSelling": {
+    "pt": "Anos vendendo",
+    "es": "Años vendiendo"
+  },
+  "seller.SellerProfileHeader.noReviewsYet": {
+    "pt": "(Nenhuma avaliação ainda)",
+    "es": "(Aún sin valoraciones)"
+  },
+  "seller.SellerProfileHeader.ratingSummary": {},
+  "seller.SellerProfileHeader.share": {
+    "pt": "Compartilhar",
+    "es": "Compartir"
+  },
+  "seller.SellerProfileHeader.shareProfile": {
+    "pt": "Compartilhar perfil",
+    "es": "Compartir perfil"
+  },
+  "seller.SellerProfileHeader.evaluate": {
+    "pt": "Avaliar",
+    "es": "Valorar"
+  },
+  "seller.SellerProfileHeader.verifiedSeller": {
+    "pt": "Vendedor Verificado",
+    "es": "Vendedor Verificado"
+  },
+  "seller.SellerProfileHeader.verified": {
+    "pt": "Verificado",
+    "es": "Verificado"
+  },
+  "seller.SellerProfileHeader.shareTitle": {},
+  "seller.SellerProfileHeader.shareText": {},
+  "seller.SellerProfileHeader.copied": {
+    "pt": "Copiado!",
+    "es": "¡Copiado!"
+  },
+  "seller.SellerProfileHeader.avatarOf": {},
+  "TurnstileWidget.message": {
+    "pt": "A verificação de segurança não carregou.",
+    "es": "La verificación de seguridad no cargó."
+  },
+  "TurnstileWidget.reload": {
+    "pt": "Recarregar página",
+    "es": "Recargar página"
+  },
+  "TurnstileWidget.tip": {
+    "pt": "Se persistir, tente uma aba anônima ou desative bloqueadores de anúncio/privacidade para este site.",
+    "es": "Si persiste, prueba una pestaña anónima o desactiva bloqueadores de anuncios/privacidad para este sitio."
+  },
+  "TurnstileWidget.help": {
+    "pt": "Nada disso resolveu?",
+    "es": "¿Nada de esto funcionó?"
+  },
+  "TurnstileWidget.helpLink": {
+    "pt": "Fale com o suporte",
+    "es": "Habla con soporte"
+  },
+  "ui.CheckoutModal.title": {
+    "pt": "Pagamento Seguro",
+    "es": "Pago Seguro"
+  },
+  "ui.CheckoutModal.close": {
+    "pt": "Fechar",
+    "es": "Cerrar"
+  },
+  "ui.CheckoutModal.planPrefix": {
+    "pt": "Plano",
+    "es": "Plan"
+  },
+  "ui.CheckoutModal.annualSuffix": {
+    "pt": "(Anual)",
+    "es": "(Anual)"
+  },
+  "ui.CheckoutModal.perMonth": {
+    "pt": "/mês",
+    "es": "/mes"
+  },
+  "ui.CheckoutModal.perYear": {
+    "pt": "/ano",
+    "es": "/año"
+  },
+  "ui.CheckoutModal.couponQuestion": {
+    "pt": "Possui cupom de desconto?",
+    "es": "¿Tienes un cupón de descuento?"
+  },
+  "ui.CheckoutModal.couponPlaceholder": {
+    "pt": "Código do cupom",
+    "es": "Código del cupón"
+  },
+  "ui.CheckoutModal.couponApply": {
+    "pt": "Aplicar",
+    "es": "Aplicar"
+  },
+  "ui.CheckoutModal.couponApplying": {
+    "pt": "...",
+    "es": "..."
+  },
+  "ui.CheckoutModal.couponAppliedPrefix": {
+    "pt": "✅ Cupom",
+    "es": "✅ Cupón"
+  },
+  "ui.CheckoutModal.couponAppliedSuffix": {
+    "pt": "aplicado!",
+    "es": "aplicado!"
+  },
+  "ui.CheckoutModal.couponDiscount": {
+    "pt": "Desconto de",
+    "es": "Descuento de"
+  },
+  "ui.CheckoutModal.couponRemove": {
+    "pt": "Remover",
+    "es": "Quitar"
+  },
+  "ui.CheckoutModal.couponInvalid": {
+    "pt": "Cupom inválido ou inativo.",
+    "es": "Cupón inválido o inactivo."
+  },
+  "ui.CheckoutModal.couponError": {
+    "pt": "Erro ao validar cupom.",
+    "es": "Error al validar el cupón."
+  },
+  "ui.CheckoutModal.couponNotApplicableCurrency": {
+    "pt": "Este cupom não se aplica a cobranças em dólar — o preço final não terá desconto.",
+    "es": "Este cupón no se aplica a cobros en dólares — el precio final no tendrá descuento."
+  },
+  "ui.CheckoutModal.billingIntro": {
+    "pt": "Precisamos de alguns dados extras para emitir sua fatura.",
+    "es": "Necesitamos algunos datos adicionales para emitir tu factura."
+  },
+  "ui.CheckoutModal.fullName": {
+    "pt": "Nome Completo",
+    "es": "Nombre Completo"
+  },
+  "ui.CheckoutModal.doc": {
+    "pt": "CPF/CNPJ",
+    "es": "CPF/CNPJ"
+  },
+  "ui.CheckoutModal.phone": {
+    "pt": "Celular",
+    "es": "Celular"
+  },
+  "ui.CheckoutModal.billingAddress": {
+    "pt": "Endereço de Cobrança",
+    "es": "Dirección de Facturación"
+  },
+  "ui.CheckoutModal.cep": {
+    "pt": "CEP",
+    "es": "CEP"
+  },
+  "ui.CheckoutModal.street": {
+    "pt": "Rua",
+    "es": "Calle"
+  },
+  "ui.CheckoutModal.number": {
+    "pt": "Número",
+    "es": "Número"
+  },
+  "ui.CheckoutModal.neighborhood": {
+    "pt": "Bairro",
+    "es": "Barrio"
+  },
+  "ui.CheckoutModal.city": {
+    "pt": "Cidade",
+    "es": "Ciudad"
+  },
+  "ui.CheckoutModal.state": {
+    "pt": "Estado (UF)",
+    "es": "Estado (UF)"
+  },
+  "ui.CheckoutModal.continueToPayment": {
+    "pt": "Continuar para Pagamento",
+    "es": "Continuar al Pago"
+  },
+  "ui.CheckoutModal.initializing": {
+    "pt": "Inicializando Seguro...",
+    "es": "Inicializando Seguro..."
+  },
+  "ui.CheckoutModal.cardOption": {
+    "pt": "💳 Cartão de Crédito",
+    "es": "💳 Tarjeta de Crédito"
+  },
+  "ui.CheckoutModal.cardUnavailableTitle": {
+    "pt": "Cartão indisponível no momento",
+    "es": "Tarjeta no disponible en este momento"
+  },
+  "ui.CheckoutModal.cardUnavailableBody": {
+    "pt": "O meio de pagamento configurado não aceita cartão por aqui. Fale com o suporte para concluir a assinatura.",
+    "es": "El medio de pago configurado no acepta tarjeta aquí. Habla con soporte para completar la suscripción."
+  },
+  "ui.CheckoutModal.cardHolderName": {
+    "pt": "Nome no Cartão",
+    "es": "Nombre en la Tarjeta"
+  },
+  "ui.CheckoutModal.cardNumber": {
+    "pt": "Número do Cartão",
+    "es": "Número de la Tarjeta"
+  },
+  "ui.CheckoutModal.cardExpiry": {
+    "pt": "Validade (MM/AA)",
+    "es": "Validez (MM/AA)"
+  },
+  "ui.CheckoutModal.cardCvv": {
+    "pt": "CVV",
+    "es": "CVV"
+  },
+  "ui.CheckoutModal.payWithCard": {
+    "pt": "Pagar com Cartão →",
+    "es": "Pagar con Tarjeta →"
+  },
+  "ui.CheckoutModal.tokenizingCard": {
+    "pt": "Processando cartão...",
+    "es": "Procesando tarjeta..."
+  },
+  "ui.CheckoutModal.errCardIncomplete": {
+    "pt": "Preencha todos os dados do cartão.",
+    "es": "Completa todos los datos de la tarjeta."
+  },
+  "ui.CheckoutModal.goToCheckout": {
+    "pt": "Ir para o Checkout Seguro →",
+    "es": "Ir al Checkout Seguro →"
+  },
+  "ui.CheckoutModal.processing": {
+    "pt": "Processando...",
+    "es": "Procesando..."
+  },
+  "ui.CheckoutModal.back": {
+    "pt": "← Voltar",
+    "es": "← Volver"
+  },
+  "ui.CheckoutModal.sslBadge": {
+    "pt": "🔒 SSL",
+    "es": "🔒 SSL"
+  },
+  "ui.CheckoutModal.pciBadge": {
+    "pt": "🛡️ PCI-DSS",
+    "es": "🛡️ PCI-DSS"
+  },
+  "ui.CheckoutModal.secureBadge": {
+    "pt": "✅ Compra Segura",
+    "es": "✅ Compra Segura"
+  },
+  "ui.CheckoutModal.errDocInvalid": {
+    "pt": "CPF ou CNPJ inválido. Digite 11 ou 14 números.",
+    "es": "CPF o CNPJ inválido. Ingresa 11 o 14 números."
+  },
+  "ui.CheckoutModal.errPhoneInvalid": {
+    "pt": "Telefone inválido. Inclua o DDD (ex: 11999999999).",
+    "es": "Teléfono inválido. Incluye el código de área (ej: 11999999999)."
+  },
+  "ui.CheckoutModal.errNotLoggedIn": {
+    "pt": "Você precisa estar logado para assinar um plano.",
+    "es": "Debes iniciar sesión para suscribirte a un plan."
+  },
+  "ui.CheckoutModal.errCheckoutInit": {
+    "pt": "Erro ao iniciar o checkout.",
+    "es": "Error al iniciar el checkout."
+  },
+  "ui.CheckoutModal.errSubscriptionFail": {
+    "pt": "Falha ao processar assinatura.",
+    "es": "Error al procesar la suscripción."
+  },
+  "ui.CheckoutModal.errUnexpected": {
+    "pt": "Erro inesperado. Tente novamente.",
+    "es": "Error inesperado. Inténtalo de nuevo."
+  },
+  "ui.CheckoutModal.errCardUnavailable": {
+    "pt": "Pagamento por cartão indisponível para este gateway. Fale com o suporte.",
+    "es": "Pago con tarjeta no disponible para este gateway. Habla con soporte."
+  },
+  "ui.CheckoutModal.stripeCardError": {
+    "pt": "Erro ao validar cartão no Stripe.",
+    "es": "Error al validar la tarjeta en Stripe."
+  },
+  "ui.CheckoutModal.stripeUnexpected": {
+    "pt": "Erro inesperado no Stripe.",
+    "es": "Error inesperado en Stripe."
+  },
+  "ui.CheckoutModal.stripeProcessing": {
+    "pt": "Processando Stripe...",
+    "es": "Procesando Stripe..."
+  },
+  "ui.CheckoutModal.stripePayButton": {
+    "pt": "Pagar com Stripe →",
+    "es": "Pagar con Stripe →"
+  },
+  "ui.CheckoutModal.confirmSwitchTitle": {
+    "pt": "Confirmar Troca de Plano",
+    "es": "Confirmar Cambio de Plan"
+  },
+  "ui.CheckoutModal.confirmSwitchDesc": {
+    "pt": "Sua forma de pagamento atual já está cadastrada — não é preciso informar cartão ou endereço de novo pra trocar de plano.",
+    "es": "Tu forma de pago actual ya está registrada — no hace falta ingresar tarjeta ni dirección de nuevo para cambiar de plan."
+  },
+  "ui.CheckoutModal.confirmSwitchBtn": {
+    "pt": "Confirmar Troca",
+    "es": "Confirmar Cambio"
+  },
+  "ui.CheckoutModal.checkingSwitch": {
+    "pt": "Verificando sua assinatura...",
+    "es": "Verificando tu suscripción..."
+  },
+  "useAutoGeo.nearYou": {},
+  "useAutoGeo.yourState": {},
+  "useAutoGeo.yourCountry": {}
+}

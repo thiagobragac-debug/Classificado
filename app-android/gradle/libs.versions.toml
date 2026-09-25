@@ -1,0 +1,130 @@
+[versions]
+# ---------------------------------------------------------------------------
+# Build tooling — confirmado ao vivo (maven-metadata.xml oficial, 2026-09-09)
+# ---------------------------------------------------------------------------
+agp = "9.4.0"
+kotlin = "2.4.20"
+# Gradle do wrapper = 9.6.0 (par oficial default/mínimo do AGP 9.4.0, ver
+# gradle/wrapper/gradle-wrapper.properties).
+
+# ---------------------------------------------------------------------------
+# Jetpack Compose — confirmado ao vivo
+# ---------------------------------------------------------------------------
+composeBom = "2026.08.00"
+
+# ---------------------------------------------------------------------------
+# Injeção de dependência — confirmado ao vivo (maven-metadata.xml oficial)
+# ---------------------------------------------------------------------------
+hilt = "2.60.1"
+# Processamento de anotação via com.android.legacy-kapt (não KSP, não
+# org.jetbrains.kotlin.kapt) — decisão conservadora: a versão exata do KSP
+# pareada com Kotlin 2.4.20 não foi confirmada, e o plugin kotlin-kapt
+# clássico é INCOMPATÍVEL com o Kotlin embutido do AGP 9.0+ (confirmado ao
+# vivo — ver build.gradle.kts). com.android.legacy-kapt é o substituto
+# oficial do Google, usa a mesma versão do AGP (version.ref = "agp"), sem
+# risco de descompasso de versão. Migrar pra KSP depois de confirmar a
+# versão certa em https://github.com/google/ksp/releases.
+
+# ---------------------------------------------------------------------------
+# Supabase — confirmado ao vivo (GitHub releases + Maven Central)
+# ---------------------------------------------------------------------------
+supabaseBom = "3.8.0" # postgrest-kt, auth-kt, realtime-kt, storage-kt sobem juntos
+# ktor-client-android NÃO suporta WebSocket (só CIO/OkHttp/Java/Darwin/Curl
+# suportam) — o plugin Realtime do supabase-kt precisa de WebSocket pra abrir
+# canais. Trocado pra OkHttp ao introduzir o Chat em tempo real (achado via
+# pesquisa desta fase, confirmado contra a doc oficial do Ktor); Postgrest/
+# Auth/Storage continuam funcionando normalmente (usam só request/response).
+ktorClientOkhttp = "3.4.3"
+# supabase-kt exige minSdk 26 nativamente (documentado oficialmente); como
+# este projeto usa minSdk 24 (paridade com mobile/android), é preciso core
+# library desugaring — descoberto ao vivo lendo a doc oficial, 2026-09-09.
+desugarJdkLibs = "2.1.5"
+
+# ---------------------------------------------------------------------------
+# Credential Manager / Sign in with Google — confirmado ao vivo
+# ---------------------------------------------------------------------------
+credentials = "1.6.0"
+googleid = "1.2.0"
+
+# ---------------------------------------------------------------------------
+# AndroidX baseline + Navigation + imagens + serialização — confirmado ao
+# vivo via maven-metadata.xml direto (dl.google.com / repo1.maven.org),
+# 2026-09-09 (corrige placeholders desatualizados de uma pesquisa anterior).
+# ---------------------------------------------------------------------------
+navigationCompose = "2.10.0"
+hiltNavigationCompose = "1.4.0"
+coil = "3.6.2"
+kotlinxSerializationJson = "1.11.0"
+coreKtx = "1.19.0"
+lifecycleRuntimeKtx = "2.11.0"
+activityCompose = "1.13.0"
+# Leitura/normalização de orientação EXIF no pipeline de imagem do Anunciar —
+# achado nesta fase: BitmapFactory não corrige rotação sozinho (diferente do
+# <canvas> do browser). Lib pequena, mantida pelo próprio AndroidX.
+exifinterface = "1.4.2"
+# AppCompatDelegate.setApplicationLocales() — mecanismo oficial de idioma por
+# app (funciona a partir do minSdk 24 sem precisar de AppCompatActivity, só
+# do <service> AppLocalesMetadataHolderService no manifest) — confirmado ao
+# vivo via maven-metadata.xml oficial, 2026-09-10.
+appcompat = "1.8.0"
+
+[libraries]
+# --- Compose (versões geridas pelo BOM) ---
+compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
+compose-ui = { group = "androidx.compose.ui", name = "ui" }
+compose-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
+compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
+compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
+compose-ui-text-google-fonts = { group = "androidx.compose.ui", name = "ui-text-google-fonts" }
+compose-foundation = { group = "androidx.compose.foundation", name = "foundation" }
+compose-material3 = { group = "androidx.compose.material3", name = "material3" }
+compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
+
+# --- AndroidX baseline ---
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
+androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycleRuntimeKtx" }
+androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
+androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
+navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
+hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version.ref = "hiltNavigationCompose" }
+
+# --- Hilt ---
+hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
+hilt-compiler = { group = "com.google.dagger", name = "hilt-android-compiler", version.ref = "hilt" }
+
+# --- Supabase (versões geridas pelo BOM) ---
+supabase-bom = { group = "io.github.jan-tennert.supabase", name = "bom", version.ref = "supabaseBom" }
+supabase-postgrest = { group = "io.github.jan-tennert.supabase", name = "postgrest-kt" }
+supabase-auth = { group = "io.github.jan-tennert.supabase", name = "auth-kt" }
+supabase-realtime = { group = "io.github.jan-tennert.supabase", name = "realtime-kt" }
+supabase-storage = { group = "io.github.jan-tennert.supabase", name = "storage-kt" }
+ktor-client-okhttp = { group = "io.ktor", name = "ktor-client-okhttp", version.ref = "ktorClientOkhttp" }
+desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs_nio", version.ref = "desugarJdkLibs" }
+
+# --- Credential Manager / Sign in with Google ---
+androidx-credentials = { group = "androidx.credentials", name = "credentials", version.ref = "credentials" }
+androidx-credentials-play-services-auth = { group = "androidx.credentials", name = "credentials-play-services-auth", version.ref = "credentials" }
+googleid = { group = "com.google.android.libraries.identity.googleid", name = "googleid", version.ref = "googleid" }
+
+# --- Imagens ---
+coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
+coil-network-okhttp = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil" }
+androidx-exifinterface = { group = "androidx.exifinterface", name = "exifinterface", version.ref = "exifinterface" }
+
+# --- Serialização ---
+kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+# org.jetbrains.kotlin.android REMOVIDO de propósito — a partir do AGP 9.0 o
+# suporte a Kotlin é embutido no próprio com.android.application (Built-in
+# Kotlin); aplicar o plugin kotlin-android antigo junto quebra o build
+# ("Cannot add extension with name 'kotlin', as there is an extension
+# already registered with that name" / "The 'org.jetbrains.kotlin.android'
+# plugin is no longer required... since AGP 9.0") — confirmado ao vivo,
+# 2026-09-09. Ver https://developer.android.com/build/migrate-to-built-in-kotlin.
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+legacy-kapt = { id = "com.android.legacy-kapt", version.ref = "agp" }
+hilt-android = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }

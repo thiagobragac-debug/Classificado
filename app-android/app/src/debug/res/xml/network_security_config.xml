@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Só entra em builds debug (src/debug/ é mesclado apenas no build type
+  debug) — permite HTTP puro (sem TLS) só pra 10.0.2.2, o alias do
+  emulador Android pro localhost da máquina host. Necessário pra testar
+  contra o servidor Next.js local (npm run dev) sem precisar de HTTPS
+  local. Não afeta build de release nem aparelho real.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">10.0.2.2</domain>
+    </domain-config>
+</network-security-config>
