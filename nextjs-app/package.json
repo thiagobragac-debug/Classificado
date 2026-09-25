@@ -22,6 +22,7 @@
     "@capacitor/browser": "^8.0.4",
     "@capacitor/core": "^8.5.1",
     "@hookform/resolvers": "^5.4.0",
+    "@marsidev/react-turnstile": "^1.6.1",
     "@mercadopago/sdk-react": "^1.0.7",
     "@sentry/nextjs": "^10.70.0",
     "@stripe/react-stripe-js": "^6.8.0",
