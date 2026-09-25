@@ -2,18 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase-admin';
 import { resolverIpConfiavel, ipParaRateLimit } from '@/lib/ip-utils';
 import { dentroDoLimiteFallback } from '@/lib/rate-limit-fallback';
+import { isForbiddenOrigin } from '@/lib/csrf-origin';
 
 // Substitui o <form> fake que vinha embutido no HTML de institutional_pages
 // (page=contato) — tinha um onsubmit puramente cosmético que fingia sucesso
 // sem nunca enviar a mensagem a lugar nenhum. Esta rota persiste de verdade
 // em contact_messages (migration 20260828120000), pro admin revisar em
 // /admin/mensagens-contato.
-
-const ALLOWED_ORIGINS = [
-  process.env.NEXT_PUBLIC_SITE_URL,
-  'https://tauzeclass.com.br',
-  'http://localhost:3000',
-].filter(Boolean) as string[];
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -22,8 +17,17 @@ function isNonEmptyString(v: unknown, maxLen: number): v is string {
 }
 
 export async function POST(request: NextRequest) {
-  const origin = request.headers.get('origin');
-  if (origin && !ALLOWED_ORIGINS.includes(origin)) {
+  // BUG CORRIGIDO (achado ao vivo em produção, 2026-09-25): a allowlist
+  // própria desta rota (agora removida) esquecia 'https://www.tauzeclass.com.br'
+  // — só tinha o domínio sem www. Como o site real roda em www.tauzeclass.com.br
+  // (confirmado ao vivo: todo curl/navegação desta sessão), TODA submissão
+  // real do formulário Fale Conosco vinha sendo rejeitada com 403, mostrando
+  // só "Erro ao enviar. Tente novamente em instantes." sem indicar a causa
+  // real (não era transitório, tentar de novo nunca funcionava). Trocado
+  // pelo utilitário compartilhado lib/csrf-origin.ts, que já tem a allowlist
+  // certa (com e sem www) e foi criado exatamente pra evitar essa classe de
+  // divergência silenciosa entre rotas.
+  if (isForbiddenOrigin(request)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

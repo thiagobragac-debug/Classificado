@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase-admin';
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 import { dentroDoLimiteFallback } from '@/lib/rate-limit-fallback';
+import { isForbiddenOrigin } from '@/lib/csrf-origin';
 
 // ─── Rate Limiting ──────────────────────────────────────────────
 const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
@@ -19,19 +20,19 @@ if (redisUrl && redisToken) {
   });
 }
 
-// ─── Validação de Origin ────────────────────────────────────────
-const ALLOWED_ORIGINS = [
-  process.env.NEXT_PUBLIC_SITE_URL,
-  'https://tauzeclass.com.br',
-  'http://localhost:3000',
-].filter(Boolean) as string[];
-
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export async function GET(request: NextRequest) {
   // ─── Verificação de Origin (CSRF protection) ─────────────────
-  const origin = request.headers.get('origin');
-  if (origin && !ALLOWED_ORIGINS.includes(origin)) {
+  // BUG CORRIGIDO (achado ao vivo em produção, 2026-09-25, mesma causa do
+  // app/api/contact/route.ts): a allowlist própria desta rota (agora
+  // removida) esquecia 'https://www.tauzeclass.com.br' — só tinha o domínio
+  // sem www. Na prática o risco era baixo aqui (rota é aberta via <a
+  // target="_blank">, navegação de topo normalmente não manda header Origin
+  // — diferente do POST via fetch() de app/api/contact), mas ainda assim
+  // divergia da allowlist certa. Trocado pelo utilitário compartilhado
+  // lib/csrf-origin.ts.
+  if (isForbiddenOrigin(request)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
