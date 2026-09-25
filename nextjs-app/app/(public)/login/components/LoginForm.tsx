@@ -7,6 +7,7 @@ import { loginWithEmail, loginWithGoogleIdToken, loginWithGoogle } from '@/lib/s
 import { signInWithGooglePrompt, GoogleSignInCancelled, GoogleIdentityUnavailable } from '@/lib/google-identity'
 import { useLang } from '@/lib/lang-context'
 import { getSafeRedirect } from '@/lib/safe-redirect'
+import { TurnstileWidget } from '@/components/TurnstileWidget'
 import { Mail, Lock, Eye, EyeOff, Loader2 } from 'lucide-react'
 
 interface LoginFormProps {
@@ -43,6 +44,10 @@ export function LoginForm({ onSetAlert, onNavigateToForgot, initialEmail = '' }:
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  // captchaToken é single-use — captchaKey força o TurnstileWidget a
+  // remontar (novo desafio) depois de cada tentativa de submit.
+  const [captchaToken, setCaptchaToken] = useState<string | undefined>()
+  const [captchaKey, setCaptchaKey] = useState(0)
 
   const loginSchema = useMemo(() => z.object({
     email: z.string().email(t('err_email')),
@@ -62,7 +67,7 @@ export function LoginForm({ onSetAlert, onNavigateToForgot, initialEmail = '' }:
     onSetAlert('', 'success')
     setLoading(true)
     try {
-      await loginWithEmail(data.email, data.password)
+      await loginWithEmail(data.email, data.password, captchaToken)
       const redirect = searchParams.get('next') || searchParams.get('redirect') || searchParams.get('redirectTo')
       const safeRedirect = getSafeRedirect(redirect)
 
@@ -84,6 +89,9 @@ export function LoginForm({ onSetAlert, onNavigateToForgot, initialEmail = '' }:
         : tr.loginError
       onSetAlert(msg, 'error')
       setLoading(false)
+      // Token do Turnstile é single-use — remonta o widget pra gerar um novo
+      setCaptchaToken(undefined)
+      setCaptchaKey(k => k + 1)
     }
   }
 
@@ -210,6 +218,8 @@ export function LoginForm({ onSetAlert, onNavigateToForgot, initialEmail = '' }:
             {t('auth_forgot')}
           </button>
         </div>
+
+        <TurnstileWidget key={captchaKey} onVerify={setCaptchaToken} onExpire={() => setCaptchaToken(undefined)} />
 
         <button type="submit" className="btn btn--accent btn--lg" style={{ width: '100%', justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '0.5rem' }} disabled={loading} aria-disabled={loading}>
           {loading ? <><Loader2 size={20} className="animate-spin" /> {t('auth_login_ing')}</> : t('auth_login_btn')}

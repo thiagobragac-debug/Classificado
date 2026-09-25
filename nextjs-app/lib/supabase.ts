@@ -62,15 +62,24 @@ export async function getCurrentUser() {
   return { ...session.user, profile };
 }
 
-export async function loginWithEmail(email: string, password: string) {
-  const { data, error } = await getSupabase().auth.signInWithPassword({ email, password });
+// captchaToken: opcional de propósito — só é exigido pelo GoTrue quando a
+// proteção está habilitada no projeto (Attack Protection); sem a env var
+// NEXT_PUBLIC_TURNSTILE_SITE_KEY (TurnstileWidget não renderiza), o
+// chamador nunca tem um token pra passar, e login/cadastro/reset seguem
+// funcionando normalmente nesses ambientes (dev local, por exemplo).
+export async function loginWithEmail(email: string, password: string, captchaToken?: string) {
+  const { data, error } = await getSupabase().auth.signInWithPassword({
+    email, password,
+    options: captchaToken ? { captchaToken } : undefined,
+  });
   if (error) throw error;
   return data;
 }
 
-export async function signupWithEmail(email: string, password: string, name: string) {
+export async function signupWithEmail(email: string, password: string, name: string, captchaToken?: string) {
   const { data, error } = await getSupabase().auth.signUp({
-    email, password, options: { data: { name } }
+    email, password,
+    options: { data: { name }, ...(captchaToken ? { captchaToken } : {}) }
   });
   if (error) throw error;
   return data;
@@ -193,9 +202,10 @@ export async function loginWithGoogle(redirectTo?: string) {
   if (error) throw error;
 }
 
-export async function resetPassword(email: string) {
+export async function resetPassword(email: string, captchaToken?: string) {
   const { data, error } = await getSupabase().auth.resetPasswordForEmail(email, {
-    redirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/login?mode=reset`
+    redirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/login?mode=reset`,
+    ...(captchaToken ? { captchaToken } : {}),
   });
   if (error) throw error;
   return data;

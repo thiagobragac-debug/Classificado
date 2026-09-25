@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { signupWithEmail, updateProfile } from '@/lib/supabase'
 import { useLang } from '@/lib/lang-context'
+import { TurnstileWidget } from '@/components/TurnstileWidget'
 
 interface RegisterFormProps {
   onSetAlert: (msg: string, type: 'success' | 'error') => void
@@ -44,6 +45,10 @@ export function RegisterForm({ onSetAlert, onSuccess }: RegisterFormProps) {
   const tr = TRANSLATIONS[lang]
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  // captchaToken é single-use — captchaKey força o TurnstileWidget a
+  // remontar (novo desafio) depois de cada tentativa de submit.
+  const [captchaToken, setCaptchaToken] = useState<string | undefined>()
+  const [captchaKey, setCaptchaKey] = useState(0)
 
   const registerSchema = useMemo(() => z.object({
     name: z.string().min(3, t('err_name')),
@@ -69,7 +74,7 @@ export function RegisterForm({ onSetAlert, onSuccess }: RegisterFormProps) {
     onSetAlert('', 'success')
     setLoading(true)
     try {
-      const authData = await signupWithEmail(data.email, data.password, data.name)
+      const authData = await signupWithEmail(data.email, data.password, data.name, captchaToken)
 
       if (authData && authData.user) {
         // BUG CRÍTICO CORRIGIDO (teste completo do site, 2026-08-24): este
@@ -112,6 +117,9 @@ export function RegisterForm({ onSetAlert, onSuccess }: RegisterFormProps) {
       }
     } finally {
       setLoading(false)
+      // Token do Turnstile é single-use — remonta o widget pra gerar um novo
+      setCaptchaToken(undefined)
+      setCaptchaKey(k => k + 1)
     }
   }
 
@@ -287,6 +295,8 @@ export function RegisterForm({ onSetAlert, onSuccess }: RegisterFormProps) {
         </div>
         {errors.confirmPassword && <span id="reg-confirm-password-error" role="alert" style={{ color: '#dc2626', fontSize: '0.8rem', marginTop: '0.2rem', display: 'block' }}>{errors.confirmPassword.message}</span>}
       </div>
+
+      <TurnstileWidget key={captchaKey} onVerify={setCaptchaToken} onExpire={() => setCaptchaToken(undefined)} />
 
       <button type="submit" className="btn btn--primary btn--lg" style={{ width: '100%', justifyContent: 'center', marginTop: '1.5rem' }} disabled={loading}>
         {loading ? t('auth_register_ing') : t('auth_register_btn')}

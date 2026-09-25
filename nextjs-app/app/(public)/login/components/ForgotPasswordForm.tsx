@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { resetPassword } from '@/lib/supabase'
 import { useLang } from '@/lib/lang-context'
+import { TurnstileWidget } from '@/components/TurnstileWidget'
 
 interface ForgotPasswordFormProps {
   onSetAlert: (msg: string, type: 'success' | 'error') => void
@@ -29,6 +30,10 @@ export function ForgotPasswordForm({ onSetAlert, onBack, initialEmail = '' }: Fo
   const { t, lang } = useLang()
   const tr = TRANSLATIONS[lang]
   const [loading, setLoading] = useState(false)
+  // captchaToken é single-use — captchaKey força o TurnstileWidget a
+  // remontar (novo desafio) depois de cada tentativa de submit.
+  const [captchaToken, setCaptchaToken] = useState<string | undefined>()
+  const [captchaKey, setCaptchaKey] = useState(0)
 
   const forgotSchema = useMemo(() => z.object({
     email: z.string().email(t('err_email'))
@@ -45,7 +50,7 @@ export function ForgotPasswordForm({ onSetAlert, onBack, initialEmail = '' }: Fo
     onSetAlert('', 'success')
     setLoading(true)
     try {
-      await resetPassword(data.email)
+      await resetPassword(data.email, captchaToken)
       onSetAlert(tr.successSent, 'success')
     } catch (err: any) {
       // BUG CORRIGIDO (i18n): err.message do Supabase vazava cru em inglês na UI.
@@ -53,6 +58,9 @@ export function ForgotPasswordForm({ onSetAlert, onBack, initialEmail = '' }: Fo
       onSetAlert(tr.sendError, 'error')
     } finally {
       setLoading(false)
+      // Token do Turnstile é single-use — remonta o widget pra gerar um novo
+      setCaptchaToken(undefined)
+      setCaptchaKey(k => k + 1)
     }
   }
 
@@ -81,6 +89,8 @@ export function ForgotPasswordForm({ onSetAlert, onBack, initialEmail = '' }: Fo
         </div>
         {errors.email && <span id="forgot-email-error" role="alert" style={{ color: '#dc2626', fontSize: '0.8rem', marginTop: '0.2rem', display: 'block' }}>{errors.email.message}</span>}
       </div>
+
+      <TurnstileWidget key={captchaKey} onVerify={setCaptchaToken} onExpire={() => setCaptchaToken(undefined)} />
 
       <button type="submit" className="btn btn--accent btn--lg" style={{ width: '100%', justifyContent: 'center', marginBottom: '1rem' }} disabled={loading}>
         {loading ? t('auth_forgot_ing') : t('auth_forgot_btn')}

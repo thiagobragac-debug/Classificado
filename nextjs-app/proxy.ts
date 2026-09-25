@@ -120,6 +120,12 @@ const PAGARME_CONNECT = ['https://api.pagar.me'];
 // três precisam do host liberado.
 const GOOGLE_IDENTITY = ['https://accounts.google.com'];
 
+// Turnstile (Cloudflare) — CAPTCHA em login/cadastro/reset de senha,
+// components/TurnstileWidget.tsx. Carrega script (script-src), renderiza o
+// desafio num iframe (frame-src) e faz chamada própria de verificação
+// (connect-src) — mesmo padrão dos outros SDKs de terceiro acima.
+const TURNSTILE = ['https://challenges.cloudflare.com'];
+
 // AdSense (components/AdBanner.tsx) — só entra em ação quando o admin
 // configura Client ID + slot em /admin/configuracoes → Publicidade, mas o
 // CSP precisa liberar os domínios do Google Ads SEMPRE (não dá pra
@@ -192,6 +198,7 @@ function buildCsp(nonce: string, pathname: string): string {
       ...STRIPE_SCRIPT,
       ...MP_SCRIPT,
       ...GOOGLE_IDENTITY,
+      ...TURNSTILE,
       ...ADSENSE_SCRIPT,
       // BUG CORRIGIDO (achado ao vivo, varredura de segurança/performance,
       // 2026-09-24): img-src e connect-src já liberavam googletagmanager.com
@@ -250,6 +257,7 @@ function buildCsp(nonce: string, pathname: string): string {
       ...MP_CONNECT,
       ...PAGARME_CONNECT,
       ...GOOGLE_IDENTITY,
+      ...TURNSTILE,
       ...ADSENSE_CONNECT,
       ...ADSENSE_TELEMETRY,
       // BUG CORRIGIDO (auditoria de SEO, 2ª rodada): GA4 (app/(public)/
@@ -264,7 +272,7 @@ function buildCsp(nonce: string, pathname: string): string {
       'https://www.googletagmanager.com',
     ]),
     // Frames: YouTube (leilões ao vivo) + iframes de cartão dos gateways
-    directive('frame-src', ['https://www.youtube.com', ...STRIPE_FRAME, ...MP_FRAME, ...GOOGLE_IDENTITY, ...ADSENSE_FRAME]),
+    directive('frame-src', ['https://www.youtube.com', ...STRIPE_FRAME, ...MP_FRAME, ...GOOGLE_IDENTITY, ...TURNSTILE, ...ADSENSE_FRAME]),
     `frame-ancestors 'none'`,
     // Bloquear plugins e object injection
     `object-src 'none'`,
