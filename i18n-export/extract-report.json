@@ -1,11 +1,6 @@
 {
-  "generatedAt": "2026-09-25T19:45:09.557Z",
-  "skipped": [
-    {
-      "source": "components/ads/AdReportModal.tsx",
-      "reason": "eval falhou: REASON_DB_VALUE is not defined"
-    }
-  ],
+  "generatedAt": "2026-09-25T21:50:27.061Z",
+  "skipped": [],
   "parityIssues": [],
   "collisions": [],
   "interpolationFlags": [
@@ -190,6 +185,11 @@
       "keys": 8
     },
     {
+      "file": "components/ads/AdReportModal.tsx",
+      "namespace": "ads.AdReportModal",
+      "keys": 10
+    },
+    {
       "file": "components/ads/AdsBrowser.tsx",
       "namespace": "ads.AdsBrowser",
       "keys": 19
@@ -302,7 +302,7 @@
     {
       "file": "components/ui/CheckoutModal.tsx",
       "namespace": "ui.CheckoutModal",
-      "keys": 61
+      "keys": 62
     },
     {
       "file": "lib/useAutoGeo.ts",

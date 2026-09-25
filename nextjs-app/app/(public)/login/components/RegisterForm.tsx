@@ -57,7 +57,12 @@ export function RegisterForm({ onSetAlert, onSuccess }: RegisterFormProps) {
     phone: z.string().min(10, t('err_phone')),
     cep: z.string().min(8, t('err_cep')),
     email: z.string().email(t('err_email')),
-    password: z.string().min(8, t('err_pass_min')),
+    // BUG CORRIGIDO (achado ao vivo via workflow de auditoria, 2026-09-25):
+    // só exigia min(8), sem nenhuma regra de complexidade — 'aaaaaaaa' ou
+    // '12345678' passavam sem aviso. Exige pelo menos 1 letra e 1 número
+    // (barreira mínima contra as senhas mais óbvias, sem exigir símbolo/
+    // maiúscula, que atrapalharia mais do que ajudaria pro público do site).
+    password: z.string().min(8, t('err_pass_min')).regex(/^(?=.*[A-Za-z])(?=.*\d).+$/, t('err_pass_weak')),
     confirmPassword: z.string().min(8, t('err_pass_min')),
   }).refine(data => data.password === data.confirmPassword, {
     message: t('err_pass_mismatch'),

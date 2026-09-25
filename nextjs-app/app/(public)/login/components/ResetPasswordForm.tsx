@@ -32,7 +32,9 @@ export function ResetPasswordForm({ onSetAlert, onSuccess, onBack }: ResetPasswo
   const [showPassword, setShowPassword] = useState(false)
 
   const resetSchema = useMemo(() => z.object({
-    password: z.string().min(8, t('err_pass_min')),
+    // BUG CORRIGIDO (achado ao vivo via workflow de auditoria, 2026-09-25):
+    // mesma correção de RegisterForm.tsx — exige pelo menos 1 letra e 1 número.
+    password: z.string().min(8, t('err_pass_min')).regex(/^(?=.*[A-Za-z])(?=.*\d).+$/, t('err_pass_weak')),
     confirmPassword: z.string().min(8, t('err_pass_min')),
   }).refine(data => data.password === data.confirmPassword, {
     message: t('err_pass_mismatch'),

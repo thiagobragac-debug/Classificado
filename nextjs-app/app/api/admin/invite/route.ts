@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { isForbiddenOrigin } from '@/lib/csrf-origin'
+import { logAdminAction } from '@/lib/admin-audit'
 
 // Convida um usuário por e-mail.
 //
@@ -54,6 +55,10 @@ export async function POST(request: Request) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 })
   }
+
+  // BUG CORRIGIDO (achado ao vivo via workflow de auditoria, 2026-09-25):
+  // ver lib/admin-audit.ts — nenhuma ação admin registrava quem fez o quê.
+  await logAdminAction(supabase, 'invite_user', 'user', data.user?.id ?? null, { email })
 
   return NextResponse.json({ success: true, user: data.user })
 }

@@ -10,6 +10,7 @@ import {
   GatewayName,
 } from '@/lib/gateways'
 import { isForbiddenOrigin } from '@/lib/csrf-origin'
+import { logAdminAction } from '@/lib/admin-audit'
 
 // BUG CRÍTICO CORRIGIDO (teste completo do site, 2026-08-24): o botão
 // "Cancelar" de app/(admin)/admin/assinaturas/page.tsx fazia só
@@ -24,7 +25,7 @@ import { isForbiddenOrigin } from '@/lib/csrf-origin'
 async function exigirAdmin() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { erro: NextResponse.json({ error: 'Não autenticado' }, { status: 401 }) }
+  if (!user) return { erro: NextResponse.json({ error: 'Não autenticado' }, { status: 401 }), supabase: null }
 
   const { data: caller } = await supabase
     .from('user_secrets')
@@ -33,9 +34,9 @@ async function exigirAdmin() {
     .single()
 
   if (!caller?.is_admin) {
-    return { erro: NextResponse.json({ error: 'Acesso negado' }, { status: 403 }) }
+    return { erro: NextResponse.json({ error: 'Acesso negado' }, { status: 403 }), supabase: null }
   }
-  return { erro: null }
+  return { erro: null, supabase }
 }
 
 export async function POST(request: Request) {
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const { erro } = await exigirAdmin()
+    const { erro, supabase } = await exigirAdmin()
     if (erro) return erro
 
     const { subscriptionId } = await request.json()
@@ -146,6 +147,10 @@ export async function POST(request: Request) {
     // faz o downgrade de verdade quando plan_expires_at vencer, mesma lógica
     // já usada em /api/subscriptions/cancel.
     await admin.from('profiles').update({ subscription_status: 'cancelled' }).eq('id', sub.user_id)
+
+    // BUG CORRIGIDO (achado ao vivo via workflow de auditoria, 2026-09-25):
+    // ver lib/admin-audit.ts — nenhuma ação admin registrava quem fez o quê.
+    if (supabase) await logAdminAction(supabase, 'subscription_cancel', 'subscription', sub.id, { userId: sub.user_id, gateway: sub.gateway })
 
     return NextResponse.json({ success: true })
   } catch (err: any) {

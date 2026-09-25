@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { isForbiddenOrigin } from '@/lib/csrf-origin'
+import { logAdminAction } from '@/lib/admin-audit'
 
 // Bloqueia/desbloqueia usuários.
 //
@@ -122,6 +123,10 @@ export async function POST(request: Request) {
       { status: 502 }
     )
   }
+
+  // BUG CORRIGIDO (achado ao vivo via workflow de auditoria, 2026-09-25):
+  // ver lib/admin-audit.ts — nenhuma ação admin registrava quem fez o quê.
+  await logAdminAction(supabase, blocked ? 'block_user' : 'unblock_user', 'user', userIds.join(','), { userIds })
 
   return NextResponse.json({ success: true, updated: userIds.length })
 }

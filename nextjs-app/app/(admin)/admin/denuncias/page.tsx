@@ -21,6 +21,11 @@ export default function AdminDenuncias() {
   const [totalFiltered, setTotalFiltered] = useState(0)
 
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+  // BUG CORRIGIDO (achado ao vivo via workflow de auditoria, 2026-09-25):
+  // handleBanAd não tinha guard de re-submit — um duplo clique disparava
+  // dois updates concorrentes em ads/reports. Mesmo padrão já usado em
+  // admin/assinaturas/page.tsx (processingId).
+  const [processingId, setProcessingId] = useState<string | null>(null)
 
   // Filters
   const [search, setSearch] = useState('')
@@ -138,30 +143,49 @@ export default function AdminDenuncias() {
   }
 
   const handleBanAd = async (reportId: string, adId: string) => {
+    if (processingId) return
     if (!(await confirm('Tem certeza que deseja banir/rejeitar este anúncio permanentemente?'))) return
-    const supabase = getSupabase()
+    setProcessingId(reportId)
+    try {
+      const supabase = getSupabase()
 
-    // Primeiro banimos o anúncio (mudamos status para rejected)
-    const { data: adData, error: adError } = await supabase.from('ads').update({ status: 'rejected' }).eq('id', adId).select()
+      // Primeiro banimos o anúncio (mudamos status para rejected)
+      const { data: adData, error: adError } = await supabase.from('ads').update({ status: 'rejected' }).eq('id', adId).select()
 
-    if (adError) {
-      return showToast('Erro ao banir anúncio: ' + adError.message, 'error')
-    }
-    if (!adData || adData.length === 0) {
-      return showToast('Nenhum anúncio foi alterado — verifique permissões ou se o registro ainda existe.', 'error')
-    }
+      if (adError) {
+        return showToast('Erro ao banir anúncio: ' + adError.message, 'error')
+      }
+      if (!adData || adData.length === 0) {
+        return showToast('Nenhum anúncio foi alterado — verifique permissões ou se o registro ainda existe.', 'error')
+      }
 
-    // Depois, resolvemos automaticamente a denúncia
-    const { data: reportData, error: reportError } = await supabase.from('reports').update({ status: 'resolved', resolved_at: new Date().toISOString() }).eq('id', reportId).select()
+      // Depois, resolvemos automaticamente a denúncia
+      const { data: reportData, error: reportError } = await supabase.from('reports').update({ status: 'resolved', resolved_at: new Date().toISOString() }).eq('id', reportId).select()
 
-    if (!reportError && reportData && reportData.length > 0) {
-      showToast('Anúncio banido e denúncia resolvida com sucesso!', 'success')
-      loadReports()
-      loadCounts()
-    } else if (!reportError) {
-      showToast('Anúncio banido, mas a denúncia não foi encontrada para ser fechada — verifique permissões.', 'error')
-    } else {
-      showToast('Anúncio banido, mas houve erro ao fechar a denúncia.', 'error')
+      if (!reportError && reportData && reportData.length > 0) {
+        // BUG CORRIGIDO (achado ao vivo via workflow de auditoria,
+        // 2026-09-25): esta ação muta direto do client (sem rota de API no
+        // meio) — nenhuma ação admin registrava quem fez o quê. Chamada
+        // via RPC (log_admin_action, migration 20260925232000): admin_id
+        // vem de auth.uid() internamente, não pode ser forjado.
+        supabase.rpc('log_admin_action', {
+          p_action: 'ban_ad',
+          p_target_type: 'ad',
+          p_target_id: adId,
+          p_details: { reportId },
+        }).then(({ error }: { error: any }) => {
+          if (error) console.error('[admin-audit] Falha ao registrar ban_ad:', error.message)
+        })
+        showToast('Anúncio banido e denúncia resolvida com sucesso!', 'success')
+        loadReports()
+        loadCounts()
+      } else if (!reportError) {
+        showToast('Anúncio banido, mas a denúncia não foi encontrada para ser fechada — verifique permissões.', 'error')
+      } else {
+        showToast('Anúncio banido, mas houve erro ao fechar a denúncia.', 'error')
+      }
+    } finally {
+      setProcessingId(null)
     }
   }
 
@@ -470,9 +494,9 @@ export default function AdminDenuncias() {
                     <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
                       {rep.status === 'pending' ? (
                         <>
-                          <button className="adm-btn adm-btn--sm adm-btn--outline" onClick={() => handleDismiss(rep.id)} title="Marcar como falso positivo e ignorar">Ignorar (Falso)</button>
+                          <button className="adm-btn adm-btn--sm adm-btn--outline" disabled={processingId === rep.id} onClick={() => handleDismiss(rep.id)} title="Marcar como falso positivo e ignorar">Ignorar (Falso)</button>
                           {rep.ad_id && (
-                            <button className="adm-btn adm-btn--sm adm-btn--outline" style={{ color: 'var(--adm-red)', borderColor: 'var(--adm-red)' }} onClick={() => handleBanAd(rep.id, rep.ad_id)} title="Banir Anúncio e fechar denúncia">Banir</button>
+                            <button className="adm-btn adm-btn--sm adm-btn--outline" style={{ color: 'var(--adm-red)', borderColor: 'var(--adm-red)' }} disabled={processingId === rep.id} onClick={() => handleBanAd(rep.id, rep.ad_id)} title="Banir Anúncio e fechar denúncia">Banir</button>
                           )}
                         </>
                       ) : (

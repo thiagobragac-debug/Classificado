@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { isForbiddenOrigin } from '@/lib/csrf-origin'
+import { logAdminAction } from '@/lib/admin-audit'
 
 // BUG ALTO CORRIGIDO (reteste do site, 2026-08-25): o botão "Reativar" de
 // app/(admin)/admin/assinaturas/page.tsx escrevia profiles.subscription_status
@@ -17,7 +18,7 @@ import { isForbiddenOrigin } from '@/lib/csrf-origin'
 async function exigirAdmin() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { erro: NextResponse.json({ error: 'Não autenticado' }, { status: 401 }) }
+  if (!user) return { erro: NextResponse.json({ error: 'Não autenticado' }, { status: 401 }), supabase: null }
 
   const { data: caller } = await supabase
     .from('user_secrets')
@@ -26,9 +27,9 @@ async function exigirAdmin() {
     .single()
 
   if (!caller?.is_admin) {
-    return { erro: NextResponse.json({ error: 'Acesso negado' }, { status: 403 }) }
+    return { erro: NextResponse.json({ error: 'Acesso negado' }, { status: 403 }), supabase: null }
   }
-  return { erro: null }
+  return { erro: null, supabase }
 }
 
 export async function POST(request: Request) {
@@ -39,7 +40,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const { erro } = await exigirAdmin()
+    const { erro, supabase } = await exigirAdmin()
     if (erro) return erro
 
     const { subscriptionId } = await request.json()
@@ -91,6 +92,10 @@ export async function POST(request: Request) {
       .update({ subscription_status: 'active' })
       .eq('id', sub.user_id)
     if (updateProfileErr) return NextResponse.json({ error: updateProfileErr.message }, { status: 500 })
+
+    // BUG CORRIGIDO (achado ao vivo via workflow de auditoria, 2026-09-25):
+    // ver lib/admin-audit.ts — nenhuma ação admin registrava quem fez o quê.
+    if (supabase) await logAdminAction(supabase, 'subscription_reactivate', 'subscription', sub.id, { userId: sub.user_id })
 
     return NextResponse.json({ success: true })
   } catch (err: any) {

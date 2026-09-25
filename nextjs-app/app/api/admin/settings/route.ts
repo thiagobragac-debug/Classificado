@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase-server'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { SECRET_SETTING_KEYS } from '@/lib/secret-settings'
 import { isForbiddenOrigin } from '@/lib/csrf-origin'
+import { logAdminAction } from '@/lib/admin-audit'
 
 // Leitura e escrita de platform_settings pelo painel administrativo.
 //
@@ -28,7 +29,7 @@ const LIMPAR = '__LIMPAR__'
 async function exigirAdmin() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { erro: NextResponse.json({ error: 'Não autenticado' }, { status: 401 }) }
+  if (!user) return { erro: NextResponse.json({ error: 'Não autenticado' }, { status: 401 }), supabase: null }
 
   const { data: caller } = await supabase
     .from('user_secrets')
@@ -37,9 +38,9 @@ async function exigirAdmin() {
     .single()
 
   if (!caller?.is_admin) {
-    return { erro: NextResponse.json({ error: 'Acesso negado' }, { status: 403 }) }
+    return { erro: NextResponse.json({ error: 'Acesso negado' }, { status: 403 }), supabase: null }
   }
-  return { erro: null }
+  return { erro: null, supabase }
 }
 
 export async function GET() {
@@ -79,7 +80,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const { erro } = await exigirAdmin()
+  const { erro, supabase } = await exigirAdmin()
   if (erro) return erro
 
   let body: { settings?: unknown }
@@ -129,6 +130,17 @@ export async function POST(request: Request) {
   // (tsc --noEmit) nem o build local tinham sido rodados depois do commit
   // que introduziu essa linha — só `next dev` (que não type-checa).
   revalidateTag('platform-settings', 'max')
+
+  // BUG CORRIGIDO (achado ao vivo via workflow de auditoria, 2026-09-25):
+  // ver lib/admin-audit.ts — nenhuma ação admin registrava quem fez o quê.
+  // NUNCA loga o valor em si (details só tem os nomes das chaves alteradas
+  // e se cada uma era secreta) — o log de auditoria não pode virar mais um
+  // lugar onde um segredo de gateway vaza.
+  if (supabase) {
+    await logAdminAction(supabase, 'update_platform_settings', 'platform_settings', null, {
+      keys: updates.map(u => ({ key: u.key, secret: CHAVES_SECRETAS.has(u.key) })),
+    })
+  }
 
   // RESOLVIDO (confirmado ao vivo contra o painel real da Pagar.me,
   // 2026-09-02 — ver comentário em lib/gateways/pagarme.ts::validateWebhook):

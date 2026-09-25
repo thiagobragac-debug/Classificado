@@ -76,15 +76,60 @@ function findDictNode(sourceFile, names) {
   return found;
 }
 
+// BUG CORRIGIDO (achado ao vivo via workflow de auditoria, 2026-09-25):
+// materialize() só avaliava o texto do próprio objeto TRANSLATIONS/T,
+// isolado — qualquer referência a uma const declarada FORA do objeto no
+// mesmo arquivo (ex.: components/ads/AdReportModal.tsx, onde
+// tr.pt.reasons aponta pra REASON_DB_VALUE) fazia o eval falhar
+// (ReferenceError) e o arquivo inteiro caía em report.skipped, sem
+// checagem de paridade pt/es nenhuma. Agora inclui no mesmo sandbox
+// qualquer outra declaração top-level `const NOME = ...` do arquivo
+// (dados auto-contidos, sem import — não tenta resolver módulos externos)
+// ANTES do texto do objeto, pra essas referências resolverem.
+function findTopLevelConstStatements(sourceFile, excludeDecl) {
+  const stmts = [];
+  for (const stmt of sourceFile.statements) {
+    if (!ts.isVariableStatement(stmt)) continue;
+    const declarations = stmt.declarationList.declarations;
+    // Pula a statement inteira se ela contiver o próprio node do dicionário
+    // (evita duplicar/misturar o texto do TRANSLATIONS com o das outras
+    // consts quando declarados juntos, ex: `const a = 1, TRANSLATIONS = {...}`).
+    if (declarations.some((d) => d === excludeDecl)) continue;
+    stmts.push(stmt);
+  }
+  return stmts;
+}
+
 function materialize(objNode, sourceFile) {
+  const dictDecl = objNode.parent; // VariableDeclaration cujo initializer é o objeto
+  // getText() na STATEMENT inteira (não só na declaration), senão o `const`/
+  // `let` do início fica de fora e o transpile falha com erro de sintaxe.
+  const otherConsts = findTopLevelConstStatements(sourceFile, dictDecl)
+    .map((s) => s.getText(sourceFile))
+    .join('\n');
   const raw = objNode.getText(sourceFile);
-  const transpiled = ts.transpileModule(`globalThis.__extracted = (${raw});`, {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
-  }).outputText;
-  const sandbox = {};
-  vm.createContext(sandbox);
-  vm.runInContext(transpiled, sandbox, { timeout: 2000 });
-  return sandbox.__extracted;
+  let transpiled;
+  try {
+    transpiled = ts.transpileModule(`${otherConsts};\nglobalThis.__extracted = (${raw});`, {
+      compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+    }).outputText;
+    const sandbox = {};
+    vm.createContext(sandbox);
+    vm.runInContext(transpiled, sandbox, { timeout: 2000 });
+    return sandbox.__extracted;
+  } catch (e) {
+    // Fallback: se incluir as outras consts quebrar por algum motivo
+    // (ex.: uma delas referenciando um import de verdade), tenta do jeito
+    // antigo — isolado — antes de desistir. Preserva o comportamento
+    // pré-fix pros casos em que ele já funcionava.
+    const transpiledIsolated = ts.transpileModule(`globalThis.__extracted = (${raw});`, {
+      compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+    }).outputText;
+    const sandbox = {};
+    vm.createContext(sandbox);
+    vm.runInContext(transpiledIsolated, sandbox, { timeout: 2000 });
+    return sandbox.__extracted;
+  }
 }
 
 function deriveNamespace(absPath) {

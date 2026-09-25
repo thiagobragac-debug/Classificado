@@ -341,6 +341,14 @@ export interface AdPayload {
 export async function createAd(payload: AdPayload) {
   const session = await getSession();
   if (!session) throw new Error('Not authenticated');
+  // BUG CORRIGIDO (achado ao vivo via workflow de auditoria, 2026-09-25):
+  // a policy de INSERT em ads agora exige e-mail confirmado (migration
+  // 20260925231000) — sem este pré-check, o usuário via só o erro cru de
+  // RLS ("new row violates row-level security policy") em vez de uma
+  // mensagem que explica o motivo real.
+  if (!session.user.email_confirmed_at) {
+    throw new Error('Confirme seu e-mail antes de publicar um anúncio. Verifique sua caixa de entrada.');
+  }
 
   // user_id é sempre sobrescrito com o da sessão — nunca pode vir do cliente
   const safePayload: AdPayload & { user_id: string } = {

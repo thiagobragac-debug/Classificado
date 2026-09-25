@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { isForbiddenOrigin } from '@/lib/csrf-origin'
+import { logAdminAction } from '@/lib/admin-audit'
 
 // Concede ou remove o selo de verificação de um usuário.
 //
@@ -48,6 +49,14 @@ export async function POST(request: Request) {
   }
   if (typeof verified !== 'boolean') {
     return NextResponse.json({ error: '`verified` deve ser boolean' }, { status: 400 })
+  }
+  // BUG CORRIGIDO (achado ao vivo via workflow de auditoria, 2026-09-25):
+  // `reason` só era validado quanto ao tipo, sem limite de tamanho, antes
+  // de gravar em verification_requests.reason — diferente da rota irmã
+  // contact-messages/reply, que já limita o campo equivalente a 5000
+  // caracteres. Mesmo limite aqui por consistência.
+  if (typeof reason === 'string' && reason.length > 5000) {
+    return NextResponse.json({ error: '`reason` excede o limite de 5000 caracteres' }, { status: 400 })
   }
 
   const admin = createAdminClient()
@@ -111,6 +120,10 @@ export async function POST(request: Request) {
       )
     }
   }
+
+  // BUG CORRIGIDO (achado ao vivo via workflow de auditoria, 2026-09-25):
+  // ver lib/admin-audit.ts — nenhuma ação admin registrava quem fez o quê.
+  await logAdminAction(supabase, verified ? 'kyc_approve' : 'kyc_reject', 'user', userId, { requestId: requestId ?? null, reason: typeof reason === 'string' ? reason : null })
 
   return NextResponse.json({ success: true })
 }

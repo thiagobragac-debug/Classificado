@@ -30,10 +30,19 @@ export default function AdminDepoimentos() {
   async function loadTestimonials() {
     setLoading(true)
     const supabase = getSupabase()
+    // BUG CORRIGIDO (achado ao vivo via workflow de auditoria, 2026-09-25):
+    // sem .limit()/.range(), depende do teto default implícito do
+    // PostgREST — mesma classe de bug já corrigida em anuncios/usuarios/
+    // assinaturas/denuncias/mensagens-contato/api-keys/cupons ("itens mais
+    // antigos somem em silêncio"). Depoimentos são curados manualmente pelo
+    // próprio admin (baixo volume por natureza), então um limite explícito
+    // generoso já resolve sem precisar reescrever a paginação client-side
+    // existente pra server-side como nas telas de alto volume.
     const { data, error } = await supabase
       .from('testimonials')
       .select('*')
       .order('created_at', { ascending: false })
+      .limit(2000)
 
     if (!error && data) {
       setTestimonials(data)

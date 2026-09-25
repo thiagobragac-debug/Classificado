@@ -24,6 +24,11 @@ export default function AdminUsuarios() {
   const [totalFiltered, setTotalFiltered] = useState(0)
 
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+  // BUG CORRIGIDO (achado ao vivo via workflow de auditoria, 2026-09-25):
+  // handleBlockToggle não tinha guard de re-submit — um duplo clique
+  // disparava duas requisições concorrentes a /api/admin/block-user.
+  // Mesmo padrão já usado em admin/assinaturas/page.tsx (processingId).
+  const [processingId, setProcessingId] = useState<string | null>(null)
 
   // Filters
   const [search, setSearch] = useState('')
@@ -123,6 +128,7 @@ export default function AdminUsuarios() {
   }
 
   const handleBlockToggle = async (userId: string, currentStatus: boolean) => {
+    if (processingId) return
     const newStatus = !currentStatus
     // GAP CORRIGIDO: bloquear derruba a sessão do usuário na hora (ban
     // nativo do GoTrue, ver /api/admin/block-user) — confirmado ao vivo que
@@ -130,6 +136,7 @@ export default function AdminUsuarios() {
     // confirmação, diferente de ações equivalentes em outras telas
     // (cancelar assinatura, excluir categoria/cupom/chave).
     if (newStatus && !(await confirm('Bloquear este usuário? O acesso dele é cortado imediatamente.'))) return
+    setProcessingId(userId)
     try {
       await setBlocked([userId], newStatus)
       setUsers(users.map(u => u.id === userId ? { ...u, is_blocked: newStatus } : u))
@@ -137,6 +144,8 @@ export default function AdminUsuarios() {
       loadCounts()
     } catch (err) {
       showToast('Erro ao alterar status: ' + (err as Error).message, 'error')
+    } finally {
+      setProcessingId(null)
     }
   }
 
@@ -413,7 +422,7 @@ export default function AdminUsuarios() {
                     </td>
                     <td>{new Date(user.created_at).toLocaleDateString()}</td>
                     <td style={{ textAlign: 'center' }}>
-                      <button className="adm-btn adm-btn--outline adm-btn--sm" onClick={() => handleBlockToggle(user.id, !!user.is_blocked)}>
+                      <button className="adm-btn adm-btn--outline adm-btn--sm" disabled={processingId === user.id} onClick={() => handleBlockToggle(user.id, !!user.is_blocked)}>
                         {user.is_blocked ? 'Desbloquear' : 'Bloquear'}
                       </button>
                     </td>

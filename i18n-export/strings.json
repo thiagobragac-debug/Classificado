@@ -2656,6 +2656,60 @@
     "pt": "Enviar Mensagem",
     "es": "Enviar Mensaje"
   },
+  "ads.AdReportModal.title": {
+    "pt": "Denunciar Anúncio",
+    "es": "Denunciar Anuncio"
+  },
+  "ads.AdReportModal.reasons": {
+    "pt": {
+      "fake_product": "Produto inexistente ou falso",
+      "misleading_price": "Preço enganoso",
+      "inappropriate_content": "Conteúdo inapropriado",
+      "spam": "Spam ou publicidade enganosa",
+      "scam": "Golpe ou fraude",
+      "other": "Outro"
+    },
+    "es": {
+      "fake_product": "Producto inexistente o falso",
+      "misleading_price": "Precio engañoso",
+      "inappropriate_content": "Contenido inapropiado",
+      "spam": "Spam o publicidad engañosa",
+      "scam": "Estafa o fraude",
+      "other": "Otro"
+    }
+  },
+  "ads.AdReportModal.close": {
+    "pt": "Fechar",
+    "es": "Cerrar"
+  },
+  "ads.AdReportModal.sentTitle": {
+    "pt": "Denúncia enviada!",
+    "es": "¡Denuncia enviada!"
+  },
+  "ads.AdReportModal.sentBody": {
+    "pt": "Nossa equipe irá analisar em breve.",
+    "es": "Nuestro equipo la revisará pronto."
+  },
+  "ads.AdReportModal.rateLimited": {
+    "pt": "Muitas denúncias em pouco tempo. Aguarde um momento.",
+    "es": "Demasiadas denuncias en poco tiempo. Espera un momento."
+  },
+  "ads.AdReportModal.genericError": {
+    "pt": "Erro ao enviar denúncia. Tente novamente.",
+    "es": "Error al enviar la denuncia. Inténtalo de nuevo."
+  },
+  "ads.AdReportModal.cancel": {
+    "pt": "Cancelar",
+    "es": "Cancelar"
+  },
+  "ads.AdReportModal.send": {
+    "pt": "Enviar Denúncia",
+    "es": "Enviar Denuncia"
+  },
+  "ads.AdReportModal.sending": {
+    "pt": "Enviando...",
+    "es": "Enviando..."
+  },
   "ads.AdsBrowser.allAds": {
     "pt": "Todos os Anúncios",
     "es": "Todos los Anuncios"
@@ -3819,6 +3873,10 @@
   "ui.CheckoutModal.errCardUnavailable": {
     "pt": "Pagamento por cartão indisponível para este gateway. Fale com o suporte.",
     "es": "Pago con tarjeta no disponible para este gateway. Habla con soporte."
+  },
+  "ui.CheckoutModal.pagarmeCardError": {
+    "pt": "Erro ao validar o cartão. Confira os dados e tente novamente.",
+    "es": "Error al validar la tarjeta. Revisa los datos e inténtalo de nuevo."
   },
   "ui.CheckoutModal.stripeCardError": {
     "pt": "Erro ao validar cartão no Stripe.",
