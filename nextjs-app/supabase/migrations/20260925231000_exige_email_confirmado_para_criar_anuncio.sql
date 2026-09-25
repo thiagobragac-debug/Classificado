@@ -25,8 +25,20 @@ $function$;
 revoke all on function public.is_email_confirmed() from public;
 grant execute on function public.is_email_confirmed() to authenticated;
 
+-- BUG CORRIGIDO (achado ao vivo aplicando esta migration em produção,
+-- 2026-09-25): o nome real da policy no banco é "Users can insert their
+-- own ads" (SEM o ponto final) — diverge do nome usado na migration
+-- original (20260723071300_rls_hardening.sql), provavelmente recriada em
+-- alguma migration posterior sem atualizar o comentário/nome aqui (mesmo
+-- padrão de drift já documentado várias vezes neste projeto). Confirmado
+-- via consulta direta a pg_policy antes de corrigir: o with_check REAL
+-- também já tinha `OR is_admin()`, que este ALTER teria apagado sem
+-- querer se aplicado como estava escrito antes.
+--
 -- ALTER POLICY (não DROP+CREATE) preserva FOR INSERT/TO exatamente como
 -- está — só endurece a condição, zero risco de mudar quem a policy afeta.
-alter policy "Users can insert their own ads."
+-- is_admin() continua bypassando TUDO (ownership E e-mail confirmado),
+-- igual ao comportamento já existente pra ownership sozinho.
+alter policy "Users can insert their own ads"
 on public.ads
-with check (auth.uid() = user_id and public.is_email_confirmed());
+with check ((auth.uid() = user_id and public.is_email_confirmed()) or is_admin());
