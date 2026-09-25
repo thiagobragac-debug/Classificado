@@ -159,7 +159,7 @@ export default function AuctionsBrowser({ events, loadError }: { events: Auction
     const monthParam = searchParams.get('month');
     if (monthParam) {
       const monthDate = new Date(`${monthParam}T00:00:00`);
-      const monthLabel = isNaN(monthDate.getTime()) ? monthParam : monthDate.toLocaleDateString(dateLocale);
+      const monthLabel = isNaN(monthDate.getTime()) ? monthParam : monthDate.toLocaleDateString(dateLocale, { timeZone: 'America/Sao_Paulo' });
       list.push({
         key: 'month',
         label: monthLabel,
@@ -403,8 +403,20 @@ export default function AuctionsBrowser({ events, loadError }: { events: Auction
             const imgFilter = !isLive ? 'grayscale(80%) opacity(0.85)' : 'none';
             const evTitle = lang === 'es' && ev.title_es ? ev.title_es : ev.title;
             const dateObj = new Date(ev.date);
-            const formattedDate = dateObj.toLocaleDateString(dateLocale);
-            const formattedTime = dateObj.toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' });
+            // BUG CORRIGIDO (achado ao vivo em produção, 2026-09-25): sem
+            // timeZone explícito, toLocaleDateString/toLocaleTimeString usa o
+            // fuso do PROCESSO que roda o código — o servidor (Render, UTC)
+            // formata diferente do navegador (fuso do visitante, ex.
+            // America/Maceio, UTC-3), gerando um texto de hora diferente no
+            // HTML do servidor vs. no client component na hidratação. Erro
+            // React #418 (hydration mismatch) reproduzido 2x em abas
+            // totalmente novas em /leiloes. Fixando o fuso em
+            // America/Sao_Paulo (mesmo já usado em admin/cupons/page.tsx)
+            // elimina a divergência E mostra o horário certo do leilão
+            // (fuso do Brasil) pra qualquer visitante, independente do fuso
+            // do dispositivo dele.
+            const formattedDate = dateObj.toLocaleDateString(dateLocale, { timeZone: 'America/Sao_Paulo' });
+            const formattedTime = dateObj.toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
 
             return (
               <Link href={`/leiloes/${ev.slug}`} key={ev.id} className="ad-card" style={{ display: 'flex', flexDirection: 'column', textDecoration: 'none', color: 'inherit' }}>

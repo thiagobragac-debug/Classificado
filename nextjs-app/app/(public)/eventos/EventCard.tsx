@@ -41,8 +41,16 @@ export default function EventCard({ ev, lang = 'pt' }: EventCardProps) {
     const parsed = parseEventDate(ev.date);
     if (!isNaN(parsed)) {
       const dateObj = new Date(parsed);
-      day = dateObj.getDate().toString().padStart(2, '0');
-      month = dateObj.toLocaleString(lang === 'es' ? 'es-AR' : 'pt-BR', { month: 'short' }).replace('.', '').toUpperCase();
+      // BUG CORRIGIDO (mesmo achado do leilão, 2026-09-25): getDate() usa o
+      // fuso do processo que roda o código. No servidor (Render, UTC), um
+      // evento marcado pra madrugada no fuso do Brasil (ex.: 00:30 de
+      // Brasília = 03:30 UTC do mesmo dia civil, mas o inverso também
+      // ocorre pra eventos à noite) pode cair no dia de calendário ERRADO
+      // — badge mostrando "16" quando no Brasil ainda é "15". Fixando o
+      // fuso em America/Sao_Paulo garante o dia/mês certo pro público do
+      // site, independente de onde o processo (servidor ou navegador) roda.
+      day = dateObj.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo', day: '2-digit' });
+      month = dateObj.toLocaleString(lang === 'es' ? 'es-AR' : 'pt-BR', { month: 'short', timeZone: 'America/Sao_Paulo' }).replace('.', '').toUpperCase();
     }
   }
 

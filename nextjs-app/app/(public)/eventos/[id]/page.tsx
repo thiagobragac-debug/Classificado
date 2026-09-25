@@ -146,7 +146,8 @@ async function findEvent(id: string, lang: Lang): Promise<FoundRecord | null> {
 // como data quando for de fato parseável (auction_events.date, ISO).
 function formatEventDate(date: string, lang: Lang): string {
   const parsed = new Date(date);
-  return isNaN(parsed.getTime()) ? date : parsed.toLocaleDateString(lang === 'es' ? 'es-AR' : 'pt-BR');
+  // BUG CORRIGIDO (mesmo achado de fuso do leilão/EventCard, 2026-09-25).
+  return isNaN(parsed.getTime()) ? date : parsed.toLocaleDateString(lang === 'es' ? 'es-AR' : 'pt-BR', { timeZone: 'America/Sao_Paulo' });
 }
 
 export async function generateMetadata({

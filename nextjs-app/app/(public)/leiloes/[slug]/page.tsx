@@ -114,9 +114,13 @@ export async function generateMetadata({
     : undefined;
 
   const dateLocale = lang === 'es' ? 'es-AR' : 'pt-BR';
+  // BUG CORRIGIDO (mesmo achado do AuctionsBrowser.tsx, 2026-09-25): sem
+  // timeZone explícito, a hora exibida usa o fuso do processo que roda o
+  // código (aqui o servidor, UTC), mostrando o horário errado do leilão
+  // pro visitante real (fuso do Brasil).
   const description = T.descriptionText(
-    new Date(data.date).toLocaleDateString(dateLocale),
-    new Date(data.date).toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' })
+    new Date(data.date).toLocaleDateString(dateLocale, { timeZone: 'America/Sao_Paulo' }),
+    new Date(data.date).toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
   );
 
   const isLive = data.status === 'live';
@@ -281,8 +285,8 @@ export default async function AuctionPage(props: { params: Promise<{ slug: strin
       : 'https://schema.org/EventScheduled',
     location: { '@type': 'VirtualLocation', url: auctionUrl },
     description: T.descriptionText(
-      new Date(auction.date).toLocaleDateString(jsonLdDateLocale),
-      new Date(auction.date).toLocaleTimeString(jsonLdDateLocale, { hour: '2-digit', minute: '2-digit' })
+      new Date(auction.date).toLocaleDateString(jsonLdDateLocale, { timeZone: 'America/Sao_Paulo' }),
+      new Date(auction.date).toLocaleTimeString(jsonLdDateLocale, { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
     ),
     image: auction.cover
       ? auction.cover.startsWith('http')
@@ -328,7 +332,7 @@ export default async function AuctionPage(props: { params: Promise<{ slug: strin
               )}
               <h1 style={{ fontSize: '2rem', margin: 0, lineHeight: 1.2, color: 'white' }}>{auctionTitle}</h1>
               <p style={{ color: '#94a3b8', marginTop: '0.5rem', fontSize: '1.1rem' }}>
-                {new Date(auction.date).toLocaleDateString(dateLocale)} {T.dateTimeConnector} {new Date(auction.date).toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' })}
+                {new Date(auction.date).toLocaleDateString(dateLocale, { timeZone: 'America/Sao_Paulo' })} {T.dateTimeConnector} {new Date(auction.date).toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })}
               </p>
             </div>
 
