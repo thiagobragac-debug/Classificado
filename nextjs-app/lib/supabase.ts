@@ -448,6 +448,18 @@ export async function uploadAdVideo(file: File, folder = 'draft'): Promise<strin
   const session = await getSession();
   if (!session) throw new Error('Not authenticated');
 
+  // BUG CORRIGIDO (achado ao vivo via workflow de auditoria, 2026-09-25):
+  // upload direto do client pro Storage, sem rota de API no meio — nenhum
+  // rate limit existia (loop em console do navegador consumia storage/
+  // egress sem teto). Mesmo padrão já usado em rpc_check_message_rate_limit
+  // (RPC amarra o bucket ao próprio auth.uid(), não aceita bucket livre).
+  const { data: dentroDoLimite, error: rateLimitError } = await getSupabase().rpc('rpc_check_video_upload_rate_limit');
+  if (rateLimitError) {
+    console.warn('[uploadAdVideo] rpc_check_video_upload_rate_limit falhou, seguindo sem pré-check client-side:', rateLimitError.message);
+  } else if (dentroDoLimite === false) {
+    throw new Error('Muitos vídeos enviados em pouco tempo. Aguarde um momento.');
+  }
+
   const ext = safeFileExt(file.name);
   const fileName = `${folder}/${session.user.id}/${Date.now()}_${Math.random().toString(36).substring(2)}.${ext}`;
 
@@ -885,11 +897,25 @@ export async function applyAdQuotaGraceSelection(keepAdIds: string[]) {
 export async function toggleAdStatus(adId: string, currentStatus: string) {
   const session = await getSession();
   if (!session) throw new Error('Não autenticado');
+  // BUG CORRIGIDO (achado ao vivo via workflow de auditoria, 2026-09-25):
+  // newStatus vinha só do `currentStatus` que o CHAMADOR passa, nunca
+  // conferido contra o status real no banco. Como o único guard de
+  // moderação (trigger guard_ad_moderation) só barra transições ENTRANDO
+  // em 'active', chamar toggleAdStatus(idDeUmAnuncioJaExcluido, 'qualquer
+  // coisa que não seja "paused"') via console do navegador (mesma sessão,
+  // supabase-js já no bundle) forçava newStatus='paused' e ressuscitava um
+  // anúncio soft-deletado, contornando a garantia documentada em
+  // deleteAd() de que o registro fica permanentemente fora de circulação.
+  // `.eq('status', currentStatus)` faz o UPDATE só valer se o status real
+  // no banco bater com o que o chamador alegou — currentStatus !== o
+  // status verdadeiro (ex.: 'deleted') não afeta nenhuma linha.
   const newStatus = currentStatus === 'paused' ? 'active' : 'paused';
-  const { error } = await getSupabase()
+  const { data, error } = await getSupabase()
     .from('ads').update({ status: newStatus, updated_at: new Date().toISOString() })
-    .eq('id', adId).eq('user_id', session.user.id);
+    .eq('id', adId).eq('user_id', session.user.id).eq('status', currentStatus)
+    .select('id');
   if (error) throw error;
+  if (!data || data.length === 0) throw new Error('Anúncio não encontrado ou status desatualizado — recarregue a página.');
   return newStatus;
 }
 

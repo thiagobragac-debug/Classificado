@@ -78,6 +78,7 @@ const TRANSLATIONS = {
     errSubscriptionFail: 'Falha ao processar assinatura.',
     errUnexpected: 'Erro inesperado. Tente novamente.',
     errCardUnavailable: 'Pagamento por cartão indisponível para este gateway. Fale com o suporte.',
+    pagarmeCardError: 'Erro ao validar o cartão. Confira os dados e tente novamente.',
     stripeCardError: 'Erro ao validar cartão no Stripe.',
     stripeUnexpected: 'Erro inesperado no Stripe.',
     stripeProcessing: 'Processando Stripe...',
@@ -141,6 +142,7 @@ const TRANSLATIONS = {
     errSubscriptionFail: 'Error al procesar la suscripción.',
     errUnexpected: 'Error inesperado. Inténtalo de nuevo.',
     errCardUnavailable: 'Pago con tarjeta no disponible para este gateway. Habla con soporte.',
+    pagarmeCardError: 'Error al validar la tarjeta. Revisa los datos e inténtalo de nuevo.',
     stripeCardError: 'Error al validar la tarjeta en Stripe.',
     stripeUnexpected: 'Error inesperado en Stripe.',
     stripeProcessing: 'Procesando Stripe...',
@@ -554,7 +556,13 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
       })
       const tokData = await tokRes.json()
       if (!tokRes.ok || !tokData.id) {
-        throw new Error(tokData.message || t.stripeCardError)
+        // BUG CORRIGIDO (achado ao vivo via workflow de auditoria,
+        // 2026-09-25): tokData.message é a mensagem crua da API da Pagar.me
+        // (sem locale, tipicamente PT/EN) — vazava sem tradução pro
+        // visitante ES, diferente dos caminhos Stripe/Mercado Pago neste
+        // mesmo arquivo, que já passam locale explícito. Usa sempre o texto
+        // traduzido local, igual aos outros gateways.
+        throw new Error(t.pagarmeCardError)
       }
       await handleServerCheckout({ gatewayToken: tokData.id })
     } catch (err: any) {

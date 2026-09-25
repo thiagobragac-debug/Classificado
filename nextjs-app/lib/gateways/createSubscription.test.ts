@@ -125,7 +125,9 @@ describe('asaasAdapter.createSubscription — forma da requisição', () => {
     let bodySubscription = '';
     let headersSubscription: Record<string, string> = {};
     vi.stubGlobal('fetch', vi.fn(async (url: string, init?: any) => {
-      if (url.includes('externalReference=')) return { ok: true, json: async () => ({ data: [{ id: 'cus_1' }] }) };
+      if (url.includes('/customers?externalReference=')) return { ok: true, json: async () => ({ data: [{ id: 'cus_1' }] }) };
+      // Busca de idempotência (assinatura já existente?) — vazia, força seguir pro POST real.
+      if (url.includes('/subscriptions?')) return { ok: true, json: async () => ({ data: [] }) };
       if (url.includes('/subscriptions')) {
         bodySubscription = init.body;
         headersSubscription = init.headers;
@@ -140,6 +142,26 @@ describe('asaasAdapter.createSubscription — forma da requisição', () => {
     const parsed = JSON.parse(bodySubscription);
     expect(parsed.remoteIp).toBe('203.0.113.9');
     expect(headersSubscription['User-Agent']).toBeTruthy();
+  });
+
+  // Regressão do achado de auditoria (2026-09-25): sem esta busca, uma
+  // resposta perdida DEPOIS da Asaas já ter cobrado o cartão fazia um retry
+  // criar uma SEGUNDA assinatura real. Mesmo padrão de proteção já testado
+  // acima para findOrCreateCustomer, agora para a assinatura em si.
+  it('reaproveita assinatura existente por externalReference em vez de criar outra (proteção de idempotência)', async () => {
+    const metodos: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: any) => {
+      metodos.push(`${init?.method || 'GET'} ${url}`);
+      if (url.includes('/customers?externalReference=')) return { ok: true, json: async () => ({ data: [{ id: 'cus_1' }] }) };
+      if (url.includes('/subscriptions?')) return { ok: true, json: async () => ({ data: [{ id: 'sub_existente' }] }) };
+      throw new Error('Não deveria criar uma nova assinatura quando a busca já encontrou uma: ' + url);
+    }));
+
+    const adapter = asaasAdapter('ak_test', 'sandbox');
+    const result = await adapter.createSubscription(PLAN, USER, paymentData, 'checkout_idempotencia');
+
+    expect(result.gatewaySubscriptionId).toBe('sub_existente');
+    expect(metodos.some((m) => m.startsWith('POST') && m.includes('/subscriptions'))).toBe(false);
   });
 
   it('usa a URL de sandbox documentada atualmente (api-sandbox.asaas.com/v3)', async () => {
@@ -199,7 +221,9 @@ describe('asaasAdapter.createSubscription — forma da requisição', () => {
   it('createSubscription com gatewayToken: usa creditCardToken, nunca reenvia creditCard/creditCardHolderInfo', async () => {
     let bodySubscription = '';
     vi.stubGlobal('fetch', vi.fn(async (url: string, init?: any) => {
-      if (url.includes('externalReference=')) return { ok: true, json: async () => ({ data: [{ id: 'cus_tok' }] }) };
+      if (url.includes('/customers?externalReference=')) return { ok: true, json: async () => ({ data: [{ id: 'cus_tok' }] }) };
+      // Busca de idempotência (assinatura já existente?) — vazia, força seguir pro POST real.
+      if (url.includes('/subscriptions?')) return { ok: true, json: async () => ({ data: [] }) };
       if (url.includes('/subscriptions')) {
         bodySubscription = init.body;
         return { ok: true, json: async () => ({ id: 'sub_tok' }) };

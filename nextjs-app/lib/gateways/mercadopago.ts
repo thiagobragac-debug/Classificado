@@ -30,11 +30,21 @@ export function mercadoPagoAdapter(accessToken: string): GatewayAdapter {
         status: 'authorized' // Forces immediate charge
       }
 
+      // BUG CORRIGIDO (achado ao vivo via workflow de auditoria, 2026-09-25):
+      // faltava X-Idempotency-Key nesta chamada, diferente de stripe.ts e
+      // pagarme.ts nesta mesma base (mesmo raciocínio documentado ali: se a
+      // resposta HTTP se perder DEPOIS do Mercado Pago já ter processado e
+      // cobrado o cartão, o catch em app/api/checkout/route.ts trata como
+      // falha, libera o lock local e permite um retry -- que sem essa chave
+      // cria um SEGUNDO Preapproval real e cobra o cliente de novo pelo
+      // mesmo plano. Chave estável por subscriptionId (não por tentativa),
+      // igual ao padrão já usado nos outros 2 gateways.
       const response = await fetch('https://api.mercadopago.com/preapproval', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'X-Idempotency-Key': `mp-sub-${subscriptionId}`,
         },
         body: JSON.stringify(body)
       })
@@ -111,7 +121,7 @@ export function mercadoPagoAdapter(accessToken: string): GatewayAdapter {
           const preapproval = await preapprovalRes.json()
           externalReference = preapproval.external_reference
           payerEmail = preapproval.payer_email
-          
+
           // BUG CRÍTICO CORRIGIDO: a doc do Preapproval API usa a grafia
           // americana 'canceled' (um L) como valor do campo status — não
           // 'cancelled' (dois L). Com a grafia errada, uma assinatura
@@ -124,9 +134,17 @@ export function mercadoPagoAdapter(accessToken: string): GatewayAdapter {
           else if (preapproval.status === 'authorized') type = 'subscription.activated'
           else if (preapproval.status === 'pending') type = 'unknown'
         } else {
-          console.warn(`[MP Webhook] Could not fetch preapproval ${dataId}: ${preapprovalRes.status}`)
+          // BUG CORRIGIDO (achado ao vivo via workflow de auditoria,
+          // 2026-09-25): uma falha TRANSITÓRIA (timeout/5xx momentâneo) aqui
+          // caía direto no fallback de "evento não tratado" (type:'unknown'),
+          // e webhook-handler.ts responde 200 {handled:false} pra
+          // 'unknown' -- dizendo ao Mercado Pago que NÃO precisa reenviar um
+          // evento real que nunca foi de fato processado. Lançar erro aqui
+          // faz a rota responder 500 (ver catch externo do webhook-handler),
+          // que o Mercado Pago trata como falha e reenvia depois.
+          throw new Error(`MP webhook: falha ao confirmar preapproval ${dataId} (status ${preapprovalRes.status}) — pedindo retry.`)
         }
-        
+
         return {
           type,
           eventId: payloadObj.id ? String(payloadObj.id) : `mp_${dataId}`,
@@ -157,6 +175,14 @@ export function mercadoPagoAdapter(accessToken: string): GatewayAdapter {
             raw: payloadObj
           }
         }
+        // BUG CORRIGIDO (mesmo achado do bloco preapproval acima, 2026-09-25):
+        // sem este throw, uma falha transitória confirmando o pagamento
+        // (ex.: renovação paga) caía direto no fallback de "evento não
+        // tratado" no final da função -- current_period_end nunca avança
+        // pra essa renovação, e dias depois enforce_plan_expiration() expira
+        // o plano de um cliente que pagou em dia, sem nenhum novo webhook
+        // chegando pra corrigir (o evento já foi "confirmado" no primeiro envio).
+        throw new Error(`MP webhook: falha ao confirmar payment ${dataId} (status ${paymentRes.status}) — pedindo retry.`)
       }
 
       // Unhandled event type

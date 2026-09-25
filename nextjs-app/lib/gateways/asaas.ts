@@ -215,6 +215,26 @@ export function asaasAdapter(apiKey: string, environment: 'sandbox' | 'productio
             }
           }
 
+      // BUG CORRIGIDO (achado ao vivo via workflow de auditoria, 2026-09-25):
+      // esta chamada não tinha nenhuma proteção de idempotência — diferente
+      // de stripe.ts/pagarme.ts (Idempotency-Key) e de findOrCreateCustomer
+      // acima nesta mesma função (busca antes de criar). A Asaas não
+      // documenta um header genérico de idempotência (ao contrário da
+      // Stripe), então a proteção aqui segue o MESMO padrão já usado pra
+      // customer: busca por externalReference antes de criar. Sem isso, se
+      // a resposta HTTP se perder DEPOIS da Asaas já ter processado e
+      // cobrado o cartão (cycle CREDIT_CARD cobra na criação), o catch em
+      // app/api/checkout/route.ts libera o lock local e um retry cria uma
+      // SEGUNDA assinatura real, cobrando o cliente de novo.
+      const findSubRes = await fetch(`${baseUrl}/subscriptions?customer=${customerId}&externalReference=${encodeURIComponent(subscriptionId)}&limit=1&sort=dateCreated&order=asc`, { headers })
+      if (findSubRes.ok) {
+        const findSubData = await findSubRes.json()
+        const existing = findSubData.data?.[0]
+        if (existing) {
+          return { checkoutUrl: '', gatewaySubscriptionId: existing.id, gatewayCustomerId: customerId }
+        }
+      }
+
       const subRes = await fetch(`${baseUrl}/subscriptions`, {
         method: 'POST',
         headers,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
 import { createClient } from '@/lib/supabase-server';
+import { dentroDoLimiteFallback } from '@/lib/rate-limit-fallback';
 
 const ACCEPTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 const MAX_PHOTO_SIZE = 10 * 1024 * 1024; // 10 MB, mesmo limite de StepPhotos.tsx e do bucket ad-images
@@ -20,6 +21,24 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+  }
+
+  // BUG CORRIGIDO (achado ao vivo via workflow de auditoria, 2026-09-25):
+  // única rota de mutação autenticada do app sem NENHUM rate limit, mesmo
+  // processando imagem no servidor (sharp: resize+reencode, CPU real) e
+  // gravando no Storage — diferente de toda outra rota de mutação
+  // autenticada (checkout, contact-seller, tokenize-card etc., todas com
+  // dentroDoLimiteFallback). Limite generoso o bastante pra cobrir o wizard
+  // de anúncio inteiro (até 30 fotos do plano Premium) num único fôlego,
+  // mas barra um loop automatizado.
+  const permitido = await dentroDoLimiteFallback({
+    bucket: `upload_ad_image_${user.id}`,
+    limit: 40,
+    windowSeconds: 600,
+    logPrefix: 'upload-ad-image',
+  });
+  if (!permitido) {
+    return NextResponse.json({ error: 'Too Many Requests' }, { status: 429 });
   }
 
   const form = await request.formData();
