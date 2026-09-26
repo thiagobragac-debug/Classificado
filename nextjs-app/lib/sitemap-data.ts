@@ -44,6 +44,30 @@ function maxDate(dates: Array<string | null | undefined>): Date | undefined {
   return max;
 }
 
+// BUG CRÍTICO CORRIGIDO (achado ao vivo em produção, 2026-09-26): antes desta
+// função existir, cada seção (categorias/institucionais/ads/vendedores/
+// leilões/eventos) vivia sob o MESMO try/catch de getAllSitemapEntries(),
+// com "if (error) throw error" deliberado pra "bail out cedo" -- na prática
+// isso significa que a falha de UMA fonte de dados derruba TODAS as outras
+// junto, caindo no fallback de emergência de 5 URLs estáticas. Foi
+// exatamente o que aconteceu: o deploy do código novo de eventos.slug (fix
+// UUID->slug) rodou o `next build` ANTES da migration SQL correspondente
+// ser aplicada no Supabase -- a query de `eventos` falhou com
+// "42703: column eventos.slug does not exist", e ads/vendedores/categorias/
+// leilões desapareceram do sitemap junto, mesmo sem relação nenhuma com o
+// problema real. Como a página usa ISR (revalidate=3600), isso ficou
+// congelado servindo só 5 URLs em produção até a próxima regeneração.
+// safeQuery isola cada fetch: uma falha vira só um console.error + fallback
+// vazio PRA AQUELA seção, sem afetar as demais.
+async function safeQuery<T>(label: string, fn: () => Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    console.error(`Erro gerando a seção "${label}" do sitemap:`, err);
+    return fallback;
+  }
+}
+
 // Usamos createAnonClient() (não createClient()) porque todo o conteúdo
 // deste sitemap é público — createClient() lê cookies() (API de request-time
 // que força o Next a tratar a rota como dinâmica em toda requisição).
@@ -85,11 +109,11 @@ export async function getAllSitemapEntries(): Promise<MetadataRoute.Sitemap> {
     // esta rota a virar dinâmica — mesmo motivo pelo qual ads/profiles
     // também usam createAnonClient() aqui).
     type CategoryRow = { id: string };
-    const { data: categoriesData, error: categoriesErr } = await supabase
-      .from('categories')
-      .select('id')
-      .eq('active', true);
-    if (categoriesErr) throw categoriesErr;
+    const categoriesData = await safeQuery('categories', async () => {
+      const { data, error } = await supabase.from('categories').select('id').eq('active', true);
+      if (error) throw error;
+      return data || [];
+    }, [] as CategoryRow[]);
 
     // BUG CORRIGIDO (SEO — canonical mismatch): a entrada estática genérica
     // de `/institucional` (sem query string) apontava pra uma URL diferente
@@ -109,10 +133,11 @@ export async function getAllSitemapEntries(): Promise<MetadataRoute.Sitemap> {
     // `.select('*')` sem esse filtro — replicar um filtro aqui esconderia do
     // sitemap páginas que a página pública mostra normalmente.
     type InstitutionalPageRow = { id: string; updated_at: string | null };
-    const { data: institutionalPagesData, error: institutionalErr } = await supabase
-      .from('institutional_pages')
-      .select('id, updated_at');
-    if (institutionalErr) throw institutionalErr;
+    const institutionalPagesData = await safeQuery('institutional_pages', async () => {
+      const { data, error } = await supabase.from('institutional_pages').select('id, updated_at');
+      if (error) throw error;
+      return data || [];
+    }, [] as InstitutionalPageRow[]);
 
     const institutionalEntries: MetadataRoute.Sitemap = (institutionalPagesData || []).map(
       (p: InstitutionalPageRow) => ({
@@ -140,20 +165,23 @@ export async function getAllSitemapEntries(): Promise<MetadataRoute.Sitemap> {
     // de cada categoria abaixo (categoryLastModified) — nunca exposto numa
     // URL nem enviado ao cliente.
     type AdRow = { id: string; slug: string; user_id: string | null; category_id: string | null; updated_at: string | null; created_at: string };
-    const PAGE_SIZE = 1000;
-    const ads: AdRow[] = [];
-    for (let from = 0; ; from += PAGE_SIZE) {
-      const { data, error } = await supabase
-        .from('ads')
-        .select('id, slug, user_id, category_id, updated_at, created_at')
-        .eq('status', 'active')
-        .order('created_at', { ascending: false })
-        .range(from, from + PAGE_SIZE - 1);
-      if (error) throw error;
-      if (!data || data.length === 0) break;
-      ads.push(...(data as AdRow[]));
-      if (data.length < PAGE_SIZE) break;
-    }
+    const ads: AdRow[] = await safeQuery('ads', async () => {
+      const PAGE_SIZE = 1000;
+      const collected: AdRow[] = [];
+      for (let from = 0; ; from += PAGE_SIZE) {
+        const { data, error } = await supabase
+          .from('ads')
+          .select('id, slug, user_id, category_id, updated_at, created_at')
+          .eq('status', 'active')
+          .order('created_at', { ascending: false })
+          .range(from, from + PAGE_SIZE - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        collected.push(...(data as AdRow[]));
+        if (data.length < PAGE_SIZE) break;
+      }
+      return collected;
+    }, [] as AdRow[]);
 
     const adEntries: MetadataRoute.Sitemap = ads.map((ad) => ({
       url: `${baseUrl}/anuncio/${ad.slug}`,
@@ -201,17 +229,20 @@ export async function getAllSitemapEntries(): Promise<MetadataRoute.Sitemap> {
       new Set(ads.map((ad) => ad.user_id).filter((id): id is string => !!id))
     );
     type ProfileRow = { id: string; slug: string; updated_at: string | null; created_at: string };
-    const profiles: ProfileRow[] = [];
-    const PROFILE_CHUNK = 500;
-    for (let i = 0; i < sellerIds.length; i += PROFILE_CHUNK) {
-      const chunk = sellerIds.slice(i, i + PROFILE_CHUNK);
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, slug, updated_at, created_at')
-        .in('id', chunk);
-      if (error) throw error;
-      if (data) profiles.push(...(data as ProfileRow[]));
-    }
+    const profiles: ProfileRow[] = await safeQuery('profiles', async () => {
+      const PROFILE_CHUNK = 500;
+      const collected: ProfileRow[] = [];
+      for (let i = 0; i < sellerIds.length; i += PROFILE_CHUNK) {
+        const chunk = sellerIds.slice(i, i + PROFILE_CHUNK);
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, slug, updated_at, created_at')
+          .in('id', chunk);
+        if (error) throw error;
+        if (data) collected.push(...(data as ProfileRow[]));
+      }
+      return collected;
+    }, [] as ProfileRow[]);
 
     const sellerEntries: MetadataRoute.Sitemap = profiles.map((p) => ({
       url: `${baseUrl}/vendedor/${p.slug}`,
@@ -242,16 +273,24 @@ export async function getAllSitemapEntries(): Promise<MetadataRoute.Sitemap> {
     // (/leiloes/{slug}), a única URL que responde 200 de verdade pra um
     // leilão. Nenhuma das duas tabelas tem coluna `updated_at`, só
     // `created_at`.
-    const { data: auctionEvents, error: auctionErr } = await supabase
-      .from('auction_events')
-      .select('id, slug, created_at')
-      .neq('status', 'draft');
-    if (auctionErr) throw auctionErr;
+    type AuctionEventRow = { id: string; slug: string; created_at: string };
+    const auctionEvents = await safeQuery('auction_events', async () => {
+      const { data, error } = await supabase
+        .from('auction_events')
+        .select('id, slug, created_at')
+        .neq('status', 'draft');
+      if (error) throw error;
+      return data || [];
+    }, [] as AuctionEventRow[]);
 
-    const { data: eventos, error: eventosErr } = await supabase
-      .from('eventos')
-      .select('id, slug, created_at');
-    if (eventosErr) throw eventosErr;
+    type EventoRow = { id: string; slug: string; created_at: string };
+    const eventos = await safeQuery('eventos', async () => {
+      const { data, error } = await supabase
+        .from('eventos')
+        .select('id, slug, created_at');
+      if (error) throw error;
+      return data || [];
+    }, [] as EventoRow[]);
 
     // MIGRAÇÃO UUID→SLUG (auditoria de SEO, 2026-09-26): eventos ganhou slug
     // próprio (migration 20260926100000) — sitemap agora emite a mesma URL
