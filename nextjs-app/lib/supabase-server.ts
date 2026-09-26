@@ -249,7 +249,7 @@ export async function getServerUpcomingEvents(city?: string, state?: string, cou
   // Buscar leilões
   const { data: auctionsData } = await supabase
     .from('auction_events')
-    .select('id, title, title_es, date, cover, status, youtube, catalog')
+    .select('id, slug, title, title_es, date, cover, status, youtube, catalog')
     .in('status', ['live', 'scheduled'])
     .gte('date', today)
     .order('date', { ascending: true })
@@ -262,12 +262,17 @@ export async function getServerUpcomingEvents(city?: string, state?: string, cou
   // passados apareçam na home só porque calharam nas primeiras `limit` linhas.
   const { data: eventosData } = await supabase
     .from('eventos')
-    .select('id, title, title_es, date, image, location_str, location_str_es, link')
+    .select('id, slug, title, title_es, date, image, location_str, location_str_es, link')
     .limit(50);
 
   // Normalizar e mesclar
+  // MIGRAÇÃO UUID→SLUG (auditoria de SEO, 2026-09-26): `kind` (era `type`,
+  // renomeado pra bater com a prop já usada por EventCard/AuctionEvent) +
+  // `slug` — o link do card na home agora usa a mesma URL canônica da
+  // listagem/detalhe (/leiloes/{slug} ou /eventos/{slug}), nunca o id cru.
   const normalizedAuctions = (auctionsData || []).map(a => ({
     id: a.id,
+    slug: a.slug,
     title: lang === 'es' && a.title_es ? a.title_es : a.title,
     date: a.date,
     cover: a.cover,
@@ -275,7 +280,7 @@ export async function getServerUpcomingEvents(city?: string, state?: string, cou
     status: a.status,
     youtube: a.youtube,
     catalog: a.catalog,
-    type: 'auction'
+    kind: 'auction' as const
   }));
 
   // Mesma lógica de app/(public)/eventos/page.tsx: uma data válida (ISO ou
@@ -291,12 +296,13 @@ export async function getServerUpcomingEvents(city?: string, state?: string, cou
     .filter(e => !isPastEvento(e.date))
     .map(e => ({
       id: e.id,
+      slug: e.slug,
       title: lang === 'es' && e.title_es ? e.title_es : e.title,
       date: e.date, // pode ser string "30 ago - 7 set 2026"
       cover: e.image,
       location: lang === 'es' && e.location_str_es ? e.location_str_es : e.location_str,
       link: e.link,
-      type: 'evento'
+      kind: 'evento' as const
     }));
 
   const merged = [...normalizedAuctions, ...normalizedEventos];
@@ -315,8 +321,8 @@ export async function getServerUpcomingEvents(city?: string, state?: string, cou
   const nCity = norm(city);
   const nState = norm(state);
   const nCountry = norm(country);
-  const geoTier = (item: { location?: string; type: string }) => {
-    if (item.type === 'auction') return 2;
+  const geoTier = (item: { location?: string; kind: string }) => {
+    if (item.kind === 'auction') return 2;
     const loc = norm(item.location);
     if (nCity && loc.includes(nCity)) return 0;
     if (nState && loc.includes(nState)) return 1;

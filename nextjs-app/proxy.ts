@@ -308,9 +308,10 @@ const API_CSP = `default-src 'none'; frame-ancestors 'none'; base-uri 'none'`;
 // indexada em PT muda. Só ADICIONA uma árvore de URL nova pra ES.
 const LOCALE_PREFIX = '/es';
 
-// UUID v4, mesma regex já usada em app/(public)/eventos/[id]/page.tsx e em
+// UUID v4, mesma regex já usada em app/(public)/eventos/[slug]/page.tsx e em
 // outras páginas de detalhe do site, pré-combinada aqui com o prefixo
-// /eventos/ — ver bloco de redirect eventos→leilões dentro de proxy().
+// /eventos/ — ver bloco de redirect eventos→leilões/slug-de-eventos dentro
+// de proxy(). Nome mantido (histórico) mesmo cobrindo as duas tabelas hoje.
 const EVENTO_AUCTION_REGEX = /^\/eventos\/([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i;
 
 // Países do Mercosul de língua espanhola — mesmo recorte já usado no resto
@@ -563,9 +564,27 @@ export async function proxy(request: NextRequest) {
       redirectUrl.pathname = withLocale(`/leiloes/${auctionForRedirect.slug}`, activeLocale);
       return NextResponse.redirect(redirectUrl, 308);
     }
-    // Sem match (id nao existe ou e draft): cai no fluxo normal -- a propria
-    // eventos/[id]/page.tsx ainda tenta achar em auction_events/eventos e chama
-    // notFound() corretamente se nao existir em nenhuma das duas.
+    // BUG CORRIGIDO (migracao UUID->slug de eventos, 2026-09-26): mesma
+    // razao de existir do bloco acima -- um link antigo/ja indexado
+    // apontando pro id cru de um registro da tabela `eventos` (nao
+    // auction_events) precisa do MESMO redirect HTTP real aqui, antes do
+    // streaming comecar, senao vira so um <meta> client-side dentro de
+    // eventos/[slug]/page.tsx (que tambem tenta esse fallback, como defesa
+    // em profundidade).
+    const { data: eventoForRedirect } = await anon
+      .from('eventos')
+      .select('slug')
+      .eq('id', eventoAuctionMatch[1])
+      .maybeSingle();
+    if (eventoForRedirect?.slug) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = withLocale(`/eventos/${eventoForRedirect.slug}`, activeLocale);
+      return NextResponse.redirect(redirectUrl, 308);
+    }
+    // Sem match em nenhuma das duas tabelas (id nao existe, ou e um leilao
+    // draft): cai no fluxo normal -- a propria eventos/[slug]/page.tsx
+    // ainda tenta achar em auction_events/eventos e chama notFound()
+    // corretamente se nao existir em nenhuma das duas.
   }
 
   // ─── Nonce para CSP ──────────────────────────────────────────

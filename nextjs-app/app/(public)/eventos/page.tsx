@@ -117,11 +117,11 @@ export default async function EventosPage({
     // de um leilão continuava sempre em português na listagem mesmo com
     // ES selecionado.
     let qAuctions = sb.from('auction_events')
-      .select('id, title, title_es, date, cover, status')
+      .select('id, slug, title, title_es, date, cover, status')
       .neq('status', 'draft')
       .limit(50)
 
-    const eventosFields = 'id, title, title_es, date, image, location_str, location_str_es'
+    const eventosFields = 'id, slug, title, title_es, date, image, location_str, location_str_es'
 
     if (searchQuery) {
       qAuctions = qAuctions.ilike('title', `%${searchQuery}%`)
@@ -131,7 +131,7 @@ export default async function EventosPage({
     // paralelas de `eventos` logo abaixo (não dá pra ramificar qAuctions
     // com um .or(), então é uma query independente, mesclada por id).
     const qAuctionsPorTituloEs = searchQuery
-      ? sb.from('auction_events').select('id, title, title_es, date, cover, status').neq('status', 'draft').ilike('title_es', `%${searchQuery}%`).limit(50)
+      ? sb.from('auction_events').select('id, slug, title, title_es, date, cover, status').neq('status', 'draft').ilike('title_es', `%${searchQuery}%`).limit(50)
       : null
 
     // BUG CORRIGIDO (validação do zero, rodada 6, revisão adversarial): a
@@ -212,6 +212,8 @@ export default async function EventosPage({
 
     const normalizedAuctions = (resAuctionsMerged.data || []).map(a => ({
       id: a.id,
+      slug: a.slug,
+      kind: 'auction' as const,
       title: lang === 'es' && a.title_es ? a.title_es : a.title,
       date: a.date,
       cover: a.cover,
@@ -221,6 +223,8 @@ export default async function EventosPage({
 
     const normalizedEventos = (resEventos.data || []).map(e => ({
       id: e.id,
+      slug: e.slug,
+      kind: 'evento' as const,
       title: lang === 'es' && e.title_es ? e.title_es : e.title,
       date: e.date,
       cover: e.image,
@@ -299,7 +303,10 @@ export default async function EventosPage({
       }
 
       const isOnline = !ev.location || ev.location.toLowerCase().includes('online');
-      const evUrl = `${SITE_URL}${localizedPath(`/eventos/${ev.id}`, lang)}`;
+      // MIGRAÇÃO UUID→SLUG (auditoria de SEO, 2026-09-26): mesmo branch por
+      // kind já usado no <Link> de EventCard.tsx — leilão sempre aponta pra
+      // /leiloes/{slug} (URL canônica de verdade), nunca pra /eventos/{id}.
+      const evUrl = `${SITE_URL}${localizedPath(ev.kind === 'auction' ? `/leiloes/${ev.slug}` : `/eventos/${ev.slug}`, lang)}`;
       return {
         '@type': 'Event',
         name: ev.title,

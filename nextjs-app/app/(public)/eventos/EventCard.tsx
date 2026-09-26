@@ -10,6 +10,10 @@ import { imageUrl } from '@/lib/storage'
 
 export interface AuctionEvent {
   id: string
+  // MIGRAÇÃO UUID→SLUG (auditoria de SEO, 2026-09-26): link do card agora
+  // sempre usa slug, nunca o id cru — ver kind abaixo pra saber qual rota.
+  slug: string
+  kind: 'auction' | 'evento'
   title: string
   location?: string
   date: string
@@ -55,7 +59,7 @@ export default function EventCard({ ev, lang = 'pt' }: EventCardProps) {
   }
 
   return (
-    <Link href={`/eventos/${ev.id}`} className="event-card glass-card" style={{ textDecoration: 'none', color: 'inherit', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden', height: '100%', transition: 'transform 0.2s, box-shadow 0.2s' }}>
+    <Link href={ev.kind === 'auction' ? `/leiloes/${ev.slug}` : `/eventos/${ev.slug}`} className="event-card glass-card" style={{ textDecoration: 'none', color: 'inherit', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden', height: '100%', transition: 'transform 0.2s, box-shadow 0.2s' }}>
       <div style={{ position: 'relative', width: '100%', height: '220px', backgroundColor: '#f1f5f9' }}>
         <Image
           src={imageUrl(ev.cover)}

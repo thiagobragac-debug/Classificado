@@ -250,15 +250,19 @@ export async function getAllSitemapEntries(): Promise<MetadataRoute.Sitemap> {
 
     const { data: eventos, error: eventosErr } = await supabase
       .from('eventos')
-      .select('id, created_at');
+      .select('id, slug, created_at');
     if (eventosErr) throw eventosErr;
 
+    // MIGRAÇÃO UUID→SLUG (auditoria de SEO, 2026-09-26): eventos ganhou slug
+    // próprio (migration 20260926100000) — sitemap agora emite a mesma URL
+    // canônica que a própria página usa (ver app/(public)/eventos/[slug]/
+    // page.tsx), em vez do id cru que hoje sofre redirect 308.
     const eventEntries: MetadataRoute.Sitemap = (eventos || []).map((ev) => ({
-      url: `${baseUrl}/eventos/${ev.id}`,
+      url: `${baseUrl}/eventos/${ev.slug}`,
       lastModified: ev.created_at,
       changeFrequency: 'weekly',
       priority: 0.7,
-      alternates: { languages: withLang(baseUrl, `/eventos/${ev.id}`) },
+      alternates: { languages: withLang(baseUrl, `/eventos/${ev.slug}`) },
     }));
 
     // /leiloes/[slug] resolve só contra auction_events (ver

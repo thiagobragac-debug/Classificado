@@ -73,7 +73,7 @@ const TRANSLATIONS = {
 // (evento inexistente respondia HTTP 200) — não era o notFound() em si
 // (chamado corretamente aqui e em generateMetadata), era um
 // app/(public)/eventos/loading.tsx ancestral, que cria um Suspense boundary
-// envolvendo TODA a árvore do segmento `eventos` (inclusive este `[id]`).
+// envolvendo TODA a árvore do segmento `eventos` (inclusive este `[slug]`).
 // A resposta começa a streamar com 200 assim que o fallback do loading.tsx
 // é montado; quando notFound() roda depois disso, dentro do Suspense, é
 // tarde demais pra trocar o status HTTP já commitado — só o corpo muda.
@@ -87,6 +87,8 @@ export const dynamic = 'force-dynamic';
 
 type FoundEvento = {
   kind: 'evento';
+  slug: string;
+  needsRedirect: boolean;
   title: string;
   date: string;
   cover: string | null;
@@ -105,29 +107,31 @@ type FoundRecord = FoundAuction | FoundEvento;
 // em app/(public)/eventos/page.tsx.
 //
 // DUPLICAÇÃO DE CONTEÚDO CORRIGIDA (achado de validação, 2026-08-29):
-// /leiloes/[id] já é a página completa de um leilão (lances, catálogo,
+// /leiloes/[slug] já é a página completa de um leilão (lances, catálogo,
 // vídeo ao vivo) — renderizar aqui um resumo do MESMO auction_event, numa
-// URL diferente, é near-duplicate content pro Google (confirmado ao vivo:
-// o mesmo id de auction_events respondia HTTP 200 nas duas rotas, com o
-// mesmo título, cada uma com seu próprio <link rel="canonical">). Como o
-// card de leilão na listagem /eventos ainda linka pra cá (EventCard.tsx
-// aponta sempre pra /eventos/{id}, nunca sabe se o registro é um leilão),
-// esta função agora só confirma a EXISTÊNCIA do auction_event (kind:
-// 'auction') — quem decide o que fazer com isso é generateMetadata/a página
-// (redirect de vez pra /leiloes/{slug}, sem renderizar resumo nenhum). Só um
-// registro de `eventos` de verdade retorna os dados completos (kind:
-// 'evento') pra render abaixo.
+// URL diferente, é near-duplicate content pro Google. Esta função agora só
+// confirma a EXISTÊNCIA do auction_event (kind: 'auction') — quem decide o
+// que fazer com isso é generateMetadata/a página (redirect de vez pra
+// /leiloes/{slug}, sem renderizar resumo nenhum). Só um registro de
+// `eventos` de verdade retorna os dados completos (kind: 'evento') pra
+// render abaixo.
 //
-// MIGRAÇÃO UUID→SLUG: /leiloes/[id] virou /leiloes/[slug] — o redirect
-// abaixo precisa do slug real do leilão, não do id cru desta rota (que
-// continua sendo o id de auction_events, /eventos/[id] não foi slugificada).
-async function findEvent(id: string, lang: Lang): Promise<FoundRecord | null> {
+// MIGRAÇÃO UUID→SLUG (achado ao vivo via workflow de auditoria de SEO,
+// 2026-09-26): /eventos agora tem slug próprio (migration 20260926100000),
+// igual a ads/profiles/auction_events desde 2026-08-30. proxy.ts já
+// redireciona (308 real, ver EVENTO_AUCTION_REGEX) um id cru de auction_events
+// OU de eventos pra sua URL de slug ANTES de chegar aqui — o fallback por id
+// abaixo é defesa em profundidade (mesmo padrão já usado pro caso de
+// auction_events), não o caminho principal.
+async function findEvent(slugParam: string, lang: Lang): Promise<FoundRecord | null> {
   const sb = createAnonClient();
+  const isUuid = UUID_REGEX.test(slugParam);
+  const matchColumn = isUuid ? 'id' : 'slug';
 
   const { data: auction } = await sb
     .from('auction_events')
     .select('slug')
-    .eq('id', id)
+    .eq(matchColumn, slugParam)
     .neq('status', 'draft')
     .maybeSingle();
 
@@ -137,15 +141,28 @@ async function findEvent(id: string, lang: Lang): Promise<FoundRecord | null> {
 
   const { data: evento } = await sb
     .from('eventos')
-    .select('id, title, title_es, date, image, location_str, location_str_es, organizer, organizer_es, link')
-    .eq('id', id)
+    .select('id, slug, title, title_es, date, image, location_str, location_str_es, organizer, organizer_es, link')
+    .eq(matchColumn, slugParam)
     .maybeSingle();
 
   if (evento) {
     const title = lang === 'es' && evento.title_es ? evento.title_es : evento.title;
     const location = lang === 'es' && evento.location_str_es ? evento.location_str_es : evento.location_str;
     const organizer = lang === 'es' && evento.organizer_es ? evento.organizer_es : evento.organizer;
-    return { kind: 'evento', title, date: evento.date, cover: evento.image, location, organizer, link: evento.link };
+    return {
+      kind: 'evento',
+      slug: evento.slug,
+      // Só true quando o param recebido era o id cru (fallback de defesa em
+      // profundidade) — o caso normal (proxy.ts já resolveu, ou o visitante
+      // veio de um link com o slug certo) nunca precisa redirecionar de novo.
+      needsRedirect: isUuid,
+      title,
+      date: evento.date,
+      cover: evento.image,
+      location,
+      organizer,
+      link: evento.link,
+    };
   }
 
   return null;
@@ -162,21 +179,21 @@ function formatEventDate(date: string, lang: Lang): string {
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
-  const { id } = await params;
+  const { slug: slugParam } = await params;
   const lang = await getLocale();
   const tt = TRANSLATIONS[lang];
-  if (!UUID_REGEX.test(id)) return { title: tt.notFound };
 
-  const data = await findEvent(id, lang);
-  // BUG CRÍTICO CORRIGIDO (achado de validação, 2026-08-29): pra um id
-  // formalmente válido mas inexistente, esta função só devolvia um Metadata
-  // com título "não encontrado" — nunca chamava notFound(). generateMetadata
-  // roda ANTES do corpo da página começar a streamar (esta rota herda o
-  // Suspense de app/(public)/eventos/loading.tsx), então a página inteira
-  // respondia HTTP 200 pra um evento que não existe (soft-404, confirmado ao
-  // vivo com curl). Mesmo padrão já corrigido em anuncio/[id]/page.tsx.
+  const data = await findEvent(slugParam, lang);
+  // BUG CRÍTICO CORRIGIDO (achado de validação, 2026-08-29): pra um
+  // parâmetro formalmente válido mas inexistente, esta função só devolvia
+  // um Metadata com título "não encontrado" — nunca chamava notFound().
+  // generateMetadata roda ANTES do corpo da página começar a streamar
+  // (esta rota herda o Suspense de app/(public)/eventos/loading.tsx), então
+  // a página inteira respondia HTTP 200 pra um evento que não existe
+  // (soft-404, confirmado ao vivo com curl). Mesmo padrão já corrigido em
+  // anuncio/[slug]/page.tsx.
   if (!data) notFound();
 
   // DUPLICAÇÃO DE CONTEÚDO CORRIGIDA — ver comentário de findEvent() acima.
@@ -188,6 +205,9 @@ export async function generateMetadata({
   // porque a duplicidade é estrutural: este id SEMPRE vai pertencer a
   // /leiloes, nunca a uma página de evento própria.
   if (data.kind === 'auction') permanentRedirect(localizedPath(`/leiloes/${data.slug}`, lang));
+  // MIGRAÇÃO UUID→SLUG: mesma defesa em profundidade do caso acima — em
+  // condições normais proxy.ts já redirecionou antes de chegar aqui.
+  if (data.needsRedirect) permanentRedirect(localizedPath(`/eventos/${data.slug}`, lang));
 
   const coverUrl = data.cover
     ? data.cover.startsWith('http')
@@ -196,7 +216,7 @@ export async function generateMetadata({
     : undefined;
 
   const description = `${tt.eventOn} ${formatEventDate(data.date, lang)}`;
-  const path = `/eventos/${id}`;
+  const path = `/eventos/${data.slug}`;
   const canonicalUrl = `${SITE_URL}${localizedPath(path, lang)}`;
 
   return {
@@ -232,11 +252,11 @@ export async function generateStaticParams() {
   try {
     const sb = createAnonClient();
     const [{ data: auctions }, { data: eventos }] = await Promise.all([
-      sb.from('auction_events').select('id').neq('status', 'draft').gte('date', new Date().toISOString()).order('date', { ascending: true }).limit(50),
-      sb.from('eventos').select('id').limit(50),
+      sb.from('auction_events').select('slug').neq('status', 'draft').gte('date', new Date().toISOString()).order('date', { ascending: true }).limit(50),
+      sb.from('eventos').select('slug').limit(50),
     ]);
 
-    return [...(auctions || []), ...(eventos || [])].map(ev => ({ id: ev.id }));
+    return [...(auctions || []), ...(eventos || [])].map(ev => ({ slug: ev.slug }));
   } catch {
     return [];
   }
@@ -245,18 +265,13 @@ export async function generateStaticParams() {
 export default async function EventDetailPage({
   params
 }: {
-  params: Promise<{ id: string }>
+  params: Promise<{ slug: string }>
 }) {
-  const { id } = await params
+  const { slug: slugParam } = await params
   const lang = await getLocale()
   const tt = TRANSLATIONS[lang]
 
-  // Validar formato UUID antes de qualquer query
-  if (!UUID_REGEX.test(id)) {
-    notFound()
-  }
-
-  const found = await findEvent(id, lang)
+  const found = await findEvent(slugParam, lang)
 
   if (!found) {
     notFound()
@@ -269,6 +284,9 @@ export default async function EventDetailPage({
   // continua correto por si só.
   if (found.kind === 'auction') {
     permanentRedirect(localizedPath(`/leiloes/${found.slug}`, lang))
+  }
+  if (found.needsRedirect) {
+    permanentRedirect(localizedPath(`/eventos/${found.slug}`, lang))
   }
 
   const event = found
@@ -288,7 +306,7 @@ export default async function EventDetailPage({
   // (Início > Eventos > Detalhes, ver <nav className="breadcrumb"> abaixo)
   // mas nunca tinha o schema.org BreadcrumbList correspondente — mesmo
   // padrão já usado em anuncio/[slug]/page.tsx e categoria/[slug]/page.tsx.
-  const eventoUrl = `${SITE_URL}${localizedPath(`/eventos/${id}`, lang)}`;
+  const eventoUrl = `${SITE_URL}${localizedPath(`/eventos/${event.slug}`, lang)}`;
   const breadcrumbJsonLd = {
     '@type': 'BreadcrumbList',
     itemListElement: [
