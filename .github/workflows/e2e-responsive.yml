@@ -1,11 +1,21 @@
-name: Teste de responsividade (E2E)
+name: E2E (Playwright)
 
-# Roda o suite tests/e2e/responsive-smoke.spec.ts a cada push/PR na main —
-# é o mecanismo que faz o teste rodar de verdade, sem depender de alguém
-# lembrar de rodar `npm run test:e2e` na mão antes de subir. Nasceu depois
-# de vários bugs de layout mobile (imagem sumindo, cartão virando cápsula
-# gigante, badge cortando texto, busca prendendo o usuário) só terem sido
-# descobertos DEPOIS de já estarem em produção.
+# Roda TODOS os specs de tests/e2e/ a cada push/PR na main (npm run test:e2e
+# = `playwright test`, sem filtro de --project) — é o mecanismo que faz o
+# teste rodar de verdade, sem depender de alguém lembrar de rodar na mão
+# antes de subir. Hoje cobre 2 grupos independentes (ver playwright.config.ts):
+#   - responsive-smoke.spec.ts (4 projetos de viewport: 320/375/900/1440px)
+#     nasceu depois de vários bugs de layout mobile (imagem sumindo, cartão
+#     virando cápsula gigante, badge cortando texto, busca prendendo o
+#     usuário) só terem sido descobertos DEPOIS de já estarem em produção.
+#   - anunciar.spec.ts / login.spec.ts (projeto "functional", 1 viewport) —
+#     fluxos funcionais sem depender de conta real (revisão de cobertura de
+#     testes, 2026-09-26); achou e confirmou o fix de um bug real ao vivo
+#     (botão de mostrar/ocultar senha colapsava pra 0×0 em qualquer viewport
+#     acima de 992px — ver app/globals.css).
+# Nome do workflow mantido genérico ("E2E") de propósito, já que não é só
+# responsividade — o nome anterior ("Teste de responsividade") já não
+# descrevia o que ele de fato cobre.
 #
 # Precisa destes Secrets configurados em
 # Settings → Secrets and variables → Actions (nunca são impressos em log):

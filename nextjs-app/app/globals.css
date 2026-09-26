@@ -1655,6 +1655,21 @@ textarea.form-input { resize: vertical; min-height: 140px; }
   border-color: #16A34A;
   box-shadow: inset 0 0 0 1px #16A34A;
 }
+/* BUG CRÍTICO CORRIGIDO (achado ao vivo escrevendo o E2E de login,
+   2026-09-26): a regra "mobile-only" logo abaixo (dentro do @media
+   max-width:992px) foi escrita achando que só corrigia o alvo de toque —
+   só que ".input-with-icon svg" (seletor descendente, não filho direto)
+   também mira o <svg> DENTRO deste botão, deixando-o position:absolute e
+   removido do fluxo. Sem width/height própria, o botão em si (padding:0
+   inline) colapsa pra 0×0 em QUALQUER viewport ACIMA de 992px — não
+   "pequeno demais pro toque", literalmente sem área nenhuma, invisível e
+   inclicável. Confirmado ao vivo: Playwright (viewport padrão 1280×720)
+   media o botão com getBoundingClientRect() = {width:0, height:0}; o
+   mesmo teste só passava por acidente em telas ≤992px, onde a regra
+   mobile abaixo aplicava min-width/min-height. Afeta as 4 telas que usam
+   esta classe (Login/Cadastro/Redefinir senha) pra 100% dos visitantes
+   desktop. Sizing agora incondicional — resolve pra todo viewport, não só
+   mobile. */
 .input-with-icon .toggle-password {
   position: absolute;
   right: 1rem;
@@ -1663,6 +1678,11 @@ textarea.form-input { resize: vertical; min-height: 140px; }
   pointer-events: auto;
   color: #9CA3AF;
   transition: color 0.2s;
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .input-with-icon .toggle-password:hover {
   color: #4B5563;
@@ -1684,19 +1704,9 @@ textarea.form-input { resize: vertical; min-height: 140px; }
   .login-split.v2 .logo { margin-bottom: 1.5rem !important; }
   .login-badges { justify-content: center; }
   .login-badges .badge { font-size: 0.8rem; padding: 0.4rem 0.8rem; }
-  /* BUG CORRIGIDO (varredura cruzada de cenários): o botão "mostrar/ocultar
-     senha" (LoginForm.tsx/RegisterForm.tsx) tem padding:0 inline e só o
-     ícone de 18px como área clicável — bem abaixo do alvo de toque mínimo
-     recomendado (44×44px, WCAG 2.5.5). min-width/min-height não conflitam
-     com o padding:0 inline (propriedades diferentes); o leve deslocamento
-     visual do ícone é aceitável pra ganhar a área de toque. */
-  .input-with-icon .toggle-password {
-    min-width: 44px;
-    min-height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
+  /* Sizing do .toggle-password (WCAG 2.5.5, alvo de toque 44×44px) agora
+     vive incondicionalmente na regra base acima — ver comentário lá sobre
+     por que restringir isto ao mobile escondia um bug bem maior. */
 }
 
 /* --- PUBLIC MODAL --- */

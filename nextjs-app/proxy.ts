@@ -161,7 +161,12 @@ const ADSENSE_TELEMETRY = ['https://csi.gstatic.com'];
 const CHECKOUT_ROUTES = ['/planos'];
 
 // ─── CSP Builder ───────────────────────────────────────────────
-function buildCsp(nonce: string, pathname: string): string {
+// export só pra proxy.test.ts poder testar isolado (mudança
+// aditiva, nenhum comportamento muda) -- ver comentário no topo daquele
+// arquivo sobre por que esta função em particular é a que mais silenciosamente
+// quebra integrações de terceiro (Stripe/MP/Pagar.me/AdSense/GA4/Turnstile
+// já tiveram bug real de CSP faltando host, cada um só descoberto ao vivo).
+export function buildCsp(nonce: string, pathname: string): string {
   const isProd = process.env.NODE_ENV === 'production';
   const supabaseHttp = SUPABASE_HOST ? [`https://${SUPABASE_HOST}`] : [];
   const supabaseWs = SUPABASE_HOST ? [`wss://${SUPABASE_HOST}`] : [];
@@ -285,7 +290,8 @@ function buildCsp(nonce: string, pathname: string): string {
 }
 
 // ─── Aplicação dos cabeçalhos ──────────────────────────────────
-function applySecurityHeaders(res: NextResponse, csp: string): NextResponse {
+// export só pra proxy.test.ts (ver comentário em cima de buildCsp).
+export function applySecurityHeaders(res: NextResponse, csp: string): NextResponse {
   for (const { key, value } of SECURITY_HEADERS) {
     res.headers.set(key, value);
   }
@@ -332,11 +338,14 @@ const PAISES_ES = new Set(['AR', 'PY', 'UY']);
 // por padrão desde a migração, silenciosamente. cf-ipcountry é o
 // equivalente do Cloudflare, que fica na frente de 100% do tráfego do
 // Render.
-function paisParaLocale(countryCode: string | null): 'pt' | 'es' {
+// export só pra proxy.test.ts (ver comentário em cima de
+// buildCsp) -- esta é a função que causou o bug de idioma revertendo
+// sozinho (prefetch de link /es/... tratado como escolha deliberada).
+export function paisParaLocale(countryCode: string | null): 'pt' | 'es' {
   return countryCode && PAISES_ES.has(countryCode) ? 'es' : 'pt';
 }
 
-function stripLocalePrefix(pathname: string): { effectivePath: string; urlLocale: 'es' | null } {
+export function stripLocalePrefix(pathname: string): { effectivePath: string; urlLocale: 'es' | null } {
   if (pathname === LOCALE_PREFIX) return { effectivePath: '/', urlLocale: 'es' };
   if (pathname.startsWith(`${LOCALE_PREFIX}/`)) {
     return { effectivePath: pathname.slice(LOCALE_PREFIX.length), urlLocale: 'es' };
@@ -348,7 +357,7 @@ function stripLocalePrefix(pathname: string): { effectivePath: string; urlLocale
 // locale ativo da requisição é 'es' — pra um usuário que já está
 // navegando em ES não ser jogado de volta pra uma URL em PT no meio do
 // fluxo (ex.: /painel protegido redirecionando pro /login).
-function withLocale(path: string, locale: 'pt' | 'es'): string {
+export function withLocale(path: string, locale: 'pt' | 'es'): string {
   if (locale !== 'es') return path;
   return path === '/' ? LOCALE_PREFIX : `${LOCALE_PREFIX}${path}`;
 }
