@@ -223,7 +223,15 @@ async function SellerContent({ sellerId, sellerName, parsedParams, geoContext, p
     '@type': 'ProfilePage',
     dateCreated: profile?.created_at ?? new Date().toISOString(),
     mainEntity: {
-      '@type': 'Organization',
+      // BUG CORRIGIDO (achado ao vivo via workflow de auditoria de SEO,
+      // 2026-09-26): '@type' fixo em 'Organization' pra todo vendedor,
+      // mesmo sendo majoritariamente pessoas físicas (produtores rurais)
+      // neste marketplace — o próprio fallback do nome (sellerName acima)
+      // já é pessoal ("Vendedor Anônimo"/"Vendedor Anónimo"), nunca
+      // corporativo. As diretrizes do Google para ProfilePage recomendam
+      // Person para esse caso; não há hoje nenhum campo no profile que
+      // distinga pessoa física de empresa pra decidir dinamicamente.
+      '@type': 'Person',
       name: sellerName,
       aggregateRating: stats.total_reviews > 0 ? {
         '@type': 'AggregateRating',

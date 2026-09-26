@@ -195,7 +195,17 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   // com lang="es" e title_es preenchido. Agora prioriza a coluna do idioma
   // ativo (com fallback pra pt quando a tradução ainda não existe).
   const fullTitle = (lang === 'es' && ad.title_es) ? ad.title_es : (ad.title_pt || ad.title_es || tx.fallbackTitle);
-  const title = truncate(fullTitle, 60);
+  // BUG CORRIGIDO (achado ao vivo via workflow de auditoria de SEO,
+  // 2026-09-26): truncate(fullTitle, 60) não reservava espaço para o
+  // sufixo " | Tauze Class" (14 caracteres) que o layout raiz acrescenta
+  // via title.template, e que openGraph.title duplica manualmente logo
+  // abaixo — qualquer anúncio com título original acima de ~46
+  // caracteres (o campo aceita até 100) gerava um <title>/og:title de até
+  // ~74 caracteres, sistematicamente acima do limite recomendado, em
+  // TODA página de anúncio (a página de conteúdo mais visitada do site).
+  // Mesmo raciocínio de orçamento de caracteres já aplicado em
+  // categoria/[slug]/page.tsx pro mesmo sufixo.
+  const title = truncate(fullTitle, 46);
   const imgUrl = ad.images?.[0] ? imageUrl(ad.images[0]) : FALLBACK_IMG_ABSOLUTE;
   const plainDescription = stripHtmlForMeta(ad.description || '', 160);
 
@@ -300,19 +310,30 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ slug
   const id = ad.id;
 
   // ─── Contagem de views com hash real do IP ──────────────────
-  try {
-    const headersList = await headers();
-    const rawIp =
-      headersList.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-      headersList.get('x-real-ip') ||
-      '127.0.0.1';
-    // Hash SHA-256 truncado do IP + adId para deduplicação real por visitante
-    const ipHash = createHash('sha256').update(rawIp + id).digest('hex').slice(0, 16);
-    await supabase.rpc('increment_ad_view_safe', { p_ad_id: id, p_ip_hash: ipHash });
-  } catch (e) {
-    // Não bloquear a renderização por falha de contagem
-    console.error('[AdDetails] Failed to increment view:', e);
-  }
+  // BUG CORRIGIDO (achado ao vivo via workflow de auditoria de SEO,
+  // 2026-09-26): esta chamada (resultado descartado, só efeito colateral)
+  // e a busca de hasWhatsapp mais abaixo são duas idas e vindas
+  // independentes ao Postgres que não dependem uma da outra, mas
+  // bloqueavam o render em SEQUÊNCIA — quase dobrando o TTFB desta
+  // página (a de conteúdo mais visitada do site) em vez de rodar em
+  // paralelo, mesmo padrão já usado em app/(public)/layout.tsx. Dispara
+  // aqui sem aguardar; o await real acontece só depois, junto com a
+  // busca de hasWhatsapp.
+  const incrementViewPromise = (async () => {
+    try {
+      const headersList = await headers();
+      const rawIp =
+        headersList.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+        headersList.get('x-real-ip') ||
+        '127.0.0.1';
+      // Hash SHA-256 truncado do IP + adId para deduplicação real por visitante
+      const ipHash = createHash('sha256').update(rawIp + id).digest('hex').slice(0, 16);
+      await supabase.rpc('increment_ad_view_safe', { p_ad_id: id, p_ip_hash: ipHash });
+    } catch (e) {
+      // Não bloquear a renderização por falha de contagem
+      console.error('[AdDetails] Failed to increment view:', e);
+    }
+  })();
 
   // BUG CORRIGIDO (auditoria de i18n, 2026-08-26): mesma inversão de
   // prioridade do generateMetadata — título e nome da categoria exibidos
@@ -431,14 +452,11 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ slug
   // só o nome da tabela mudou. O valor em si é descartado logo em seguida;
   // só o booleano sobrevive.
   let hasWhatsapp = false;
-  if (ad.profiles?.id) {
-    const { data: whatsappRow } = await createAdminClient()
-      .from('user_secrets')
-      .select('phone_whatsapp')
-      .eq('id', ad.profiles.id)
-      .maybeSingle();
-    hasWhatsapp = !!whatsappRow?.phone_whatsapp;
-  }
+  const whatsappPromise = ad.profiles?.id
+    ? createAdminClient().from('user_secrets').select('phone_whatsapp').eq('id', ad.profiles.id).maybeSingle()
+    : Promise.resolve({ data: null });
+  const [, { data: whatsappRow }] = await Promise.all([incrementViewPromise, whatsappPromise]);
+  hasWhatsapp = !!whatsappRow?.phone_whatsapp;
   const adForSidebar = ad;
 
   return (

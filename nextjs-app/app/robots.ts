@@ -1,5 +1,6 @@
 import { MetadataRoute } from 'next';
 import { getAllSitemapEntries, SITEMAP_CHUNK_SIZE } from '@/lib/sitemap-data';
+import { SITE_URL } from '@/lib/locale';
 
 // BUG CORRIGIDO (auditoria de SEO, 2026-09-08): app/sitemap.ts passou a usar
 // generateSitemaps() (particiona em /sitemap/0.xml, /sitemap/1.xml, etc. —
@@ -13,10 +14,13 @@ import { getAllSitemapEntries, SITEMAP_CHUNK_SIZE } from '@/lib/sitemap-data';
 export const revalidate = 3600;
 
 export default async function robots(): Promise<MetadataRoute.Robots> {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://tauzeclass.com.br';
+  // BUG CORRIGIDO (achado ao vivo via workflow de auditoria de SEO,
+  // 2026-09-26): tinha sua própria cópia divergente do fallback de SITE_URL
+  // (sem www) — ver comentário completo em lib/locale.ts. Importa do
+  // módulo central em vez de redeclarar, pra nunca mais divergir.
   const all = await getAllSitemapEntries();
   const numSitemaps = Math.max(1, Math.ceil(all.length / SITEMAP_CHUNK_SIZE));
-  const sitemaps = Array.from({ length: numSitemaps }, (_, id) => `${baseUrl}/sitemap/${id}.xml`);
+  const sitemaps = Array.from({ length: numSitemaps }, (_, id) => `${SITE_URL}/sitemap/${id}.xml`);
 
   return {
     rules: {

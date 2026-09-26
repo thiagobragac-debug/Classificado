@@ -18,7 +18,19 @@ import type { Lang } from './constants';
 // sitemap/robots seguiriam corretamente a env var — uma divergência interna
 // silenciosa. Centralizado aqui (mesmo módulo que já concentra a lógica de
 // URL por locale) para as páginas importarem em vez de redeclarar o literal.
-export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://tauzeclass.com.br';
+// BUG CORRIGIDO (achado ao vivo via workflow de auditoria de SEO,
+// 2026-09-26): o fallback (usado de fato em produção, NEXT_PUBLIC_SITE_URL
+// nunca foi configurada no Render) apontava pro host SEM www — mas
+// www.tauzeclass.com.br é o host real (o site sempre redireciona 301
+// sem-www -> com-www, confirmado ao vivo via curl). Resultado: canonical,
+// hreflang, Open Graph de TODA página do site, mais as ~1.283+ URLs do
+// sitemap.xml e a linha Sitemap: do robots.txt, declaravam como
+// "canônica" uma URL que o próprio site nunca serve com 200 — só
+// redireciona. Exatamente o antipadrão que o Google despriorializa
+// (nunca usar como canonical uma URL que redireciona), fragmentando
+// autoridade de ranking entre os dois hosts e desperdiçando crawl budget
+// seguindo um redirect a cada URL do sitemap.
+export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.tauzeclass.com.br';
 
 const LOCALE_PREFIX = '/es';
 

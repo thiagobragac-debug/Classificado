@@ -16,6 +16,15 @@ import { localizedPath, buildHreflangAlternates, SITE_URL } from '@/lib/locale'
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+// BUG CORRIGIDO (achado ao vivo via workflow de auditoria de SEO,
+// 2026-09-26): og:image/twitter:image viravam array VAZIO (sem imagem
+// nenhuma) quando o evento não tem capa cadastrada — array vazio é
+// truthy em JS, mas o Google trata image:[] como campo ausente/inválido,
+// quebrando o card de compartilhamento no WhatsApp/Facebook/Twitter. A
+// própria listagem /eventos já usa este mesmo fallback no JSON-LD (linha
+// mais abaixo neste arquivo) — só faltava aplicar no Open Graph/Twitter.
+const FALLBACK_IMG_ABSOLUTE = `${SITE_URL}/assets/hero_farm.webp`;
+
 type Lang = 'pt' | 'es';
 
 // Strings específicas desta página de detalhe — não existem no dicionário
@@ -206,13 +215,13 @@ export async function generateMetadata({
       alternateLocale: lang === 'es' ? 'pt_BR' : 'es_AR',
       images: coverUrl
         ? [{ url: coverUrl, width: 1200, height: 630, alt: data.title }]
-        : [],
+        : [{ url: FALLBACK_IMG_ABSOLUTE, width: 1200, height: 630, alt: data.title }],
     },
     twitter: {
       card: 'summary_large_image',
       title: data.title,
       description,
-      images: coverUrl ? [coverUrl] : [],
+      images: [coverUrl || FALLBACK_IMG_ABSOLUTE],
     },
   };
 }
@@ -318,7 +327,7 @@ export default async function EventDetailPage({
           ? event.cover.startsWith('http')
             ? event.cover
             : `https://rfzuzuobwuanmbrcthqe.supabase.co/storage/v1/object/public/ad-images/${event.cover}`
-          : `${SITE_URL}/assets/hero_farm.webp`,
+          : FALLBACK_IMG_ABSOLUTE,
         organizer: { '@type': 'Organization', name: 'Tauze Class', url: SITE_URL },
       },
       breadcrumbJsonLd,

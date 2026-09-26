@@ -272,7 +272,13 @@ function buildItemListJsonLd(ads: any[], lang: Lang) {
               url: adUrl,
               priceCurrency: ad.currency || 'BRL',
               price: ad.price,
-              availability: 'https://schema.org/InStock',
+              // BUG CORRIGIDO (achado ao vivo via workflow de auditoria de
+              // SEO, 2026-09-26): hardcoded em InStock — hoje inofensivo só
+              // porque a query upstream já filtra status='active', mas
+              // diferente de anuncio/[slug]/page.tsx, que deriva de
+              // ad.status de verdade. Deriva aqui também, por consistência
+              // e pra não depender silenciosamente do filtro da query.
+              availability: ad.status === 'active' ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
             },
           } : {}),
         },

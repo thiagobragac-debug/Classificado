@@ -2642,10 +2642,20 @@ textarea.form-input { resize: vertical; min-height: 140px; }
     display: block;
     position: sticky;
     top: calc(var(--header-h) + 2rem);
+    /* BUG CORRIGIDO (achado ao vivo via workflow de auditoria de SEO,
+       2026-09-26): sem altura reservada, o conteúdo pulava de tamanho
+       (CLS real) quando o AdBanner (position="anuncio_sidebar", sempre
+       250px — ver isSidebar em components/AdBanner.tsx) terminava de
+       carregar geo+banner alguns instantes depois do primeiro paint,
+       na página de anúncio (a mais visitada do site). A home já reserva
+       altura pros próprios banners (style inline minHeight em page.tsx)
+       — isso replica o mesmo cuidado aqui. */
+    min-height: 250px;
   }
 }
 .ad-banner-mobile-only {
   margin-top: 1rem;
+  min-height: 250px;
 }
 @media (min-width: 993px) {
   .ad-banner-mobile-only {

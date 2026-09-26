@@ -16,6 +16,15 @@ import { localizedPath, buildHreflangAlternates, SITE_URL } from '@/lib/locale';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+// BUG CORRIGIDO (achado ao vivo via workflow de auditoria de SEO,
+// 2026-09-26): og:image/twitter:image viravam array VAZIO (sem imagem
+// nenhuma) quando o leilão não tem capa cadastrada — array vazio é
+// truthy em JS, mas o Google trata image:[] como campo ausente/inválido,
+// quebrando o card de compartilhamento no WhatsApp/Facebook/Twitter.
+// Mesmo fallback já usado em anuncio/[slug]/page.tsx, categoria/[slug]/
+// page.tsx e vendedor/[slug]/page.tsx.
+const FALLBACK_IMG_ABSOLUTE = `${SITE_URL}/assets/hero_farm.webp`;
+
 // BUG CORRIGIDO (auditoria de i18n, 2026-08-26/27 — confirmado ao vivo
 // contra o servidor real, inspecionando os headers da resposta): esta rota
 // combina generateStaticParams() com `revalidate`, o que faz o Next.js
@@ -56,6 +65,8 @@ const TRANSLATIONS = {
     coverAlt: (title: string) => `Capa do leilão: ${title}`,
     descriptionText: (date: string, time: string) => `Leilão em ${date} às ${time}`,
     liveOgPrefix: (title: string) => `AO VIVO: ${title}`,
+    breadcrumbHome: 'Início',
+    breadcrumbAuctions: 'Leilões',
   },
   es: {
     notFound: 'Remate no encontrado',
@@ -73,6 +84,8 @@ const TRANSLATIONS = {
     coverAlt: (title: string) => `Portada del remate: ${title}`,
     descriptionText: (date: string, time: string) => `Remate el ${date} a las ${time}`,
     liveOgPrefix: (title: string) => `EN VIVO: ${title}`,
+    breadcrumbHome: 'Inicio',
+    breadcrumbAuctions: 'Remates',
   },
 } as const;
 
@@ -147,13 +160,13 @@ export async function generateMetadata({
       alternateLocale: lang === 'es' ? 'pt_BR' : 'es_AR',
       images: coverUrl
         ? [{ url: coverUrl, width: 1200, height: 630, alt: title }]
-        : [],
+        : [{ url: FALLBACK_IMG_ABSOLUTE, width: 1200, height: 630, alt: title }],
     },
     twitter: {
       card: 'summary_large_image',
       title: ogTitle,
       description,
-      images: coverUrl ? [coverUrl] : [],
+      images: [coverUrl || FALLBACK_IMG_ABSOLUTE],
     },
   };
 }
@@ -269,8 +282,7 @@ export default async function AuctionPage(props: { params: Promise<{ slug: strin
   // pra inventar um Place que não existe no banco.
   const jsonLdDateLocale = lang === 'es' ? 'es-AR' : 'pt-BR';
   const auctionUrl = `${SITE_URL}${localizedPath(`/leiloes/${auction.slug}`, lang)}`;
-  const jsonLd = {
-    '@context': 'https://schema.org',
+  const eventJsonLd = {
     '@type': 'Event',
     name: auctionTitle,
     startDate: new Date(auction.date).toISOString(),
@@ -294,6 +306,23 @@ export default async function AuctionPage(props: { params: Promise<{ slug: strin
         : `https://rfzuzuobwuanmbrcthqe.supabase.co/storage/v1/object/public/ad-images/${auction.cover}`
       : `${SITE_URL}/assets/hero_farm.webp`,
     organizer: { '@type': 'Organization', name: 'Tauze Class', url: SITE_URL },
+  };
+  // BUG CORRIGIDO (achado ao vivo via workflow de auditoria de SEO,
+  // 2026-09-26): única página de detalhe do site sem BreadcrumbList
+  // JSON-LD (nem breadcrumb visual) — anuncio/[slug], vendedor/[slug],
+  // categoria/[slug] e eventos/[id] já emitem esse rich result. Mesmo
+  // padrão @graph já usado em anuncio/[slug]/page.tsx.
+  const breadcrumbJsonLd = {
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: T.breadcrumbHome, item: `${SITE_URL}${localizedPath('/', lang)}` },
+      { '@type': 'ListItem', position: 2, name: T.breadcrumbAuctions, item: `${SITE_URL}${localizedPath('/leiloes', lang)}` },
+      { '@type': 'ListItem', position: 3, name: auctionTitle, item: auctionUrl },
+    ],
+  };
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@graph': [eventJsonLd, breadcrumbJsonLd],
   };
 
   return (

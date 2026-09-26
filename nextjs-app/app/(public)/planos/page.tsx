@@ -81,8 +81,20 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
-// Revalidate this page every hour (ISR)
-export const revalidate = 3600;
+// BUG CORRIGIDO (achado ao vivo via workflow de auditoria de SEO,
+// 2026-09-26): revalidate=3600 (ISR) + getLocale() (cookies()/headers())
+// é a MESMA combinação já identificada e corrigida em
+// leiloes/[slug]/page.tsx e eventos/[id]/page.tsx — o Next cacheia o HTML
+// gerado e serve o MESMO idioma pra todo mundo dentro da janela de 1h,
+// independente do cookie tc_lang de quem está pedindo a página (o Google
+// pode ver /es/planos com conteúdo em PT, ou vice-versa, dependendo de
+// qual requisição disparou a última regeneração). Diferente de
+// institucional/page.tsx e eventos/page.tsx, que leem searchParams (força
+// dinâmico por requisição de graça), /planos não lê searchParams no
+// servidor — PricingClientUI só usa useSearchParams no client — por isso
+// ficava exposta. force-dynamic troca o ganho de ISR por corretude de
+// i18n, mesmo trade-off já aceito nos outros dois arquivos.
+export const dynamic = 'force-dynamic';
 
 export default async function PlanosPage() {
   // SSR / ISR: Fetch plans on the server directly via REST API

@@ -1,6 +1,6 @@
 import { MetadataRoute } from 'next';
 import { createAnonClient } from '@/lib/supabase-server';
-import { buildHreflangAlternates } from '@/lib/locale';
+import { buildHreflangAlternates, SITE_URL } from '@/lib/locale';
 
 // Extraído de app/sitemap.ts (auditoria de SEO, 2026-09-08) pra ser
 // compartilhado entre app/sitemap.ts (generateSitemaps + as fatias) e
@@ -55,7 +55,10 @@ function maxDate(dates: Array<string | null | undefined>): Date | undefined {
 // dividirem o custo em vez de duplicá-lo — mesma URL de fetch, mesma janela
 // de revalidate, cache batido nos dois.
 export async function getAllSitemapEntries(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://tauzeclass.com.br';
+  // BUG CORRIGIDO (achado ao vivo via workflow de auditoria de SEO,
+  // 2026-09-26): tinha sua própria cópia divergente do fallback de SITE_URL
+  // (sem www) — ver comentário completo em lib/locale.ts.
+  const baseUrl = SITE_URL;
 
   // Fallback de EMERGÊNCIA — só usado se a consulta ao banco falhar por
   // completo (ver catch no fim da função). `new Date()` só é aceitável aqui:
@@ -305,6 +308,17 @@ export async function getAllSitemapEntries(): Promise<MetadataRoute.Sitemap> {
         changeFrequency: 'monthly',
         priority: 0.6,
         alternates: { languages: withLang(baseUrl, '/planos') },
+      },
+      // BUG CORRIGIDO (achado ao vivo via workflow de auditoria de SEO,
+      // 2026-09-26): /anunciar (funil principal de captação de vendedores,
+      // já com canonical/hreflang/OG próprios corrigidos numa auditoria
+      // anterior) nunca entrou no sitemap — só descobrível por link
+      // interno, nunca pelo sinal mais forte de descoberta do Google.
+      {
+        url: `${baseUrl}/anunciar`,
+        changeFrequency: 'monthly',
+        priority: 0.7,
+        alternates: { languages: withLang(baseUrl, '/anunciar') },
       },
       {
         url: `${baseUrl}/eventos`,
