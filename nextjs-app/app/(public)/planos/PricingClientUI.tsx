@@ -18,6 +18,7 @@ import dynamic from 'next/dynamic'
 const CheckoutModal = dynamic(() => import('@/components/ui/CheckoutModal'), { ssr: false })
 import { useConfirm } from '@/components/ui/ConfirmProvider'
 import { escapeJsonLd } from '@/lib/json-ld'
+import { planElegivelParaPromo } from '@/lib/pricing/first-cycle-promo'
 import styles from './page.module.css'
 
 export interface Plan {
@@ -71,6 +72,9 @@ const TRANSLATIONS = {
     highlightsMonth: (n: number) => `${n} destaques mensais`,
     popularBadge: '⭐ Mais Popular',
     currentBadge: '✓ Plano Atual',
+    promoBadge: '🔥 50% OFF',
+    promoBannerTitle: '🔥 50% OFF no primeiro mês (ou no primeiro ano, se anual)!',
+    promoBannerSubtitle: 'Nos planos Produtor PRO e Premium — o preço volta ao normal automaticamente depois.',
     currentPlanBtn: 'Plano Atual',
     processing: 'Processando...',
     downgradeBtn: 'Fazer Downgrade',
@@ -139,6 +143,9 @@ const TRANSLATIONS = {
     highlightsMonth: (n: number) => `${n} destacados mensuales`,
     popularBadge: '⭐ Más Popular',
     currentBadge: '✓ Plan Actual',
+    promoBadge: '🔥 50% OFF',
+    promoBannerTitle: '🔥 ¡50% OFF en el primer mes (o el primer año, si es anual)!',
+    promoBannerSubtitle: 'En los planes Productor PRO y Premium — el precio vuelve a la normalidad automáticamente después.',
     currentPlanBtn: 'Plan Actual',
     processing: 'Procesando...',
     downgradeBtn: 'Bajar de Plan',
@@ -224,7 +231,7 @@ function FAQItem({ question, answer, id }: { question: string, answer: string, i
   )
 }
 
-export default function PricingClientUI({ initialPlans, plansError = false }: { initialPlans: Plan[]; plansError?: boolean }) {
+export default function PricingClientUI({ initialPlans, plansError = false, promoPrimeiroCicloAtivo = false }: { initialPlans: Plan[]; plansError?: boolean; promoPrimeiroCicloAtivo?: boolean }) {
   const { confirm } = useConfirm()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -458,6 +465,24 @@ export default function PricingClientUI({ initialPlans, plansError = false }: { 
             </span>
           </div>
 
+          {promoPrimeiroCicloAtivo && (
+            <div
+              style={{
+                background: 'linear-gradient(135deg, #22c55e, #10b981)',
+                color: '#fff',
+                borderRadius: '14px',
+                padding: '14px 24px',
+                margin: '20px auto 0',
+                maxWidth: '560px',
+                boxShadow: '0 8px 24px rgba(16,185,129,0.35)',
+                textAlign: 'center',
+              }}
+            >
+              <div style={{ fontWeight: 800, fontSize: '1.15rem' }}>{t.promoBannerTitle}</div>
+              <div style={{ fontSize: '0.9rem', opacity: 0.92, marginTop: '2px' }}>{t.promoBannerSubtitle}</div>
+            </div>
+          )}
+
           <div className={styles.billingToggleWrapper}>
             <span className={`${styles.billingLabel} ${billingCycle === 'monthly' ? styles.billingLabelActive : ''}`}>{t.billingMonthly}</span>
             <button
@@ -502,11 +527,29 @@ export default function PricingClientUI({ initialPlans, plansError = false }: { 
             // mostrava "Começar Grátis" pra quem já estava nele.
             const isCurrent = !!session && (userPlanId ? userPlanId === plan.id : isFree)
             const isPopular = plan.sort_order === 2
+            const promoAplicaNestePlano = !isFree && promoPrimeiroCicloAtivo && planElegivelParaPromo(plan.name)
+
+            // isPopular e promoAplicaNestePlano podem coexistir no mesmo card
+            // (Produtor PRO) -- os dois badges ocupam a MESMA posição
+            // central (ver .popularBadge/.currentBadge em page.module.css),
+            // então combina num badge só em vez de sobrepor dois.
+            const badgeTopo = isCurrent
+              ? { text: t.currentBadge, cls: styles.currentBadge }
+              : (isPopular && promoAplicaNestePlano)
+                ? { text: `${t.popularBadge} · ${t.promoBadge}`, cls: styles.popularBadge, corGradiente: 'linear-gradient(135deg, #f97316, #ef4444)' }
+                : isPopular
+                  ? { text: t.popularBadge, cls: styles.popularBadge }
+                  : promoAplicaNestePlano
+                    ? { text: t.promoBadge, cls: styles.popularBadge, corGradiente: 'linear-gradient(135deg, #f97316, #ef4444)' }
+                    : null
 
             return (
               <div key={plan.id} className={`${styles.pricingCard} ${isPopular ? styles.popular : ''}`}>
-                {isPopular && <div className={styles.popularBadge}>{t.popularBadge}</div>}
-                {isCurrent && <div className={styles.currentBadge}>{t.currentBadge}</div>}
+                {badgeTopo && (
+                  <div className={badgeTopo.cls} style={badgeTopo.corGradiente ? { background: badgeTopo.corGradiente } : undefined}>
+                    {badgeTopo.text}
+                  </div>
+                )}
 
                 <div className={styles.planHeader}>
                   <h2>{planName(plan)}</h2>
@@ -515,7 +558,13 @@ export default function PricingClientUI({ initialPlans, plansError = false }: { 
                   {isFree ? (
                     <div className={styles.freePrice}><span className={styles.amount}>{t.free}</span></div>
                   ) : (() => {
-                    const { currency: planCurrency, price: planPrice, promo: planPromo } = priceFor(plan)
+                    const { currency: planCurrency, price: planPrice, promo: planPromoCadastrado } = priceFor(plan)
+                    // Maior desconto entre o preço promocional cadastrado
+                    // manualmente no admin (permanente) e a promoção
+                    // automática de 50% no 1o ciclo -- nunca soma os dois.
+                    const precoComPromoAutomatica = promoAplicaNestePlano ? planPrice * 0.5 : null
+                    const candidatos = [planPromoCadastrado, precoComPromoAutomatica].filter((v): v is number => v != null && v > 0)
+                    const planPromo = candidatos.length > 0 ? Math.min(...candidatos) : null
                     return (
                     <div className={styles.proPrice}>
                       <span className={styles.currency}>{getCurrencySymbol(planCurrency)}</span>

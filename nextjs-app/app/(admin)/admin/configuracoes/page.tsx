@@ -691,6 +691,13 @@ export default function AdminConfiguracoes() {
                   />
 
                   <Toggle
+                    checked={getBool('promo_primeiro_ciclo_ativo')}
+                    onChange={v => setBool('promo_primeiro_ciclo_ativo', v)}
+                    label="Promoção: 50% OFF no primeiro ciclo"
+                    description="Produtor PRO e Premium ficam com 50% de desconto no 1º mês (ou 1º ano, se anual) — o preço volta ao normal automaticamente depois. Quem já assinou com a promoção ativa continua com o reajuste garantido mesmo se você desligar isto depois."
+                  />
+
+                  <Toggle
                     checked={getBool('tc_feat_social_login')}
                     onChange={v => setBool('tc_feat_social_login', v)}
                     label="Login Social (Google / Facebook)"

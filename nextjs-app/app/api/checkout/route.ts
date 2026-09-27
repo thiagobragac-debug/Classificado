@@ -15,6 +15,7 @@ import {
   GatewayUser,
 } from '@/lib/gateways'
 import { getRequestLang } from '@/lib/api-lang'
+import { calcularPrecoComMaiorDesconto, planElegivelParaPromo } from '@/lib/pricing/first-cycle-promo'
 
 // BUG CORRIGIDO (validação do zero, rodada 6): toda mensagem de erro desta
 // rota (cupom, "já tem este plano", gateway não configurado, falha de
@@ -277,18 +278,17 @@ export async function POST(req: Request) {
       basePrice = (basePrice * 0.8) * 12
     }
 
-    let finalPrice = basePrice
-
     // Apply Coupon Logic (read-only lookup — o RPC que efetivamente
     // consome o uso do cupom só roda depois do lock de idempotência)
-    let appliedCoupon: any = null
+    let couponData: any = null
     if (couponCode) {
-      const { data: couponData } = await supabase
+      const { data } = await supabase
         .from('coupons')
         .select('*')
         .eq('code', String(couponCode).toUpperCase())
         .eq('is_active', true)
         .single()
+      couponData = data
 
       const valido = !!couponData &&
         (!couponData.valid_until || new Date(couponData.valid_until) >= new Date()) &&
@@ -303,50 +303,33 @@ export async function POST(req: Request) {
       if (!valido) {
         return NextResponse.json({ error: tx.couponInvalid }, { status: 400 })
       }
-
-      if (couponData.discount_type === 'percentage') {
-        // BUG CORRIGIDO: sem o Math.max(0, ...) que o ramo 'fixed' já tinha,
-        // um discount_value > 100 (cupom antigo, ou o cadastro no admin
-        // permitia isso antes da validação em admin/cupons/page.tsx) produz
-        // finalPrice negativo indo pro gateway de cobrança.
-        finalPrice = Math.max(0, finalPrice * (1 - couponData.discount_value / 100))
-        appliedCoupon = couponData
-      } else if (useUsd) {
-        // BUG CORRIGIDO (RESOLVER PROBLEMA CUPOM): cupom de valor FIXO era
-        // cadastrado só em BRL — aplicar o número cru numa cobrança em USD
-        // descontaria o valor errado (ex.: "R$20 off" virando "US$20 off").
-        // O admin agora pode cadastrar um equivalente em USD
-        // (coupons.discount_value_usd, ver migration 20260901130000); sem
-        // ele, o cupom fixo continua sem efeito em USD — mesmo
-        // comportamento de antes, só que agora com um valor USD dedicado em
-        // vez de nenhum.
-        //
-        // BUG CORRIGIDO (teste de estresse final, 2026-09-02): sem
-        // equivalente USD, nenhum desconto era aplicado (finalPrice
-        // intocado) mas appliedCoupon era setado do mesmo jeito mais abaixo
-        // — os 3 pontos que consomem `usage_count` via try_apply_coupon()
-        // rodavam mesmo dando desconto zero, gastando um uso de verdade do
-        // cupom sem nenhum benefício real pro cliente. CheckoutModal.tsx já
-        // avisa o cliente que esse cupom não se aplica (achado refutado na
-        // rodada anterior), mas o consumo indevido do contador em si nunca
-        // tinha sido fechado.
-        if (couponData.discount_value_usd !== null && couponData.discount_value_usd !== undefined) {
-          finalPrice = Math.max(0, finalPrice - Number(couponData.discount_value_usd))
-          appliedCoupon = couponData
-        }
-      } else {
-        finalPrice = Math.max(0, finalPrice - couponData.discount_value)
-        appliedCoupon = couponData
-      }
     }
 
-    // BUG CORRIGIDO: um cupom percentual (ex.: 33,33%) produz resíduo de
-    // ponto flutuante (66.60333000000001) — Stripe e Pagar.me já convertem
-    // pra centavos com Math.round antes de enviar, mas Mercado Pago e Asaas
-    // recebem o valor em reais direto, sem arredondar. Arredonda aqui, uma
-    // vez só, pros 4 gateways ficarem consistentes e subscriptions.price
-    // não gravar resíduo.
-    finalPrice = Math.round(finalPrice * 100) / 100
+    // Promoção "50% OFF no primeiro ciclo" (achado ao vivo, 27/set/2026):
+    // só se aplica a uma assinatura NOVA (!isPlanSwitch) — quem já é
+    // assinante trocando de plano não é o público-alvo de uma promoção de
+    // aquisição, e "primeiro ciclo" não faria sentido nesse caso. Cupom
+    // manual e promoção automática NUNCA se somam — calcularPrecoComMaior
+    // Desconto usa sempre o maior desconto dos dois (ver lib/pricing/
+    // first-cycle-promo.ts para a regra de desempate).
+    const promoAtiva = !isPlanSwitch && settings['promo_primeiro_ciclo_ativo'] === '1'
+    const planElegivelPromo = planElegivelParaPromo(plan.name)
+    const { finalPrice: finalPriceCalculado, promoVenceu, cupomTemEfeito } = calcularPrecoComMaiorDesconto({
+      basePrice,
+      promoAtiva,
+      planElegivel: planElegivelPromo,
+      useUsd,
+      coupon: couponData
+        ? { discountType: couponData.discount_type, discountValue: couponData.discount_value, discountValueUsd: couponData.discount_value_usd }
+        : null,
+    })
+    let finalPrice = finalPriceCalculado
+    // appliedCoupon só é consumido (try_apply_coupon) quando o cupom teve
+    // efeito real E não foi batido pela promoção automática — senão um
+    // cliente gastaria um uso real do cupom sem nenhum benefício prático
+    // (mesmo raciocínio do BUG CORRIGIDO de 2026-09-02 logo abaixo, agora
+    // estendido a este novo caso).
+    let appliedCoupon: any = (couponData && cupomTemEfeito && !promoVenceu) ? couponData : null
 
     // BUG CORRIGIDO (teste de estresse full-system, 2026-08-31, crítico): os
     // 4 adapters já falham-fechado corretamente quando o webhook secret está
@@ -439,6 +422,13 @@ export async function POST(req: Request) {
       current_period_start: new Date().toISOString(),
       price: finalPrice,
       currency,
+      // promoVenceu só é true quando !isPlanSwitch (promoAtiva já exclui
+      // troca de plano) -- ver lib/pricing/first-cycle-promo.ts. basePrice
+      // aqui é o snapshot do preço cheio, nunca recalculado a partir de
+      // `plans` depois (o plano pode mudar de preço entre isto e a
+      // renovação).
+      promo_first_cycle_pending: promoVenceu,
+      promo_full_price: promoVenceu ? basePrice : null,
     }).select('id').single()
 
     if (insertError) {

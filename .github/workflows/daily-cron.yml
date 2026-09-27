@@ -7,17 +7,38 @@ on:
 
 jobs:
   daily-jobs:
-    name: expire-stale-subscriptions + enforce-ad-quota-deadlines
+    name: expire-stale-subscriptions + enforce-ad-quota-deadlines + reconcile-promo-pricing
     runs-on: ubuntu-latest
     steps:
+      # BUG CORRIGIDO (achado ao lado da promoção de 1o ciclo, 27/set/2026):
+      # cada `curl -sf` falhava o STEP, mas sem continue-on-error um passo
+      # falho também interrompia o job inteiro, pulando os passos seguintes
+      # (uma falha transitória em expire-stale-subscriptions impediria até
+      # reconcile-promo-pricing de rodar naquele dia). Os 3 jobs internos são
+      # independentes entre si -- uma falha isolada não deveria bloquear os
+      # outros dois.
       - name: Expirar assinaturas pendentes travadas (cancela no gateway real)
+        continue-on-error: true
         run: |
           curl -sf -X GET \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             https://tauze-class.onrender.com/api/internal/expire-stale-subscriptions
 
       - name: Aplicar prazos de anuncios excedentes vencidos
+        continue-on-error: true
         run: |
           curl -sf -X GET \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             https://tauze-class.onrender.com/api/internal/enforce-ad-quota-deadlines
+
+      # Promoção "50% OFF no primeiro ciclo": varre e reajusta ao preço cheio
+      # qualquer assinatura cujo 1o ciclo promocional já deveria ter
+      # terminado (ver comentário completo em app/api/internal/reconcile-
+      # promo-pricing/route.ts sobre por que isto roda incondicionalmente,
+      # não só como reprocessamento de falha).
+      - name: Reajustar assinaturas com desconto de 1o ciclo expirado
+        continue-on-error: true
+        run: |
+          curl -sf -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://tauze-class.onrender.com/api/internal/reconcile-promo-pricing

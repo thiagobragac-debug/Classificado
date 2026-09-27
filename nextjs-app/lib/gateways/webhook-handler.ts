@@ -10,25 +10,8 @@ import {
 } from '@/lib/gateways'
 import { resolverIpConfiavel, ipParaRateLimit } from '@/lib/ip-utils'
 import { dentroDoLimiteFallback } from '@/lib/rate-limit-fallback'
-
-// Registra falhas reais de processamento de webhook (achado ao vivo,
-// 27/set/2026: essas falhas só existiam como console.warn/error, perdidas
-// assim que os logs efêmeros do Render expiram) -- alimenta o indicador
-// "Falhas de Webhook" em /admin/monitoramento. Best-effort: uma falha
-// gravando o LOG não pode nunca derrubar o processamento real do webhook.
-async function logWebhookFailure(
-  supabase: ReturnType<typeof createAdminClient>,
-  gateway: string,
-  eventType: string | undefined,
-  reason: string,
-  details?: Record<string, unknown>
-) {
-  try {
-    await supabase.from('webhook_failures').insert({ gateway, event_type: eventType, reason, details: details || {} })
-  } catch (err) {
-    console.error('[Webhook] Falha ao registrar webhook_failures (não afeta o processamento):', err)
-  }
-}
+import { logWebhookFailure } from './webhook-failure-log'
+import { tentarReajustarPrimeiroCiclo } from './promo-reajuste'
 
 /**
  * Webhook handler for all payment gateways.
@@ -328,6 +311,25 @@ export async function processPaymentWebhook(req: Request, forcedGateway?: Gatewa
         console.error(`[Webhook:${gateway}] Não foi possível renovar sub ${sub.id} — corrida persistente após várias tentativas, revisão manual necessária.`)
         await logWebhookFailure(supabase, gateway, event.type, 'renewal_race_persistent', { subscriptionId: sub.id })
         return NextResponse.json({ error: 'Concurrent update conflict, retry needed' }, { status: 409 })
+      }
+
+      // Promoção "50% OFF no primeiro ciclo" (achado ao vivo, 27/set/2026):
+      // tenta reajustar de volta ao preço cheio DEPOIS que a renovação já
+      // foi confirmada com sucesso acima -- nunca antes, nunca condicionando
+      // um ao outro (extender acesso e ajustar preço futuro são coisas
+      // conceitualmente diferentes). Pré-check em memória (sub.promo_first_
+      // cycle_pending) evita um UPDATE à toa pra maioria das assinaturas,
+      // que nunca estiveram em promoção. Nunca deixa nada escapar pro catch
+      // externo da função: um throw aqui viraria um 500/400 espúrio que o
+      // gateway leria como falha real e reenviaria o webhook inteiro,
+      // batendo em "Duplicate webhook processing" (o lock de idempotência
+      // já foi gravado) sem nunca mais tentar nada.
+      if (sub.promo_first_cycle_pending) {
+        try {
+          await tentarReajustarPrimeiroCiclo(supabase, sub)
+        } catch (err: any) {
+          console.error(`[Webhook:${gateway}] Falha ao reajustar preço pós-promo da sub ${sub.id} (não afeta a renovação já persistida):`, err?.message || err)
+        }
       }
 
     } else if (effectiveType === 'subscription.cancelled') {

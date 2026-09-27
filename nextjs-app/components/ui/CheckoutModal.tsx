@@ -6,6 +6,7 @@ import { useAuth } from '@/components/AuthProvider'
 import { useLang } from '@/lib/lang-context'
 import type { Lang } from '@/lib/constants'
 import { getCurrencySymbol as sharedGetCurrencySymbol, formatCurrencyAmount } from '@/lib/currency'
+import { calcularPrecoComMaiorDesconto, planElegivelParaPromo } from '@/lib/pricing/first-cycle-promo'
 
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
@@ -201,7 +202,7 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
   const [paymentMethod] = useState<PaymentMethod>('card')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [gatewayConfig, setGatewayConfig] = useState<{ gateway: string, publicKey: string, clientSecret?: string, currency?: string, unitPrice?: number | null } | null>(null)
+  const [gatewayConfig, setGatewayConfig] = useState<{ gateway: string, publicKey: string, clientSecret?: string, currency?: string, unitPrice?: number | null, promoAtiva?: boolean } | null>(null)
   const [stripePromise, setStripePromise] = useState<any>(null)
   // BUG CORRIGIDO (feature aprovada pelo usuário): trocar entre dois planos
   // PAGOS (ex. Pro→Premium) mandava o usuário preencher endereço/dados de
@@ -277,13 +278,18 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
   // aplicado" cobrando o preço cheio, como acontecia antes.
   const couponFixedUsdAmount = coupon?.discount_value_usd !== null && coupon?.discount_value_usd !== undefined ? Number(coupon.discount_value_usd) : null
   const couponInapplicable = !!coupon && coupon.discount_type === 'fixed' && displayCurrency !== 'BRL' && couponFixedUsdAmount === null
-  const finalPrice = coupon
-    ? (coupon.discount_type === 'percentage'
-        ? Math.max(0, basePrice * (1 - coupon.discount_value / 100))
-        : (displayCurrency === 'BRL'
-            ? Math.max(0, basePrice - coupon.discount_value)
-            : (couponFixedUsdAmount !== null ? Math.max(0, basePrice - couponFixedUsdAmount) : basePrice)))
-    : basePrice
+  // Promoção "50% OFF no primeiro ciclo" (achado ao vivo, 27/set/2026):
+  // MESMA função pura usada em app/api/checkout/route.ts, pra nunca
+  // divergir do que a cobrança real vai aplicar. Cupom manual e promoção
+  // automática nunca se somam -- usa o maior desconto dos dois (ver
+  // lib/pricing/first-cycle-promo.ts).
+  const { finalPrice, promoVenceu } = calcularPrecoComMaiorDesconto({
+    basePrice,
+    promoAtiva: !!gatewayConfig?.promoAtiva,
+    planElegivel: planElegivelParaPromo(plan.name),
+    useUsd: displayCurrency !== 'BRL',
+    coupon: coupon ? { discountType: coupon.discount_type, discountValue: coupon.discount_value, discountValueUsd: coupon.discount_value_usd } : null,
+  })
   const currencySymbol = getCurrencySymbol(displayCurrency)
 
   // --- Idempotency nonce ---
@@ -651,7 +657,7 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
               {t.planPrefix} {planName} {billingCycle === 'annual' && <span style={{ fontSize: '0.8em', color: '#10b981' }}>{t.annualSuffix}</span>}
             </div>
             <div style={{ textAlign: 'right' }}>
-              {coupon && !couponInapplicable ? (
+              {(coupon && !couponInapplicable) || promoVenceu ? (
                 <>
                   <div style={{ textDecoration: 'line-through', color: '#94a3b8', fontSize: '0.9rem' }}>
                     {currencySymbol} {formatAmount(basePrice, lang)} {billingCycle === 'annual' ? t.perYear : t.perMonth}

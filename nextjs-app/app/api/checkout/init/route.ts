@@ -4,6 +4,7 @@ import { selectGateway, isNativePlanSwitchEligible } from '@/lib/gateways'
 import { resolveCountryCode } from '@/lib/geoip'
 import { getRequestLang } from '@/lib/api-lang'
 import { dentroDoLimiteFallback } from '@/lib/rate-limit-fallback'
+import { planElegivelParaPromo } from '@/lib/pricing/first-cycle-promo'
 
 // BUG CORRIGIDO (validação do zero, rodada 6): toda mensagem de erro desta
 // rota voltava em português (ou em inglês, no caso da auth) regardless do
@@ -110,6 +111,13 @@ export async function POST(req: Request) {
     // direções, só pode fazer a previsão ser conservadora demais, nunca
     // prometer um "pula o formulário" que /api/checkout não vai honrar). ---
     let isNativePlanSwitch = false
+    // Promoção "50% OFF no primeiro ciclo": exposta aqui só como um booleano
+    // (ativa E o plano é elegível) — o cálculo do preço final com maior
+    // desconto (cupom vs. promo) é feito pela MESMA função pura em
+    // CheckoutModal.tsx (lib/pricing/first-cycle-promo.ts), pra nunca
+    // divergir do que /api/checkout realmente cobra. Só vale pra assinatura
+    // nova (mesma regra do servidor); troca de plano nunca ativa a promo.
+    let promoAtiva = false
     if (planId) {
       const { data: plan } = await supabase.from('plans').select('id, name, price, promotional_price, price_usd, promotional_price_usd').eq('id', planId).eq('is_active', true).single()
 
@@ -120,29 +128,40 @@ export async function POST(req: Request) {
           ? (plan.promotional_price_usd !== null && plan.promotional_price_usd !== undefined ? Number(plan.promotional_price_usd) : Number(plan.price_usd))
           : (plan.promotional_price !== null && plan.promotional_price !== undefined ? Number(plan.promotional_price) : Number(plan.price))
 
+        // BUG CORRIGIDO (achado ao lado da promoção de 1o ciclo): esta
+        // query só olhava status='active', diferente de /api/checkout (que
+        // usa ['active','past_due'] desde 2026-09-24, mesmo motivo já
+        // documentado lá) — uma assinatura past_due fazia esta preview
+        // tratar erroneamente como "assinatura nova" (isPlanSwitch=false)
+        // quando o checkout real trataria como troca de plano, incluindo
+        // divergir se a promoção automática se aplicaria ou não.
         const { data: existingActiveSub } = await supabase
           .from('subscriptions')
           .select('gateway, gateway_subscription_id, plan, price, currency, billing_cycle')
           .eq('user_id', user.id)
-          .eq('status', 'active')
+          .in('status', ['active', 'past_due'])
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle()
 
-        if (existingActiveSub && (existingActiveSub.plan !== plan.name || existingActiveSub.billing_cycle !== billingCycle)) {
+        const isPlanSwitch = !!(existingActiveSub && (existingActiveSub.plan !== plan.name || existingActiveSub.billing_cycle !== billingCycle))
+
+        if (isPlanSwitch) {
           let finalPrice = unitPrice
           if (billingCycle === 'annual') finalPrice = (finalPrice * 0.8) * 12
 
           isNativePlanSwitch = isNativePlanSwitchEligible({
-            existingSubGateway: existingActiveSub.gateway,
-            existingSubGatewayId: existingActiveSub.gateway_subscription_id,
-            existingSubPrice: existingActiveSub.price,
-            existingSubCurrency: existingActiveSub.currency,
+            existingSubGateway: existingActiveSub!.gateway,
+            existingSubGatewayId: existingActiveSub!.gateway_subscription_id,
+            existingSubPrice: existingActiveSub!.price,
+            existingSubCurrency: existingActiveSub!.currency,
             targetGatewayName: gatewayName,
             targetCurrency: displayCurrency,
             finalPrice,
           })
         }
+
+        promoAtiva = !isPlanSwitch && settings['promo_primeiro_ciclo_ativo'] === '1' && planElegivelParaPromo(plan.name)
       }
     }
 
@@ -219,6 +238,7 @@ export async function POST(req: Request) {
       // isto pra exibir o valor certo em vez de sempre assumir BRL.
       currency: displayCurrency,
       unitPrice,
+      promoAtiva,
     })
   } catch (err: any) {
     // BUG CORRIGIDO (validação do zero, rodada 6): err.message cru (pode

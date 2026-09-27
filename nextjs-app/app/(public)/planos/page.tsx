@@ -107,6 +107,30 @@ export default async function PlanosPage() {
   let plansError = false
   const lang = await getLocale()
 
+  // Promoção "50% OFF no primeiro ciclo" (achado ao vivo, 27/set/2026):
+  // platform_settings tem RLS de leitura pública para qualquer chave que
+  // não seja secreta (ver is_secret_setting_key no Postgres) -- mesmo fetch
+  // REST direto + Data Cache (revalidate 3600) já usado acima pra `plans`,
+  // pra dividir o custo com /api/checkout/init em vez de duplicar. Falha
+  // de rede aqui é tratada como "promoção desativada" (fail-closed do lado
+  // do desconto, nunca mostra um preço que o checkout depois não honraria).
+  let promoPrimeiroCicloAtivo = false
+  try {
+    const promoRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/platform_settings?key=eq.promo_primeiro_ciclo_ativo&select=value`,
+      {
+        headers: { apikey: SUPABASE_ANON, Authorization: `Bearer ${SUPABASE_ANON}` },
+        next: { revalidate: 3600 },
+      }
+    )
+    if (promoRes.ok) {
+      const rows = await promoRes.json()
+      promoPrimeiroCicloAtivo = rows?.[0]?.value === '1'
+    }
+  } catch (error) {
+    console.error('Network error fetching promo_primeiro_ciclo_ativo:', error)
+  }
+
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/plans?is_active=eq.true&order=sort_order.asc`, {
       headers: {
@@ -163,7 +187,7 @@ export default async function PlanosPage() {
     // Suspense required: PricingClientUI uses useSearchParams() internally.
     // Without this boundary, Next.js 14 would throw an error and disable ISR (revalidate=3600).
     <Suspense fallback={<div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', color: '#64748b' }}>{LOADING_I18N[lang]}</div>}>
-      <PricingClientUI initialPlans={plans} plansError={plansError} />
+      <PricingClientUI initialPlans={plans} plansError={plansError} promoPrimeiroCicloAtivo={promoPrimeiroCicloAtivo} />
     </Suspense>
   )
 }
