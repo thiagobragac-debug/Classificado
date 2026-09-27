@@ -24,6 +24,40 @@ interface RenderEvent {
   details: { reason?: { oomKilled?: { memoryLimit: string }; evicted?: boolean }; deployStatus?: string }
 }
 
+interface WebhookFailure {
+  id: string
+  created_at: string
+  gateway: string
+  event_type: string | null
+  reason: string
+  details: Record<string, unknown>
+}
+
+// Cada card de KPI que representa uma série numérica vira uma opção de
+// métrica pro gráfico principal (clique no card -- ver handleSelectMetric).
+// Uptime/Banco/Conexões/Heap todos fazem sentido como linha do tempo; Upstash
+// (booleano quase-constante) e Webhook (evento discreto, não série contínua)
+// ficam de fora e têm sua própria ação de clique abaixo.
+type MetricKey = 'memory' | 'uptime' | 'db' | 'pg_connections' | 'heap'
+
+function metricConfig(
+  key: MetricKey,
+  latest: HealthSample | undefined
+): { label: string; color: string; limit?: number; formatValue: (v: number) => string; getValue: (s: HealthSample) => number | null } {
+  switch (key) {
+    case 'memory':
+      return { label: 'Memória (RSS)', color: '#2563eb', limit: RENDER_MEMORY_LIMIT_BYTES / 1024 / 1024, formatValue: (v) => `${v.toFixed(0)} MB`, getValue: (s) => s.rss_bytes / 1024 / 1024 }
+    case 'uptime':
+      return { label: 'Uptime (quedas = reinícios do serviço)', color: '#ea580c', formatValue: (v) => `${v.toFixed(1)}h`, getValue: (s) => s.uptime_seconds / 3600 }
+    case 'db':
+      return { label: 'Tamanho do Banco de Dados', color: '#7c3aed', limit: SUPABASE_DB_LIMIT_BYTES / 1024 / 1024, formatValue: (v) => `${v.toFixed(0)} MB`, getValue: (s) => (s.db_size_bytes != null ? s.db_size_bytes / 1024 / 1024 : null) }
+    case 'pg_connections':
+      return { label: 'Conexões Ativas do Postgres', color: '#0891b2', limit: latest?.pg_connections_max ?? undefined, formatValue: (v) => `${v.toFixed(0)}`, getValue: (s) => s.pg_connections_active }
+    case 'heap':
+      return { label: 'Heap V8 (memória JS)', color: '#16a34a', formatValue: (v) => `${v.toFixed(0)} MB`, getValue: (s) => s.heap_used_bytes / 1024 / 1024 }
+  }
+}
+
 // Rótulo + cor legíveis pra cada tipo de evento do Render -- antes disso a
 // coluna "Tipo" só mostrava o enum cru (deploy_ended, server_available),
 // inconsistente com o badge "OOM" já traduzido (achado ao vivo pelo
@@ -73,16 +107,29 @@ function ratioColor(ratio: number): string {
   return 'var(--adm-green)'
 }
 
+// Cards de KPI clicáveis (drill-down) ganham cursor de ponteiro e um anel
+// interno quando são a fonte ativa do gráfico/filtro abaixo -- boxShadow em
+// vez de border pra não alterar o tamanho do card (adm-stat-card já tem
+// border própria definida em admin-v2.css).
+function clickableCardStyle(active: boolean): React.CSSProperties {
+  return {
+    cursor: 'pointer',
+    boxShadow: active ? 'inset 0 0 0 2px var(--adm-accent)' : undefined,
+  }
+}
+
 // ── Gráfico de linha (pure SVG — zero deps, mesmo espírito do BarChart de
 // admin/api-keys/usage/page.tsx) ──────────────────────────────────────────
 function LineChart({
   data,
   limit,
   color = '#2563eb',
+  formatValue = formatMB,
 }: {
   data: { t: number; v: number }[]
   limit?: number
   color?: string
+  formatValue?: (v: number) => string
 }) {
   if (data.length === 0) {
     return <div style={{ textAlign: 'center', padding: '32px', color: 'var(--adm-text-muted)' }}>Sem amostras ainda</div>
@@ -103,7 +150,7 @@ function LineChart({
       {limit && (
         <>
           <line x1={PAD} y1={y(limit)} x2={W - PAD} y2={y(limit)} stroke="var(--adm-red)" strokeWidth={1} strokeDasharray="4 4" opacity={0.6} />
-          <text x={W - PAD} y={y(limit) - 4} textAnchor="end" fontSize={10} fill="var(--adm-red)">limite ({formatMB(limit)})</text>
+          <text x={W - PAD} y={y(limit) - 4} textAnchor="end" fontSize={10} fill="var(--adm-red)">limite ({formatValue(limit)})</text>
         </>
       )}
       <polyline points={points} fill="none" stroke={color} strokeWidth={2} />
@@ -128,8 +175,63 @@ export default function AdminMonitoramento() {
   const [maintenanceLoading, setMaintenanceLoading] = useState(false)
   const { confirm } = useConfirm()
 
+  // Drill-down: clique num card de KPI troca a métrica do gráfico principal,
+  // filtra a tabela de eventos, ou revela a tabela de falhas de webhook
+  // (achado ao vivo pelo usuário -- "consigo ver as informações que
+  // compoem?" -- os 8 cards eram só números estáticos até aqui).
+  const [selectedMetric, setSelectedMetric] = useState<MetricKey>('memory')
+  const [eventFilter, setEventFilter] = useState<'all' | 'oom'>('all')
+  const [webhookFailures, setWebhookFailures] = useState<WebhookFailure[]>([])
+  const [showWebhookTable, setShowWebhookTable] = useState(false)
+  const [loadingWebhookFailures, setLoadingWebhookFailures] = useState(false)
+  const chartSectionRef = React.useRef<HTMLDivElement>(null)
+  const eventsSectionRef = React.useRef<HTMLDivElement>(null)
+  const webhookSectionRef = React.useRef<HTMLDivElement>(null)
+
   useEffect(() => { loadData() }, [days])
   useEffect(() => { loadMaintenanceStatus() }, [])
+
+  function scrollTo(ref: React.RefObject<HTMLDivElement | null>) {
+    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  function handleSelectMetric(metric: MetricKey) {
+    setSelectedMetric(metric)
+    scrollTo(chartSectionRef)
+  }
+
+  function handleFilterEvents(filter: 'all' | 'oom') {
+    setEventFilter(filter)
+    scrollTo(eventsSectionRef)
+  }
+
+  // Falhas de webhook não vêm em loadData() (tabela separada, só relevante
+  // sob demanda) -- busca uma vez ao abrir a tabela, não a cada re-render.
+  async function handleShowWebhookFailures() {
+    setShowWebhookTable(true)
+    if (webhookFailures.length > 0) {
+      scrollTo(webhookSectionRef)
+      return
+    }
+    setLoadingWebhookFailures(true)
+    try {
+      const supabase = getSupabase()
+      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
+      const { data, error: fetchErr } = await supabase
+        .from('webhook_failures')
+        .select('id, created_at, gateway, event_type, reason, details')
+        .gte('created_at', since)
+        .order('created_at', { ascending: false })
+        .limit(30)
+      if (fetchErr && !['42P01', '42703'].includes(fetchErr.code)) throw fetchErr
+      setWebhookFailures((data || []) as WebhookFailure[])
+    } catch (err: any) {
+      showToast(`Falha ao carregar falhas de webhook: ${err.message}`, 'error')
+    } finally {
+      setLoadingWebhookFailures(false)
+      scrollTo(webhookSectionRef)
+    }
+  }
 
   async function loadMaintenanceStatus() {
     try {
@@ -259,7 +361,16 @@ export default function AdminMonitoramento() {
 
   const oomCount = events.filter(e => e.event_type === 'server_failed' && (e.details?.reason?.oomKilled || e.details?.reason?.evicted)).length
 
-  const memChartData = samples.map(s => ({ t: new Date(s.created_at).getTime(), v: s.rss_bytes / 1024 / 1024 }))
+  const activeMetric = metricConfig(selectedMetric, latest)
+  const metricChartData = samples
+    .map(s => {
+      const v = activeMetric.getValue(s)
+      return v == null ? null : { t: new Date(s.created_at).getTime(), v }
+    })
+    .filter((d): d is { t: number; v: number } => d !== null)
+  const filteredEvents = eventFilter === 'oom'
+    ? events.filter(e => e.event_type === 'server_failed' && (e.details?.reason?.oomKilled || e.details?.reason?.evicted))
+    : events
   const sampleAgeMinutes = latest ? Math.round((Date.now() - new Date(latest.created_at).getTime()) / 60000) : 0
 
   return (
@@ -341,7 +452,7 @@ export default function AdminMonitoramento() {
               largas (7 cards com auto-fit puro quebrava 5+2, ver
               app/(admin)/admin/admin-v2.css). */}
           <div className="adm-stats-grid adm-stats-grid--fixed4" style={{ marginBottom: '24px' }}>
-            <div className="adm-stat-card">
+            <div className="adm-stat-card" onClick={() => handleSelectMetric('memory')} style={clickableCardStyle(selectedMetric === 'memory')} title="Ver gráfico de memória (RSS)">
               <div>
                 <div className="adm-stat-val" style={{ color: latest ? ratioColor(memRatio) : undefined }}>
                   {latest ? formatMB(latest.rss_bytes) : '—'}
@@ -350,14 +461,14 @@ export default function AdminMonitoramento() {
               </div>
               <div className="adm-stat-icon adm-stat-icon--blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/></svg></div>
             </div>
-            <div className="adm-stat-card">
+            <div className="adm-stat-card" onClick={() => handleSelectMetric('uptime')} style={clickableCardStyle(selectedMetric === 'uptime')} title="Ver gráfico de uptime (quedas indicam reinícios)">
               <div>
                 <div className="adm-stat-val">{latest ? formatUptime(latest.uptime_seconds) : '—'}</div>
                 <div className="adm-stat-lbl">Uptime desde o último restart</div>
               </div>
               <div className="adm-stat-icon adm-stat-icon--green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
             </div>
-            <div className="adm-stat-card">
+            <div className="adm-stat-card" onClick={() => handleSelectMetric('db')} style={clickableCardStyle(selectedMetric === 'db')} title="Ver gráfico de tamanho do banco de dados">
               <div>
                 <div className="adm-stat-val" style={{ color: latest?.db_size_bytes ? ratioColor(dbRatio) : undefined }}>
                   {latest?.db_size_bytes ? formatMB(latest.db_size_bytes) : '—'}
@@ -366,14 +477,14 @@ export default function AdminMonitoramento() {
               </div>
               <div className="adm-stat-icon adm-stat-icon--blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></div>
             </div>
-            <div className="adm-stat-card">
+            <div className="adm-stat-card" onClick={() => handleFilterEvents('oom')} style={clickableCardStyle(eventFilter === 'oom')} title="Ver só os eventos de OOM na tabela abaixo">
               <div>
                 <div className="adm-stat-val" style={{ color: oomCount > 0 ? 'var(--adm-red)' : undefined }}>{oomCount}</div>
                 <div className="adm-stat-lbl">Crashes de OOM ({days}d)</div>
               </div>
               <div className="adm-stat-icon adm-stat-icon--amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
             </div>
-            <div className="adm-stat-card">
+            <div className="adm-stat-card" onClick={() => handleSelectMetric('pg_connections')} style={clickableCardStyle(selectedMetric === 'pg_connections')} title="Ver gráfico de conexões ativas do Postgres">
               <div>
                 <div className="adm-stat-val" style={{ color: latest?.pg_connections_max ? ratioColor((latest.pg_connections_active || 0) / latest.pg_connections_max) : undefined }}>
                   {latest?.pg_connections_max ? `${latest.pg_connections_active}/${latest.pg_connections_max}` : '—'}
@@ -382,6 +493,8 @@ export default function AdminMonitoramento() {
               </div>
               <div className="adm-stat-icon adm-stat-icon--blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 17l6-6-6-6"/><path d="M12 19h8"/></svg></div>
             </div>
+            {/* Sem onClick de propósito: booleano quase-constante, não há
+                série temporal nem detalhe adicional que valha a pena revelar. */}
             <div className="adm-stat-card">
               <div>
                 <div className="adm-stat-val" style={{ color: latest?.upstash_configured === false ? 'var(--adm-amber)' : latest?.upstash_configured ? 'var(--adm-green)' : undefined }}>
@@ -391,7 +504,7 @@ export default function AdminMonitoramento() {
               </div>
               <div className="adm-stat-icon adm-stat-icon--blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
             </div>
-            <div className="adm-stat-card">
+            <div className="adm-stat-card" onClick={handleShowWebhookFailures} style={clickableCardStyle(showWebhookTable)} title="Ver a lista de falhas de webhook">
               <div>
                 <div className="adm-stat-val" style={{ color: (latest?.webhook_failures_24h || 0) > 0 ? 'var(--adm-red)' : undefined }}>
                   {latest?.webhook_failures_24h ?? '—'}
@@ -406,7 +519,7 @@ export default function AdminMonitoramento() {
                 memória NATIVA (sharp/Image Optimization, a hipótese
                 investigada pro OOM original) -- não um vazamento no
                 código JS em si. */}
-            <div className="adm-stat-card">
+            <div className="adm-stat-card" onClick={() => handleSelectMetric('heap')} style={clickableCardStyle(selectedMetric === 'heap')} title="Ver gráfico de heap V8 (memória JS)">
               <div>
                 <div className="adm-stat-val">{latest ? formatMB(latest.heap_used_bytes) : '—'}</div>
                 <div className="adm-stat-lbl">Heap V8 (memória JS)</div>
@@ -415,16 +528,59 @@ export default function AdminMonitoramento() {
             </div>
           </div>
 
-          {/* Memory chart */}
-          <div className="adm-card" style={{ marginBottom: '20px', padding: '20px 24px' }}>
-            <div style={{ fontWeight: 600, fontSize: '1rem', color: 'var(--adm-text)', marginBottom: '16px' }}>📈 Memória (RSS) ao Longo do Tempo</div>
-            <LineChart data={memChartData} limit={512} color="#2563eb" />
+          {/* Gráfico principal -- métrica trocada pelo clique nos cards de
+              KPI acima (ver handleSelectMetric/metricConfig). */}
+          <div ref={chartSectionRef} className="adm-card" style={{ marginBottom: '20px', padding: '20px 24px', scrollMarginTop: '16px' }}>
+            <div style={{ fontWeight: 600, fontSize: '1rem', color: 'var(--adm-text)', marginBottom: '16px' }}>📈 {activeMetric.label} ao Longo do Tempo</div>
+            <LineChart data={metricChartData} limit={activeMetric.limit} color={activeMetric.color} formatValue={activeMetric.formatValue} />
           </div>
 
+          {/* Falhas de webhook -- carregadas sob demanda (ver
+              handleShowWebhookFailures), não fazem parte de loadData(). */}
+          {showWebhookTable && (
+            <div ref={webhookSectionRef} className="adm-card" style={{ marginBottom: '20px', scrollMarginTop: '16px' }}>
+              <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--adm-border)', fontWeight: 600, fontSize: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>🔌 Falhas de Webhook ({days}d)</span>
+                <button className="adm-btn adm-btn--sm adm-btn--outline" onClick={() => setShowWebhookTable(false)}>Fechar</button>
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table className="adm-table" style={{ width: '100%' }}>
+                  <thead>
+                    <tr>
+                      <th>Quando</th>
+                      <th>Gateway</th>
+                      <th>Evento</th>
+                      <th>Motivo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loadingWebhookFailures ? (
+                      <tr><td colSpan={4} style={{ textAlign: 'center', padding: '20px', color: 'var(--adm-text-muted)' }}>Carregando...</td></tr>
+                    ) : webhookFailures.length === 0 ? (
+                      <tr><td colSpan={4} style={{ textAlign: 'center', padding: '20px', color: 'var(--adm-text-muted)' }}>Nenhuma falha de webhook no período</td></tr>
+                    ) : webhookFailures.map(w => (
+                      <tr key={w.id}>
+                        <td style={{ color: 'var(--adm-text-muted)', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>{new Date(w.created_at).toLocaleString('pt-BR')}</td>
+                        <td style={{ fontSize: '0.85rem' }}>{w.gateway}</td>
+                        <td style={{ fontSize: '0.85rem' }}>{w.event_type || '—'}</td>
+                        <td style={{ fontSize: '0.85rem', color: 'var(--adm-text-muted)' }}>{w.reason}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {/* Render events timeline */}
-          <div className="adm-card">
-            <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--adm-border)', fontWeight: 600, fontSize: '1rem' }}>
-              🕐 Eventos Recentes do Render
+          <div ref={eventsSectionRef} className="adm-card" style={{ scrollMarginTop: '16px' }}>
+            <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--adm-border)', fontWeight: 600, fontSize: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+              <span>🕐 Eventos Recentes do Render</span>
+              {eventFilter === 'oom' && (
+                <button className="adm-btn adm-btn--sm adm-btn--outline" onClick={() => setEventFilter('all')}>
+                  Filtrando: só OOM/Instância Removida — limpar filtro
+                </button>
+              )}
             </div>
             <div style={{ overflowX: 'auto' }}>
               <table className="adm-table" style={{ width: '100%' }}>
@@ -436,9 +592,9 @@ export default function AdminMonitoramento() {
                   </tr>
                 </thead>
                 <tbody>
-                  {events.length === 0 ? (
-                    <tr><td colSpan={3} style={{ textAlign: 'center', padding: '20px', color: 'var(--adm-text-muted)' }}>Nenhum evento no período</td></tr>
-                  ) : events.map(e => {
+                  {filteredEvents.length === 0 ? (
+                    <tr><td colSpan={3} style={{ textAlign: 'center', padding: '20px', color: 'var(--adm-text-muted)' }}>Nenhum evento {eventFilter === 'oom' ? 'de OOM' : ''} no período</td></tr>
+                  ) : filteredEvents.map(e => {
                     const isOom = e.event_type === 'server_failed' && !!e.details?.reason?.oomKilled
                     const isEvicted = e.event_type === 'server_failed' && !!e.details?.reason?.evicted
                     const label = eventLabel(e)
