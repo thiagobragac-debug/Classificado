@@ -272,10 +272,25 @@ export async function POST(req: Request) {
           ? Number(plan.promotional_price)
           : Number(plan.price))
 
+    // BUG CRÍTICO CORRIGIDO (achado por revisão adversarial, 27/set/2026):
+    // fullPrice é o preço CHEIO do plano (sem promotional_price) -- usado
+    // pela promoção automática de 50% pra nunca compor com o desconto
+    // manual permanente de plans.promotional_price. Antes, a promoção
+    // automática calculava 50% sobre `basePrice` (já reduzido por
+    // promotional_price quando configurado), compondo os dois descontos
+    // (ex.: price=79, promotional_price=59 virava 59*0.5=29.50 no
+    // checkout real, enquanto /planos mostrava corretamente
+    // Math.min(59, 79*0.5)=39.50 -- cliente via um preço, pagava outro).
+    // Também é este o valor correto a gravar em subscriptions.
+    // promo_full_price (o preço a restaurar depois do 1o ciclo é o preço
+    // CHEIO do plano, nunca o promotional_price).
+    let fullPrice = useUsd ? Number(plan.price_usd) : Number(plan.price)
+
     const cycle: 'monthly' | 'annual' = billingCycle === 'annual' ? 'annual' : 'monthly'
 
     if (cycle === 'annual') {
       basePrice = (basePrice * 0.8) * 12
+      fullPrice = (fullPrice * 0.8) * 12
     }
 
     // Apply Coupon Logic (read-only lookup — o RPC que efetivamente
@@ -316,6 +331,7 @@ export async function POST(req: Request) {
     const planElegivelPromo = planElegivelParaPromo(plan.name)
     const { finalPrice: finalPriceCalculado, promoVenceu, cupomTemEfeito } = calcularPrecoComMaiorDesconto({
       basePrice,
+      fullPrice,
       promoAtiva,
       planElegivel: planElegivelPromo,
       useUsd,
@@ -423,12 +439,16 @@ export async function POST(req: Request) {
       price: finalPrice,
       currency,
       // promoVenceu só é true quando !isPlanSwitch (promoAtiva já exclui
-      // troca de plano) -- ver lib/pricing/first-cycle-promo.ts. basePrice
-      // aqui é o snapshot do preço cheio, nunca recalculado a partir de
-      // `plans` depois (o plano pode mudar de preço entre isto e a
-      // renovação).
+      // troca de plano) -- ver lib/pricing/first-cycle-promo.ts. fullPrice
+      // (não basePrice) é o snapshot correto do preço CHEIO a restaurar
+      // depois do 1o ciclo -- nunca recalculado a partir de `plans` depois
+      // (o plano pode mudar de preço entre isto e a renovação). BUG
+      // CORRIGIDO (revisão adversarial, 27/set/2026): gravava `basePrice`
+      // aqui, que já podia estar reduzido por promotional_price -- a
+      // reconciliação pós-1o-ciclo reverteria pro preço promocional
+      // permanente em vez do preço cheio real do plano.
       promo_first_cycle_pending: promoVenceu,
-      promo_full_price: promoVenceu ? basePrice : null,
+      promo_full_price: promoVenceu ? fullPrice : null,
     }).select('id').single()
 
     if (insertError) {
@@ -528,6 +548,18 @@ export async function POST(req: Request) {
           // anterior à troca, o que é especialmente errado numa troca de
           // CICLO (mensal↔anual), que a Stripe realinha de verdade.
           ...(switchResult.currentPeriodEnd ? { current_period_end: switchResult.currentPeriodEnd } : {}),
+          // BUG CRÍTICO CORRIGIDO (revisão adversarial, 27/set/2026): sem
+          // isto, uma troca de plano nativa (upgrade/downgrade) dentro do 1o
+          // ciclo promocional do plano ANTIGO herdava promo_first_cycle_
+          // pending=true e promo_full_price do plano antigo — o webhook/cron
+          // de reajuste então reprecificava o plano NOVO com o preço cheio
+          // do plano ANTIGO, pra sempre (ex.: troca PRO->Premium com o
+          // desconto do PRO ainda pendente fazia o Premium ser reajustado
+          // pro preço cheio do PRO). A promoção nunca se aplica a uma troca
+          // de plano (promoAtiva já exige !isPlanSwitch, ver linha 315) —
+          // qualquer promoção pendente do plano antigo é encerrada aqui.
+          promo_first_cycle_pending: false,
+          promo_full_price: null,
           updated_at: new Date().toISOString(),
         }).eq('id', existingActiveSub!.id).eq('status', existingActiveSub!.status).select('id')
 
@@ -731,6 +763,14 @@ export async function POST(req: Request) {
         const { data: cancelOldResult } = await supabase.from('subscriptions').update({
           status: 'cancelled',
           cancel_at_period_end: false,
+          // BUG MÉDIO CORRIGIDO (revisão adversarial, 27/set/2026): mesma
+          // razão do fix acima na troca nativa -- sem isto, uma reativação
+          // futura desta linha (endpoint admin/subscriptions/reactivate)
+          // herdaria promo_first_cycle_pending=true e um promo_full_price
+          // referente a um plano que nem é mais o dela, disparando reajuste
+          // pro preço errado indefinidamente.
+          promo_first_cycle_pending: false,
+          promo_full_price: null,
           updated_at: new Date().toISOString(),
         }).eq('id', existingActiveSub!.id).eq('status', existingActiveSub!.status).select('id')
         if (!cancelOldResult || cancelOldResult.length === 0) {

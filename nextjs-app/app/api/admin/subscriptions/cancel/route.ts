@@ -116,7 +116,16 @@ export async function POST(request: Request) {
     const now = new Date().toISOString()
     const { data: cancelResult } = await admin
       .from('subscriptions')
-      .update({ status: 'cancelled', cancel_at_period_end: true, updated_at: now })
+      .update({
+        status: 'cancelled',
+        cancel_at_period_end: true,
+        // BUG MÉDIO CORRIGIDO (revisão adversarial, 27/set/2026): mesmo fix
+        // de /api/subscriptions/cancel -- sem isto, reativar esta assinatura
+        // herdaria um promo_first_cycle_pending/promo_full_price obsoletos.
+        promo_first_cycle_pending: false,
+        promo_full_price: null,
+        updated_at: now,
+      })
       .eq('id', sub.id)
       .eq('status', sub.status)
       .select('id')

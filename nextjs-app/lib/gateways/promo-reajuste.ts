@@ -83,7 +83,22 @@ export async function tentarReajustarPrimeiroCiclo(
     return { ok: false, reason: 'lease_not_acquired' }
   }
 
-  const settings = await getSettings(supabase)
+  // BUG ALTO CORRIGIDO (revisão adversarial, 27/set/2026): getSettings()
+  // pode lançar (erro de rede/DB) -- sem este try/catch, essa exceção
+  // escapava da promessa que este arquivo faz de "nunca lançar" (ver
+  // comentário no topo). No branch subscription.renewed do webhook-handler
+  // isso rasgaria o catch mais externo daquele handler e poderia derrubar a
+  // confirmação de renovação inteira por causa de uma falha que só diz
+  // respeito ao reajuste da promoção.
+  let settings: Record<string, string>
+  try {
+    settings = await getSettings(supabase)
+  } catch (err: any) {
+    const msg = err?.message || String(err)
+    await supabase.from('subscriptions').update({ promo_reajuste_last_error: msg }).eq('id', sub.id)
+    await logWebhookFailure(supabase, sub.gateway, 'promo_reajuste', 'promo_reajuste_failed', { subscriptionId: sub.id, message: msg })
+    return { ok: false, reason: 'settings_fetch_failed' }
+  }
   const adapter = buildAdapter(sub.gateway, settings)
   if (!adapter?.updateSubscriptionPlan) {
     const msg = `Gateway '${sub.gateway}' não configurado ou sem suporte a updateSubscriptionPlan`
@@ -117,7 +132,7 @@ export async function tentarReajustarPrimeiroCiclo(
   // aqui -- só importa no momento do checkout. Se o admin desligar a
   // promoção no meio do caminho, quem já comprou com ela ligada ainda deve
   // ser reajustado ao preço cheio conforme prometido.
-  await supabase.from('subscriptions')
+  const { data: confirmResult, error: confirmErr } = await supabase.from('subscriptions')
     .update({
       promo_first_cycle_pending: false,
       price: sub.promo_full_price,
@@ -125,6 +140,22 @@ export async function tentarReajustarPrimeiroCiclo(
     })
     .eq('id', sub.id)
     .eq('promo_first_cycle_pending', true)
+    .select('id')
+
+  // BUG ALTO CORRIGIDO (revisão adversarial, 27/set/2026): o gateway já foi
+  // reajustado com sucesso neste ponto -- mas se ESTA escrita local falhar
+  // (erro do Postgres; postgrest-js nunca lança por isso, só devolve
+  // {error}) e a função devolvesse {ok:true} do mesmo jeito, o chamador (cron
+  // ou webhook) julgaria a promoção encerrada enquanto o banco continua
+  // promo_first_cycle_pending=true pra sempre -- nenhuma tentativa futura
+  // aconteceria porque ninguém saberia que precisa tentar de novo. Devolver
+  // {ok:false} aqui garante que a próxima varredura do cron tente de novo
+  // (o retry é seguro: mesmo nonce determinístico, mesmo preço).
+  if (confirmErr || !confirmResult || confirmResult.length === 0) {
+    const msg = confirmErr?.message || 'nenhuma linha afetada ao confirmar reajuste local'
+    await logWebhookFailure(supabase, sub.gateway, 'promo_reajuste', 'promo_reajuste_failed', { subscriptionId: sub.id, message: `Gateway reajustado com sucesso, mas confirmação local falhou: ${msg}` })
+    return { ok: false, reason: 'local_confirmation_failed' }
+  }
 
   return { ok: true, reason: 'reajustado' }
 }

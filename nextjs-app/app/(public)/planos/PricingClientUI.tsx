@@ -533,14 +533,23 @@ export default function PricingClientUI({ initialPlans, plansError = false, prom
             // (Produtor PRO) -- os dois badges ocupam a MESMA posição
             // central (ver .popularBadge/.currentBadge em page.module.css),
             // então combina num badge só em vez de sobrepor dois.
+            //
+            // BUG MÉDIO CORRIGIDO (revisão adversarial, 27/set/2026): o
+            // gradiente original (#f97316 -> #ef4444, laranja/vermelho
+            // "vivos") tinha só ~2.9:1 e ~3.7:1 de contraste contra texto
+            // branco -- abaixo do mínimo WCAG-AA de 4.5:1 pra texto pequeno
+            // (12px, não se qualifica como "texto grande" mesmo em negrito).
+            // Tons mais escuros (laranja-700/vermelho-700) mantêm a mesma
+            // paleta "chamativa" e sobem pra ~5.2:1/~6.4:1, dentro do AA.
+            const corGradientePromo = 'linear-gradient(135deg, #c2410d, #b91c1c)'
             const badgeTopo = isCurrent
               ? { text: t.currentBadge, cls: styles.currentBadge }
               : (isPopular && promoAplicaNestePlano)
-                ? { text: `${t.popularBadge} · ${t.promoBadge}`, cls: styles.popularBadge, corGradiente: 'linear-gradient(135deg, #f97316, #ef4444)' }
+                ? { text: `${t.popularBadge} · ${t.promoBadge}`, cls: styles.popularBadge, corGradiente: corGradientePromo }
                 : isPopular
                   ? { text: t.popularBadge, cls: styles.popularBadge }
                   : promoAplicaNestePlano
-                    ? { text: t.promoBadge, cls: styles.popularBadge, corGradiente: 'linear-gradient(135deg, #f97316, #ef4444)' }
+                    ? { text: t.promoBadge, cls: styles.popularBadge, corGradiente: corGradientePromo }
                     : null
 
             return (

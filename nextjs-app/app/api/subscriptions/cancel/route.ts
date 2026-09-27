@@ -199,7 +199,19 @@ export async function POST(req: Request) {
     const now = new Date().toISOString()
     const { data: cancelResult } = await supabase
       .from('subscriptions')
-      .update({ status: 'cancelled', cancel_at_period_end: true, updated_at: now })
+      .update({
+        status: 'cancelled',
+        cancel_at_period_end: true,
+        // BUG MÉDIO CORRIGIDO (revisão adversarial, 27/set/2026): sem isto,
+        // reativar esta assinatura (admin/subscriptions/reactivate) dentro
+        // do 1o ciclo promocional herdava promo_first_cycle_pending=true e
+        // promo_full_price -- o reajuste automático então tentava cobrar o
+        // preço cheio de uma assinatura que o cliente nunca soube que
+        // estava "pendente", num momento arbitrário no futuro.
+        promo_first_cycle_pending: false,
+        promo_full_price: null,
+        updated_at: now,
+      })
       .eq('id', sub.id)
       .eq('status', sub.status)
       .select('id')

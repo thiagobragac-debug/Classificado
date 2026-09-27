@@ -132,6 +132,26 @@
   box-shadow: 0 4px 20px rgba(59,130,246,0.5);
 }
 
+/* BUG MÉDIO CORRIGIDO (revisão adversarial, 27/set/2026): o badge "Mais
+   Popular · 50% OFF" (combinado quando a promoção do 1o ciclo cai no plano
+   já marcado como popular, ver PricingClientUI.tsx) é bem mais longo que
+   qualquer badge isolado -- com white-space:nowrap e sem max-width, ele
+   arriscava esticar além da largura do próprio card num viewport estreito
+   (celular), empurrando/gerando scroll horizontal. Só neste breakpoint,
+   permite quebrar linha e encolhe um pouco a fonte -- inofensivo pro caso
+   normal (badge curto continua cabendo numa linha só). */
+@media (max-width: 480px) {
+  .popularBadge, .currentBadge {
+    white-space: normal;
+    max-width: calc(100% - 1.5rem);
+    text-align: center;
+    line-height: 1.3;
+    font-size: 0.68rem;
+    letter-spacing: 1px;
+    padding: 0.3rem 0.8rem;
+  }
+}
+
 .planHeader h2 {
   font-size: 1.35rem;
   font-weight: 800;

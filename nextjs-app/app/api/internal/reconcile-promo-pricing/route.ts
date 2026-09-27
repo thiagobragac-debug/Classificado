@@ -47,8 +47,19 @@ export async function GET(req: Request) {
 
   const results: Array<{ id: string; ok: boolean; reason: string }> = []
   for (const sub of pendentes || []) {
-    const r = await tentarReajustarPrimeiroCiclo(supabase, sub as any)
-    results.push({ id: sub.id, ...r })
+    try {
+      const r = await tentarReajustarPrimeiroCiclo(supabase, sub as any)
+      results.push({ id: sub.id, ...r })
+    } catch (err: any) {
+      // BUG ALTO CORRIGIDO (revisão adversarial, 27/set/2026): tentarReajustar
+      // PrimeiroCiclo promete nunca lançar, mas essa promessa não é garantia
+      // de código -- sem este try/catch por item, uma falha inesperada numa
+      // única assinatura (ex.: erro de rede não tratado num adapter) abortava
+      // o `for` inteiro, deixando TODAS as assinaturas pendentes restantes
+      // sem sequer tentar reajuste naquele dia.
+      console.error(`[ReconcilePromoPricing] Falha inesperada ao reajustar assinatura ${sub.id}:`, err?.message || err)
+      results.push({ id: sub.id, ok: false, reason: 'unexpected_error' })
+    }
   }
 
   return NextResponse.json({ processed: results.length, results })

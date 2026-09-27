@@ -105,6 +105,16 @@ export async function POST(req: Request) {
     const isNational = !userCountry || userCountry.toUpperCase() === 'BR' || userCountry.toUpperCase() === 'BRASIL'
     let displayCurrency = 'BRL'
     let unitPrice: number | null = null
+    // BUG CRÍTICO CORRIGIDO (revisão adversarial, 27/set/2026): CheckoutModal.
+    // tsx chama a MESMA calcularPrecoComMaiorDesconto (ver comentário abaixo)
+    // usando `unitPrice` como basePrice -- só que unitPrice já reflete
+    // promotional_price quando configurado, o que reproduziria no preview do
+    // cliente o EXATO bug de composição corrigido em /api/checkout/route.ts
+    // (os 50% da promo automática têm que competir com promotional_price via
+    // Math.min, nunca somar). fullPrice é o preço cheio do plano (mensal, sem
+    // ajuste de ciclo -- o mesmo ajuste ×0.8×12 que o cliente já aplica em
+    // unitPrice é aplicado a este valor também, do lado do cliente).
+    let fullPrice: number | null = null
 
     // --- Previsão de troca nativa de plano (sem coupon — ver comentário em
     // isNativePlanSwitchEligible: ignorar coupon aqui é seguro nas duas
@@ -127,6 +137,7 @@ export async function POST(req: Request) {
         unitPrice = useUsd
           ? (plan.promotional_price_usd !== null && plan.promotional_price_usd !== undefined ? Number(plan.promotional_price_usd) : Number(plan.price_usd))
           : (plan.promotional_price !== null && plan.promotional_price !== undefined ? Number(plan.promotional_price) : Number(plan.price))
+        fullPrice = useUsd ? Number(plan.price_usd) : Number(plan.price)
 
         // BUG CORRIGIDO (achado ao lado da promoção de 1o ciclo): esta
         // query só olhava status='active', diferente de /api/checkout (que
@@ -238,6 +249,7 @@ export async function POST(req: Request) {
       // isto pra exibir o valor certo em vez de sempre assumir BRL.
       currency: displayCurrency,
       unitPrice,
+      fullPrice,
       promoAtiva,
     })
   } catch (err: any) {

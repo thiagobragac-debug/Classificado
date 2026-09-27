@@ -202,7 +202,7 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
   const [paymentMethod] = useState<PaymentMethod>('card')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [gatewayConfig, setGatewayConfig] = useState<{ gateway: string, publicKey: string, clientSecret?: string, currency?: string, unitPrice?: number | null, promoAtiva?: boolean } | null>(null)
+  const [gatewayConfig, setGatewayConfig] = useState<{ gateway: string, publicKey: string, clientSecret?: string, currency?: string, unitPrice?: number | null, fullPrice?: number | null, promoAtiva?: boolean } | null>(null)
   const [stripePromise, setStripePromise] = useState<any>(null)
   // BUG CORRIGIDO (feature aprovada pelo usuário): trocar entre dois planos
   // PAGOS (ex. Pro→Premium) mandava o usuário preencher endereço/dados de
@@ -268,6 +268,18 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
   if (billingCycle === 'annual') {
     basePrice = (basePrice * 0.8) * 12
   }
+  // BUG CRÍTICO CORRIGIDO (revisão adversarial, 27/set/2026): mesmo raciocínio
+  // do comentário acima sobre basePrice -- fullPrice precisa ser o preço
+  // CHEIO do plano (sem promotional_price), pra calcularPrecoComMaiorDesconto
+  // (abaixo) não compor os dois descontos no preview do cliente. Mesmo
+  // fallback de fonte (gatewayConfig assim que carrega, prop do plano antes
+  // disso) e mesmo ajuste de ciclo anual que basePrice já recebe.
+  let fullPrice = hasResolvedPrice && gatewayConfig!.fullPrice !== null && gatewayConfig!.fullPrice !== undefined
+    ? Number(gatewayConfig!.fullPrice)
+    : Number(plan.price)
+  if (billingCycle === 'annual') {
+    fullPrice = (fullPrice * 0.8) * 12
+  }
   const displayCurrency = hasResolvedPrice ? (gatewayConfig!.currency || 'BRL') : (plan.currency || 'BRL')
   // BUG CORRIGIDO (RESOLVER PROBLEMA CUPOM): cupom de valor fixo é
   // cadastrado em BRL por padrão, com um equivalente em USD opcional
@@ -285,6 +297,7 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
   // lib/pricing/first-cycle-promo.ts).
   const { finalPrice, promoVenceu } = calcularPrecoComMaiorDesconto({
     basePrice,
+    fullPrice,
     promoAtiva: !!gatewayConfig?.promoAtiva,
     planElegivel: planElegivelParaPromo(plan.name),
     useUsd: displayCurrency !== 'BRL',
