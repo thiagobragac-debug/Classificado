@@ -237,13 +237,30 @@ export default function AdminMonitoramento() {
   const oomCount = events.filter(e => e.event_type === 'server_failed' && (e.details?.reason?.oomKilled || e.details?.reason?.evicted)).length
 
   const memChartData = samples.map(s => ({ t: new Date(s.created_at).getTime(), v: s.rss_bytes / 1024 / 1024 }))
+  const sampleAgeMinutes = latest ? Math.round((Date.now() - new Date(latest.created_at).getTime()) / 60000) : 0
 
   return (
     <>
       <div className="adm-page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <h1 className="adm-page-title">Monitoramento do Sistema</h1>
-          <p className="adm-page-sub">Memória do Render, saúde e tamanho do banco no Supabase. Amostrado a cada hora.</p>
+          <p className="adm-page-sub">
+            Memória e uptime do servidor (Render), tamanho do banco e conexões ativas do Postgres, se o Redis
+            (Upstash) está configurado, e falhas de webhook de pagamento não processadas. Uma amostra nova é salva a
+            cada hora (ou na hora, clicando em &quot;Verificar Agora&quot;).
+          </p>
+          {latest && (
+            <p style={{ fontSize: '0.8rem', color: 'var(--adm-text-muted)', marginTop: '4px' }}>
+              Última amostra: {new Date(latest.created_at).toLocaleString('pt-BR')}
+              {' '}
+              ({sampleAgeMinutes < 60 ? `há ${sampleAgeMinutes}min` : `há ${(sampleAgeMinutes / 60).toFixed(1)}h`})
+              {sampleAgeMinutes > 90 && (
+                <span style={{ color: 'var(--adm-amber)', fontWeight: 600 }}>
+                  {' '}— desatualizada, clique em &quot;Verificar Agora&quot; pra atualizar
+                </span>
+              )}
+            </p>
+          )}
         </div>
         <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -297,8 +314,10 @@ export default function AdminMonitoramento() {
         <div className="adm-card" style={{ textAlign: 'center', padding: '48px', color: 'var(--adm-text-muted)' }}>Carregando...</div>
       ) : (
         <>
-          {/* KPI cards */}
-          <div className="adm-stats-grid" style={{ marginBottom: '24px' }}>
+          {/* KPI cards -- adm-stats-grid--fixed4 força 4 por linha em telas
+              largas (7 cards com auto-fit puro quebrava 5+2, ver
+              app/(admin)/admin/admin-v2.css). */}
+          <div className="adm-stats-grid adm-stats-grid--fixed4" style={{ marginBottom: '24px' }}>
             <div className="adm-stat-card">
               <div>
                 <div className="adm-stat-val" style={{ color: latest ? ratioColor(memRatio) : undefined }}>

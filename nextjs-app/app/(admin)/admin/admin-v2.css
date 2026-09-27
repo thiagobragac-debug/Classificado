@@ -249,6 +249,17 @@ img { display: block; max-width: 100%; }
 
 /* ─── STAT CARDS ─────────────────────────── */
 .adm-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+/* Variante de largura fixa (achado ao vivo, 27/set/2026): auto-fit deixa o
+   número de colunas variar com a largura da tela E com o próprio número de
+   cards (com 7 cards, uma tela larga o suficiente encaixava 5 na 1a linha e
+   sobravam 2 na 2a, quebrando a padronização visual de 4 por linha que as
+   outras páginas do admin com menos cards têm por coincidência). Só entra
+   em vigor acima de 900px -- abaixo disso, os media queries já existentes
+   de .adm-stats-grid (768px/480px) continuam mandando, sem mudar nenhuma
+   outra página que já usa a classe base. */
+@media (min-width: 901px) {
+  .adm-stats-grid--fixed4 { grid-template-columns: repeat(4, 1fr); }
+}
 .adm-stat-card {
   background: var(--adm-surface);
   border: 1px solid var(--adm-border);
