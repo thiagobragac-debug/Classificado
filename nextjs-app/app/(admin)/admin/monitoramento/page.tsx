@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState } from 'react'
 import { getSupabase } from '@/lib/supabase'
+import { useConfirm } from '@/components/ui/ConfirmProvider'
+import { showToast } from '@/lib/toast'
 
 interface HealthSample {
   created_at: string
@@ -93,8 +95,30 @@ export default function AdminMonitoramento() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [days, setDays] = useState(7)
+  const [restarting, setRestarting] = useState(false)
+  const { confirm } = useConfirm()
 
   useEffect(() => { loadData() }, [days])
+
+  // Reinicia o Web Service no Render (ver app/api/admin/system/restart-render/
+  // route.ts sobre por que isto é sempre um clique humano, nunca automático).
+  async function handleRestart() {
+    if (!(await confirm(
+      'Reiniciar o serviço no Render agora? O site fica temporariamente indisponível durante o restart (mesma janela que já acontece hoje quando o Render reinicia sozinho após um OOM).'
+    ))) return
+
+    setRestarting(true)
+    try {
+      const res = await fetch('/api/admin/system/restart-render', { method: 'POST' })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`)
+      showToast('Restart solicitado com sucesso. O serviço volta em instantes.', 'success')
+    } catch (err: any) {
+      showToast(`Falha ao reiniciar: ${err.message}`, 'error')
+    } finally {
+      setRestarting(false)
+    }
+  }
 
   async function loadData() {
     setLoading(true)
@@ -156,13 +180,21 @@ export default function AdminMonitoramento() {
           <h1 className="adm-page-title">Monitoramento do Sistema</h1>
           <p className="adm-page-sub">Memória do Render, saúde e tamanho do banco no Supabase. Amostrado a cada hora.</p>
         </div>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <span style={{ fontSize: '0.85rem', color: 'var(--adm-text-muted)' }}>Período:</span>
-          {[1, 7, 30].map(d => (
-            <button key={d} className={`adm-btn adm-btn--sm ${days === d ? 'adm-btn--primary' : 'adm-btn--outline'}`} onClick={() => setDays(d)}>
-              {d}d
-            </button>
-          ))}
+        <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.85rem', color: 'var(--adm-text-muted)' }}>Período:</span>
+            {[1, 7, 30].map(d => (
+              <button key={d} className={`adm-btn adm-btn--sm ${days === d ? 'adm-btn--primary' : 'adm-btn--outline'}`} onClick={() => setDays(d)}>
+                {d}d
+              </button>
+            ))}
+          </div>
+          {/* Reinicia o Web Service no Render -- sempre atrás de confirmação,
+              nunca disparado automaticamente (ver comentário na rota de API). */}
+          <button className="adm-btn adm-btn--sm adm-btn--outline" onClick={handleRestart} disabled={restarting} style={{ color: 'var(--adm-red)', borderColor: 'var(--adm-red)' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+            {restarting ? 'Reiniciando...' : 'Reiniciar Serviço'}
+          </button>
         </div>
       </div>
 
