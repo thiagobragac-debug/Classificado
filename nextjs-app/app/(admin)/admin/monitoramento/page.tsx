@@ -11,6 +11,10 @@ interface HealthSample {
   heap_used_bytes: number
   uptime_seconds: number
   db_size_bytes: number | null
+  pg_connections_active: number | null
+  pg_connections_max: number | null
+  upstash_configured: boolean | null
+  webhook_failures_24h: number | null
 }
 
 interface RenderEvent {
@@ -96,9 +100,70 @@ export default function AdminMonitoramento() {
   const [error, setError] = useState<string | null>(null)
   const [days, setDays] = useState(7)
   const [restarting, setRestarting] = useState(false)
+  const [checkingNow, setCheckingNow] = useState(false)
+  const [maintenance, setMaintenance] = useState<boolean | null>(null)
+  const [maintenanceLoading, setMaintenanceLoading] = useState(false)
   const { confirm } = useConfirm()
 
   useEffect(() => { loadData() }, [days])
+  useEffect(() => { loadMaintenanceStatus() }, [])
+
+  async function loadMaintenanceStatus() {
+    try {
+      const res = await fetch('/api/admin/system/maintenance')
+      const body = await res.json()
+      if (res.ok) setMaintenance(body.enabled)
+    } catch {
+      // Silencioso -- ausência de RENDER_API_KEY/RENDER_SERVICE_ID no
+      // ambiente é um estado válido até o usuário configurar (ver botão de
+      // restart, mesma dependência); o toggle só some do jeito certo.
+    }
+  }
+
+  // Verifica a saúde agora mesmo, sem esperar a próxima rodada horária do
+  // monitor externo -- útil enquanto se investiga um problema ao vivo.
+  async function handleCheckNow() {
+    setCheckingNow(true)
+    try {
+      const res = await fetch('/api/admin/system/check-now', { method: 'POST' })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`)
+      showToast('Verificação concluída.', 'success')
+      await loadData()
+    } catch (err: any) {
+      showToast(`Falha ao verificar agora: ${err.message}`, 'error')
+    } finally {
+      setCheckingNow(false)
+    }
+  }
+
+  // Modo de manutenção do Render -- tira o site do ar de PROPÓSITO pra
+  // usuários reais (ver comentário na rota de API), por isso a confirmação
+  // é mais enfática que a do restart.
+  async function handleToggleMaintenance() {
+    const next = !maintenance
+    const msg = next
+      ? 'Ativar o MODO DE MANUTENÇÃO agora? O site vai parar de responder pra todos os visitantes até você desativar de novo aqui.'
+      : 'Desativar o modo de manutenção e voltar o site ao ar pra todos os visitantes?'
+    if (!(await confirm(msg))) return
+
+    setMaintenanceLoading(true)
+    try {
+      const res = await fetch('/api/admin/system/maintenance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: next }),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`)
+      setMaintenance(next)
+      showToast(next ? 'Modo de manutenção ativado.' : 'Site de volta ao ar.', 'success')
+    } catch (err: any) {
+      showToast(`Falha ao mudar modo de manutenção: ${err.message}`, 'error')
+    } finally {
+      setMaintenanceLoading(false)
+    }
+  }
 
   // Reinicia o Web Service no Render (ver app/api/admin/system/restart-render/
   // route.ts sobre por que isto é sempre um clique humano, nunca automático).
@@ -130,7 +195,7 @@ export default function AdminMonitoramento() {
       const [{ data: sampleData, error: sampleErr }, { data: eventData, error: eventErr }] = await Promise.all([
         supabase
           .from('system_health_samples')
-          .select('created_at, rss_bytes, heap_used_bytes, uptime_seconds, db_size_bytes')
+          .select('created_at, rss_bytes, heap_used_bytes, uptime_seconds, db_size_bytes, pg_connections_active, pg_connections_max, upstash_configured, webhook_failures_24h')
           .gte('created_at', since)
           .order('created_at', { ascending: true }),
         supabase
@@ -141,14 +206,14 @@ export default function AdminMonitoramento() {
           .limit(30),
       ])
 
-      // BUG EVITADO: as duas tabelas só existem depois da migration
-      // 20260927120000 ser aplicada manualmente (classificador bloqueia
+      // BUG EVITADO: as tabelas/colunas novas só existem depois das
+      // migrations serem aplicadas manualmente (classificador bloqueia
       // mutação de banco pra este ambiente) -- 42P01 (relation does not
-      // exist) é um estado esperado no primeiro carregamento desta página,
-      // não um erro real do usuário final; distingue pra dar um aviso útil
-      // em vez do erro cru do Postgres.
-      if (sampleErr?.code === '42P01' || eventErr?.code === '42P01') {
-        setError('Tabelas de monitoramento ainda não existem -- aplique a migration 20260927120000_cria_tabelas_monitoramento_sistema.sql no Supabase.')
+      // exist) / 42703 (column does not exist) são estados esperados
+      // enquanto isso não acontece, não um erro real do usuário final;
+      // distingue pra dar um aviso útil em vez do erro cru do Postgres.
+      if (['42P01', '42703'].includes(sampleErr?.code) || ['42P01', '42703'].includes(eventErr?.code)) {
+        setError('Tabelas/colunas de monitoramento ainda não existem -- aplique as migrations 20260927120000 e 20260927130000 no Supabase.')
         setSamples([])
         setEvents([])
         return
@@ -189,14 +254,38 @@ export default function AdminMonitoramento() {
               </button>
             ))}
           </div>
+          {/* Roda a checagem agora, sem esperar a próxima hora cheia. */}
+          <button className="adm-btn adm-btn--sm adm-btn--outline" onClick={handleCheckNow} disabled={checkingNow}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            {checkingNow ? 'Verificando...' : 'Verificar Agora'}
+          </button>
           {/* Reinicia o Web Service no Render -- sempre atrás de confirmação,
               nunca disparado automaticamente (ver comentário na rota de API). */}
           <button className="adm-btn adm-btn--sm adm-btn--outline" onClick={handleRestart} disabled={restarting} style={{ color: 'var(--adm-red)', borderColor: 'var(--adm-red)' }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
             {restarting ? 'Reiniciando...' : 'Reiniciar Serviço'}
           </button>
+          {/* Modo de manutenção -- só aparece quando conseguimos ler o
+              status atual (RENDER_API_KEY/RENDER_SERVICE_ID configuradas). */}
+          {maintenance !== null && (
+            <button
+              className="adm-btn adm-btn--sm adm-btn--outline"
+              onClick={handleToggleMaintenance}
+              disabled={maintenanceLoading}
+              style={maintenance ? { color: 'var(--adm-red)', borderColor: 'var(--adm-red)', background: 'rgba(220,38,38,0.08)' } : undefined}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+              {maintenanceLoading ? 'Aplicando...' : maintenance ? 'Desativar Manutenção' : 'Modo de Manutenção'}
+            </button>
+          )}
         </div>
       </div>
+
+      {maintenance && (
+        <div className="adm-card" style={{ padding: '12px 24px', marginBottom: '20px', borderLeft: '3px solid var(--adm-red)', color: 'var(--adm-red)', fontWeight: 600 }}>
+          🚧 O site está em MODO DE MANUTENÇÃO agora -- visitantes reais não conseguem acessar.
+        </div>
+      )}
 
       {error && (
         <div className="adm-card" style={{ padding: '16px 24px', marginBottom: '20px', borderLeft: '3px solid var(--adm-amber)', color: 'var(--adm-text)' }}>
@@ -241,6 +330,33 @@ export default function AdminMonitoramento() {
                 <div className="adm-stat-lbl">Crashes de OOM ({days}d)</div>
               </div>
               <div className="adm-stat-icon adm-stat-icon--amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+            </div>
+            <div className="adm-stat-card">
+              <div>
+                <div className="adm-stat-val" style={{ color: latest?.pg_connections_max ? ratioColor((latest.pg_connections_active || 0) / latest.pg_connections_max) : undefined }}>
+                  {latest?.pg_connections_max ? `${latest.pg_connections_active}/${latest.pg_connections_max}` : '—'}
+                </div>
+                <div className="adm-stat-lbl">Conexões do Postgres</div>
+              </div>
+              <div className="adm-stat-icon adm-stat-icon--blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 17l6-6-6-6"/><path d="M12 19h8"/></svg></div>
+            </div>
+            <div className="adm-stat-card">
+              <div>
+                <div className="adm-stat-val" style={{ color: latest?.upstash_configured === false ? 'var(--adm-amber)' : latest?.upstash_configured ? 'var(--adm-green)' : undefined }}>
+                  {latest?.upstash_configured == null ? '—' : latest.upstash_configured ? 'Sim' : 'Não'}
+                </div>
+                <div className="adm-stat-lbl">Upstash (Redis) Configurado</div>
+              </div>
+              <div className="adm-stat-icon adm-stat-icon--blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
+            </div>
+            <div className="adm-stat-card">
+              <div>
+                <div className="adm-stat-val" style={{ color: (latest?.webhook_failures_24h || 0) > 0 ? 'var(--adm-red)' : undefined }}>
+                  {latest?.webhook_failures_24h ?? '—'}
+                </div>
+                <div className="adm-stat-lbl">Falhas de Webhook (24h)</div>
+              </div>
+              <div className="adm-stat-icon adm-stat-icon--amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div>
             </div>
           </div>
 

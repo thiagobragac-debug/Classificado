@@ -3,9 +3,9 @@
 // criado depois do e-mail de "exceeded its memory limit" do Render
 // (26/set/2026) revelar 3 crashes de OOM em ~36h. Roda via scheduled task
 // (a cada 1h): notifica na hora quando acha algo novo, e PERSISTE tudo em
-// duas tabelas (system_health_samples, render_events_log) pra alimentar o
-// dashboard em /admin/monitoramento -- sem isso, cada checagem só existia
-// como notificação pontual, sem histórico consultável.
+// tabelas (system_health_samples, render_events_log, webhook_failures) pra
+// alimentar o dashboard em /admin/monitoramento -- sem isso, cada checagem
+// só existia como notificação pontual, sem histórico consultável.
 
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
@@ -24,12 +24,27 @@ function getEnv(key) {
 }
 
 function loadState() {
-  if (!existsSync(STATE_PATH)) return { lastRenderEventTimestamp: null, lastRenderEventId: null };
-  return JSON.parse(readFileSync(STATE_PATH, 'utf8'));
+  if (!existsSync(STATE_PATH)) return { lastRenderEventTimestamp: null, lastRenderEventId: null, warningFlags: {} };
+  const state = JSON.parse(readFileSync(STATE_PATH, 'utf8'));
+  if (!state.warningFlags) state.warningFlags = {};
+  return state;
 }
 
 function saveState(state) {
   writeFileSync(STATE_PATH, JSON.stringify(state, null, 2));
+}
+
+// Condições PERSISTENTES (limite de banco/conexões/memória ultrapassado,
+// Upstash não configurado) só devem virar notificação na TRANSIÇÃO
+// normal->alerta -- sem isso, o monitor notificaria a MESMA condição de
+// hora em hora pra sempre enquanto ela durar (achado ao vivo escrevendo
+// este script: "Upstash não configurado" é verdade desde sempre em
+// produção, dispararia em toda rodada). Eventos pontuais do Render
+// (server_failed) já são tratados à parte, por timestamp, em checkRender().
+function reportOnTransition(state, key, isActive, message, findings) {
+  const wasActive = !!state.warningFlags[key];
+  if (isActive && !wasActive) findings.push(message);
+  state.warningFlags[key] = isActive;
 }
 
 // Limite documentado do plano Free do Supabase (Database size) -- confirmar
@@ -38,20 +53,23 @@ function saveState(state) {
 // consultá-lo diretamente (confirmado: /v1/projects/{ref}/usage não existe).
 const SUPABASE_FREE_DB_LIMIT_BYTES = 500 * 1024 * 1024;
 const SUPABASE_DB_WARN_RATIO = 0.8; // avisa em 80% do limite, não só ao estourar
+const PG_CONNECTIONS_WARN_RATIO = 0.8;
+const MEMORY_LIMIT_BYTES = 512 * 1024 * 1024;
+const MEMORY_WARN_RATIO = 0.85;
 
 const PROJECT_REF = 'rfzuzuobwuanmbrcthqe';
 const PROD_HEALTH_URL = 'https://www.tauzeclass.com.br/api/health';
 
 // service-role key -- só este script escreve nas tabelas de monitoramento
 // (bypassa RLS de propósito); anon/authenticated nunca têm policy de
-// escrita nelas (ver migration 20260927120000).
+// escrita nelas (ver migrations 20260927120000/20260927130000).
 function adminClient() {
   return createClient(getEnv('NEXT_PUBLIC_SUPABASE_URL'), getEnv('SUPABASE_SERVICE_ROLE_KEY'), {
     auth: { persistSession: false },
   });
 }
 
-async function checkRender(db) {
+async function checkRender(db, state) {
   const API_KEY = getEnv('RENDER_API_KEY');
   const SERVICE_ID = getEnv('RENDER_SERVICE_ID');
 
@@ -63,8 +81,8 @@ async function checkRender(db) {
   }
   const events = await res.json();
 
-  const state = loadState();
   const lastSeen = state.lastRenderEventTimestamp ? new Date(state.lastRenderEventTimestamp) : null;
+  const isFirstRun = !lastSeen;
 
   // API devolve mais recente primeiro.
   const newest = events[0]?.event;
@@ -106,16 +124,17 @@ async function checkRender(db) {
   }
 
   if (newest) {
-    saveState({ ...state, lastRenderEventTimestamp: newest.timestamp, lastRenderEventId: newest.id });
+    state.lastRenderEventTimestamp = newest.timestamp;
+    state.lastRenderEventId = newest.id;
   }
 
-  return { ok: true, findings, isFirstRun: !lastSeen };
+  return { ok: true, findings, isFirstRun };
 }
 
-async function checkSupabase(db) {
+async function checkSupabase(db, state) {
   const ACCESS_TOKEN = getEnv('SUPABASE_ACCESS_TOKEN');
   const findings = [];
-  let dbSizeBytes = null;
+  let metrics = null;
 
   const healthRes = await fetch(`https://api.supabase.com/v1/projects/${PROJECT_REF}/health?services=db,auth,rest,storage`, {
     headers: { Authorization: `Bearer ${ACCESS_TOKEN}` },
@@ -129,27 +148,44 @@ async function checkSupabase(db) {
     }
   }
 
-  const sqlRes = await fetch(`https://api.supabase.com/v1/projects/${PROJECT_REF}/database/query`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query: 'select pg_database_size(current_database()) as bytes;' }),
-  });
-  if (sqlRes.ok) {
-    const rows = await sqlRes.json();
-    dbSizeBytes = rows[0]?.bytes ?? null;
-    if (typeof dbSizeBytes === 'number' && dbSizeBytes > SUPABASE_FREE_DB_LIMIT_BYTES * SUPABASE_DB_WARN_RATIO) {
-      const mb = (dbSizeBytes / 1024 / 1024).toFixed(1);
-      findings.push(`Banco de dados em ${mb}MB -- acima de ${SUPABASE_DB_WARN_RATIO * 100}% do limite conhecido do plano Free (500MB)`);
+  // get_system_health_metrics() (migration 20260927130000) -- conexões do
+  // Postgres, tamanho do banco e falhas de webhook num RPC só, chamado com
+  // a mesma service-role key que já grava as amostras.
+  if (db) {
+    const { data, error } = await db.rpc('get_system_health_metrics').single();
+    if (error) {
+      findings.push(`Falha consultando get_system_health_metrics(): ${error.message}`);
+    } else {
+      metrics = data;
+      reportOnTransition(
+        state, 'dbSize',
+        typeof metrics.db_size_bytes === 'number' && metrics.db_size_bytes > SUPABASE_FREE_DB_LIMIT_BYTES * SUPABASE_DB_WARN_RATIO,
+        `Banco de dados em ${(metrics.db_size_bytes / 1024 / 1024).toFixed(1)}MB -- acima de ${SUPABASE_DB_WARN_RATIO * 100}% do limite conhecido do plano Free (500MB)`,
+        findings
+      );
+      reportOnTransition(
+        state, 'pgConnections',
+        metrics.pg_connections_active > metrics.pg_connections_max * PG_CONNECTIONS_WARN_RATIO,
+        `Conexões do Postgres em ${metrics.pg_connections_active}/${metrics.pg_connections_max} -- acima de ${PG_CONNECTIONS_WARN_RATIO * 100}% do limite`,
+        findings
+      );
+      // Falhas de webhook: diferente dos limiares acima, isso é uma
+      // CONTAGEM que já é naturalmente uma janela móvel (24h) -- reportar
+      // sempre que > 0 é razoável (não fica "preso" ligado pra sempre,
+      // sai da janela sozinho conforme o tempo passa).
+      if (metrics.webhook_failures_24h > 0) {
+        findings.push(`${metrics.webhook_failures_24h} falha(s) de webhook de pagamento nas últimas 24h`);
+      }
     }
   }
 
-  return { ok: true, findings, dbSizeBytes };
+  return { ok: true, findings, metrics };
 }
 
 // Amostra a memória REAL do processo em produção via /api/health (ver
 // comentário lá) -- não tem outro jeito de obter isso de graça, já que o
 // Render bloqueia o gráfico de memória/CPU atrás de um plano pago.
-async function sampleProdMemory(db, dbSizeBytes) {
+async function sampleProdMemory(db, state, metrics) {
   const findings = [];
   try {
     const res = await fetch(PROD_HEALTH_URL, { signal: AbortSignal.timeout(15000) });
@@ -160,21 +196,36 @@ async function sampleProdMemory(db, dbSizeBytes) {
     const body = await res.json();
     if (!body.memory) return findings; // deploy antigo ainda sem o campo -- não é erro
 
+    if (typeof body.upstashConfigured === 'boolean') {
+      reportOnTransition(
+        state, 'upstashMissing',
+        !body.upstashConfigured,
+        'Upstash (Redis) não configurado em produção -- rate limiting de login/auth no fallback do Postgres',
+        findings
+      );
+    }
+
     if (db) {
       const { error } = await db.from('system_health_samples').insert({
         rss_bytes: body.memory.rss,
         heap_used_bytes: body.memory.heapUsed,
         heap_total_bytes: body.memory.heapTotal,
         uptime_seconds: body.uptimeSeconds,
-        db_size_bytes: dbSizeBytes,
+        db_size_bytes: metrics?.db_size_bytes ?? null,
+        pg_connections_active: metrics?.pg_connections_active ?? null,
+        pg_connections_max: metrics?.pg_connections_max ?? null,
+        upstash_configured: body.upstashConfigured ?? null,
+        webhook_failures_24h: metrics?.webhook_failures_24h ?? null,
       });
       if (error) findings.push(`Aviso: falha salvando amostra de memória: ${error.message}`);
     }
 
-    const rssMb = body.memory.rss / 1024 / 1024;
-    if (rssMb > 512 * 0.85) {
-      findings.push(`Memória em produção em ${rssMb.toFixed(0)}MB -- perto do limite de 512MB do plano Free`);
-    }
+    reportOnTransition(
+      state, 'memory',
+      body.memory.rss > MEMORY_LIMIT_BYTES * MEMORY_WARN_RATIO,
+      `Memória em produção em ${(body.memory.rss / 1024 / 1024).toFixed(0)}MB -- perto do limite de 512MB do plano Free`,
+      findings
+    );
   } catch (err) {
     findings.push(`Falha amostrando memória de produção: ${err.message}`);
   }
@@ -183,16 +234,19 @@ async function sampleProdMemory(db, dbSizeBytes) {
 
 async function main() {
   const db = adminClient();
+  const state = loadState();
 
-  const render = await checkRender(db);
-  const supabase = await checkSupabase(db);
-  const memFindings = await sampleProdMemory(db, supabase.dbSizeBytes);
+  const render = await checkRender(db, state);
+  const supabase = await checkSupabase(db, state);
+  const memFindings = await sampleProdMemory(db, state, supabase.metrics);
+
+  saveState(state);
 
   const allFindings = [...render.findings, ...supabase.findings, ...memFindings];
 
   console.log(`=== Monitor Render + Supabase — ${new Date().toISOString()} ===`);
   if (render.isFirstRun) {
-    console.log('(primeira execução -- estado inicial gravado, próximas rodadas só reportam eventos NOVOS)');
+    console.log('(primeira execução -- estado inicial gravado, próximas rodadas só reportam eventos/transições NOVAS)');
   }
   if (allFindings.length === 0) {
     console.log('Nada novo. Tudo normal.');

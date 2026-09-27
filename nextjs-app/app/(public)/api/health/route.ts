@@ -11,6 +11,12 @@
  * (confirmado ao vivo no dashboard), então esta é a forma gratuita de ter
  * histórico real. process.memoryUsage() é síncrono e não custoso — não
  * muda o caráter "leve" deste endpoint.
+ *
+ * Campo `upstashConfigured` (mesma leva de indicadores extras, 27/set/2026):
+ * só checa a PRESENÇA das env vars (nunca o valor) -- achado ao vivo nos
+ * logs de produção ("[proxy] Upstash não configurado — rate limiting de
+ * /login e /auth usando a janela no Postgres"), sem nenhum lugar que
+ * deixasse isso visível fora do log efêmero do Render.
  */
 import { NextResponse } from 'next/server';
 
@@ -21,6 +27,7 @@ export async function GET() {
       status: 'ok',
       memory: { rss: mem.rss, heapUsed: mem.heapUsed, heapTotal: mem.heapTotal },
       uptimeSeconds: Math.round(process.uptime()),
+      upstashConfigured: !!(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN),
     },
     { headers: { 'Cache-Control': 'no-store' } }
   );

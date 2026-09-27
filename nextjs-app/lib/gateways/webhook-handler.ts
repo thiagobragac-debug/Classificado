@@ -11,6 +11,25 @@ import {
 import { resolverIpConfiavel, ipParaRateLimit } from '@/lib/ip-utils'
 import { dentroDoLimiteFallback } from '@/lib/rate-limit-fallback'
 
+// Registra falhas reais de processamento de webhook (achado ao vivo,
+// 27/set/2026: essas falhas só existiam como console.warn/error, perdidas
+// assim que os logs efêmeros do Render expiram) -- alimenta o indicador
+// "Falhas de Webhook" em /admin/monitoramento. Best-effort: uma falha
+// gravando o LOG não pode nunca derrubar o processamento real do webhook.
+async function logWebhookFailure(
+  supabase: ReturnType<typeof createAdminClient>,
+  gateway: string,
+  eventType: string | undefined,
+  reason: string,
+  details?: Record<string, unknown>
+) {
+  try {
+    await supabase.from('webhook_failures').insert({ gateway, event_type: eventType, reason, details: details || {} })
+  } catch (err) {
+    console.error('[Webhook] Falha ao registrar webhook_failures (não afeta o processamento):', err)
+  }
+}
+
 /**
  * Webhook handler for all payment gateways.
  *
@@ -184,6 +203,7 @@ export async function processPaymentWebhook(req: Request, forcedGateway?: Gatewa
       // transitória. Não registra nada aqui; só registra depois de achar
       // a assinatura, pra um retry real da Stripe poder de fato reprocessar.
       console.warn(`[Webhook:${gateway}] Subscription not found for event`, event.type, event.gatewaySubscriptionId)
+      await logWebhookFailure(supabase, gateway, event.type, 'subscription_not_found', { gatewaySubscriptionId: event.gatewaySubscriptionId })
       return NextResponse.json({ error: 'Subscription not found' }, { status: 404 })
     }
 
@@ -306,6 +326,7 @@ export async function processPaymentWebhook(req: Request, forcedGateway?: Gatewa
         // pra sempre, em silêncio. Retorna 409 (conflito) — os 4 adapters já
         // tratam qualquer resposta não-2xx como falha e reenviam o evento.
         console.error(`[Webhook:${gateway}] Não foi possível renovar sub ${sub.id} — corrida persistente após várias tentativas, revisão manual necessária.`)
+        await logWebhookFailure(supabase, gateway, event.type, 'renewal_race_persistent', { subscriptionId: sub.id })
         return NextResponse.json({ error: 'Concurrent update conflict, retry needed' }, { status: 409 })
       }
 
@@ -643,6 +664,9 @@ export async function processPaymentWebhook(req: Request, forcedGateway?: Gatewa
 
   } catch (err: any) {
     console.error('[Webhook] Error:', err.message)
+    // `gateway`/`supabase` são const dentro do try acima, fora de escopo
+    // aqui -- cliente novo só pra este log best-effort.
+    await logWebhookFailure(createAdminClient(), 'unknown', undefined, 'unhandled_exception', { message: err.message })
     // Return 400 on auth/signature/token/config errors so gateway will retry
     // Return 200 on logic errors to stop infinite retries
     //
