@@ -21,7 +21,30 @@ interface RenderEvent {
   render_event_id: string
   event_type: string
   occurred_at: string
-  details: { reason?: { oomKilled?: { memoryLimit: string }; evicted?: boolean } }
+  details: { reason?: { oomKilled?: { memoryLimit: string }; evicted?: boolean }; deployStatus?: string }
+}
+
+// Rótulo + cor legíveis pra cada tipo de evento do Render -- antes disso a
+// coluna "Tipo" só mostrava o enum cru (deploy_ended, server_available),
+// inconsistente com o badge "OOM" já traduzido (achado ao vivo pelo
+// usuário, screenshot anotado). deploy_ended também passa a distinguir
+// sucesso de falha via details.deployStatus, em vez de assumir sucesso
+// sempre.
+function eventLabel(e: RenderEvent): { text: string; color: string; bg: string } {
+  const isOom = e.event_type === 'server_failed' && !!e.details?.reason?.oomKilled
+  const isEvicted = e.event_type === 'server_failed' && !!e.details?.reason?.evicted
+  if (isOom) return { text: 'OOM', color: 'var(--adm-red)', bg: 'rgba(220,38,38,0.1)' }
+  if (isEvicted) return { text: 'Instância Removida', color: 'var(--adm-red)', bg: 'rgba(220,38,38,0.1)' }
+  if (e.event_type === 'server_failed') return { text: 'Falha no Serviço', color: 'var(--adm-red)', bg: 'rgba(220,38,38,0.1)' }
+  if (e.event_type === 'server_available') return { text: 'Serviço Disponível', color: 'var(--adm-green)', bg: 'rgba(22,163,74,0.1)' }
+  if (e.event_type === 'deploy_started') return { text: 'Deploy Iniciado', color: 'var(--adm-accent)', bg: 'rgba(37,99,235,0.1)' }
+  if (e.event_type === 'deploy_ended') {
+    const failed = e.details?.deployStatus && e.details.deployStatus !== 'succeeded'
+    return failed
+      ? { text: 'Deploy Falhou', color: 'var(--adm-red)', bg: 'rgba(220,38,38,0.1)' }
+      : { text: 'Deploy Concluído', color: 'var(--adm-green)', bg: 'rgba(22,163,74,0.1)' }
+  }
+  return { text: e.event_type, color: 'var(--adm-text-muted)', bg: 'rgba(107,114,128,0.1)' }
 }
 
 // Limites documentados (não vêm de nenhuma API -- ver comentário em
@@ -377,6 +400,19 @@ export default function AdminMonitoramento() {
               </div>
               <div className="adm-stat-icon adm-stat-icon--amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div>
             </div>
+            {/* 8o card (fecha 4+4 -- achado ao vivo pelo usuário, grid ficava
+                4+3). Heap V8 != RSS: RSS é toda a memória do processo,
+                heap é só o lado JS. Um heap baixo com RSS alto aponta pra
+                memória NATIVA (sharp/Image Optimization, a hipótese
+                investigada pro OOM original) -- não um vazamento no
+                código JS em si. */}
+            <div className="adm-stat-card">
+              <div>
+                <div className="adm-stat-val">{latest ? formatMB(latest.heap_used_bytes) : '—'}</div>
+                <div className="adm-stat-lbl">Heap V8 (memória JS)</div>
+              </div>
+              <div className="adm-stat-icon adm-stat-icon--green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></div>
+            </div>
           </div>
 
           {/* Memory chart */}
@@ -405,6 +441,7 @@ export default function AdminMonitoramento() {
                   ) : events.map(e => {
                     const isOom = e.event_type === 'server_failed' && !!e.details?.reason?.oomKilled
                     const isEvicted = e.event_type === 'server_failed' && !!e.details?.reason?.evicted
+                    const label = eventLabel(e)
                     return (
                       <tr key={e.render_event_id}>
                         <td style={{ color: 'var(--adm-text-muted)', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
@@ -413,10 +450,9 @@ export default function AdminMonitoramento() {
                         <td>
                           <span style={{
                             padding: '2px 8px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 600,
-                            background: isOom ? 'rgba(220,38,38,0.1)' : e.event_type.startsWith('deploy') ? 'rgba(37,99,235,0.1)' : 'rgba(107,114,128,0.1)',
-                            color: isOom ? 'var(--adm-red)' : e.event_type.startsWith('deploy') ? 'var(--adm-accent)' : 'var(--adm-text-muted)',
+                            background: label.bg, color: label.color,
                           }}>
-                            {isOom ? 'OOM' : e.event_type}
+                            {label.text}
                           </span>
                         </td>
                         <td style={{ fontSize: '0.85rem', color: 'var(--adm-text-muted)' }}>
