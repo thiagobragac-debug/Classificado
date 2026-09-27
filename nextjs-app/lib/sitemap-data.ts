@@ -96,6 +96,28 @@ export async function getAllSitemapEntries(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/leiloes`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.8, alternates: { languages: withLang(baseUrl, '/leiloes') } },
   ];
 
+  // BUG CRÍTICO CORRIGIDO (CI, 2026-09-27 — 8 runs consecutivos falhando,
+  // confirmado ao vivo no log do GitHub Actions run #160): app/sitemap.ts usa
+  // generateSitemaps(), que faz o Next.js PRÉ-RENDERIZAR /sitemap/{id}.xml em
+  // BUILD TIME (SSG), diferente de uma rota dinâmica comum. safeQuery() acima
+  // isola cada exceção corretamente (log + fallback, nunca relança) — mas
+  // mesmo assim o Next aborta a página inteira após esgotar tentativas quando
+  // os fetches subjacentes falham, derrubando `next build` por completo. O
+  // step Build do workflow (.github/workflows/ci.yml) roda com hosts
+  // Supabase placeholder de propósito (não precisam ser reais, só
+  // sintaticamente válidos) — mas esta rota SSG tentava se conectar mesmo
+  // assim, e o ENOTFOUND desse hostname falso é o que derrubava o build.
+  // SITEMAP_BUILD_SKIP_NETWORK é setada SÓ nesse step (não em "Testes
+  // unitários" — sitemap-data.test.ts precisa da lógica real rodando contra
+  // seus mocks) — deliberadamente não usamos `process.env.CI` aqui porque o
+  // runner já define isso como 'true' pro job INTEIRO, o que faria este
+  // early-return disparar também durante os testes unitários e quebrar as
+  // asserções deles (esperam URLs reais mockadas, não o fallback de
+  // emergência). Em produção (Render) esta env var nunca está presente.
+  if (process.env.SITEMAP_BUILD_SKIP_NETWORK === 'true') {
+    return emergencyStaticRoutes;
+  }
+
   try {
     const supabase = createAnonClient();
 

@@ -41,6 +41,15 @@ jobs:
       # O build lê NEXT_PUBLIC_SUPABASE_URL/ANON_KEY em tempo de build (client
       # criado no module scope de alguns componentes). Não precisam ser reais —
       # só sintaticamente válidos — e não devem ser os do projeto de produção.
+      #
+      # SITEMAP_BUILD_SKIP_NETWORK: app/sitemap.ts usa generateSitemaps(), que
+      # faz o Next.js pré-renderizar /sitemap/{id}.xml em BUILD TIME (SSG) —
+      # com esses hosts placeholder (que não existem de verdade), a tentativa
+      # de fetch derrubava o `next build` inteiro (ENOTFOUND, confirmado ao
+      # vivo no run #160). Só afeta este step: NÃO setar como `CI: true` (o
+      # runner já define isso globalmente pro job todo, o que quebraria o
+      # step "Testes unitários" — sitemap-data.test.ts espera dados reais
+      # mockados, não o fallback de emergência).
       - name: Build
         run: npx next build
         env:
@@ -52,3 +61,4 @@ jobs:
           NEXT_PUBLIC_SITE_URL: http://localhost:3000
           NEXT_PUBLIC_VAPID_KEY: ci-placeholder
           SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-service-role-key
+          SITEMAP_BUILD_SKIP_NETWORK: 'true'
