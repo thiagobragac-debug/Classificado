@@ -2,6 +2,7 @@
 
 import { memo } from 'react';
 import Link from 'next/link';
+import { LinkPendingOverlay } from '@/components/ads/LinkPendingOverlay';
 // AppImage (não next/image direto) — ver components/AppImage.tsx: deixa o
 // Image Transformations do Supabase pronto pra ativar no futuro só com env
 // var + upgrade de plano, sem editar este arquivo de novo.
@@ -65,6 +66,7 @@ function AdCardHomeImpl({ ad, lang, isFav, toggleFav, priority = false }: { ad: 
       style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
     >
       <Link href={`/anuncio/${ad.slug}`} className={`ad-card${ad.featured ? ' ad-card--featured' : ''}`} style={{ flex: 1, width: '100%' }}>
+      <LinkPendingOverlay />
       <div className="ad-card__image" style={{ position: 'relative' }}>
         {img ? (
           <Image src={img} alt={adTitle} fill style={{ objectFit: 'cover' }} sizes="(max-width: 768px) 100vw, 300px" priority={priority} />

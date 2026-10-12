@@ -1069,6 +1069,40 @@ html.is-logged-in .auth-wrapper a[href="login.html"]::after {
   z-index: 1;
 }
 
+/* Barra de progresso global de navegação (components/NavigationProgress.tsx). */
+.nav-progress {
+  position: fixed; top: 0; left: 0; height: 3px; width: 100%;
+  background: var(--clr-primary-mid, #16A34A);
+  box-shadow: 0 0 8px rgba(22, 163, 74, 0.5);
+  z-index: 100001; pointer-events: none;
+  opacity: 0; transition: opacity 0.3s ease 0.1s;
+}
+.nav-progress--on {
+  opacity: 1; transition: none;
+  animation: nav-progress-grow 8s cubic-bezier(0.1, 0.6, 0.3, 1) forwards;
+}
+@keyframes nav-progress-grow { from { width: 0; } to { width: 85%; } }
+
+/* Spinner por cima do card enquanto a navegação pro anúncio está pendente
+   (components/ads/LinkPendingOverlay.tsx). Começa invisível e só aparece
+   após 120ms pra não piscar em navegação rápida. */
+.link-pending-overlay {
+  position: absolute; inset: 0; z-index: 5;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: inherit;
+  opacity: 0; pointer-events: none;
+  animation: link-pending-in 0.15s ease 0.12s forwards;
+}
+.link-pending-overlay::after {
+  content: '';
+  width: 30px; height: 30px; border-radius: 50%;
+  border: 3px solid var(--clr-border, #e2e8f0);
+  border-top-color: var(--clr-primary-mid, #16A34A);
+  animation: spin 0.7s linear infinite;
+}
+@keyframes link-pending-in { to { opacity: 1; } }
+
 .ad-card__title-link {
   position: relative;
   z-index: 2;

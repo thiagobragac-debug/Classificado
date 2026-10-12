@@ -2,6 +2,7 @@
 
 import { useRef } from 'react';
 import Link from 'next/link';
+import { LinkPendingOverlay } from './LinkPendingOverlay';
 // AppImage (não next/image direto) — ver components/AppImage.tsx: deixa o
 // Image Transformations do Supabase pronto pra ativar no futuro só com env
 // var + upgrade de plano, sem editar este arquivo de novo.
@@ -105,6 +106,7 @@ export function SimilarAdsCarousel({ ads }: { ads: any[] }) {
                 scrollSnapAlign: 'start'
               }}
             >
+              <LinkPendingOverlay />
               <div className="ad-card__image" style={{ position: 'relative', width: '100%', aspectRatio: '4/3' }}>
                 <Image 
                   src={img} 

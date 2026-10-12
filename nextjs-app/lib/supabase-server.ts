@@ -1,7 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { createClient as createJsClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
-import { cache } from 'react';
 import { unstable_cache } from 'next/cache';
 import { SUPABASE_URL, SUPABASE_ANON } from './supabase';
 import { parseEventDate } from './event-date';
@@ -125,8 +124,39 @@ function piso(real: number, configurado: string | undefined): number {
   return Number.isFinite(n) && n > real ? n : real;
 }
 
+// LENTIDÃO NA HOME (2026-10-12): estes buscadores usavam React cache(), que só
+// deduplica DENTRO da mesma requisição — cada visita refazia ~9 consultas ao
+// Supabase (6 contagens + settings + 3 RPCs + depoimentos + 2 de eventos) a
+// partir do Render Free Tier. As RPCs (POST) e as contagens (HEAD) também
+// escapam do cache de fetch do Next (createAnonClient só cacheia GET). Dados
+// públicos de vitrine, tolerantes a 60s de atraso: cache entre requisições.
+// Erro de banco NÃO entra no cache (a função interna lança; quem chama recebe
+// o fallback) — senão uma falha passageira esvaziaria a home por 1 minuto.
+function cachedPublic<A extends unknown[], R>(
+  fn: (...args: A) => Promise<R>,
+  key: string,
+  fallback: R,
+  tags: string[] = [],
+  revalidate = 60,
+) {
+  const cached = unstable_cache(fn, [key], { revalidate, tags: ['home-data', ...tags] });
+  return async (...args: A): Promise<R> => {
+    try {
+      return await cached(...args);
+    } catch (e) {
+      console.error(`[${key}] falha ao buscar dados da home`, e);
+      return fallback;
+    }
+  };
+}
+
+const EMPTY_STATS = {
+  total_ads: 0, total_sellers: 0, total_bovinos: 0, total_machines: 0,
+  total_auctions: 0, total_imoveis: 0, total_cities: 120, total_countries: 4, cnt_plus: false,
+};
+
 // Server version of fetchPlatformStats
-export const getServerPlatformStats = cache(async () => {
+export const getServerPlatformStats = cachedPublic(async () => {
   const supabase = createAnonClient();
 
   // All 6 count queries run in parallel
@@ -175,27 +205,27 @@ export const getServerPlatformStats = cache(async () => {
     // categoria (mesmo escopo do único toggle `tc_cnt_plus` salvo).
     cnt_plus: settings.tc_cnt_plus === '1',
   };
-});
+}, 'home-platform-stats', EMPTY_STATS, ['platform-settings']);
 
-export const getServerFeaturedAds = cache(async (city?: string, state?: string, country?: string, limit: number = 4) => {
+export const getServerFeaturedAds = cachedPublic(async (city?: string, state?: string, country?: string, limit: number = 4) => {
   const supabase = createAnonClient();
   const { data, error } = await supabase
-    .rpc('get_localized_featured_ads', { 
-      p_city: city || null, 
-      p_state: state || null, 
-      p_country: country || null, 
-      p_limit: limit 
+    .rpc('get_localized_featured_ads', {
+      p_city: city || null,
+      p_state: state || null,
+      p_country: country || null,
+      p_limit: limit
     })
     .select('id, slug, title_pt, title_es, price, currency, status, featured, images, category_id, city, state, country, created_at, views_count, expires_at, profiles(name, avatar_url, verified)');
-    
+
   if (error) {
     console.error("Error fetching localized featured ads", error);
-    return [] as any[];
+    throw error;
   }
   return (data as any[]) || [];
-});
+}, 'home-featured-ads', [] as any[]);
 
-export const getServerRecentAds = cache(async (city?: string, state?: string, country?: string, limit: number = 10) => {
+export const getServerRecentAds = cachedPublic(async (city?: string, state?: string, country?: string, limit: number = 10) => {
   const supabase = createAnonClient();
   const { data, error } = await supabase
     .rpc('get_localized_recent_ads', { 
@@ -210,15 +240,15 @@ export const getServerRecentAds = cache(async (city?: string, state?: string, co
     
   if (error) {
     console.error("Error fetching localized recent ads", error);
-    return { ads: [], hasMore: false };
+    throw error;
   }
 
   const rows = ((data as any[]) || []).slice(0, limit);
   const hasMore = rows.length === limit;
   return { ads: rows, hasMore };
-});
+}, 'home-recent-ads', { ads: [] as any[], hasMore: false });
 
-export const getServerTopSellers = cache(async (city?: string, state?: string, country?: string, limit: number = 4) => {
+export const getServerTopSellers = cachedPublic(async (city?: string, state?: string, country?: string, limit: number = 4) => {
   const supabase = createAnonClient();
   const { data, error } = await supabase
     .rpc('get_localized_top_sellers', {
@@ -230,18 +260,21 @@ export const getServerTopSellers = cache(async (city?: string, state?: string, c
     
   if (error) {
     console.error("Error fetching localized top sellers", error);
-    return [];
+    throw error;
   }
-  return data || [];
-});
+  return (data as any[]) || [];
+}, 'home-top-sellers', [] as any[]);
 
-export const getServerTestimonials = cache(async () => {
+export const getServerTestimonials = cachedPublic(async () => {
   const supabase = createAnonClient();
-  const { data } = await supabase.from('testimonials').select('*').order('created_at', { ascending: false });
-  return data || [];
-});
+  const { data, error } = await supabase.from('testimonials').select('*').order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data as any[]) || [];
+}, 'home-testimonials', [] as any[]);
 
-export async function getServerUpcomingEvents(city?: string, state?: string, country?: string, limit: number = 4, lang: 'pt' | 'es' = 'pt') {
+export const getServerUpcomingEvents = cachedPublic(getUpcomingEventsUncached, 'home-upcoming-events', [] as any[]);
+
+async function getUpcomingEventsUncached(city?: string, state?: string, country?: string, limit: number = 4, lang: 'pt' | 'es' = 'pt') {
   const supabase = createAnonClient();
   const today = new Date().toISOString();
   const now = Date.now();

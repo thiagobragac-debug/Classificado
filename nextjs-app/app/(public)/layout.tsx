@@ -12,6 +12,7 @@ import { ConfirmProvider } from '@/components/ui/ConfirmProvider';
 import { PwaPrompt } from '@/components/PwaPrompt';
 import { CapacitorAuthBridge } from '@/components/CapacitorAuthBridge';
 import { CommandPalette } from '@/components/CommandPalette';
+import { NavigationProgress } from '@/components/NavigationProgress';
 import { createClient, getServerCategories, getServerAdsenseClientId } from '@/lib/supabase-server';
 import { CategoriesProvider } from '@/lib/categories-context';
 import { Inter, Sora } from 'next/font/google';
@@ -228,6 +229,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 }}>
                   {lt.skipToContent}
                 </a>
+                <NavigationProgress />
                 <CommandPalette />
                 <Header initialIsLoggedIn={isLogged} initialUserInitials={userInitials} />
                 <main id="main-content">{children}</main>
