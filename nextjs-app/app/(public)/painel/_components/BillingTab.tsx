@@ -31,7 +31,7 @@ const TRANSLATIONS = {
     nextBilling: 'Próxima cobrança', periodEnd: 'Válida até',
     // F31 (auditoria 12/out/2026): o valor da linha muda de 39,50 para 79,00 no dia
     // seguinte à compra (o reajuste do cron) sem nenhuma explicação.
-    promoNote: 'Promoção do 1º ciclo (50% OFF): você paga {pago} agora. Próximas cobranças: {cheio} {por}.',
+    promoNote: 'Promoção do 1º ciclo (50% OFF): neste primeiro ciclo você pagou {pago}. Próximas cobranças: {cheio} {por}.',
     promoPerMonth: '/mês', promoPerYear: '/ano',
     continueCheckout: 'Continuar pagamento',
     prev: 'Anterior', next: 'Próxima',
@@ -56,7 +56,7 @@ const TRANSLATIONS = {
     statusPastDue: 'Pago atrasado', statusCancelling: 'Cancela al final del período',
     cycleMonthly: 'Mensual', cycleAnnual: 'Anual',
     nextBilling: 'Próximo cobro', periodEnd: 'Válida hasta',
-    promoNote: 'Promoción del 1.er ciclo (50% OFF): pagas {pago} ahora. Próximos cobros: {cheio} {por}.',
+    promoNote: 'Promoción del 1.er ciclo (50% OFF): en este primer ciclo pagaste {pago}. Próximos cobros: {cheio} {por}.',
     promoPerMonth: '/mes', promoPerYear: '/año',
     continueCheckout: 'Continuar pago',
     prev: 'Anterior', next: 'Siguiente',
@@ -310,7 +310,7 @@ export function BillingTab({ user, planMeta }: { user: any, planMeta: any }) {
                         a restaurar; o 1º ciclo foi cobrado em 50% dele). Explica o valor pago e o
                         das próximas cobranças, mesmo depois do reajuste do cron mudar `price`. */}
                     {sub.promo_full_price && (isApproved || isPending || isPastDue) && (() => {
-                      // Só dentro do 1º ciclo: depois dele "você paga X agora" seria falso.
+                      // Só dentro do 1º ciclo: depois dele "você pagou X neste ciclo" perderia o sentido.
                       const fimPrimeiroCiclo = new Date(sub.created_at);
                       if (sub.billing_cycle === 'annual') fimPrimeiroCiclo.setFullYear(fimPrimeiroCiclo.getFullYear() + 1);
                       else fimPrimeiroCiclo.setMonth(fimPrimeiroCiclo.getMonth() + 1);

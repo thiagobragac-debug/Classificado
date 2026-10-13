@@ -36,7 +36,7 @@ assinaturas Pagar.me canceladas; flag e preços restaurados).
 | F15 | MP: grafia do status de cancelamento ambígua | Aceita as duas; cancela tentando uma e a outra | `mercadopago.ts` |
 | F17 | Asaas: `nextDueDate` em UTC (21h–24h BRT = dia seguinte) | Data de Brasília | `asaas.ts` |
 | F28/F32 | Vitrine anunciava 50% a quem não pode receber; card sem "1º mês" | `/api/promo/elegibilidade`; nota "Desconto só no 1º mês — depois R$ X" no card | `api/promo/elegibilidade/route.ts`, `PricingClientUI.tsx` |
-| F31 | Painel mostrava R$79 retroativo sem explicar | Nota "você paga R$39,50 agora; próximas R$79,00/mês" durante o 1º ciclo | `BillingTab.tsx` |
+| F31 | Painel mostrava R$79 retroativo sem explicar | Nota "neste primeiro ciclo você pagou R$39,50; próximas R$79,00/mês" durante o 1º ciclo (texto ajustado em 13/out após o E2E pela UI: "agora" confundia depois do reajuste) | `BillingTab.tsx` |
 | F46 | Todo 4xx tratado como "cartão recusado" | 401/403/404/408/409/429 viram erro ambíguo | `types.ts` |
 | F54 | Teste com 3 GETs reais de rede | Stub de `fetch` | `webhooks.test.ts` |
 | F59 | Modal sem semântica de diálogo | `role=dialog`, `aria-modal`, rótulo, foco inicial, Esc | `CheckoutModal.tsx` |
