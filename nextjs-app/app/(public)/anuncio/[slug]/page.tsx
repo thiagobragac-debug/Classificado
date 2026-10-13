@@ -1,7 +1,9 @@
 import { notFound, permanentRedirect } from 'next/navigation';
-import { cache } from 'react';
+import { cache, Suspense } from 'react';
 import { createHash } from 'crypto';
 import { headers } from 'next/headers';
+import { after } from 'next/server';
+import { unstable_cache } from 'next/cache';
 import { getLocale } from '@/lib/locale-server';
 import { localizedPath, buildHreflangAlternates, SITE_URL } from '@/lib/locale';
 import Link from 'next/link';
@@ -144,6 +146,33 @@ const resolveAdBySlug = cache(async (slugParam: string) => {
     .maybeSingle();
   return data as any;
 });
+
+// Só o booleano "vendedor tem WhatsApp" sai daqui (o número nunca sai do
+// servidor — ver comentários no corpo da página). Consulta via service_role
+// a cada visita era uma ida ao Postgres no caminho crítico; o dado muda
+// raramente, então fica em cache entre requisições por 5 min. Erro de banco
+// lança (não é cacheado) e vira "sem WhatsApp" só nesta requisição.
+const getHasWhatsappCached = unstable_cache(
+  async (profileId: string) => {
+    const { data, error } = await createAdminClient()
+      .from('user_secrets')
+      .select('phone_whatsapp')
+      .eq('id', profileId)
+      .maybeSingle();
+    if (error) throw error;
+    return !!data?.phone_whatsapp;
+  },
+  ['ad-seller-has-whatsapp'],
+  { revalidate: 300 },
+);
+async function getHasWhatsapp(profileId: string): Promise<boolean> {
+  try {
+    return await getHasWhatsappCached(profileId);
+  } catch (e) {
+    console.error('[AdDetails] Falha ao checar WhatsApp do vendedor:', e);
+    return false;
+  }
+}
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug: slugParam } = await params;
@@ -319,21 +348,23 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ slug
   // paralelo, mesmo padrão já usado em app/(public)/layout.tsx. Dispara
   // aqui sem aguardar; o await real acontece só depois, junto com a
   // busca de hasWhatsapp.
-  const incrementViewPromise = (async () => {
+  // LENTIDÃO (2026-10-12): mesmo em paralelo, o await final ainda segurava o
+  // HTML até o Postgres confirmar a view — resultado que a página nem usa.
+  // Agora roda em after(), depois da resposta já enviada ao visitante.
+  const headersList = await headers();
+  const rawIp =
+    headersList.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    headersList.get('x-real-ip') ||
+    '127.0.0.1';
+  // Hash SHA-256 truncado do IP + adId para deduplicação real por visitante
+  const ipHash = createHash('sha256').update(rawIp + id).digest('hex').slice(0, 16);
+  after(async () => {
     try {
-      const headersList = await headers();
-      const rawIp =
-        headersList.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-        headersList.get('x-real-ip') ||
-        '127.0.0.1';
-      // Hash SHA-256 truncado do IP + adId para deduplicação real por visitante
-      const ipHash = createHash('sha256').update(rawIp + id).digest('hex').slice(0, 16);
       await supabase.rpc('increment_ad_view_safe', { p_ad_id: id, p_ip_hash: ipHash });
     } catch (e) {
-      // Não bloquear a renderização por falha de contagem
       console.error('[AdDetails] Failed to increment view:', e);
     }
-  })();
+  });
 
   // BUG CORRIGIDO (auditoria de i18n, 2026-08-26): mesma inversão de
   // prioridade do generateMetadata — título e nome da categoria exibidos
@@ -347,6 +378,13 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ slug
   // (coluna adicionada na migration de i18n — texto livre digitado pelo
   // vendedor, sem tradução automática, por isso o fallback pra tags_pt).
   const tags = lang === 'es' && ad.tags_es && ad.tags_es.length > 0 ? ad.tags_es : ad.tags_pt;
+
+  // Disparada aqui (e não mais depois do getGeoParams) pra rodar em paralelo
+  // com ele — as duas buscas são independentes. Ver explicação completa do
+  // porquê de ser uma consulta separada mais abaixo, junto do await.
+  const whatsappPromise = ad.profiles?.id
+    ? getHasWhatsapp(ad.profiles.id)
+    : Promise.resolve(false);
 
   // ─── Geo do usuário para Anúncios Similares ──────────────────
   const geoContext = await getGeoParams({});
@@ -452,11 +490,7 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ slug
   // só o nome da tabela mudou. O valor em si é descartado logo em seguida;
   // só o booleano sobrevive.
   let hasWhatsapp = false;
-  const whatsappPromise = ad.profiles?.id
-    ? createAdminClient().from('user_secrets').select('phone_whatsapp').eq('id', ad.profiles.id).maybeSingle()
-    : Promise.resolve({ data: null });
-  const [, { data: whatsappRow }] = await Promise.all([incrementViewPromise, whatsappPromise]);
-  hasWhatsapp = !!whatsappRow?.phone_whatsapp;
+  hasWhatsapp = await whatsappPromise;
   const adForSidebar = ad;
 
   return (
@@ -581,12 +615,18 @@ export default async function AdDetailsPage({ params }: { params: Promise<{ slug
               ditada só pelo AdSidebar e sobrava ~290px de vazio embaixo da
               galeria (visto ao vivo antes desse ajuste). */}
           <div className="ad-similar-col">
-            <SimilarAds
-              currentAdId={ad.id}
-              categoryId={ad.category_id}
-              city={preferredCity}
-              state={preferredState}
-            />
+            {/* Suspense: SimilarAds faz até 4 queries em sequência e antes
+                segurava o HTML da página inteira (galeria, preço, contato)
+                esperando por elas. Agora o conteúdo principal chega
+                primeiro e o carrossel entra em streaming logo depois. */}
+            <Suspense fallback={<div className="skeleton" style={{ width: '100%', height: 280, borderRadius: '1rem' }} />}>
+              <SimilarAds
+                currentAdId={ad.id}
+                categoryId={ad.category_id}
+                city={preferredCity}
+                state={preferredState}
+              />
+            </Suspense>
           </div>
 
           {/* BUG CORRIGIDO (achado ao vivo pelo usuário: o banner sticky
