@@ -1,5 +1,6 @@
 import { GatewayAdapter, WebhookEvent } from './types'
 import { assinaturaConfere } from './signature'
+import { diaDoMesBrasil } from './data-brasil'
 
 export function pagarmeAdapter(apiKey: string): GatewayAdapter {
   const basicAuth = `Basic ${Buffer.from(apiKey + ':').toString('base64')}`
@@ -91,13 +92,20 @@ export function pagarmeAdapter(apiKey: string): GatewayAdapter {
       // esse campo. Usa o dia de hoje (assinatura começa e cobra todo mês
       // no mesmo dia) — mesmo padrão de "cobra a partir de hoje" que
       // stripe.ts/asaas.ts já usam.
-      const billingDay = new Date().getDate()
+      // HOTFIX (confirmado ao vivo no sandbox em 13/out/2026): a API recusa billing_day > 28
+      // com 422, e 'exact_day' só aceita interval 'month'. Nos dias 29-31 TODO checkout mensal
+      // falhava ('pagamento recusado' falso) e o anual falhava SEMPRE. 'prepaid' cobra NA HORA
+      // e agenda a próxima para o mesmo dia do período seguinte (testado). O dia vem do
+      // calendário de Brasília (o Render roda em UTC).
+      const billingDay = diaDoMesBrasil()
+      const billingFields = (plan.billingCycle === 'annual' || billingDay > 28)
+        ? { billing_type: 'prepaid' as const }
+        : { billing_type: 'exact_day' as const, billing_day: billingDay }
       const body = {
         payment_method: 'credit_card',
         interval,
         interval_count: intervalCount,
-        billing_type: 'exact_day', // Pagar.me recommended for cc subscriptions
-        billing_day: billingDay,
+        ...billingFields,
         items: [{
           description: plan.name,
           quantity: 1,
