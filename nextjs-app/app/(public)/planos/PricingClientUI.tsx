@@ -73,6 +73,9 @@ const TRANSLATIONS = {
     popularBadge: '⭐ Mais Popular',
     currentBadge: '✓ Plano Atual',
     promoBadge: '🔥 50% OFF',
+    // F32: o próprio card diz que o desconto é só do 1º ciclo e quanto passa a ser.
+    promoCardNoteMonthly: 'Desconto só no 1º mês — depois {valor}/mês',
+    promoCardNoteAnnual: 'Desconto só no 1º ano — depois {valor}/ano',
     promoBannerTitle: '🔥 50% OFF no primeiro mês (ou no primeiro ano, se anual)!',
     promoBannerSubtitle: 'Nos planos Produtor PRO e Premium — o preço volta ao normal automaticamente depois.',
     currentPlanBtn: 'Plano Atual',
@@ -116,7 +119,7 @@ const TRANSLATIONS = {
     faqPaymentQ: 'Quais formas de pagamento são aceitas?',
     faqPaymentA: 'Aceitamos cartão de crédito e débito.',
     faqAdsQ: 'Meus anúncios somem se eu cancelar?',
-    faqAdsA: 'Não. Seus anúncios continuam visíveis, mas voltam ao limite do plano Grátis (3 ativos). Os demais ficam pausados automaticamente.',
+    faqAdsA: 'Não. Seus anúncios continuam visíveis, mas o limite volta ao do plano Grátis (3 ativos). Os que excederem esse limite ficam pausados depois de um prazo de 7 dias, para você escolher quais manter.',
     confirmTitle: 'Confirmação',
     confirmDowngradeMsg: 'Tem certeza que deseja voltar para o plano Grátis? Você continua com acesso ao plano atual até o fim do período já pago.',
     sessionExpired: 'Sessão expirada. Faça login novamente.',
@@ -144,6 +147,8 @@ const TRANSLATIONS = {
     popularBadge: '⭐ Más Popular',
     currentBadge: '✓ Plan Actual',
     promoBadge: '🔥 50% OFF',
+    promoCardNoteMonthly: 'Descuento solo el 1.er mes — luego {valor}/mes',
+    promoCardNoteAnnual: 'Descuento solo el 1.er año — luego {valor}/año',
     promoBannerTitle: '🔥 ¡50% OFF en el primer mes (o el primer año, si es anual)!',
     promoBannerSubtitle: 'En los planes Productor PRO y Premium — el precio vuelve a la normalidad automáticamente después.',
     currentPlanBtn: 'Plan Actual',
@@ -187,7 +192,7 @@ const TRANSLATIONS = {
     faqPaymentQ: '¿Qué formas de pago se aceptan?',
     faqPaymentA: 'Aceptamos tarjeta de crédito y débito.',
     faqAdsQ: '¿Mis anuncios desaparecen si cancelo?',
-    faqAdsA: 'No. Tus anuncios siguen visibles, pero vuelven al límite del plan Gratis (3 activos). Los demás quedan pausados automáticamente.',
+    faqAdsA: 'No. Tus anuncios siguen visibles, pero el límite vuelve al del plan Gratis (3 activos). Los que excedan ese límite quedan pausados después de un plazo de 7 días, para que elijas cuáles mantener.',
     confirmTitle: 'Confirmación',
     confirmDowngradeMsg: '¿Estás seguro de que deseas volver al plan Gratis? Seguirás con acceso a tu plan actual hasta el final del período ya pagado.',
     sessionExpired: 'Sesión expirada. Inicia sesión nuevamente.',
@@ -238,6 +243,23 @@ export default function PricingClientUI({ initialPlans, plansError = false, prom
   const { session } = useAuth()
   const { lang } = useLang()
   const t = TRANSLATIONS[lang]
+
+  // F28 (auditoria 12/out/2026): a promoção é de aquisição (uma vez por usuário).
+  // A vitrine é pública e igual para todos, mas quem já teve assinatura paga (ou já
+  // é assinante) não a recebe no checkout -- anunciar "50% OFF" a essa pessoa era
+  // promessa que o servidor não cumpre. Visitante anônimo continua vendo a promo.
+  // Falha na consulta = mantém como estava (o checkout é a autoridade final).
+  const [promoElegivel, setPromoElegivel] = useState(true)
+  useEffect(() => {
+    if (!session?.access_token) { setPromoElegivel(true); return }
+    let cancelado = false
+    fetch('/api/promo/elegibilidade', { headers: { Authorization: `Bearer ${session.access_token}` } })
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (!cancelado && d && typeof d.elegivel === 'boolean') setPromoElegivel(d.elegivel) })
+      .catch(() => {})
+    return () => { cancelado = true }
+  }, [session?.access_token])
+  const promoVisivel = promoPrimeiroCicloAtivo && promoElegivel
 
   // BUG CORRIGIDO (auditoria de SEO, 2ª rodada — cobertura de dados
   // estruturados): esta página já tem 4 perguntas/respostas reais e
@@ -465,7 +487,7 @@ export default function PricingClientUI({ initialPlans, plansError = false, prom
             </span>
           </div>
 
-          {promoPrimeiroCicloAtivo && (
+          {promoVisivel && (
             <div
               style={{
                 background: 'linear-gradient(135deg, #22c55e, #10b981)',
@@ -527,7 +549,7 @@ export default function PricingClientUI({ initialPlans, plansError = false, prom
             // mostrava "Começar Grátis" pra quem já estava nele.
             const isCurrent = !!session && (userPlanId ? userPlanId === plan.id : isFree)
             const isPopular = plan.sort_order === 2
-            const promoAplicaNestePlano = !isFree && promoPrimeiroCicloAtivo && planElegivelParaPromo(plan.name)
+            const promoAplicaNestePlano = !isFree && promoVisivel && planElegivelParaPromo(plan.name)
 
             // isPopular e promoAplicaNestePlano podem coexistir no mesmo card
             // (Produtor PRO) -- os dois badges ocupam a MESMA posição
@@ -571,7 +593,9 @@ export default function PricingClientUI({ initialPlans, plansError = false, prom
                     // Maior desconto entre o preço promocional cadastrado
                     // manualmente no admin (permanente) e a promoção
                     // automática de 50% no 1o ciclo -- nunca soma os dois.
-                    const precoComPromoAutomatica = promoAplicaNestePlano ? planPrice * 0.5 : null
+                    // F61: arredonda a centavos como o servidor (Math.round(x*100)/100) -- sem isso
+                    // preços com centavos ímpares (ex.: 9,99 -> 4,995) divergiam em 1 centavo.
+                    const precoComPromoAutomatica = promoAplicaNestePlano ? Math.round(planPrice * 0.5 * 100) / 100 : null
                     const candidatos = [planPromoCadastrado, precoComPromoAutomatica].filter((v): v is number => v != null && v > 0)
                     const planPromo = candidatos.length > 0 ? Math.min(...candidatos) : null
                     return (
@@ -600,6 +624,14 @@ export default function PricingClientUI({ initialPlans, plansError = false, prom
                   {billingCycle === 'annual' && !isFree && (
                     <div className={styles.annualNote}>{t.annualNote}</div>
                   )}
+                  {/* F32: o próprio card diz que o desconto é só do 1º ciclo e o valor seguinte */}
+                  {promoAplicaNestePlano && (() => {
+                    const { currency: c, price: p } = priceFor(plan)
+                    const depois = billingCycle === 'annual' ? p * 0.8 * 12 : p
+                    const msg = (billingCycle === 'annual' ? t.promoCardNoteAnnual : t.promoCardNoteMonthly)
+                      .replace('{valor}', `${getCurrencySymbol(c)} ${formatAmount(depois, lang)}`)
+                    return <div className={styles.annualNote} style={{ fontWeight: 600 }}>{msg}</div>
+                  })()}
                 </div>
 
                 <ul className={styles.planFeatures}>

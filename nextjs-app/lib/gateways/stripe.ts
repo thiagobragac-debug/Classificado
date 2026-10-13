@@ -1,5 +1,5 @@
 import crypto from 'crypto'
-import { GatewayAdapter, WebhookEvent } from './types'
+import { GatewayAdapter, WebhookEvent, GatewayDeclinedError, recusadoPeloGateway } from './types'
 import { assinaturaConfere, timestampRecente } from './signature'
 
 export function stripeAdapter(secretKey: string): GatewayAdapter {
@@ -19,6 +19,12 @@ export function stripeAdapter(secretKey: string): GatewayAdapter {
       // uma conexão que cai entre a Stripe criar o Customer e a resposta
       // chegar aqui faria o app tentar de novo e falhar, porque o PaymentMethod
       // já ficou anexado ao Customer da tentativa anterior.
+      //
+      // As chaves são estáveis por checkoutId (retentativa AMBÍGUA -- rede
+      // caiu depois de a Stripe cobrar -- devolve a assinatura já criada em
+      // vez de cobrar de novo). Depois de uma recusa DEFINITIVA a rota
+      // responde 402 e o modal gera um checkoutId novo (ver
+      // GatewayDeclinedError em types.ts).
       const custIdempotencyKey = `stripe_cust_${subscriptionId}`
 
       const custParams = new URLSearchParams()
@@ -37,7 +43,8 @@ export function stripeAdapter(secretKey: string): GatewayAdapter {
         body: custParams.toString()
       })
       if (!custRes.ok) {
-        throw new Error(`Stripe erro ao criar cliente: ${await custRes.text()}`)
+        const detalhe = `Stripe erro ao criar cliente: ${await custRes.text()}`
+        throw recusadoPeloGateway(custRes.status) ? new GatewayDeclinedError(detalhe) : new Error(detalhe)
       }
       const customer = await custRes.json()
 
@@ -93,6 +100,14 @@ export function stripeAdapter(secretKey: string): GatewayAdapter {
       subParams.append('metadata[plan_id]', plan.id)
       subParams.append('metadata[billing_cycle]', plan.billingCycle)
       subParams.append('metadata[subscription_id]', subscriptionId)
+      // BUG CRÍTICO CORRIGIDO (achado ao vivo, 03/out/2026): sem isto o
+      // padrão da Stripe é allow_incomplete -- um cartão que anexa mas é
+      // recusado na 1ª cobrança (ou que exige 3DS) devolvia HTTP 200 com a
+      // assinatura 'incomplete', e o checkout respondia sucesso a um cliente
+      // que nunca pagou (linha local 'pending' para sempre, cupom gasto).
+      // error_if_incomplete faz a Stripe responder 402 e NÃO criar a
+      // assinatura quando a 1ª fatura não pode ser paga.
+      subParams.append('payment_behavior', 'error_if_incomplete')
 
       // BUG CORRIGIDO (achado ao vivo, teste completo de pagamento, 2026-09-01):
       // a chave era `user+plano+token`, sem nenhum identificador por
@@ -124,10 +139,21 @@ export function stripeAdapter(secretKey: string): GatewayAdapter {
       })
 
       if (!response.ok) {
-        throw new Error(`Stripe erro na assinatura: ${await response.text()}`)
+        const detalhe = `Stripe erro na assinatura: ${await response.text()}`
+        // 4xx (inclui 402 card_error do error_if_incomplete): recusa definitiva.
+        throw recusadoPeloGateway(response.status) ? new GatewayDeclinedError(detalhe) : new Error(detalhe)
       }
 
       const subscription = await response.json()
+
+      // Rede de segurança além do error_if_incomplete: nunca tratar uma
+      // assinatura que não nasceu paga como sucesso.
+      if (['incomplete', 'incomplete_expired', 'unpaid', 'past_due'].includes(subscription.status)) {
+        try {
+          await fetch(`https://api.stripe.com/v1/subscriptions/${subscription.id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${secretKey}` } })
+        } catch { /* melhor esforço */ }
+        throw new GatewayDeclinedError(`Stripe: primeira cobrança não confirmada (status=${subscription.status})`)
+      }
 
       return { checkoutUrl: '', sessionId: subscription.id, gatewaySubscriptionId: subscription.id, gatewayCustomerId: customer.id }
     },
@@ -176,6 +202,12 @@ export function stripeAdapter(secretKey: string): GatewayAdapter {
       updateParams.append('items[0][price_data][recurring][interval]', plan.billingCycle === 'annual' ? 'year' : 'month')
       updateParams.append('items[0][price_data][unit_amount]', Math.round(plan.price * 100).toString())
       updateParams.append('proration_behavior', prorate ? 'always_invoice' : 'none')
+      // Achado pela revisão adversarial (03/out/2026): sem payment_behavior o
+      // padrão é allow_incomplete -- um upgrade cuja fatura de proração é
+      // recusada voltava HTTP 200 (assinatura past_due já com o preço novo) e
+      // o checkout gravava a troca como sucesso. error_if_incomplete faz a
+      // Stripe responder 402 e NÃO aplicar a mudança.
+      if (prorate) updateParams.append('payment_behavior', 'error_if_incomplete')
       updateParams.append('metadata[plan_id]', plan.id)
       // BUG CORRIGIDO (validação de 2026-08-26, 3ª rodada): faltava sincronizar
       // metadata[billing_cycle] aqui — createSubscription já grava isso na
@@ -193,7 +225,11 @@ export function stripeAdapter(secretKey: string): GatewayAdapter {
         body: updateParams.toString()
       })
       if (!updateRes.ok) {
-        throw new Error(`Stripe erro ao trocar plano da assinatura: ${await updateRes.text()}`)
+        // 4xx (inclui a fatura de proração recusada, 402) é definitivo: o
+        // cliente rotaciona o checkoutId, senão a nonce de idempotência acima
+        // devolveria a mesma recusa em cache a cada nova tentativa.
+        const detalhe = `Stripe erro ao trocar plano da assinatura: ${await updateRes.text()}`
+        throw recusadoPeloGateway(updateRes.status) ? new GatewayDeclinedError(detalhe) : new Error(detalhe)
       }
       const updated = await updateRes.json()
       // BUG CORRIGIDO (validação do zero, 4ª rodada): a "correção" da 3ª
@@ -209,6 +245,15 @@ export function stripeAdapter(secretKey: string): GatewayAdapter {
         ? new Date(currentPeriodEndRaw * 1000).toISOString()
         : undefined
       return { gatewaySubscriptionId: updated.id, currentPeriodEnd }
+    },
+
+    // F13: valor recorrente vigente do item (centavos -> unidade principal).
+    async getSubscriptionPrice(gatewaySubscriptionId) {
+      const r = await fetch(`https://api.stripe.com/v1/subscriptions/${gatewaySubscriptionId}`, { headers: { 'Authorization': `Bearer ${secretKey}` } })
+      if (!r.ok) return null
+      const s = await r.json()
+      const cents = s.items?.data?.[0]?.price?.unit_amount
+      return typeof cents === 'number' ? cents / 100 : null
     },
 
     async validateWebhook(body, headers, secret) {
@@ -234,7 +279,12 @@ export function stripeAdapter(secretKey: string): GatewayAdapter {
 
       const payload = `${parts.t}.${body}`
       const expectedSig = crypto.createHmac('sha256', secret).update(payload).digest('hex')
-      if (!assinaturaConfere(expectedSig, parts.v1)) {
+      // F85 (auditoria 12/out/2026): durante a rotação do segredo de webhook a Stripe
+      // envia VÁRIAS assinaturas v1 no mesmo cabeçalho (uma por segredo ativo). O
+      // reduce acima guardava só a última, então um evento legítimo assinado pelo
+      // segredo antigo-ainda-válido era rejeitado. Aceita se QUALQUER v1 conferir.
+      const assinaturasV1 = sigHeader.split(',').map(p => p.trim()).filter(p => p.startsWith('v1=')).map(p => p.slice(3))
+      if (!assinaturasV1.some(v1 => assinaturaConfere(expectedSig, v1))) {
         throw new Error('Invalid Stripe signature')
       }
       
@@ -304,6 +354,10 @@ export function stripeAdapter(secretKey: string): GatewayAdapter {
       return {
         type,
         eventId: event.id,
+        // F02: a mesma fatura paga nunca deve estender o período duas vezes.
+        ...((type === 'subscription.activated' || type === 'subscription.renewed') && event.type === 'invoice.payment_succeeded' && obj.id
+          ? { paymentId: String(obj.id) }
+          : {}),
         gatewaySubscriptionId,
         gatewayCustomerId: obj.customer,
         userEmail: obj.customer_email || obj.customer_details?.email,

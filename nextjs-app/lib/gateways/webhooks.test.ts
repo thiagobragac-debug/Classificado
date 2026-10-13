@@ -241,9 +241,17 @@ describe('asaasAdapter.validateWebhook', () => {
   });
 
   it('SUBSCRIPTION_DELETED -> subscription.cancelled', async () => {
-    const body = JSON.stringify({ id: 'evt_3', event: 'SUBSCRIPTION_DELETED', subscription: { id: 'sub_1' } });
-    const evt = await adapter.validateWebhook(body, { 'asaas-access-token': SECRET }, SECRET);
-    expect(evt.type).toBe('subscription.cancelled');
+    // F54 (auditoria 12/out/2026): este caso dispara a conferência (best-effort) na
+    // API da Asaas -- sem este stub fazia 3 GETs REAIS e a suíte falhava sem rede.
+    // A conferência é fail-open: resposta 404 não muda o tipo do evento.
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 404, json: async () => ({}), text: async () => '' })));
+    try {
+      const body = JSON.stringify({ id: 'evt_3', event: 'SUBSCRIPTION_DELETED', subscription: { id: 'sub_1' } });
+      const evt = await adapter.validateWebhook(body, { 'asaas-access-token': SECRET }, SECRET);
+      expect(evt.type).toBe('subscription.cancelled');
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
 

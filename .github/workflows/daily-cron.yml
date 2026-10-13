@@ -2,43 +2,90 @@ name: Daily maintenance cron
 
 on:
   schedule:
-    - cron: '0 5 * * *'
+    # Fora da hora cheia de propósito: os agendamentos do GitHub Actions em
+    # horários redondos (ex.: 0 5 * * *) sofrem os maiores atrasos/descartes.
+    - cron: '17 5 * * *'
   workflow_dispatch: {}
 
 jobs:
   daily-jobs:
-    name: expire-stale-subscriptions + enforce-ad-quota-deadlines + reconcile-promo-pricing
+    name: expire-stale-subscriptions + enforce-ad-quota-deadlines + reconcile-promo-pricing + enforce-plan-expiration
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      # BUG CORRIGIDO (achado ao lado da promoção de 1o ciclo, 27/set/2026):
-      # cada `curl -sf` falhava o STEP, mas sem continue-on-error um passo
-      # falho também interrompia o job inteiro, pulando os passos seguintes
-      # (uma falha transitória em expire-stale-subscriptions impediria até
-      # reconcile-promo-pricing de rodar naquele dia). Os 3 jobs internos são
-      # independentes entre si -- uma falha isolada não deveria bloquear os
-      # outros dois.
-      - name: Expirar assinaturas pendentes travadas (cancela no gateway real)
-        continue-on-error: true
+      # F07 (auditoria 12/out/2026): antes cada passo tinha `continue-on-error: true`
+      # e `curl -sf` -- CRON_SECRET diferente do Render (401), env ausente (503),
+      # host trocado (404) ou 502 de cold start do Render Free deixavam o run VERDE
+      # todos os dias. Efeito direto na promoção "50% OFF": o reajuste ao preço cheio
+      # (reconcile-promo-pricing) nunca rodava e o desconto vazava para o 2º ciclo.
+      #
+      # Agora: (1) aquece o serviço (Render Free hiberna e a 1ª requisição leva ~50s);
+      # (2) cada chamada tem retry com espera; (3) valida status E corpo (o cron de
+      # reajuste responde 200 mesmo com reajustes que falharam -- o corpo diz quais);
+      # (4) os 4 jobs seguem independentes (um que falha não impede os outros), mas o
+      # job TERMINA em vermelho se qualquer um falhar, para o GitHub avisar por e-mail.
+      - name: Rodar os jobs internos (falha o job se algum falhar)
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          BASE_URL: https://tauze-class.onrender.com
         run: |
-          curl -sf -X GET \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            https://tauze-class.onrender.com/api/internal/expire-stale-subscriptions
+          set -u
+          if [ -z "${CRON_SECRET:-}" ]; then
+            echo "::error::CRON_SECRET não está configurado nos secrets do GitHub"
+            exit 1
+          fi
 
-      - name: Aplicar prazos de anuncios excedentes vencidos
-        continue-on-error: true
-        run: |
-          curl -sf -X GET \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            https://tauze-class.onrender.com/api/internal/enforce-ad-quota-deadlines
+          echo "Aquecendo o serviço (pode levar ~50s se estiver hibernado)..."
+          curl -s -o /dev/null --max-time 120 --retry 3 --retry-delay 20 "$BASE_URL/api/health" || true
 
-      # Promoção "50% OFF no primeiro ciclo": varre e reajusta ao preço cheio
-      # qualquer assinatura cujo 1o ciclo promocional já deveria ter
-      # terminado (ver comentário completo em app/api/internal/reconcile-
-      # promo-pricing/route.ts sobre por que isto roda incondicionalmente,
-      # não só como reprocessamento de falha).
-      - name: Reajustar assinaturas com desconto de 1o ciclo expirado
-        continue-on-error: true
-        run: |
-          curl -sf -X GET \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            https://tauze-class.onrender.com/api/internal/reconcile-promo-pricing
+          FALHOU=0
+
+          chamar() {
+            local nome="$1" caminho="$2"
+            local saida
+            saida="$(mktemp)"
+            echo "::group::$nome"
+            if ! curl --fail-with-body --show-error --silent \
+                 --max-time 300 --retry 4 --retry-all-errors --retry-delay 30 \
+                 -X GET -H "Authorization: Bearer $CRON_SECRET" \
+                 -o "$saida" "$BASE_URL$caminho"; then
+              echo "::error::$nome falhou (HTTP não-2xx após retentativas)"
+              cat "$saida" || true
+              echo "::endgroup::"
+              FALHOU=1
+              return
+            fi
+            cat "$saida"; echo
+            # O reajuste da promoção devolve 200 mesmo quando algum reajuste falha:
+            # o corpo traz results[].ok. Qualquer ok:false deve avisar.
+            if command -v jq >/dev/null 2>&1; then
+              local ruins
+              ruins="$(jq -r '[(.results // [])[] | select(.ok == false)] | length' "$saida" 2>/dev/null || echo 0)"
+              if [ "${ruins:-0}" != "0" ]; then
+                echo "::error::$nome: $ruins item(ns) com ok:false no corpo da resposta"
+                FALHOU=1
+              fi
+              local falhas
+              falhas="$(jq -r '(.falhas // 0)' "$saida" 2>/dev/null || echo 0)"
+              if [ "${falhas:-0}" != "0" ]; then
+                echo "::error::$nome: $falhas falha(s) reportada(s) no corpo da resposta"
+                FALHOU=1
+              fi
+            fi
+            echo "::endgroup::"
+          }
+
+          chamar "Expirar assinaturas pendentes travadas (cancela no gateway real)" /api/internal/expire-stale-subscriptions
+          chamar "Aplicar prazos de anúncios excedentes vencidos" /api/internal/enforce-ad-quota-deadlines
+          # Promoção "50% OFF no 1º ciclo": reajusta ao preço cheio DENTRO do 1º ciclo
+          # (ver comentário em app/api/internal/reconcile-promo-pricing/route.ts).
+          chamar "Reajustar assinaturas com desconto de 1º ciclo" /api/internal/reconcile-promo-pricing
+          # Rebaixa quem tem plano pago com período vencido há mais de 24h.
+          chamar "Rebaixar planos pagos com período vencido" /api/internal/enforce-plan-expiration
+          # F11: avisa por e-mail ANTES da 1ª cobrança cheia de quem assinou com a promoção.
+          chamar "Avisar renovações cheias próximas (promoção do 1º ciclo)" /api/internal/notify-upcoming-renewals
+
+          if [ "$FALHOU" != "0" ]; then
+            echo "::error::Um ou mais jobs internos falharam -- ver os grupos acima."
+            exit 1
+          fi

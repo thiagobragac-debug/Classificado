@@ -95,17 +95,27 @@ export async function tentarReajustarPrimeiroCiclo(
     settings = await getSettings(supabase)
   } catch (err: any) {
     const msg = err?.message || String(err)
-    await supabase.from('subscriptions').update({ promo_reajuste_last_error: msg }).eq('id', sub.id)
+    await supabase.from('subscriptions').update({ promo_reajuste_last_error: 'settings_fetch_failed' }).eq('id', sub.id)
     await logWebhookFailure(supabase, sub.gateway, 'promo_reajuste', 'promo_reajuste_failed', { subscriptionId: sub.id, message: msg })
     return { ok: false, reason: 'settings_fetch_failed' }
   }
   const adapter = buildAdapter(sub.gateway, settings)
   if (!adapter?.updateSubscriptionPlan) {
     const msg = `Gateway '${sub.gateway}' não configurado ou sem suporte a updateSubscriptionPlan`
-    await supabase.from('subscriptions').update({ promo_reajuste_last_error: msg }).eq('id', sub.id)
+    await supabase.from('subscriptions').update({ promo_reajuste_last_error: 'adapter_unavailable' }).eq('id', sub.id)
     await logWebhookFailure(supabase, sub.gateway, 'promo_reajuste', 'promo_reajuste_failed', { subscriptionId: sub.id, message: msg })
     return { ok: false, reason: 'adapter_unavailable' }
   }
+
+  // F83 (auditoria 12/out/2026): a Stripe grava metadata[plan_id] com o `id` do plano e
+  // o webhook de plan_changed lê esse campo como UUID de `plans`. O reajuste passava o
+  // NOME do plano ("Produtor PRO") no lugar -- metadado errado na assinatura. Resolve o
+  // UUID real; se a consulta falhar, mantém o comportamento antigo (nome).
+  let planId: string = sub.plan
+  try {
+    const { data: planRow } = await supabase.from('plans').select('id').eq('name', sub.plan).maybeSingle()
+    if (planRow?.id) planId = String(planRow.id)
+  } catch { /* segue com o nome */ }
 
   try {
     // Nonce DETERMINÍSTICO (não por tentativa) -- diverge de propósito da
@@ -117,15 +127,35 @@ export async function tentarReajustarPrimeiroCiclo(
     // de confirmação (abaixo) falhar antes de commitar.
     await adapter.updateSubscriptionPlan(
       sub.gateway_subscription_id,
-      { id: sub.plan, name: sub.plan, price: sub.promo_full_price, billingCycle: sub.billing_cycle, currency: sub.currency || undefined },
+      { id: planId, name: sub.plan, price: sub.promo_full_price, billingCycle: sub.billing_cycle, currency: sub.currency || undefined },
       /* prorate */ false, // nunca cobra nem credita nada agora -- só muda o valor da PRÓXIMA fatura
       `promo-reajuste:${sub.id}`
     )
   } catch (err: any) {
     const msg = err?.message || String(err)
-    await supabase.from('subscriptions').update({ promo_reajuste_last_error: msg }).eq('id', sub.id)
+    await supabase.from('subscriptions').update({ promo_reajuste_last_error: 'gateway_call_failed' }).eq('id', sub.id)
     await logWebhookFailure(supabase, sub.gateway, 'promo_reajuste', 'promo_reajuste_failed', { subscriptionId: sub.id, message: msg })
     return { ok: false, reason: 'gateway_call_failed' }
+  }
+
+  // F13/F04 (auditoria 12/out/2026): confere NO GATEWAY que o valor realmente mudou
+  // antes de confirmar no banco. Um PUT aceito (HTTP 200) mas sem efeito -- ou que
+  // deixa uma fatura já gerada ainda a 50% (Asaas) -- faria o banco dizer
+  // "reajustado" (pending=false, price cheio) enquanto o cliente continuava pagando
+  // metade, sem retry nenhum. Só uma divergência CONFIRMADA bloqueia: se o gateway
+  // não oferece a leitura (ou ela falha), segue como antes.
+  if (adapter.getSubscriptionPrice) {
+    try {
+      const vigente = await adapter.getSubscriptionPrice(sub.gateway_subscription_id)
+      if (vigente !== null && vigente !== undefined && Math.abs(vigente - sub.promo_full_price) > 0.005) {
+        const msg = `Gateway aceitou o reajuste mas o valor vigente lido é ${vigente}, esperado ${sub.promo_full_price} -- mantendo pendente para nova tentativa.`
+        await supabase.from('subscriptions').update({ promo_reajuste_last_error: 'gateway_value_mismatch' }).eq('id', sub.id)
+        await logWebhookFailure(supabase, sub.gateway, 'promo_reajuste', 'promo_reajuste_failed', { subscriptionId: sub.id, message: msg })
+        return { ok: false, reason: 'gateway_value_mismatch' }
+      }
+    } catch (err: any) {
+      console.warn(`[promo-reajuste] Não foi possível conferir o valor no gateway para ${sub.id}: ${err?.message || err} -- seguindo com a confirmação.`)
+    }
   }
 
   // O toggle do admin (promo_primeiro_ciclo_ativo) NUNCA é reconsultado

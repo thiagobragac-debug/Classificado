@@ -1,5 +1,6 @@
 import { BillingAddress, CreditCardData, GatewayAdapter, GatewayUser, WebhookEvent } from './types'
 import { assinaturaConfere } from './signature'
+import { dataBrasilISO } from './data-brasil'
 
 export function asaasAdapter(apiKey: string, environment: 'sandbox' | 'production'): GatewayAdapter {
   // BUG CORRIGIDO: a doc atual de autenticação da Asaas lista
@@ -180,12 +181,12 @@ export function asaasAdapter(apiKey: string, environment: 'sandbox' | 'productio
       const value = plan.price
       const cycle = plan.billingCycle === 'annual' ? 'YEARLY' : 'MONTHLY'
 
-      // Fix timezone shift for Asaas by formatting local date explicitly
-      const now = new Date()
-      const year = now.getFullYear()
-      const month = String(now.getMonth() + 1).padStart(2, '0')
-      const day = String(now.getDate()).padStart(2, '0')
-      const nextDueDateStr = `${year}-${month}-${day}`
+      // F17 (auditoria 12/out/2026): a data tem que ser a de BRASÍLIA, não a do
+      // servidor (UTC no Render). Entre 21h e 24h de Brasília o fuso do servidor
+      // já devolvia o dia seguinte: a 1ª cobrança deixava de ser imediata, o
+      // checkout respondia sucesso, a linha ficava 'pending' e o retry do usuário
+      // criava uma 2ª assinatura (cobrança dupla no dia seguinte).
+      const nextDueDateStr = dataBrasilISO()
 
       let phoneClean = (paymentData.phone || '11999999999').replace(/\D/g, '')
       if (phoneClean.length === 10) phoneClean = phoneClean.slice(0, 2) + '9' + phoneClean.slice(2)
@@ -399,6 +400,9 @@ export function asaasAdapter(apiKey: string, environment: 'sandbox' | 'productio
       return {
         type,
         eventId: event.id,
+        // F02: PAYMENT_CONFIRMED (captura) e PAYMENT_RECEIVED (~32 dias depois, no
+        // cartão) descrevem a MESMA cobrança com event ids diferentes.
+        ...(type === 'subscription.activated' && event.payment?.id ? { paymentId: String(event.payment.id) } : {}),
         gatewaySubscriptionId,
         gatewayCustomerId: event.payment?.customer || event.subscription?.customer,
         // Asaas: externalReference is set on subscription, not always on payment object
@@ -445,6 +449,14 @@ export function asaasAdapter(apiKey: string, environment: 'sandbox' | 'productio
           value: plan.price,
           cycle,
           description: plan.name,
+          // F04 (auditoria 12/out/2026, documentação oficial "Atualizar assinatura
+          // existente"): por padrão a alteração vale só para cobranças FUTURAS; a
+          // cobrança do próximo ciclo costuma já estar gerada e PENDING quando o
+          // reajuste da promoção (e o downgrade) roda -- sem esta flag ela saía
+          // ainda a 50% e o banco já dizia "reajustado" (perda de R$39,50 no PRO e
+          // R$74,50 no Premium, sem nenhum retry porque promo_first_cycle_pending
+          // já era false).
+          updatePendingPayments: true,
         }),
       })
       if (!response.ok) {
@@ -496,6 +508,26 @@ export function asaasAdapter(apiKey: string, environment: 'sandbox' | 'productio
         gatewaySubscriptionId: updated.id,
         currentPeriodEnd,
       }
+    },
+
+    // F13/F04: valor da assinatura E da cobrança pendente. O reajuste da promoção
+    // só é confirmado se as duas coisas baterem -- a assinatura com o valor novo
+    // mas uma fatura já gerada ainda a 50% é exatamente o furo do F04. Devolve o
+    // MENOR dos dois (o mais barato é o que ameaça a receita); null se ilegível.
+    async getSubscriptionPrice(gatewaySubscriptionId) {
+      const r = await fetch(`${baseUrl}/subscriptions/${gatewaySubscriptionId}`, { headers })
+      if (!r.ok) return null
+      const s = await r.json()
+      if (typeof s.value !== 'number') return null
+      let menor: number = s.value
+      try {
+        const p = await fetch(`${baseUrl}/payments?subscription=${gatewaySubscriptionId}&status=PENDING&limit=10`, { headers })
+        if (p.ok) {
+          const pd = await p.json()
+          for (const pay of pd?.data || []) if (typeof pay.value === 'number' && pay.value < menor) menor = pay.value
+        }
+      } catch { /* sem a leitura das pendentes, vale o valor da assinatura */ }
+      return menor
     }
   }
 }

@@ -12,6 +12,8 @@ import { resolverIpConfiavel, ipParaRateLimit } from '@/lib/ip-utils'
 import { dentroDoLimiteFallback } from '@/lib/rate-limit-fallback'
 import { logWebhookFailure } from './webhook-failure-log'
 import { tentarReajustarPrimeiroCiclo } from './promo-reajuste'
+import { reavaliarCotaAnuncios } from './ad-quota-grace'
+import { montarEmailConfirmacao, enviarSemBloquear, idiomaPorPais } from '@/lib/subscription-emails'
 
 /**
  * Webhook handler for all payment gateways.
@@ -230,6 +232,72 @@ export async function processPaymentWebhook(req: Request, forcedGateway?: Gatewa
       console.info(`[Webhook:${gateway}] Sub ${sub.id} already active — treating as renewal`)
     }
 
+    // BUG CORRIGIDO (achado ao vivo, 03/out/2026): um evento de pagamento
+    // ATRASADO sobre uma assinatura que já foi SUBSTITUÍDA ressuscitava a
+    // antiga -- status voltava a 'active', o período era reaberto e o
+    // entitlement reconcedido. Caso real: a 1ª fatura da assinatura ANTIGA
+    // chegando depois de uma troca por cancelar-e-recriar devolveria o plano
+    // antigo ao cliente.
+    //
+    // A guarda vale SÓ para esses dois casos (revisão adversarial, mesma
+    // data): (a) existe assinatura mais nova do mesmo usuário; (b) a linha foi
+    // cancelada de imediato (cancel_at_period_end=false, o cancelar-e-recriar).
+    // 'expired' SEM substituta NÃO é terminal: enforce_plan_expiration, o reaper
+    // SQL e a rota de pendentes gravam 'expired' sem cancelar nada no gateway,
+    // então um pagamento novo ali é cobrança REAL (renovação em voo no
+    // vencimento, dunning que enfim pagou, webhook reenviado após corrigir o
+    // secret) e precisa reativar -- descartá-lo deixava o cliente cobrado sem
+    // plano, todo mês.
+    if (
+      (effectiveType === 'subscription.activated' || effectiveType === 'subscription.renewed') &&
+      (sub.status === 'cancelled' || sub.status === 'expired')
+    ) {
+      const { data: substituta } = await supabase
+        .from('subscriptions')
+        .select('id')
+        .eq('user_id', sub.user_id)
+        .neq('id', sub.id)
+        .neq('status', 'switch_applied')
+        .gt('created_at', sub.created_at)
+        .limit(1)
+        .maybeSingle()
+      const canceladaDeImediato = sub.status === 'cancelled' && sub.cancel_at_period_end === false
+      if (substituta || canceladaDeImediato) {
+        console.warn(`[Webhook:${gateway}] Ignorando ${effectiveType} para sub ${sub.id} (status '${sub.status}', substituída=${!!substituta}) -- evento atrasado de assinatura já substituída`)
+        return NextResponse.json({ received: true, handled: true, ignored: 'superseded_subscription', eventType: event.type })
+      }
+    }
+
+    // F02/F03 (auditoria 12/out/2026, reproduzido ao vivo: 1 pagamento virou 31 ->
+    // 61 -> 92 dias de acesso): a idempotência acima é por EVENT id, mas os
+    // gateways mandam eventos DIFERENTES para o mesmo pagamento (Pagar.me
+    // charge.paid + invoice.paid; Asaas PAYMENT_CONFIRMED + PAYMENT_RECEIVED; MP
+    // payment.created + payment.updated) e cada um estendia o período de novo.
+    // Agora o período só avança UMA vez por pagamento (paymentId).
+    if (effectiveType === 'subscription.activated' || effectiveType === 'subscription.renewed') {
+      // MP preapproval 'authorized' não é pagamento (e dispara também no PUT do
+      // reajuste/troca de plano): numa assinatura já ativa não renova nada.
+      if (event.activationSignalOnly && effectiveType === 'subscription.renewed') {
+        console.info(`[Webhook:${gateway}] Sinal de ativação (não é pagamento) em sub ${sub.id} já ativa -- sem extensão de período.`)
+        return NextResponse.json({ received: true, handled: true, ignored: 'activation_signal_on_active_subscription', eventType: event.type })
+      }
+      if (event.paymentId) {
+        const { error: payKeyError } = await supabase
+          .from('webhook_events')
+          .insert({ id: `${gateway}:pay:${event.paymentId}`, gateway, event_type: 'payment_applied' })
+        if (payKeyError) {
+          if (payKeyError.code === '23505') {
+            console.info(`[Webhook:${gateway}] Pagamento ${event.paymentId} já aplicado à sub ${sub.id} (evento ${event.eventId} descreve o mesmo pagamento) -- sem nova extensão de período.`)
+            return NextResponse.json({ received: true, handled: true, ignored: 'payment_already_applied', eventType: event.type })
+          }
+          // Falha de infraestrutura: não aplica sem a trava (poderia somar ciclo em
+          // dobro) -- responde 500 para o gateway reenviar.
+          console.error(`[Webhook:${gateway}] Falha ao registrar a idempotência do pagamento ${event.paymentId}:`, payKeyError.message)
+          return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 })
+        }
+      }
+    }
+
     if (effectiveType === 'subscription.activated') {
       updateData.status = 'active'
       updateData.gateway_subscription_id = event.gatewaySubscriptionId || sub.gateway_subscription_id
@@ -310,6 +378,11 @@ export async function processPaymentWebhook(req: Request, forcedGateway?: Gatewa
         // tratam qualquer resposta não-2xx como falha e reenviam o evento.
         console.error(`[Webhook:${gateway}] Não foi possível renovar sub ${sub.id} — corrida persistente após várias tentativas, revisão manual necessária.`)
         await logWebhookFailure(supabase, gateway, event.type, 'renewal_race_persistent', { subscriptionId: sub.id })
+        // BUG CORRIGIDO (achado pelo mapeamento adversarial, 03/out/2026): o
+        // 409 pede ao gateway que reenvie, mas a linha de idempotência já
+        // tinha sido gravada -- o reenvio caía em "duplicate" e a renovação
+        // paga nunca era aplicada. Desfaz a marca para o retry reprocessar.
+        if (eventKey) await supabase.from('webhook_events').delete().eq('id', eventKey)
         return NextResponse.json({ error: 'Concurrent update conflict, retry needed' }, { status: 409 })
       }
 
@@ -459,6 +532,38 @@ export async function processPaymentWebhook(req: Request, forcedGateway?: Gatewa
         })
         .eq('id', sub.user_id)
       if (secErr) console.warn(`[Webhook:${gateway}] Could not update user_secrets (non-critical):`, secErr.message)
+      // Quem volta a assinar (ou sobe de plano) não pode herdar o prazo de
+      // graça de um rebaixamento anterior -- ver lib/gateways/ad-quota-grace.ts.
+      // Só na ATIVAÇÃO: a renovação mensal não deve, como efeito colateral de um
+      // pagamento aprovado, começar a pausar anúncios de quem está acima do teto
+      // porque o admin reduziu max_ads.
+      if (effectiveType === 'subscription.activated') {
+        await reavaliarCotaAnuncios(supabase, sub.user_id, planData?.id)
+
+        // F11 (auditoria 12/out/2026): confirmação de compra com o valor cobrado e,
+        // quando a promoção de 50% valeu, o valor e a data da próxima cobrança.
+        // Uma vez por pagamento (o paymentId acima já barra eventos duplicados) e
+        // NUNCA derruba o webhook: qualquer falha de e-mail só vira log.
+        try {
+          const { data: authUser } = await supabase.auth.admin.getUserById(sub.user_id)
+          const email = authUser?.user?.email
+          if (email) {
+            const { data: perfil } = await supabase.from('profiles').select('country').eq('id', sub.user_id).maybeSingle()
+            const mensagem = montarEmailConfirmacao({
+              plano: sub.plan,
+              ciclo: sub.billing_cycle === 'annual' ? 'annual' : 'monthly',
+              valorPago: Number(sub.price),
+              moeda: sub.currency || 'BRL',
+              precoCheio: sub.promo_first_cycle_pending && sub.promo_full_price != null ? Number(sub.promo_full_price) : null,
+              proximaCobranca: updateData.current_period_end ? new Date(updateData.current_period_end) : null,
+              idioma: idiomaPorPais(perfil?.country),
+            })
+            await enviarSemBloquear(email, mensagem, `confirmação da assinatura ${sub.id}`)
+          }
+        } catch (err: any) {
+          console.warn(`[Webhook:${gateway}] Confirmação por e-mail não enviada para sub ${sub.id}: ${err?.message || err}`)
+        }
+      }
     }
 
     // BUG CORRIGIDO (validação de 2026-08-26, 3ª rodada): troca nativa de
@@ -599,6 +704,7 @@ export async function processPaymentWebhook(req: Request, forcedGateway?: Gatewa
                 .update({ plan: planEnum, plan_id: planRow.id })
                 .eq('id', sub.user_id)
               if (secErr2) console.warn(`[Webhook:${gateway}] Could not update user_secrets on plan_changed (non-critical):`, secErr2.message)
+              await reavaliarCotaAnuncios(supabase, sub.user_id, planRow.id)
             }
           } else {
             console.warn(`[Webhook:${gateway}] plan_changed event references unknown plan_id ${planId}`)
@@ -659,6 +765,13 @@ export async function processPaymentWebhook(req: Request, forcedGateway?: Gatewa
       if (downgradeNow) {
         // Also reset user_secrets.plan and plan_id so PainelClient shows free and RLS is blocked
         await supabase.from('user_secrets').update({ plan: 'free', plan_id: null }).eq('id', sub.user_id)
+        // BUG CORRIGIDO (achado ao vivo, 03/out/2026): este rebaixamento
+        // nunca agendava o prazo de graça dos anúncios excedentes (só
+        // enforce_plan_expiration agenda, e ele exige plan<>'free' e
+        // plan_expires_at preenchido -- justamente o que acabou de ser
+        // zerado aqui). Resultado: 5 anúncios ativos num plano Grátis de 3,
+        // para sempre.
+        await reavaliarCotaAnuncios(supabase, sub.user_id, 'GRATIS')
       }
     }
 

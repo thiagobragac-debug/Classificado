@@ -1,6 +1,34 @@
 export type GatewayName = 'stripe' | 'mercadopago' | 'pagarme' | 'asaas'
 export type BillingCycle = 'monthly' | 'annual'
 
+// Recusa DEFINITIVA do gateway: a resposta chegou (HTTP 4xx, ou HTTP 200 com
+// a 1ª cobrança 'failed'/'incomplete'). Diferente de uma falha AMBÍGUA (rede
+// caiu, timeout, 5xx), em que o gateway pode ter cobrado e perdido a
+// resposta. A distinção importa pra idempotência: as chaves dos gateways são
+// estáveis por checkoutId (uma retentativa ambígua devolve a assinatura já
+// criada em vez de cobrar de novo), mas depois de uma recusa definitiva o
+// mesmo checkoutId devolveria a recusa em cache -- por isso a rota responde
+// 402 e o modal gera um checkoutId NOVO antes da próxima tentativa.
+export class GatewayDeclinedError extends Error {
+  readonly declined = true
+  constructor(message: string) {
+    super(message)
+    this.name = 'GatewayDeclinedError'
+  }
+}
+
+// F46 (auditoria 12/out/2026): "todo 4xx é recusa definitiva do cartão" era largo
+// demais. 401/403 (credencial inválida/sem permissão), 404 (recurso inexistente),
+// 408 (timeout), 409 (conflito/idempotência em andamento -- ambíguo: a 1ª tentativa
+// ainda pode concluir) e 429 (rate limit) NÃO dizem nada sobre o cartão: tratá-los
+// como recusa mostrava "pagamento recusado" ao cliente por culpa nossa (chave
+// errada) e rotacionava o checkoutId no meio de uma tentativa possivelmente ainda
+// em curso. Esses viram erro AMBÍGUO (502, mesmo checkoutId, linha mantida).
+const STATUS_4XX_NAO_DEFINITIVOS = new Set([401, 403, 404, 408, 409, 429])
+export function recusadoPeloGateway(httpStatus: number): boolean {
+  return httpStatus >= 400 && httpStatus < 500 && !STATUS_4XX_NAO_DEFINITIVOS.has(httpStatus)
+}
+
 export interface GatewayPlan {
   id: string
   name: string
@@ -47,6 +75,19 @@ export interface WebhookEvent {
   // 'subscription.plan_changed' pra descartar eventos entregues fora de
   // ordem (a Stripe não garante ordem de entrega de webhook).
   eventCreatedAt?: number
+  // Identidade do PAGAMENTO (fatura/cobrança) que este evento confirma, igual
+  // para todos os eventos que descrevem o mesmo pagamento (F02/F03 da auditoria
+  // de 12/out/2026): Pagar.me manda charge.paid E invoice.paid da mesma fatura,
+  // Asaas manda PAYMENT_CONFIRMED E PAYMENT_RECEIVED, MP manda payment.created
+  // e payment.updated. Cada evento tem event id próprio (a idempotência por
+  // eventId não os junta), então sem isto cada um estendia o período de novo.
+  // O handler estende o período no máximo UMA vez por paymentId.
+  paymentId?: string
+  // true quando o evento NÃO é um pagamento (ex.: Mercado Pago preapproval
+  // 'authorized', que também dispara quando o PRÓPRIO reajuste/troca de plano
+  // altera a assinatura): serve para ATIVAR uma assinatura pendente, nunca para
+  // estender o período de uma já ativa.
+  activationSignalOnly?: boolean
   raw: any
 }
 
@@ -132,4 +173,12 @@ export interface GatewayAdapter {
     prorate: boolean,
     idempotencyNonce: string
   ): Promise<{ gatewaySubscriptionId: string; currentPeriodEnd?: string }>
+
+  // F13/F04 (auditoria 12/out/2026): lê no gateway o valor RECORRENTE vigente da
+  // assinatura (na unidade principal: reais/dólares, não centavos). Usado pelo
+  // reajuste da promoção para CONFERIR o efeito do PUT em vez de confiar só no HTTP
+  // 200 -- um PUT aceito mas sem efeito deixava o banco dizendo "reajustado"
+  // enquanto o cliente seguia pagando 50%. null = não foi possível ler (não
+  // bloqueia o reajuste; só a divergência CONFIRMADA o faz).
+  getSubscriptionPrice?(gatewaySubscriptionId: string): Promise<number | null>
 }

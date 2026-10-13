@@ -48,8 +48,18 @@ const GATEWAYS_COM_TROCA_NATIVA: GatewayName[] = (['stripe', 'mercadopago', 'pag
 // próxima fatura. Extraído aqui como a ÚNICA fonte de verdade, usada tanto
 // por isNativePlanSwitchEligible (previsão) quanto diretamente por
 // checkout/route.ts (decisão real).
-export function gatewaySuportaTrocaNativa(gatewayName: GatewayName, prorate: boolean): boolean {
-  return gatewayName === 'stripe' || (!prorate && GATEWAYS_COM_TROCA_NATIVA.includes(gatewayName))
+// BUG CORRIGIDO (achado ao vivo no Pagar.me, 03/out/2026): a troca nativa de
+// Pagar.me/MP só altera o PREÇO do item (updateSubscriptionPlan nunca envia
+// intervalo). Premium ANUAL -> PRO MENSAL (queda de preço, sem proração) caía
+// aqui e a assinatura continuava com intervalo 'year' cobrando R$79 por ANO,
+// enquanto o banco dizia 'mensal'. Só a Stripe troca de intervalo no lugar;
+// nos demais, mudar de ciclo vai pelo cancelar-e-recriar. Asaas também troca o
+// ciclo no lugar (o PUT envia `cycle`), então segue elegível.
+const GATEWAYS_QUE_TROCAM_CICLO_NO_LUGAR: GatewayName[] = ['stripe', 'asaas']
+export function gatewaySuportaTrocaNativa(gatewayName: GatewayName, prorate: boolean, mudaCiclo = false): boolean {
+  if (gatewayName === 'stripe') return true
+  if (prorate || !GATEWAYS_COM_TROCA_NATIVA.includes(gatewayName)) return false
+  return !mudaCiclo || GATEWAYS_QUE_TROCAM_CICLO_NO_LUGAR.includes(gatewayName)
 }
 
 export function isNativePlanSwitchEligible(params: {
@@ -64,17 +74,23 @@ export function isNativePlanSwitchEligible(params: {
   // achado espelhado em app/api/checkout/route.ts, que precisa concordar
   // exatamente com esta previsão.
   existingSubCurrency: string | null | undefined
+  existingSubBillingCycle?: string | null
+  targetBillingCycle?: string | null
   targetGatewayName: GatewayName
   targetCurrency: string
   finalPrice: number
 }): boolean {
-  const { existingSubGateway, existingSubGatewayId, existingSubPrice, existingSubCurrency, targetGatewayName, targetCurrency, finalPrice } = params
+  const { existingSubGateway, existingSubGatewayId, existingSubPrice, existingSubCurrency, existingSubBillingCycle, targetBillingCycle, targetGatewayName, targetCurrency, finalPrice } = params
   if (!existingSubGatewayId || !existingSubGateway) return false
   if (existingSubGateway !== targetGatewayName) return false
   if (existingSubCurrency !== targetCurrency) return false
   if (finalPrice <= 0) return false
   const prorate = finalPrice > Number(existingSubPrice ?? 0)
-  return gatewaySuportaTrocaNativa(targetGatewayName, prorate)
+  // Mesma noção que checkout/route.ts usa na decisão real (ciclo nulo = mensal),
+  // para previsão e decisão nunca divergirem.
+  const cicloAtual = existingSubBillingCycle ?? 'monthly'
+  const mudaCiclo = !!targetBillingCycle && cicloAtual !== targetBillingCycle
+  return gatewaySuportaTrocaNativa(targetGatewayName, prorate, mudaCiclo)
 }
 
 // Return the correct gateway adapter name based on user country

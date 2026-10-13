@@ -154,3 +154,58 @@ describe('tentarReajustarPrimeiroCiclo', () => {
     expect(supabase.insertCalls.some(c => c.table === 'webhook_failures')).toBe(true);
   });
 });
+
+// F13/F04 (auditoria 12/out/2026) + F18: o valor enviado ao gateway agora é
+// ASSERIDO (antes o teste só checava toHaveBeenCalled) e o reajuste só é
+// confirmado no banco se o valor VIGENTE lido no gateway bater com o cheio.
+describe('tentarReajustarPrimeiroCiclo — valor enviado e conferência no gateway', () => {
+  function gatewayFake(precoLidoDepoisDoPut: number) {
+    const puts: any[] = [];
+    const fetchMock = vi.fn(async (url: string, init?: any) => {
+      if (String(url).includes('/items/')) {
+        puts.push({ url, body: JSON.parse(init.body) });
+        return { ok: true, json: async () => ({}) } as any;
+      }
+      // GET /subscriptions/{id}: serve tanto o updateSubscriptionPlan (acha o item)
+      // quanto a conferência (getSubscriptionPrice lê pricing_scheme.price).
+      return { ok: true, json: async () => ({ items: [{ id: 'item-1', pricing_scheme: { price: precoLidoDepoisDoPut } }], next_billing_at: '2026-11-01T00:00:00Z' }) } as any;
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    return { puts, fetchMock };
+  }
+
+  it('envia o preço CHEIO em centavos (7900), não o promocional', async () => {
+    const { puts } = gatewayFake(7900);
+    const supabase = criarSupabaseFake();
+    await tentarReajustarPrimeiroCiclo(supabase as any, { ...SUB_BASE });
+    expect(puts).toHaveLength(1);
+    expect(puts[0].body.pricing_scheme.price).toBe(7900);
+    expect(puts[0].url).toContain('/subscriptions/gw-sub-1/items/item-1');
+  });
+
+  it('anual: Premium 1430.40 vai como 143040 centavos', async () => {
+    const { puts } = gatewayFake(143040);
+    const supabase = criarSupabaseFake();
+    await tentarReajustarPrimeiroCiclo(supabase as any, { ...SUB_BASE, plan: 'Premium', billing_cycle: 'annual', promo_full_price: 1430.4 });
+    expect(puts[0].body.pricing_scheme.price).toBe(143040);
+  });
+
+  it('valor vigente confere (7900): confirma no banco', async () => {
+    gatewayFake(7900);
+    const supabase = criarSupabaseFake();
+    const r = await tentarReajustarPrimeiroCiclo(supabase as any, { ...SUB_BASE });
+    expect(r).toEqual({ ok: true, reason: 'reajustado' });
+  });
+
+  it('gateway aceitou o PUT mas o valor vigente continua 39.50: NÃO confirma, mantém pendente e registra', async () => {
+    gatewayFake(3950); // PUT "ok" sem efeito
+    const supabase = criarSupabaseFake();
+    const r = await tentarReajustarPrimeiroCiclo(supabase as any, { ...SUB_BASE });
+    expect(r).toEqual({ ok: false, reason: 'gateway_value_mismatch' });
+    const subUpdates = supabase.updateCalls.filter(c => c.table === 'subscriptions');
+    // só o lease + o registro do erro; NUNCA o update final com promo_first_cycle_pending:false
+    expect(subUpdates.some(c => c.patch.promo_first_cycle_pending === false)).toBe(false);
+    expect(subUpdates.some(c => typeof c.patch.promo_reajuste_last_error === 'string')).toBe(true);
+    expect(supabase.insertCalls.some(c => c.table === 'webhook_failures')).toBe(true);
+  });
+});

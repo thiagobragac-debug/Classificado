@@ -62,5 +62,14 @@ export async function GET(req: Request) {
     }
   }
 
-  return NextResponse.json({ processed: results.length, results })
+  // F35 (auditoria 12/out/2026): antes devolvia 200 mesmo quando TODOS os reajustes
+  // falhavam, então o agendador (e o monitor do GitHub Actions) nunca viam o
+  // problema -- e cada dia sem reajuste é desconto de 50% vazando para o 2º
+  // ciclo. 'lease_not_acquired' não é falha (outro processo já está resolvendo).
+  const falhas = results.filter(r => !r.ok && r.reason !== 'lease_not_acquired').length
+  const sucessos = results.filter(r => r.ok).length
+  if (falhas > 0 && sucessos === 0) {
+    return NextResponse.json({ processed: results.length, falhas, error: 'Todos os reajustes falharam.', results }, { status: 500 })
+  }
+  return NextResponse.json({ processed: results.length, falhas, results })
 }

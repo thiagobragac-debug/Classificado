@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase-server'
 import { isForbiddenOrigin } from '@/lib/csrf-origin'
+import { assinaturaConfere } from '@/lib/gateways/signature'
 
 // BUG CORRIGIDO (achado ao vivo tentando verificar a remoção de "Suporte VIP
 // 24/7" do plano Premium): admin/planos/page.tsx salva direto via
@@ -44,7 +45,8 @@ export async function POST(request: Request) {
   // precisam poder disparar a revalidação, não só o clique no botão Salvar.
   const cronSecret = process.env.CRON_SECRET
   const auth = request.headers.get('authorization')
-  const viaCron = !!cronSecret && auth === `Bearer ${cronSecret}`
+  // F72: comparação em tempo constante (mesmo helper das demais rotas /api/internal/*).
+  const viaCron = !!cronSecret && assinaturaConfere(`Bearer ${cronSecret}`, auth)
 
   if (!viaCron) {
     const { erro } = await exigirAdmin()

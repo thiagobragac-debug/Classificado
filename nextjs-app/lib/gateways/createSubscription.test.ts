@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { stripeAdapter } from './stripe';
 import { asaasAdapter } from './asaas';
 import { pagarmeAdapter } from './pagarme';
+import { GatewayDeclinedError } from './types';
 import type { GatewayPlan, GatewayUser, PaymentData } from './types';
 
 // Testa a FORMA da requisição que cada adapter monta para criar uma
@@ -15,6 +16,7 @@ const USER: GatewayUser = { id: 'user_1', email: 'user@teste.com', name: 'Usuár
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 describe('stripeAdapter.createSubscription — forma da requisição', () => {
@@ -61,6 +63,125 @@ describe('stripeAdapter.createSubscription — forma da requisição', () => {
     await expect(
       adapter.createSubscription(PLAN, USER, { method: 'card', gatewayToken: 'pm_abc' }, 'checkout_2')
     ).rejects.toThrow('Stripe erro ao criar produto');
+  });
+});
+
+describe('stripeAdapter.createSubscription — 1ª cobrança não confirmada', () => {
+  // Achado ao vivo (03/out/2026): sem payment_behavior o padrão da Stripe é
+  // allow_incomplete -- cartão recusado na 1ª fatura (ou com 3DS) devolvia
+  // HTTP 200 e uma assinatura 'incomplete', que o checkout tratava como sucesso.
+  const pagamento = { method: 'card', gatewayToken: 'pm_123' } as PaymentData;
+
+  it('envia payment_behavior=error_if_incomplete na criação da assinatura', async () => {
+    let corpoSub = '';
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init: any) => {
+      if (url.includes('/v1/customers')) return { ok: true, json: async () => ({ id: 'cus_1' }) };
+      if (url.includes('/v1/products')) return { ok: true, json: async () => ({ id: 'prod_1' }) };
+      corpoSub = init.body;
+      return { ok: true, json: async () => ({ id: 'sub_1', status: 'active' }) };
+    }));
+    await stripeAdapter('sk_test_x').createSubscription(PLAN, USER, pagamento, 'chk_1');
+    expect(new URLSearchParams(corpoSub).get('payment_behavior')).toBe('error_if_incomplete');
+  });
+
+  // Revisão adversarial (03/out/2026): a chave NÃO pode depender do cartão.
+  // Com chave por cartão, um retry ambíguo (timeout) trocando o PaymentMethod
+  // criaria uma 2ª assinatura/cobrança na Stripe. A chave é estável por
+  // checkoutId (mesmo retry => mesma chave => deduplica); depois de uma
+  // RECUSA o cliente rotaciona o checkoutId (HTTP 402), então outro cartão
+  // chega com id — e portanto chave — novos.
+  it('Idempotency-Key do Customer e da Subscription é estável por checkoutId, independente do cartão', async () => {
+    const chaves: Record<string, string[]> = { cust: [], sub: [] };
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init: any) => {
+      if (url.includes('/v1/customers')) { chaves.cust.push(init.headers['Idempotency-Key']); return { ok: true, json: async () => ({ id: 'cus_1' }) }; }
+      if (url.includes('/v1/products')) return { ok: true, json: async () => ({ id: 'prod_1' }) };
+      chaves.sub.push(init.headers['Idempotency-Key']);
+      return { ok: true, json: async () => ({ id: 'sub_1', status: 'active' }) };
+    }));
+    const a = stripeAdapter('sk_test_x');
+    await a.createSubscription(PLAN, USER, { method: 'card', gatewayToken: 'pm_A' } as PaymentData, 'chk_same');
+    await a.createSubscription(PLAN, USER, { method: 'card', gatewayToken: 'pm_B' } as PaymentData, 'chk_same');
+    await a.createSubscription(PLAN, USER, { method: 'card', gatewayToken: 'pm_A' } as PaymentData, 'chk_outro');
+    for (const k of [chaves.cust, chaves.sub]) { expect(k[0]).toBe(k[1]); expect(k[2]).not.toBe(k[0]); }
+    expect(chaves.sub[0]).toBe('stripe_sub_chk_same');
+    expect(chaves.cust[0]).toBe('stripe_cust_chk_same');
+  });
+
+  it('assinatura devolvida como incomplete vira erro TIPADO (declined) e é cancelada (nunca sucesso)', async () => {
+    const chamadas: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init: any) => {
+      chamadas.push((init?.method || 'GET') + ' ' + url);
+      if (url.includes('/v1/customers')) return { ok: true, json: async () => ({ id: 'cus_1' }) };
+      if (url.includes('/v1/products')) return { ok: true, json: async () => ({ id: 'prod_1' }) };
+      if (init?.method === 'DELETE') return { ok: true, json: async () => ({}) };
+      return { ok: true, json: async () => ({ id: 'sub_inc', status: 'incomplete' }) };
+    }));
+    const erro: any = await stripeAdapter('sk_test_x').createSubscription(PLAN, USER, pagamento, 'chk_2').catch((e) => e);
+    expect(erro).toBeInstanceOf(GatewayDeclinedError);
+    expect(erro.declined).toBe(true);
+    expect(erro.message).toContain('primeira cobrança não confirmada');
+    expect(chamadas.some(c => c.startsWith('DELETE') && c.endsWith('/v1/subscriptions/sub_inc'))).toBe(true);
+  });
+
+  it('4xx da Stripe na criação da assinatura (cartão recusado) vira GatewayDeclinedError; 5xx NÃO', async () => {
+    const stub = (status: number) => vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.includes('/v1/customers')) return { ok: true, json: async () => ({ id: 'cus_1' }) };
+      if (url.includes('/v1/products')) return { ok: true, json: async () => ({ id: 'prod_1' }) };
+      return { ok: false, status, text: async () => 'card_declined' };
+    }));
+    stub(402);
+    const recusa: any = await stripeAdapter('sk_test_x').createSubscription(PLAN, USER, pagamento, 'chk_3').catch((e) => e);
+    expect(recusa).toBeInstanceOf(GatewayDeclinedError);
+    stub(503);
+    const indisponivel: any = await stripeAdapter('sk_test_x').createSubscription(PLAN, USER, pagamento, 'chk_4').catch((e) => e);
+    expect(indisponivel).not.toBeInstanceOf(GatewayDeclinedError);
+  });
+});
+
+describe('stripeAdapter.updateSubscriptionPlan — troca com proração', () => {
+  // Revisão adversarial (03/out/2026): upgrade com proração sem payment_behavior
+  // aplicava o novo plano mesmo com a fatura proporcional recusada (o usuário
+  // ganhava o plano de graça). error_if_incomplete faz a Stripe rejeitar a
+  // troca inteira. Sem proração (downgrade) não há cobrança imediata a falhar.
+  const stubUpdate = () => {
+    const corpos: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init: any) => {
+      if (url.includes('/v1/products')) return { ok: true, json: async () => ({ id: 'prod_1' }) };
+      if (init?.method === 'POST' && url.includes('/v1/subscriptions/sub_old')) {
+        corpos.push(init.body);
+        return { ok: true, json: async () => ({ id: 'sub_old', status: 'active' }) };
+      }
+      return { ok: true, json: async () => ({ id: 'sub_old', items: { data: [{ id: 'si_1' }] }, status: 'active' }) };
+    }));
+    return corpos;
+  };
+
+  it('com proração envia payment_behavior=error_if_incomplete', async () => {
+    const corpos = stubUpdate();
+    await stripeAdapter('sk_test_x').updateSubscriptionPlan!('sub_old', PLAN, true, 'chk_up');
+    expect(corpos.length).toBeGreaterThan(0);
+    expect(new URLSearchParams(corpos[corpos.length - 1]).get('payment_behavior')).toBe('error_if_incomplete');
+  });
+
+  it('proração recusada (4xx) vira GatewayDeclinedError; falha de servidor (5xx) NÃO', async () => {
+    const stubFalha = (status: number) => vi.stubGlobal('fetch', vi.fn(async (url: string, init: any) => {
+      if (url.includes('/v1/products')) return { ok: true, json: async () => ({ id: 'prod_1' }) };
+      if (init?.method === 'POST' && url.includes('/v1/subscriptions/sub_old')) return { ok: false, status, text: async () => 'card_declined' };
+      return { ok: true, json: async () => ({ id: 'sub_old', items: { data: [{ id: 'si_1' }] }, status: 'active' }) };
+    }));
+    stubFalha(402);
+    const recusa: any = await stripeAdapter('sk_test_x').updateSubscriptionPlan!('sub_old', PLAN, true, 'chk_d').catch((e) => e);
+    expect(recusa).toBeInstanceOf(GatewayDeclinedError);
+    stubFalha(503);
+    const indisponivel: any = await stripeAdapter('sk_test_x').updateSubscriptionPlan!('sub_old', PLAN, true, 'chk_e').catch((e) => e);
+    expect(indisponivel).not.toBeInstanceOf(GatewayDeclinedError);
+  });
+
+  it('sem proração (downgrade) NÃO envia payment_behavior', async () => {
+    const corpos = stubUpdate();
+    await stripeAdapter('sk_test_x').updateSubscriptionPlan!('sub_old', PLAN, false, 'chk_down');
+    expect(corpos.length).toBeGreaterThan(0);
+    expect(new URLSearchParams(corpos[corpos.length - 1]).get('payment_behavior')).toBeNull();
   });
 });
 
@@ -288,6 +409,109 @@ describe('pagarmeAdapter.createSubscription — caminho com card_token', () => {
     // Achado de verificação contra a doc oficial: document_type aparece
     // pareado com document em todo exemplo funcional da doc — faltava.
     expect(parsed.customer.document_type).toBe('CPF');
+  });
+
+  // Achado ao vivo no sandbox (2026-10-03): billing_type 'exact_day' só aceita
+  // interval 'month'; assinatura anual precisa de 'prepaid' e não aceita
+  // billing_day. O mensal continua em 'exact_day' + billing_day (validado).
+  it.each([
+    ['monthly', 'month', 'exact_day', true],
+    ['annual', 'year', 'prepaid', false],
+  ] as const)('ciclo %s usa interval=%s com billing_type=%s', async (billingCycle, interval, billingType, temBillingDay) => {
+    // Data FIXA (dia 13): o adapter usa o dia do mês de Brasília como billing_day
+    // e troca para 'prepaid' nos dias 29-31 (F14) -- sem fixar o relógio este
+    // teste mudaria de resultado conforme o dia em que roda.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-13T15:00:00Z'));
+    let bodySubscription = '';
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: any) => {
+      bodySubscription = init.body;
+      return { ok: true, json: async () => ({ id: 'sub_pm_cycle', customer: { id: 'cus_pm_cycle' } }) };
+    }));
+    const adapter = pagarmeAdapter('sk_test_fake');
+    await adapter.createSubscription(
+      { ...PLAN, billingCycle },
+      USER,
+      {
+        method: 'card',
+        gatewayToken: 'token_ciclo',
+        billingAddress: { cep: '01310-100', street: 'Av. Paulista', number: '1000', neighborhood: 'Bela Vista', city: 'São Paulo', state: 'SP' },
+        doc: '12345678909',
+        phone: '11999999999',
+      },
+      'checkout_cycle'
+    );
+    const parsed = JSON.parse(bodySubscription);
+    expect(parsed.interval).toBe(interval);
+    expect(parsed.billing_type).toBe(billingType);
+    expect('billing_day' in parsed).toBe(temBillingDay);
+  });
+
+  // Achado ao vivo no sandbox (2026-10-03): 1ª cobrança recusada = HTTP 200 +
+  // status 'failed'. Antes o adapter devolvia sucesso.
+  it('1ª cobrança recusada (HTTP 200 + status failed) vira erro e cancela a assinatura morta', async () => {
+    const chamadas: Array<{ url: string; method?: string }> = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: any) => {
+      chamadas.push({ url, method: init?.method });
+      if (init?.method === 'DELETE') return { ok: true, json: async () => ({}) };
+      return { ok: true, json: async () => ({ id: 'sub_falhou', status: 'failed', customer: { id: 'cus_x' } }) };
+    }));
+    const adapter = pagarmeAdapter('sk_test_fake');
+    await expect(adapter.createSubscription(
+      PLAN, USER,
+      {
+        method: 'card',
+        gatewayToken: 'token_recusado',
+        billingAddress: { cep: '01310-100', street: 'Av. Paulista', number: '1000', neighborhood: 'Bela Vista', city: 'São Paulo', state: 'SP' },
+        doc: '12345678909',
+        phone: '11999999999',
+      },
+      'checkout_failed'
+    )).rejects.toBeInstanceOf(GatewayDeclinedError);
+    expect(chamadas.some(c => c.method === 'DELETE' && c.url.endsWith('/subscriptions/sub_falhou'))).toBe(true);
+  });
+
+  it('HTTP 4xx do Pagar.me vira GatewayDeclinedError; 5xx continua erro comum (ambíguo, não rotaciona checkoutId)', async () => {
+    const pagamento: PaymentData = {
+      method: 'card',
+      gatewayToken: 'token_x',
+      billingAddress: { cep: '01310-100', street: 'Av. Paulista', number: '1000', neighborhood: 'Bela Vista', city: 'São Paulo', state: 'SP' },
+      doc: '12345678909',
+      phone: '11999999999',
+    };
+    const stub = (status: number) => vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status, text: async () => 'erro' })));
+    stub(422);
+    const recusa: any = await pagarmeAdapter('sk_test_fake').createSubscription(PLAN, USER, pagamento, 'chk_422').catch((e) => e);
+    expect(recusa).toBeInstanceOf(GatewayDeclinedError);
+    expect(recusa.declined).toBe(true);
+    stub(502);
+    const indisponivel: any = await pagarmeAdapter('sk_test_fake').createSubscription(PLAN, USER, pagamento, 'chk_502').catch((e) => e);
+    expect(indisponivel).not.toBeInstanceOf(GatewayDeclinedError);
+  });
+
+  // Revisão adversarial (03/out/2026): a chave por cartão (token) criava uma 2ª
+  // assinatura num retry ambíguo com outro cartão. A chave agora é estável por
+  // checkoutId; o cliente rotaciona o checkoutId depois de uma recusa (402).
+  it('Idempotency-Key é estável por checkoutId, independente do token do cartão', async () => {
+    const chaves: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (_url: string, init: any) => {
+      chaves.push(init.headers['Idempotency-Key']);
+      return { ok: true, json: async () => ({ id: 'sub_x', status: 'active', customer: { id: 'cus_x' } }) };
+    }));
+    const adapter = pagarmeAdapter('sk_test_fake');
+    const pagamento = (gatewayToken: string): PaymentData => ({
+      method: 'card',
+      gatewayToken,
+      billingAddress: { cep: '01310-100', street: 'Av. Paulista', number: '1000', neighborhood: 'Bela Vista', city: 'São Paulo', state: 'SP' },
+      doc: '12345678909',
+      phone: '11999999999',
+    });
+    await adapter.createSubscription(PLAN, USER, pagamento('token_cartao_A'), 'checkout_same');
+    await adapter.createSubscription(PLAN, USER, pagamento('token_cartao_B'), 'checkout_same');
+    await adapter.createSubscription(PLAN, USER, pagamento('token_cartao_A'), 'checkout_novo');
+    expect(chaves[0]).toBe(chaves[1]);
+    expect(chaves[2]).not.toBe(chaves[0]);
+    expect(chaves[0]).toBe('pagarme-sub-checkout_same');
   });
 
   it('sem creditCard nem gatewayToken, rejeita antes de chamar a rede', async () => {

@@ -1,5 +1,5 @@
 import crypto from 'crypto'
-import { GatewayAdapter, WebhookEvent } from './types'
+import { GatewayAdapter, WebhookEvent, GatewayDeclinedError, recusadoPeloGateway } from './types'
 import { assinaturaConfere, timestampRecente } from './signature'
 
 export function mercadoPagoAdapter(accessToken: string): GatewayAdapter {
@@ -50,7 +50,10 @@ export function mercadoPagoAdapter(accessToken: string): GatewayAdapter {
       })
       
       if (!response.ok) {
-        throw new Error(`Mercado Pago erro na assinatura: ${await response.text()}`)
+        const detalhe = `Mercado Pago erro na assinatura: ${await response.text()}`
+        // 4xx = o gateway respondeu e rejeitou (recusa definitiva: rota 402 +
+        // checkoutId novo no modal); 5xx/rede seguem ambíguos.
+        throw recusadoPeloGateway(response.status) ? new GatewayDeclinedError(detalhe) : new Error(detalhe)
       }
       
       const data = await response.json()
@@ -130,7 +133,9 @@ export function mercadoPagoAdapter(accessToken: string): GatewayAdapter {
           // nunca era reconhecida aqui: type ficava 'unknown', o webhook route
           // respondia {handled:false} sem tocar em nada, e o usuário mantinha
           // acesso premium mesmo com a assinatura já cancelada no gateway.
-          if (preapproval.status === 'canceled') type = 'subscription.cancelled'
+          // F15: aceita as DUAS grafias ('canceled' e 'cancelled') -- um cancelamento
+          // externo não reconhecido deixava o plano ativo (type 'unknown').
+          if (preapproval.status === 'canceled' || preapproval.status === 'cancelled') type = 'subscription.cancelled'
           else if (preapproval.status === 'authorized') type = 'subscription.activated'
           else if (preapproval.status === 'pending') type = 'unknown'
         } else {
@@ -151,9 +156,14 @@ export function mercadoPagoAdapter(accessToken: string): GatewayAdapter {
           gatewaySubscriptionId,
           userEmail: payerEmail,
           externalReference,
+          // F03 (auditoria 12/out/2026): 'authorized' não prova pagamento e também
+          // dispara quando o PRÓPRIO reajuste/troca de plano (PUT em
+          // transaction_amount) altera a assinatura. Serve para ativar uma
+          // assinatura pendente, nunca para estender o período de uma ativa.
+          ...(type === 'subscription.activated' ? { activationSignalOnly: true } : {}),
           raw: payloadObj
         }
-      } 
+      }
       else if (payloadObj.action === 'payment.created' || payloadObj.type === 'payment') {
         // Renewal payments
         const paymentRes = await fetch(`https://api.mercadopago.com/v1/payments/${dataId}`, {
@@ -169,6 +179,9 @@ export function mercadoPagoAdapter(accessToken: string): GatewayAdapter {
           return {
             type,
             eventId: payloadObj.id ? String(payloadObj.id) : `mp_pay_${dataId}`,
+            // F03: payment.created e payment.updated do MESMO pagamento aprovado
+            // chegam com event ids distintos -- sem isto cada um somava um ciclo.
+            ...(type === 'subscription.renewed' ? { paymentId: String(dataId) } : {}),
             gatewaySubscriptionId: '', // Handled by fallback to externalReference in route.ts
             userEmail: payment.payer?.email,
             externalReference: payment.external_reference,
@@ -195,16 +208,23 @@ export function mercadoPagoAdapter(accessToken: string): GatewayAdapter {
     },
     
     async cancelSubscription(gatewaySubscriptionId) {
-      const response = await fetch(`https://api.mercadopago.com/preapproval/${gatewaySubscriptionId}`, {
+      // F15 (auditoria 12/out/2026): a grafia do status de cancelamento é
+      // ambígua entre a doc/SDK ('cancelled') e o que este adapter assumia
+      // ('canceled'), e este adapter nunca foi testado ao vivo. Tenta uma e, se a
+      // API recusar o VALOR (4xx que não seja 404), tenta a outra -- um cancelamento
+      // que falha deixa o cliente cobrado sem conseguir sair.
+      const tentar = (status: string) => fetch(`https://api.mercadopago.com/preapproval/${gatewaySubscriptionId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json'
         },
-        // 'canceled' (um L) é o valor documentado pela API — ver o comentário
-        // equivalente em validateWebhook.
-        body: JSON.stringify({ status: 'canceled' })
+        body: JSON.stringify({ status })
       })
+      let response = await tentar('cancelled')
+      if (!response.ok && response.status !== 404 && response.status >= 400 && response.status < 500) {
+        response = await tentar('canceled')
+      }
 
       // Mesma correção idempotente aplicada nos 4 adapters (achado ao vivo,
       // 2026-09-01, ver comentário equivalente em stripe.ts): se o gateway já
@@ -256,6 +276,15 @@ export function mercadoPagoAdapter(accessToken: string): GatewayAdapter {
         gatewaySubscriptionId: updated.id,
         currentPeriodEnd: nextPaymentDate ? new Date(nextPaymentDate).toISOString() : undefined,
       }
+    },
+
+    // F13: valor recorrente vigente da preapproval.
+    async getSubscriptionPrice(gatewaySubscriptionId) {
+      const r = await fetch(`https://api.mercadopago.com/preapproval/${gatewaySubscriptionId}`, { headers: { 'Authorization': `Bearer ${accessToken}` } })
+      if (!r.ok) return null
+      const s = await r.json()
+      const v = s.auto_recurring?.transaction_amount
+      return typeof v === 'number' ? v : null
     }
   }
 }

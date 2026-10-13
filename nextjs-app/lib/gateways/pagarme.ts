@@ -1,5 +1,6 @@
-import { GatewayAdapter, WebhookEvent } from './types'
+import { GatewayAdapter, WebhookEvent, GatewayDeclinedError, recusadoPeloGateway } from './types'
 import { assinaturaConfere } from './signature'
+import { diaDoMesBrasil } from './data-brasil'
 
 export function pagarmeAdapter(apiKey: string): GatewayAdapter {
   const basicAuth = `Basic ${Buffer.from(apiKey + ':').toString('base64')}`
@@ -91,13 +92,31 @@ export function pagarmeAdapter(apiKey: string): GatewayAdapter {
       // esse campo. Usa o dia de hoje (assinatura começa e cobra todo mês
       // no mesmo dia) — mesmo padrão de "cobra a partir de hoje" que
       // stripe.ts/asaas.ts já usam.
-      const billingDay = new Date().getDate()
+      // F14 (auditoria 12/out/2026) -- CONFIRMADO ao vivo no sandbox em 13/out:
+      // a API recusa billing_day > 28 com 422 ("must be less than or equal to
+      // 28"). Nos dias 29, 30 e 31 TODO checkout mensal falhava, e o adapter
+      // convertia o 422 em GatewayDeclinedError => "pagamento recusado" falso.
+      // Limitar a 28 também não serve: a 1ª fatura deixa de ser imediata
+      // (next_billing_at vai para o dia 28 seguinte e nada é cobrado agora).
+      // Nesses dias usa billing_type 'prepaid' (testado: cobra NA HORA e agenda a
+      // próxima para o mesmo dia do mês seguinte). O dia vem do calendário de
+      // Brasília (o servidor roda em UTC e, entre 21h e 24h BRT, já estaria no
+      // dia seguinte).
+      const billingDay = diaDoMesBrasil()
+      // BUG CORRIGIDO (achado ao vivo no sandbox real, 2026-10-03): 'exact_day'
+      // só aceita interval 'month' ("The billing type exact_day allows only
+      // the 'month' as type interval") -- toda assinatura ANUAL pelo Pagar.me
+      // falhava com 502. 'prepaid' (cobra no início de cada período, sem
+      // billing_day) aceita 'year'; testado: assinatura ativa, ciclo anual
+      // faturado na hora.
+      const billingFields = (plan.billingCycle === 'annual' || billingDay > 28)
+        ? { billing_type: 'prepaid' as const }
+        : { billing_type: 'exact_day' as const, billing_day: billingDay }
       const body = {
         payment_method: 'credit_card',
         interval,
         interval_count: intervalCount,
-        billing_type: 'exact_day', // Pagar.me recommended for cc subscriptions
-        billing_day: billingDay,
+        ...billingFields,
         items: [{
           description: plan.name,
           quantity: 1,
@@ -152,11 +171,42 @@ export function pagarmeAdapter(apiKey: string): GatewayAdapter {
       })
       
       if (!response.ok) {
-        throw new Error(`Pagar.me erro na assinatura: ${await response.text()}`)
+        const detalhe = `Pagar.me erro na assinatura: ${await response.text()}`
+        // 4xx: o gateway RESPONDEU e rejeitou (ex.: "card verification
+        // failed") -- recusa definitiva, a rota devolve 402 e o modal troca o
+        // checkoutId. 5xx/timeout continuam ambíguos (podem ter cobrado).
+        throw recusadoPeloGateway(response.status) ? new GatewayDeclinedError(detalhe) : new Error(detalhe)
       }
-      
+
       const data = await response.json()
-      
+
+      // BUG CRÍTICO CORRIGIDO (achado ao vivo no sandbox real, 2026-10-03): a
+      // Pagar.me responde HTTP 200 e CRIA a assinatura mesmo quando a 1ª
+      // cobrança é recusada -- o sinal é `status: 'failed'` no corpo (a fatura
+      // e a cobrança também ficam 'failed'). Sem esta checagem o checkout
+      // devolvia sucesso: o cliente via "assinatura ativada", a linha local
+      // ficava 'pending' sem nunca ativar e o cupom era consumido sem
+      // reversão. Tratar como falha faz a rota apagar o lock, reverter o
+      // cupom e devolver o erro amigável (mesmo caminho de qualquer recusa).
+      if (data.status === 'failed') {
+        try {
+          const cancel = await fetch(`https://api.pagar.me/core/v5/subscriptions/${data.id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': basicAuth, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cancel_pending_invoices: true }),
+          })
+          // 412 = "já está cancelada" (comportamento real desta API, ver
+          // cancelSubscription). Qualquer outro não-ok fica no log para
+          // revisão: a assinatura 'failed' pode ter retentativa de cobrança.
+          if (!cancel.ok && cancel.status !== 404 && cancel.status !== 412) {
+            console.error(`[Pagar.me] Falha ao cancelar a assinatura 'failed' ${data.id} (HTTP ${cancel.status}) -- revisão manual necessária`)
+          }
+        } catch (err: any) {
+          console.error(`[Pagar.me] Erro ao cancelar a assinatura 'failed' ${data.id} -- revisão manual necessária:`, err?.message)
+        }
+        throw new GatewayDeclinedError('Pagar.me: primeira cobrança da assinatura recusada (status=failed)')
+      }
+
       // Transparent checkout: no checkoutUrl
       return { 
         checkoutUrl: '',
@@ -230,9 +280,18 @@ export function pagarmeAdapter(apiKey: string): GatewayAdapter {
         if (subscriptionRef) type = 'payment.failed'
       }
 
+      // F02: identidade do pagamento = a FATURA. invoice.paid traz a fatura em
+      // event.data; charge.paid traz a cobrança, que aponta para a fatura em
+      // data.invoice. Os dois eventos da mesma fatura precisam dar o mesmo id.
+      const paymentId =
+        type === 'subscription.activated'
+          ? (event.type === 'invoice.paid' ? dataObj.id : (dataObj.invoice?.id || dataObj.invoice_id))
+          : undefined
+
       return {
         type,
         eventId: event.id,
+        ...(paymentId ? { paymentId: String(paymentId) } : {}),
         gatewaySubscriptionId: subscriptionRef?.id || dataObj.id,
         gatewayCustomerId: dataObj.customer?.id || subscriptionRef?.customer?.id,
         userEmail: dataObj.customer?.email || subscriptionRef?.customer?.email,
@@ -328,6 +387,15 @@ export function pagarmeAdapter(apiKey: string): GatewayAdapter {
         gatewaySubscriptionId: updated.subscription_id || gatewaySubscriptionId,
         currentPeriodEnd: existingSub.next_billing_at ? new Date(existingSub.next_billing_at).toISOString() : undefined,
       }
+    },
+
+    // F13: valor recorrente vigente do item da assinatura (centavos -> reais).
+    async getSubscriptionPrice(gatewaySubscriptionId) {
+      const r = await fetch(`https://api.pagar.me/core/v5/subscriptions/${gatewaySubscriptionId}`, { headers: { 'Authorization': basicAuth } })
+      if (!r.ok) return null
+      const s = await r.json()
+      const cents = s.items?.[0]?.pricing_scheme?.price
+      return typeof cents === 'number' ? cents / 100 : null
     }
   }
 }

@@ -177,7 +177,11 @@ export default function AdminCupons() {
       // app/api/checkout/validate-coupon e app/api/checkout/route.ts.
       // Offset explícito -03:00 = fim do dia em horário de Brasília.
       valid_until: form.valid_until ? new Date(`${form.valid_until}T23:59:59-03:00`).toISOString() : null,
-      max_uses: form.max_uses === '' ? null : Number(form.max_uses)
+      // F64 (auditoria 12/out/2026): 0 era gravado como 0, que a tela e a prévia do
+      // checkout leem como "Ilimitado" (0 é falsy) mas a RPC try_apply_coupon trata
+      // como ESGOTADO (usage_count >= 0) -- o cupom passava na prévia e falhava no
+      // pagamento. Vazio ou <= 0 vira null = ilimitado, igual ao que a tela mostra.
+      max_uses: form.max_uses === '' || !(Number(form.max_uses) > 0) ? null : Number(form.max_uses)
     }
 
     if (editingId) {

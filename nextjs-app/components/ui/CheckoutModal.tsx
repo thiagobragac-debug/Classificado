@@ -32,6 +32,12 @@ const TRANSLATIONS = {
     annualSuffix: '(Anual)',
     perMonth: '/mês',
     perYear: '/ano',
+    // F10 (auditoria 12/out/2026): última tela antes de pagar precisa dizer que o
+    // desconto é SÓ do 1º ciclo e quanto/quando será a cobrança seguinte (CDC arts.
+    // 6º III e 31; Decreto 7.962/13 art. 4º). Sem isto o '/mês' ao lado do valor
+    // promocional afirmava recorrência de R$74,50 e a renovação vinha +100%.
+    promoDisclosureMonthly: '🔥 50% OFF só no 1º mês. A partir de {data}, a cobrança passa a ser de {valor} /mês, automaticamente. Cancele quando quiser em Painel › Assinatura.',
+    promoDisclosureAnnual: '🔥 50% OFF só no 1º ano. A partir de {data}, a cobrança passa a ser de {valor} /ano, automaticamente. Cancele quando quiser em Painel › Assinatura.',
     couponQuestion: 'Possui cupom de desconto?',
     couponPlaceholder: 'Código do cupom',
     couponApply: 'Aplicar',
@@ -96,6 +102,8 @@ const TRANSLATIONS = {
     annualSuffix: '(Anual)',
     perMonth: '/mes',
     perYear: '/año',
+    promoDisclosureMonthly: '🔥 50% OFF solo el 1.er mes. A partir del {data}, el cobro pasa a ser de {valor} /mes, automáticamente. Cancela cuando quieras en Panel › Suscripción.',
+    promoDisclosureAnnual: '🔥 50% OFF solo el 1.er año. A partir del {data}, el cobro pasa a ser de {valor} /año, automáticamente. Cancela cuando quieras en Panel › Suscripción.',
     couponQuestion: '¿Tienes un cupón de descuento?',
     couponPlaceholder: 'Código del cupón',
     couponApply: 'Aplicar',
@@ -305,6 +313,20 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
   })
   const currencySymbol = getCurrencySymbol(displayCurrency)
 
+  // F10: texto de transparência da promoção -- só quando o desconto de 1º ciclo é o
+  // que está valendo. Valor cheio (fullPrice, já com o ajuste anual) e a data da
+  // 1ª renovação (hoje + 1 mês/ano), no idioma ativo.
+  let promoDisclosure = ''
+  if (promoVenceu) {
+    const renovacao = new Date()
+    if (billingCycle === 'annual') renovacao.setFullYear(renovacao.getFullYear() + 1)
+    else renovacao.setMonth(renovacao.getMonth() + 1)
+    const dataRenovacao = renovacao.toLocaleDateString(lang === 'es' ? 'es-AR' : 'pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    promoDisclosure = (billingCycle === 'annual' ? t.promoDisclosureAnnual : t.promoDisclosureMonthly)
+      .replace('{data}', dataRenovacao)
+      .replace('{valor}', `${currencySymbol} ${formatAmount(fullPrice, lang)}`)
+  }
+
   // --- Idempotency nonce ---
   // BUG CORRIGIDO (validação do zero, 3ª rodada): antes era gerado dentro
   // do efeito que reage a `gatewayConfig`, que muda de referência sempre
@@ -316,7 +338,15 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
   // checkoutId por ABERTURA do modal (gerado uma vez, na montagem) é o
   // nonce certo — mesmo valor em qualquer retry dentro da mesma tentativa,
   // valor novo só quando o modal reabre de verdade.
-  const [checkoutId] = useState(() => crypto.randomUUID())
+  //
+  // EXCEÇÃO (achado ao vivo no Pagar.me/Stripe, 03/out/2026): o servidor usa
+  // este id como chave de idempotência do gateway (e da trava do checkout).
+  // Depois de uma RECUSA DEFINITIVA (HTTP 402 — cartão recusado), repetir o
+  // mesmo id devolve a mesma resposta em cache/lock e o usuário nunca
+  // conseguiria tentar outro cartão sem fechar e reabrir o modal. Por isso o
+  // 402 (e só ele) rotaciona o id; erros ambíguos (timeout/502) mantêm o
+  // mesmo id de propósito, pra o retry ser deduplicado.
+  const [checkoutId, setCheckoutId] = useState(() => crypto.randomUUID())
 
   // --- Checa de saída se esta troca vai cair no caminho nativo (sem
   // recoletar cartão/endereço) — precisa acontecer ANTES do usuário ver o
@@ -346,20 +376,77 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.access_token])
 
-  // --- Initialize Gateway SDK ---
+  // Depois de uma recusa, o SetupIntent da Stripe já está confirmado (e não
+  // pode ser confirmado de novo com outro cartão): busca um novo no init,
+  // silenciosamente (sem voltar ao estado "initializing"). Só o clientSecret
+  // muda — o <Elements> remonta pela `key` e o SDK não é reinicializado.
+  const renovarSetupIntent = async () => {
+    if (!session?.access_token) return
+    try {
+      const res = await fetch('/api/checkout/init', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({ planId: plan.id, billingCycle }),
+      })
+      const data = await res.json()
+      if (res.ok && data.clientSecret) setGatewayConfig(data)
+    } catch {
+      // sem rede: o usuário vê a mensagem de recusa e pode reabrir o modal
+    }
+  }
+
+  // F06: relê o preço/moeda/promoção atuais do servidor (mesma rota do preview) e
+  // atualiza o resumo, sem mexer em cartão/endereço já digitados.
+  const atualizarPreco = async () => {
+    if (!session?.access_token) return
+    try {
+      const res = await fetch('/api/checkout/init', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({ planId: plan.id, billingCycle }),
+      })
+      const data = await res.json()
+      if (res.ok) setGatewayConfig(data)
+    } catch {
+      // sem rede: o usuário já viu a mensagem com o novo valor
+    }
+  }
+
+  // F59 (auditoria 12/out/2026): o modal não era um diálogo para tecnologia
+  // assistiva (sem role/aria-modal, sem foco inicial, sem Esc). Foco no diálogo ao
+  // abrir (tabIndex -1) e Esc fecha -- exceto durante o envio do pagamento, quando o
+  // botão de fechar também fica desabilitado (não dá para abandonar a meio).
+  const dialogRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    if (gatewayConfig?.gateway === 'stripe' && gatewayConfig.publicKey) {
-      setStripePromise(loadStripe(gatewayConfig.publicKey))
-    } else if (gatewayConfig?.gateway === 'mercadopago' && gatewayConfig.publicKey) {
+    dialogRef.current?.focus()
+  }, [])
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !loading) onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [loading, onClose])
+
+  // --- Initialize Gateway SDK ---
+  // Depende só de gateway/chave (não do objeto inteiro): renovar o
+  // clientSecret não pode recriar a instância do Stripe (o <Elements> avisa
+  // e ignora troca da prop `stripe`).
+  const gatewayName = gatewayConfig?.gateway
+  const gatewayPublicKey = gatewayConfig?.publicKey
+  useEffect(() => {
+    if (gatewayName === 'stripe' && gatewayPublicKey) {
+      setStripePromise(loadStripe(gatewayPublicKey))
+    } else if (gatewayName === 'mercadopago' && gatewayPublicKey) {
       // GAP CORRIGIDO (auditoria completa de i18n, 2026-08-26/27): locale do
       // Brick do Mercado Pago vinha fixo em 'pt-BR' mesmo com tc_lang=es. O
       // SDK (@mercadopago/sdk-react) só aceita um conjunto fechado de
       // variantes regionais — es-AR é a mais comum pro público platino
       // (Argentina/Uruguai/Paraguai), mesma convenção já usada em
       // components/ads/AdCard.tsx pra Intl.NumberFormat/toLocaleDateString.
-      initMercadoPago(gatewayConfig.publicKey, { locale: lang === 'es' ? 'es-AR' : 'pt-BR' })
+      initMercadoPago(gatewayPublicKey, { locale: lang === 'es' ? 'es-AR' : 'pt-BR' })
     }
-  }, [gatewayConfig, lang])
+  }, [gatewayName, gatewayPublicKey, lang])
 
   // --- Coupon ---
   // BUG CORRIGIDO (revisão de regras de negócio, 2026-08-25): lia a tabela
@@ -467,6 +554,19 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
       const data = await res.json()
 
       if (!res.ok) {
+        // 402 = recusa definitiva do gateway: id novo pro próximo cartão e,
+        // na Stripe, um SetupIntent novo (o atual já foi confirmado).
+        if (res.status === 402) {
+          setCheckoutId(crypto.randomUUID())
+          if (gatewayConfig?.gateway === 'stripe') await renovarSetupIntent()
+        }
+        // F06: o servidor cobraria MAIS do que esta tela mostrou (promoção
+        // desligada, preço editado, moeda trocada...). Nada foi cobrado: recarrega o
+        // preço atual do servidor para o resumo mostrar o valor novo e deixa o
+        // usuário confirmar de novo (a mensagem do servidor já traz o novo valor).
+        if (res.status === 409 && data.code === 'price_changed') {
+          await atualizarPreco()
+        }
         throw new Error(data.error || t.errCheckoutInit)
       }
 
@@ -637,7 +737,14 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       zIndex: 9999
     }}>
-      <div style={{
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="checkout-modal-title"
+        tabIndex={-1}
+        style={{
+        outline: 'none',
         background: '#ffffff', width: '100%', maxWidth: '500px',
         borderRadius: '20px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
         overflow: 'hidden', border: '1px solid rgba(0,0,0,0.1)', color: '#1e293b',
@@ -649,7 +756,7 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           background: '#f8fafc', position: 'sticky', top: 0, zIndex: 1
         }}>
-          <h3 style={{ fontSize: '1.25rem', margin: 0, fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <h3 id="checkout-modal-title" style={{ fontSize: '1.25rem', margin: 0, fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span>💳</span> {t.title}
           </h3>
           <button onClick={onClose} disabled={loading} aria-label={t.close} style={{
@@ -686,6 +793,20 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
               )}
             </div>
           </div>
+
+          {/* F10: a promoção vale só no 1º ciclo -- dizer isso, com valor e data, ANTES de pagar */}
+          {promoDisclosure && (
+            <div
+              role="note"
+              style={{
+                background: '#fffbeb', border: '1px solid #fcd34d', color: '#78350f',
+                padding: '0.75rem 1rem', borderRadius: '10px', marginBottom: '1.5rem',
+                fontSize: '0.88rem', lineHeight: 1.45,
+              }}
+            >
+              {promoDisclosure}
+            </div>
+          )}
 
           {/* Coupon (step 1 normal, ou na confirmação de troca nativa) */}
           {!initializing && (isNativePlanSwitch || step === 1) && (
@@ -873,7 +994,7 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
                       escolhido no site (tc_lang). 'es-419' é a variante de
                       espanhol latino-americano do Stripe — mais adequada pro
                       público do Mercosul do que o 'es' genérico (Espanha). */}
-                  <Elements stripe={stripePromise} options={{ clientSecret: gatewayConfig.clientSecret, locale: lang === 'es' ? 'es-419' : 'pt-BR' }}>
+                  <Elements key={gatewayConfig.clientSecret} stripe={stripePromise} options={{ clientSecret: gatewayConfig.clientSecret, locale: lang === 'es' ? 'es-419' : 'pt-BR' }}>
                     <StripeCheckoutForm
                       lang={lang}
                       onSuccess={(paymentMethodId) => handleServerCheckout({ gatewayToken: paymentMethodId })}
@@ -1061,7 +1182,7 @@ export default function CheckoutModal({ plan, billingCycle = 'monthly', onClose 
   )
 }
 
-function StripeCheckoutForm({ onSuccess, onError, lang }: { onSuccess: (pmId: string) => void, onError: (msg: string) => void, lang: Lang }) {
+function StripeCheckoutForm({ onSuccess, onError, lang }: { onSuccess: (pmId: string) => void | Promise<void>, onError: (msg: string) => void, lang: Lang }) {
   const stripe = useStripe()
   const elements = useElements()
   const [loading, setLoading] = useState(false)
@@ -1090,8 +1211,12 @@ function StripeCheckoutForm({ onSuccess, onError, lang }: { onSuccess: (pmId: st
       onError(error.message || t.stripeCardError)
       setLoading(false)
     } else if (setupIntent && setupIntent.status === 'succeeded') {
-      // payment_method is created and attached
-      onSuccess(setupIntent.payment_method as string)
+      // payment_method is created and attached.
+      // Aguarda o checkout no servidor: antes o botão ficava em
+      // "Processando..." pra sempre quando o servidor recusava (loading nunca
+      // voltava a false). Em caso de sucesso a página navega embora.
+      await onSuccess(setupIntent.payment_method as string)
+      setLoading(false)
     } else {
       onError(t.stripeUnexpected)
       setLoading(false)

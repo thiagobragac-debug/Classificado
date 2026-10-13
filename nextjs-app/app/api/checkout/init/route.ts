@@ -5,6 +5,7 @@ import { resolveCountryCode } from '@/lib/geoip'
 import { getRequestLang } from '@/lib/api-lang'
 import { dentroDoLimiteFallback } from '@/lib/rate-limit-fallback'
 import { planElegivelParaPromo } from '@/lib/pricing/first-cycle-promo'
+import { usuarioJaConsumiuPromo } from '@/lib/pricing/promo-elegibilidade'
 
 // BUG CORRIGIDO (validação do zero, rodada 6): toda mensagem de erro desta
 // rota voltava em português (ou em inglês, no caso da auth) regardless do
@@ -21,6 +22,7 @@ const ERRORS = {
     pagarmeNotConfigured: 'Pagar.me não configurado.',
     stripeInitFailed: 'Não foi possível iniciar o checkout no momento. Tente novamente ou contate o suporte.',
     internal: 'Erro interno. Tente novamente.',
+    annualToMonthlyBlocked: 'Para mudar de plano anual para mensal, cancele a assinatura atual e contrate novamente quando o período anual terminar. Assim você não perde o período já pago.',
   },
   es: {
     missingAuth: 'Falta el encabezado de autorización.',
@@ -31,6 +33,7 @@ const ERRORS = {
     pagarmeNotConfigured: 'Pagar.me no está configurado.',
     stripeInitFailed: 'No se pudo iniciar el checkout en este momento. Inténtalo de nuevo o contacta al soporte.',
     internal: 'Error interno. Inténtalo de nuevo.',
+    annualToMonthlyBlocked: 'Para cambiar de un plan anual a uno mensual, cancela la suscripción actual y contrata de nuevo cuando termine el período anual. Así no pierdes el período ya pagado.',
   },
 } as const
 
@@ -157,6 +160,13 @@ export async function POST(req: Request) {
 
         const isPlanSwitch = !!(existingActiveSub && (existingActiveSub.plan !== plan.name || existingActiveSub.billing_cycle !== billingCycle))
 
+        // F101 (auditoria 12/out/2026): /api/checkout bloqueia anual -> mensal no Pagar.me e no
+        // Mercado Pago (409), mas o preview não avisava: o usuário preenchia cartão, CPF e
+        // endereço para só então receber o erro. Mesma regra, agora antes do formulário.
+        if (isPlanSwitch && existingActiveSub!.billing_cycle === 'annual' && billingCycle === 'monthly' && (existingActiveSub!.gateway === 'pagarme' || existingActiveSub!.gateway === 'mercadopago')) {
+          return NextResponse.json({ error: tx.annualToMonthlyBlocked }, { status: 409 })
+        }
+
         if (isPlanSwitch) {
           let finalPrice = unitPrice
           if (billingCycle === 'annual') finalPrice = (finalPrice * 0.8) * 12
@@ -166,6 +176,8 @@ export async function POST(req: Request) {
             existingSubGatewayId: existingActiveSub!.gateway_subscription_id,
             existingSubPrice: existingActiveSub!.price,
             existingSubCurrency: existingActiveSub!.currency,
+            existingSubBillingCycle: existingActiveSub!.billing_cycle,
+            targetBillingCycle: billingCycle,
             targetGatewayName: gatewayName,
             targetCurrency: displayCurrency,
             finalPrice,
@@ -173,6 +185,9 @@ export async function POST(req: Request) {
         }
 
         promoAtiva = !isPlanSwitch && settings['promo_primeiro_ciclo_ativo'] === '1' && planElegivelParaPromo(plan.name)
+        // F01: a promoção vale uma vez por usuário (mesma regra de /api/checkout) --
+        // o preview não pode prometer 50% a quem o checkout vai cobrar cheio.
+        if (promoAtiva && await usuarioJaConsumiuPromo(supabase, user.id)) promoAtiva = false
       }
     }
 

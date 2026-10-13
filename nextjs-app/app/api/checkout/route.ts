@@ -16,6 +16,20 @@ import {
 } from '@/lib/gateways'
 import { getRequestLang } from '@/lib/api-lang'
 import { calcularPrecoComMaiorDesconto, planElegivelParaPromo } from '@/lib/pricing/first-cycle-promo'
+import { usuarioJaConsumiuPromo } from '@/lib/pricing/promo-elegibilidade'
+import { reavaliarCotaAnuncios } from '@/lib/gateways/ad-quota-grace'
+
+// Tolerância de centavo entre o valor que o cliente exibiu e o que o servidor
+// calcula (a conta do cliente usa float; a do servidor arredonda a centavos).
+const TOLERANCIA_PRECO = 0.011
+
+function formatarValor(valor: number, currency: string, lang: 'pt' | 'es'): string {
+  try {
+    return new Intl.NumberFormat(lang === 'es' ? 'es-AR' : 'pt-BR', { style: 'currency', currency }).format(valor)
+  } catch {
+    return `${currency} ${valor.toFixed(2)}`
+  }
+}
 
 // BUG CORRIGIDO (validação do zero, rodada 6): toda mensagem de erro desta
 // rota (cupom, "já tem este plano", gateway não configurado, falha de
@@ -31,6 +45,10 @@ const ERRORS = {
     tooManyAttempts: 'Muitas tentativas. Aguarde um momento.',
     planIdRequired: 'planId é obrigatório',
     planNotFound: 'Plano não encontrado ou inativo',
+    freePlanNotPurchasable: 'O plano Grátis não é contratado pelo checkout.',
+    belowMinimumCharge: 'O valor final desta assinatura ficou abaixo do mínimo que o meio de pagamento aceita. Use um cupom de menor desconto ou contate o suporte.',
+    paymentDeclined: 'Pagamento recusado pelo emissor. Verifique os dados do cartão ou use outro cartão.',
+    annualToMonthlyBlocked: 'Para mudar de plano anual para mensal, cancele a assinatura atual e contrate novamente quando o período anual terminar. Assim você não perde o período já pago.',
     alreadyHasPlan: 'Você já tem este plano ativo.',
     stripeNotConfigured: 'Stripe não configurado. Contate o suporte.',
     mpNotConfigured: 'Mercado Pago não configurado. Contate o suporte.',
@@ -40,8 +58,10 @@ const ERRORS = {
     gatewayNotReady: 'Este método de pagamento está temporariamente indisponível para novas assinaturas. Tente novamente mais tarde ou contate o suporte.',
     couponInvalid: 'Cupom inválido, expirado ou com limite de usos esgotado.',
     processingInProgress: 'Processamento em andamento. Aguarde alguns segundos.',
+    priceChanged: (valor: string) => `O valor da assinatura mudou e agora é ${valor}. Confira o novo valor na tela e confirme novamente — nenhuma cobrança foi feita.`,
     couponLimitReachedRace: 'O limite de uso deste cupom acabou de ser atingido por outro usuário.',
     planSwitchFailed: 'Não foi possível trocar de plano no momento. Tente novamente ou contate o suporte.',
+    planSwitchDeclined: 'A cobrança da diferença do upgrade foi recusada pelo emissor do cartão da assinatura. Seu plano atual continua ativo; verifique o cartão ou tente novamente mais tarde.',
     cannotVerifyCurrentSub: 'Não foi possível verificar sua assinatura atual. Contate o suporte antes de trocar de plano.',
     couponApplyError: 'Erro ao aplicar cupom (limite atingido ou falha interna).',
     paymentProcessingFailed: 'Não foi possível processar o pagamento no momento. Verifique os dados do cartão ou tente novamente.',
@@ -55,6 +75,10 @@ const ERRORS = {
     tooManyAttempts: 'Demasiados intentos. Espera un momento.',
     planIdRequired: 'planId es obligatorio',
     planNotFound: 'Plan no encontrado o inactivo',
+    freePlanNotPurchasable: 'El plan Gratis no se contrata en el checkout.',
+    belowMinimumCharge: 'El valor final de esta suscripción quedó por debajo del mínimo que acepta el medio de pago. Usa un cupón con menor descuento o contacta al soporte.',
+    paymentDeclined: 'Pago rechazado por el emisor. Verifica los datos de la tarjeta o usa otra tarjeta.',
+    annualToMonthlyBlocked: 'Para cambiar de un plan anual a uno mensual, cancela la suscripción actual y contrata de nuevo cuando termine el período anual. Así no pierdes el período ya pagado.',
     alreadyHasPlan: 'Ya tienes este plan activo.',
     stripeNotConfigured: 'Stripe no está configurado. Contacta al soporte.',
     mpNotConfigured: 'Mercado Pago no está configurado. Contacta al soporte.',
@@ -64,8 +88,10 @@ const ERRORS = {
     gatewayNotReady: 'Este método de pago está temporalmente no disponible para nuevas suscripciones. Inténtalo de nuevo más tarde o contacta al soporte.',
     couponInvalid: 'Cupón inválido, vencido o con límite de usos agotado.',
     processingInProgress: 'Procesamiento en curso. Espera unos segundos.',
+    priceChanged: (valor: string) => `El valor de la suscripción cambió y ahora es ${valor}. Revisa el nuevo valor en pantalla y confirma de nuevo — no se realizó ningún cobro.`,
     couponLimitReachedRace: 'El límite de uso de este cupón acaba de ser alcanzado por otro usuario.',
     planSwitchFailed: 'No se pudo cambiar de plan en este momento. Inténtalo de nuevo o contacta al soporte.',
+    planSwitchDeclined: 'El cobro de la diferencia del upgrade fue rechazado por el emisor de la tarjeta de la suscripción. Tu plan actual sigue activo; verifica la tarjeta o inténtalo de nuevo más tarde.',
     cannotVerifyCurrentSub: 'No se pudo verificar tu suscripción actual. Contacta al soporte antes de cambiar de plan.',
     couponApplyError: 'Error al aplicar el cupón (límite alcanzado o fallo interno).',
     paymentProcessingFailed: 'No se pudo procesar el pago en este momento. Verifica los datos de la tarjeta o inténtalo de nuevo.',
@@ -78,7 +104,10 @@ export async function POST(req: Request) {
   const tx = ERRORS[lang]
   try {
     const body = await req.json()
-    const { checkoutId, planId, billingCycle, billingData, paymentMethod, creditCard, billingAddress, gatewayToken, couponCode } = body
+    // finalPrice = valor que o CLIENTE exibiu (CheckoutModal envia). Nunca é usado
+    // para cobrar -- o servidor recalcula tudo --, só para detectar divergência
+    // (guard "price_changed" abaixo). Ausente (app antigo/Android) = sem guard.
+    const { checkoutId, planId, billingCycle, billingData, paymentMethod, creditCard, billingAddress, gatewayToken, couponCode, finalPrice: precoExibidoCliente } = body
 
     if (!checkoutId) {
       return NextResponse.json({ error: tx.checkoutIdRequired }, { status: 400 })
@@ -138,6 +167,14 @@ export async function POST(req: Request) {
       .single()
     if (planError || !plan) {
       return NextResponse.json({ error: tx.planNotFound }, { status: 404 })
+    }
+    // BUG CORRIGIDO (achado ao vivo, 03/out/2026): sem esta guarda o id do
+    // plano Grátis caía no bypass de preço zero -- via API direta, criava uma
+    // assinatura 'ativa' do Grátis e CANCELAVA NA HORA a assinatura paga do
+    // cliente no gateway, perdendo o período já pago. A UI nunca oferece
+    // isso; descer pro Grátis é cancelar (acesso até o fim do período).
+    if (Number(plan.price) <= 0) {
+      return NextResponse.json({ error: tx.freePlanNotPurchasable }, { status: 400 })
     }
 
     // --- Fetch user profile (real columns: 'name', 'country' — no full_name) ---
@@ -206,6 +243,15 @@ export async function POST(req: Request) {
     // desabilita o botão do plano atual independente do ciclo).
     const cycleForCompare: 'monthly' | 'annual' = billingCycle === 'annual' ? 'annual' : 'monthly'
     const isPlanSwitch = !!(existingActiveSub && (existingActiveSub.plan !== plan.name || existingActiveSub.billing_cycle !== cycleForCompare))
+    // Achado ao vivo + revisão adversarial (03/out/2026): Pagar.me e Mercado Pago
+    // só alteram o PREÇO do item (nunca o intervalo) e não creditam o período
+    // anual já pago. Premium ANUAL -> PRO MENSAL ficava cobrando R$79 por ANO
+    // (troca nativa) e, forçado para cancelar-e-recriar, perderia os meses
+    // pagos. Nenhum dos dois é aceitável: bloqueia com instrução clara. Stripe
+    // e Asaas trocam o ciclo no lugar e seguem o fluxo normal.
+    if (isPlanSwitch && existingActiveSub!.billing_cycle === 'annual' && cycleForCompare === 'monthly' && (existingActiveSub!.gateway === 'pagarme' || existingActiveSub!.gateway === 'mercadopago')) {
+      return NextResponse.json({ error: tx.annualToMonthlyBlocked }, { status: 409 })
+    }
 
     // BUG CORRIGIDO (validação do zero, 4ª rodada): quando o plano+ciclo
     // pedido já é EXATAMENTE o que está ativo (isPlanSwitch=false com
@@ -327,8 +373,14 @@ export async function POST(req: Request) {
     // manual e promoção automática NUNCA se somam — calcularPrecoComMaior
     // Desconto usa sempre o maior desconto dos dois (ver lib/pricing/
     // first-cycle-promo.ts para a regra de desempate).
-    const promoAtiva = !isPlanSwitch && settings['promo_primeiro_ciclo_ativo'] === '1'
     const planElegivelPromo = planElegivelParaPromo(plan.name)
+    let promoAtiva = !isPlanSwitch && settings['promo_primeiro_ciclo_ativo'] === '1'
+    // F01 (auditoria 12/out/2026): a promoção é de aquisição -- vale UMA vez por
+    // usuário. Quem já teve assinatura paga (mesmo cancelada/expirada) paga o
+    // preço cheio. Ver lib/pricing/promo-elegibilidade.ts.
+    if (promoAtiva && planElegivelPromo && await usuarioJaConsumiuPromo(supabase, user.id, checkoutId)) {
+      promoAtiva = false
+    }
     const { finalPrice: finalPriceCalculado, promoVenceu, cupomTemEfeito } = calcularPrecoComMaiorDesconto({
       basePrice,
       fullPrice,
@@ -340,6 +392,22 @@ export async function POST(req: Request) {
         : null,
     })
     let finalPrice = finalPriceCalculado
+
+    // F06 (auditoria 12/out/2026): o servidor sempre recalcula o preço e ignora
+    // o que o usuário viu. Se algo mudou entre a tela e o clique em pagar (admin
+    // desligou a promoção, editou o preço, o geoip trocou a moeda...), o cliente
+    // era cobrado MAIS do que a tela mostrava, sem aviso. Agora: se o servidor
+    // cobraria mais do que o cliente exibiu, recusa com 409 price_changed ANTES
+    // do lock, do cupom e de qualquer chamada ao gateway -- o modal reexibe o
+    // novo valor e pede nova confirmação. Cobrar MENOS que o exibido nunca é
+    // bloqueado (o app Android ainda mostra o preço cheio sem a promoção).
+    // Cliente que não envia o valor (integrações antigas) fica sem o guard.
+    if (typeof precoExibidoCliente === 'number' && Number.isFinite(precoExibidoCliente) && finalPrice > precoExibidoCliente + TOLERANCIA_PRECO) {
+      return NextResponse.json(
+        { error: tx.priceChanged(formatarValor(finalPrice, currency, lang)), code: 'price_changed', finalPrice, currency },
+        { status: 409 }
+      )
+    }
     // appliedCoupon só é consumido (try_apply_coupon) quando o cupom teve
     // efeito real E não foi batido pela promoção automática — senão um
     // cliente gastaria um uso real do cupom sem nenhum benefício prático
@@ -357,6 +425,21 @@ export async function POST(req: Request) {
     // de estresse): cliente pago, nunca recebe o plano, sistema cancela
     // sozinho. Um cupom 100% (finalPrice=0) nunca depende do webhook (bypass
     // local), então só bloqueia cobrança real.
+    // Achado pela revisão adversarial (03/out/2026): preço final <= 0 só é
+    // legítimo com cupom (bypass de 100%). Sem cupom -- ex.: plano pago com
+    // promotional_price=0 ou price_usd=0 por engano do admin -- caía no bypass,
+    // ativava o plano de graça e CANCELAVA a assinatura paga no gateway.
+    if (finalPrice <= 0 && !appliedCoupon) {
+      return NextResponse.json({ error: tx.freePlanNotPurchasable }, { status: 400 })
+    }
+
+    // F62 (auditoria 12/out/2026): a Stripe recusa cobrança abaixo de 0,50 (BRL/USD). Um cupom
+    // que deixava o valor entre 0,01 e 0,49 só falhava DEPOIS de consumir o cupom, com a
+    // mensagem crua do gateway. Recusa antes, com texto claro.
+    if (gatewayName === 'stripe' && finalPrice > 0 && finalPrice < 0.5) {
+      return NextResponse.json({ error: tx.belowMinimumCharge }, { status: 400 })
+    }
+
     if (finalPrice > 0) {
       const webhookSecretKey: Record<string, string> = {
         stripe: 'stripe_webhook_secret',
@@ -365,7 +448,16 @@ export async function POST(req: Request) {
         asaas: 'asaas_webhook_token',
       }
       const secretKey = webhookSecretKey[gatewayName]
-      if (secretKey && !settings[secretKey]) {
+      // Presença não basta: o adapter do Pagar.me exige o formato
+      // `usuario:senha` e rejeita TODO webhook se não vier assim -- achado ao
+      // vivo (03/out/2026): um secret sem ':' passava aqui, cobrava de
+      // verdade e depois nenhum webhook era aceito (cliente pago sem plano).
+      // Valor BRUTO: os adapters comparam/assinam com o valor cru, então um
+      // secret com espaço ou quebra de linha sobrando (colado do painel) passaria
+      // em um trim() e todo webhook seria rejeitado depois.
+      const secretValor = String(settings[secretKey] ?? '')
+      const secretMalformado = secretValor !== secretValor.trim() || (gatewayName === 'pagarme' && secretValor !== '' && !secretValor.includes(':'))
+      if (secretKey && (!secretValor.trim() || secretMalformado)) {
         console.error(`[Checkout] Gateway '${gatewayName}' sem webhook secret configurado (${secretKey}) — bloqueando cobrança real para evitar cliente pago sem receber o plano.`)
         return NextResponse.json({ error: tx.gatewayNotReady }, { status: 503 })
       }
@@ -447,13 +539,33 @@ export async function POST(req: Request) {
       // aqui, que já podia estar reduzido por promotional_price -- a
       // reconciliação pós-1o-ciclo reverteria pro preço promocional
       // permanente em vez do preço cheio real do plano.
-      promo_first_cycle_pending: promoVenceu,
-      promo_full_price: promoVenceu ? fullPrice : null,
+      //
+      // F08 (auditoria 12/out/2026): as colunas promo_* só entram no INSERT
+      // quando a promoção de fato venceu. Assim um checkout SEM promoção (flag
+      // desligada, cupom maior, plano não elegível, troca de plano) nunca depende
+      // da migration 20260927150000 ter sido aplicada -- os defaults do banco
+      // (false/null) já valem. Rollout: aplicar as migrations ANTES de ligar a flag.
+      ...(promoVenceu
+        ? {
+            promo_first_cycle_pending: true,
+            // Arredondado a centavos: no ciclo anual (×0.8×12) fullPrice carrega
+            // ruído de ponto flutuante (758.4000000000001) que iria parar no banco
+            // e, depois do reajuste, em subscriptions.price.
+            promo_full_price: Math.round(fullPrice * 100) / 100,
+          }
+        : {}),
     }).select('id').single()
 
     if (insertError) {
-      console.error('[Checkout] Failed to create lock record (Double-Charge Blocked):', insertError.message)
-      return NextResponse.json({ error: tx.processingInProgress }, { status: 429 })
+      // F08: só a violação de unicidade (23505 = mesmo checkoutId já tem lock) é
+      // "processamento em andamento". Qualquer outro erro (coluna inexistente,
+      // RLS, banco fora) era mascarado como 429 enganoso -- agora é 500 com log.
+      if (insertError.code === '23505') {
+        console.error('[Checkout] Failed to create lock record (Double-Charge Blocked):', insertError.message)
+        return NextResponse.json({ error: tx.processingInProgress }, { status: 429 })
+      }
+      console.error('[Checkout] Falha INESPERADA ao criar o lock da assinatura (não é duplicidade):', insertError.code, insertError.message)
+      return NextResponse.json({ error: tx.internal }, { status: 500 })
     }
 
     // --- Troca de plano com assinatura já existente ---
@@ -490,7 +602,7 @@ export async function POST(req: Request) {
     // 2026-09-24): esta condição era reimplementada aqui como lista
     // hardcoded própria, divergente de lib/gateways/index.ts (única fonte
     // de verdade agora — ver comentário em gatewaySuportaTrocaNativa lá).
-    const gatewaySuportaTrocaNativaOk = gatewaySuportaTrocaNativa(gatewayName, prorate)
+    const gatewaySuportaTrocaNativaOk = gatewaySuportaTrocaNativa(gatewayName, prorate, !!existingActiveSub && (existingActiveSub.billing_cycle ?? 'monthly') !== cycleForCompare)
     // BUG CORRIGIDO (achado ao vivo, teste completo de pagamento, 2026-09-01):
     // uma assinatura Stripe (e o item de preço dela) fica travada na moeda da
     // 1ª cobrança — a API rejeita de verdade um items[0][price_data][currency]
@@ -703,6 +815,12 @@ export async function POST(req: Request) {
         // dashboard interno da Stripe) e o account ID do merchant. Loga o
         // detalhe completo só no servidor; devolve mensagem genérica.
         console.error('[Checkout] Failed to switch plan on existing subscription:', switchErr.message)
+        // Recusa definitiva (ex.: fatura de proração recusada): 402, pro
+        // modal rotacionar o checkoutId (a nonce de idempotência do update é
+        // derivada dele). Falha ambígua (rede/5xx) continua 502.
+        if (switchErr?.declined === true) {
+          return NextResponse.json({ error: tx.planSwitchDeclined }, { status: 402 })
+        }
         return NextResponse.json({ error: tx.planSwitchFailed }, { status: 502 })
       }
     }
@@ -873,6 +991,11 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: tx.internal }, { status: 500 })
       }
 
+      // Plano liberado na hora (bypass de 100%): reavalia a cota de anúncios --
+      // quem volta a assinar não pode herdar o prazo de graça de um
+      // rebaixamento anterior (ver lib/gateways/ad-quota-grace.ts).
+      await reavaliarCotaAnuncios(supabase, user.id, plan.id)
+
       await finalizarCancelamentoAntigo()
 
       return NextResponse.json({
@@ -898,8 +1021,18 @@ export async function POST(req: Request) {
     try {
       result = await adapter.createSubscription(gatewayPlan, gatewayUser, paymentData, phantomSub.id)
     } catch (gatewayError: any) {
-      // If gateway fails, remove the lock and revert coupon so user can try again immediately
-      await supabase.from('subscriptions').delete().eq('id', phantomSub.id)
+      // F12 (auditoria 12/out/2026): só uma recusa DEFINITIVA (o gateway respondeu e
+      // rejeitou) apaga a linha-âncora. Num erro AMBÍGUO (timeout/5xx/rede) o
+      // gateway pode ter criado e COBRADO a assinatura mesmo sem resposta: apagar a
+      // linha deixava o webhook sem onde casar (404 por dias), o cliente cobrado
+      // todo mês sem plano e sem linha para o reaper cancelar. Mantém 'pending':
+      // o webhook (externalReference = id desta linha) ativa se houve cobrança, e
+      // o reaper expira/cancela se não houve. O cupom é devolvido como antes.
+      if (gatewayError?.declined === true) {
+        await supabase.from('subscriptions').delete().eq('id', phantomSub.id)
+      } else {
+        console.error(`[Checkout] Erro AMBÍGUO no gateway -- mantendo a linha ${phantomSub.id} 'pending' para o webhook/reaper (pode ter havido cobrança).`)
+      }
       if (appliedCoupon) {
         await supabase.rpc('revert_coupon_usage', { p_coupon_id: appliedCoupon.id })
       }
@@ -910,6 +1043,13 @@ export async function POST(req: Request) {
       // replicada aqui (o caminho de assinatura nova). Loga o detalhe
       // completo só no servidor; devolve mensagem genérica.
       console.error('[Checkout] Gateway error creating subscription:', gatewayError.message)
+      // Recusa DEFINITIVA (o gateway respondeu e rejeitou): 402 -- o modal gera
+      // um checkoutId novo, porque as chaves de idempotência são por checkoutId e
+      // o mesmo id devolveria a recusa em cache. Falha ambígua (rede/5xx) segue 502
+      // e MANTÉM o checkoutId, para a retentativa não cobrar duas vezes.
+      if (gatewayError?.declined === true) {
+        return NextResponse.json({ error: tx.paymentDeclined }, { status: 402 })
+      }
       return NextResponse.json({ error: tx.paymentProcessingFailed }, { status: 502 })
     }
 

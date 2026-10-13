@@ -93,4 +93,28 @@ describe('isNativePlanSwitchEligible', () => {
     expect(isNativePlanSwitchEligible({ ...base, existingSubCurrency: 'USD', targetCurrency: 'BRL' })).toBe(false);
     expect(isNativePlanSwitchEligible({ ...base, existingSubCurrency: 'BRL', targetCurrency: 'USD' })).toBe(false);
   });
+
+  // Achado ao vivo no Pagar.me (03/out/2026): a troca nativa de Pagar.me/MP só
+  // muda o preço do item, nunca o intervalo (Premium anual -> PRO mensal ficava
+  // cobrando R$79 por ANO). Stripe e Asaas trocam o ciclo no lugar.
+  it('Pagar.me/MP: mudar de ciclo NUNCA é troca nativa, mesmo sendo downgrade sem proração', () => {
+    for (const gw of ['pagarme', 'mercadopago'] as const) {
+      const downgrade = { ...base, existingSubGateway: gw, targetGatewayName: gw, existingSubPrice: 1430.4, finalPrice: 79 };
+      expect(isNativePlanSwitchEligible({ ...downgrade, existingSubBillingCycle: 'annual', targetBillingCycle: 'monthly' })).toBe(false);
+      expect(isNativePlanSwitchEligible({ ...downgrade, existingSubBillingCycle: 'monthly', targetBillingCycle: 'monthly' })).toBe(true);
+    }
+  });
+
+  it('Stripe e Asaas continuam elegíveis mudando de ciclo (trocam o intervalo no lugar)', () => {
+    for (const gw of ['stripe', 'asaas'] as const) {
+      const downgrade = { ...base, existingSubGateway: gw, targetGatewayName: gw, existingSubPrice: 1430.4, finalPrice: 79 };
+      expect(isNativePlanSwitchEligible({ ...downgrade, existingSubBillingCycle: 'annual', targetBillingCycle: 'monthly' })).toBe(true);
+    }
+  });
+
+  it('ciclo nulo (assinatura legada) é tratado como mensal, igual à decisão real', () => {
+    const d = { ...base, existingSubGateway: 'pagarme', targetGatewayName: 'pagarme' as const, existingSubPrice: 149, finalPrice: 79 };
+    expect(isNativePlanSwitchEligible({ ...d, existingSubBillingCycle: null, targetBillingCycle: 'monthly' })).toBe(true);
+    expect(isNativePlanSwitchEligible({ ...d, existingSubBillingCycle: null, targetBillingCycle: 'annual' })).toBe(false);
+  });
 });

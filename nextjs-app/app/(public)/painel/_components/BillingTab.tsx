@@ -29,6 +29,10 @@ const TRANSLATIONS = {
     statusPastDue: 'Pagamento atrasado', statusCancelling: 'Cancela ao fim do período',
     cycleMonthly: 'Mensal', cycleAnnual: 'Anual',
     nextBilling: 'Próxima cobrança', periodEnd: 'Válida até',
+    // F31 (auditoria 12/out/2026): o valor da linha muda de 39,50 para 79,00 no dia
+    // seguinte à compra (o reajuste do cron) sem nenhuma explicação.
+    promoNote: 'Promoção do 1º ciclo (50% OFF): você paga {pago} agora. Próximas cobranças: {cheio} {por}.',
+    promoPerMonth: '/mês', promoPerYear: '/ano',
     continueCheckout: 'Continuar pagamento',
     prev: 'Anterior', next: 'Próxima',
     confirmCancel: 'Tem certeza que deseja cancelar sua assinatura? Seu plano continuará ativo até o fim do período já pago.',
@@ -52,6 +56,8 @@ const TRANSLATIONS = {
     statusPastDue: 'Pago atrasado', statusCancelling: 'Cancela al final del período',
     cycleMonthly: 'Mensual', cycleAnnual: 'Anual',
     nextBilling: 'Próximo cobro', periodEnd: 'Válida hasta',
+    promoNote: 'Promoción del 1.er ciclo (50% OFF): pagas {pago} ahora. Próximos cobros: {cheio} {por}.',
+    promoPerMonth: '/mes', promoPerYear: '/año',
     continueCheckout: 'Continuar pago',
     prev: 'Anterior', next: 'Siguiente',
     confirmCancel: '¿Estás seguro de que deseas cancelar tu suscripción? Tu plan seguirá activo hasta el final del período ya pagado.',
@@ -300,6 +306,24 @@ export function BillingTab({ user, planMeta }: { user: any, planMeta: any }) {
                   <div>
                     <div style={{ fontWeight: 800, color: 'var(--clr-text)', fontSize: '1rem', marginBottom: '.15rem' }}>{planName} &bull; {cycleLabel}</div>
                     <div style={{ fontSize: '.8rem', color: 'var(--clr-text-muted)', fontWeight: 500 }}>{dateLabel}</div>
+                    {/* F31: assinatura que nasceu com a promoção (promo_full_price = preço cheio
+                        a restaurar; o 1º ciclo foi cobrado em 50% dele). Explica o valor pago e o
+                        das próximas cobranças, mesmo depois do reajuste do cron mudar `price`. */}
+                    {sub.promo_full_price && (isApproved || isPending || isPastDue) && (() => {
+                      // Só dentro do 1º ciclo: depois dele "você paga X agora" seria falso.
+                      const fimPrimeiroCiclo = new Date(sub.created_at);
+                      if (sub.billing_cycle === 'annual') fimPrimeiroCiclo.setFullYear(fimPrimeiroCiclo.getFullYear() + 1);
+                      else fimPrimeiroCiclo.setMonth(fimPrimeiroCiclo.getMonth() + 1);
+                      if (Date.now() >= fimPrimeiroCiclo.getTime()) return null;
+                      const cheio = parseFloat(sub.promo_full_price);
+                      const pago = Math.round(cheio * 0.5 * 100) / 100;
+                      const moeda = sub.currency || 'BRL';
+                      const texto = t.promoNote
+                        .replace('{pago}', formatPrice(pago, moeda, lang))
+                        .replace('{cheio}', formatPrice(cheio, moeda, lang))
+                        .replace('{por}', sub.billing_cycle === 'annual' ? t.promoPerYear : t.promoPerMonth);
+                      return <div style={{ fontSize: '.78rem', color: '#92400e', fontWeight: 600, marginTop: '.2rem' }}>{texto}</div>;
+                    })()}
                     {sub.cancel_at_period_end && (
                       <div style={{ fontSize: '.78rem', color: '#b45309', fontWeight: 600, marginTop: '.2rem' }}>{t.statusCancelling}</div>
                     )}
