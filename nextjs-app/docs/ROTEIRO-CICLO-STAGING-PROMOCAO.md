@@ -10,8 +10,9 @@ Relatório da auditoria: `docs/RELATORIO-VALIDACAO-DESCONTO-2026-10-13.md`.
       em `subscriptions` (Supabase > Table editor ou `information_schema.columns`).
 - [ ] `CRON_SECRET` **idêntico** no GitHub (Settings > Secrets) e no Render (Environment).
 - [ ] Provedor de e-mail de produção testado (Admin > Configurações > E-mail > "Enviar teste").
-- [ ] Render de staging respondendo (hoje devolve 502 mesmo com deploy "succeeded": abrir os logs do serviço
-      `tauze-class-staging` no painel e reiniciar; é plano Free e hiberna).
+- [x] Render de staging respondendo. CAUSA do 502 (resolvida em 13/out/2026): faltava a variável `HOSTNAME=0.0.0.0` no serviço
+      `tauze-class-staging` (a produção tem). Sem ela o Next standalone escuta no nome do pod e o proxy do Render não alcança o app.
+      Qualquer serviço novo do Render com `node .next/standalone/server.js` precisa dessa variável.
 
 ## Fase 1 — Staging automatizada (sandbox, sem dinheiro real)
 Pré: app rodando em `http://localhost:3000` apontando para o Supabase de **staging** (porta 3000 é exigida pelo
